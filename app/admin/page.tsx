@@ -18,6 +18,7 @@ const ACTION_LABELS: Record<string, string> = {
   'game_state.voting_open': '切换投票', 'game_state.results_visible': '切换揭晓',
   'game_state.scoreboard_visible': '切换大屏', 'game_state.live_display': '更新大屏内容',
   'team.points_adjust': '调整团队积分',
+  'host_segment.save': '保存主持环节', 'host_segment.publish': '发布主持环节',
 };
 
 type Guest = { id: string; name: string; login_name: string; team: string; role: string; points: number; claimed_at: string | null; drawn_at: string | null; team_locked: boolean; role_locked: boolean };
@@ -132,7 +133,7 @@ export default function AdminPage() {
   const teamTotals = TEAMS.map((teamName) => ({ team: teamName, points: data.teamPointLedger.filter((entry) => entry.team === teamName).reduce((sum, entry) => sum + entry.amount, 0) }));
 
   return <main className="admin-shell">
-    <section className="admin-hero"><div><div className="eyebrow">LIVE CONTROL</div><h1>婚礼游戏控制台</h1><p>{claimed}/{data.guests.length} 位宾客已认领 · {data.submissions.length} 项待审核</p></div><div className="live-dot">LIVE</div></section>
+    <section className="admin-hero"><div><div className="eyebrow">LIVE CONTROL</div><h1>婚礼游戏控制台</h1><p>{claimed}/{data.guests.length} 位宾客已认领 · {data.submissions.length} 项待审核</p></div><div className="admin-hero-actions"><a href="/host">主持人流程台</a><div className="live-dot">LIVE</div></div></section>
     {message && <div className="notice success sticky-notice">{message}</div>}{error && <div className="notice error sticky-notice">{error}</div>}
 
     <section className="section-card readiness-card">
