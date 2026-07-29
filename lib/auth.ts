@@ -1,9 +1,29 @@
+import crypto from 'crypto';
 import 'server-only';
 import { cookies } from 'next/headers';
 import { ApiError } from './errors';
 import { verifyAdminSession } from './data/admin-session';
+import { getSupabaseEnv } from './env';
 import { hashGuestSessionToken } from './guest-session';
 import { getSupabaseAdmin } from './supabase';
+
+function firstClientAddress(request: Request) {
+  const forwarded = request.headers.get('x-vercel-forwarded-for')
+    || request.headers.get('x-real-ip')
+    || request.headers.get('x-forwarded-for')
+    || 'unknown';
+  return forwarded.split(',')[0].trim().slice(0, 128) || 'unknown';
+}
+
+export function getGuestLoginAttemptKey(request: Request, loginName: string) {
+  const normalizedLogin = loginName.trim().replace(/\s+/g, ' ').toLowerCase();
+  const userAgent = (request.headers.get('user-agent') || 'unknown').slice(0, 256);
+  const { supabaseServiceRoleKey } = getSupabaseEnv();
+  return crypto
+    .createHmac('sha256', supabaseServiceRoleKey)
+    .update(`guest-login-v1\n${firstClientAddress(request)}\n${userAgent}\n${normalizedLogin}`)
+    .digest('hex');
+}
 
 export async function requireAdmin() {
   const token = (await cookies()).get('admin_session')?.value;

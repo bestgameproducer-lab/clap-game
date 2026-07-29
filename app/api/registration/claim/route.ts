@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getGuestLoginAttemptKey } from '@/lib/auth';
 import { claimGuestIdentity } from '@/lib/data/registration';
 import { apiErrorResponse } from '@/lib/errors';
 import { GUEST_SESSION_MAX_AGE } from '@/lib/guest-session';
@@ -8,10 +9,14 @@ export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
     const body = await readJsonObject(request);
+    const invitationCode = requiredString(body.invitationCode, '婚礼邀请码', 64);
+    const loginName = requiredString(body.loginName, '拼音用户名', 80);
+    const claimCode = requiredClaimCode(body.claimCode);
     const result = await claimGuestIdentity(
-      requiredString(body.invitationCode, '婚礼邀请码', 64),
-      requiredString(body.loginName, '拼音用户名', 80),
-      requiredClaimCode(body.claimCode),
+      invitationCode,
+      loginName,
+      claimCode,
+      getGuestLoginAttemptKey(request, loginName),
     );
     const response = NextResponse.json({ ok: true, guest: result.guest });
     response.headers.set('Cache-Control', 'private, no-store, max-age=0');

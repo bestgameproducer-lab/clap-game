@@ -33,7 +33,7 @@ export async function listRegistrationGuests(invitationCode: string) {
   }));
 }
 
-export async function claimGuestIdentity(invitationCode: string, loginName: string, claimCode: string) {
+export async function claimGuestIdentity(invitationCode: string, loginName: string, claimCode: string, attemptKey: string) {
   const token = createGuestSessionToken();
   const expiresAt = new Date(Date.now() + GUEST_SESSION_MAX_AGE * 1000).toISOString();
   const { data, error } = await getSupabaseAdmin().rpc('claim_guest_by_login', {
@@ -42,9 +42,24 @@ export async function claimGuestIdentity(invitationCode: string, loginName: stri
     p_claim_code: claimCode,
     p_token_hash: hashGuestSessionToken(token),
     p_expires_at: expiresAt,
+    p_attempt_key: attemptKey,
   });
   if (error) mapRegistrationError(error.message);
-  return { token, guest: Array.isArray(data) ? data[0] : data };
+  const guest = Array.isArray(data) ? data[0] : data;
+  if (!guest || guest.auth_status === 'invalid_claim_code') throw new ApiError(401, '四位宾客密码不正确');
+  if (guest.auth_status === 'rate_limited') {
+    const minutes = Math.max(1, Math.ceil(Number(guest.retry_after_seconds || 900) / 60));
+    throw new ApiError(429, `密码尝试次数过多，请 ${minutes} 分钟后再试`);
+  }
+  if (guest.auth_status !== 'ok') throw new Error('Registration operation returned an unknown authentication status');
+  return {
+    token,
+    guest: {
+      guest_id: guest.guest_id,
+      guest_name: guest.guest_name,
+      account_created: guest.account_created,
+    },
+  };
 }
 
 export async function revokeGuestSession(token: string) {
