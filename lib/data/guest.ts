@@ -28,7 +28,7 @@ export async function getGuestView(guestId: string) {
   const results = await Promise.all([
     db.from('assignments').select('id,status,task:tasks(title,description,points)').eq('guest_id', guestId).order('created_at'),
     db.from('guest_clues').select('id,clue:clues(content)').eq('guest_id', guestId),
-    db.from('game_state').select('voting_open,results_visible').eq('id', 1).single(),
+    db.from('game_state').select('registration_open,stage,voting_open,results_visible').eq('id', 1).single(),
     db.from('guests').select('id,name,team').eq('team', guest.team).order('name'),
     db.from('votes').select('target_guest_id').eq('voter_guest_id', guestId).maybeSingle(),
   ]);
