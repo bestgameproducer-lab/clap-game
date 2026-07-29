@@ -91,6 +91,7 @@ button.text-button { background: transparent; color: #76665e; padding: 8px; text
 .mission-number { color: #b99a89; font-family: Georgia,serif; font-size: 16px; padding-top: 4px; }
 .mission-body { min-width:0; }
 .mission-body h3 { margin: 8px 0 5px; font-size: 19px; overflow-wrap:anywhere; }
+.demo-task-note{margin:12px 0;padding:13px 14px;border:1px dashed #c6957f;border-radius:14px;background:#fff7f1;color:#755044}.demo-task-note strong{display:block;font-size:13px}.demo-task-note p{margin:4px 0 0;color:#8d7569;font-size:12px;line-height:1.55}
 .mission-body p { margin: 0; color: #74675f; line-height: 1.6; }
 .mission-meta { display: flex; justify-content: space-between; align-items: center; }
 .mission-meta > span:first-child { color: #9c715e; font-size: 12px; font-weight: 800; }

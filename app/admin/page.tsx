@@ -49,7 +49,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 type Guest = { id: string; name: string; login_name: string; team: string; role: string; is_hidden_spy: boolean; points: number; claimed_at: string | null; drawn_at: string | null; team_locked: boolean; role_locked: boolean; table_label: string; is_elder: boolean; ceremony_eligible: boolean; active: boolean; staff_notes: string };
-type Task = { id: string; title: string; description: string; verification_method: string; points: number; role_scope: string; category: string; stage: string; active: boolean; grants_hidden_spy: boolean };
+type Task = { id: string; title: string; description: string; verification_method: string; points: number; role_scope: string; category: string; stage: string; active: boolean; grants_hidden_spy: boolean; is_demo: boolean };
 type Clue = { id: string; title: string; content: string; active: boolean; spy_guest_id: string | null; level: number; spy?: { id: string; name: string; team: string } };
 type HiddenTaskCode = { id: string; task_id: string; issued_by: string; issued_at: string; claimed_by: string | null; claimed_at: string | null; assignment_id: string | null; task?: { id: string; title: string; active: boolean }; guest?: { id: string; name: string } };
 type AdminData = {
@@ -68,7 +68,7 @@ type AdminData = {
   spyPointLedger: Array<{ id: number; guest_id: string; amount: number; reason: string; note: string; actor: string; voting_round: number | null; created_at: string; guest?: { id: string; name: string; team: string } }>;
   preflight: { ready: boolean; blockedCount: number; items: Array<{ id: string; label: string; detail: string; status: 'ready' | 'warning' | 'blocked' }> };
   rehearsalResetPreview: { claimed_guests: number; drawn_guests: number; assignments: number; evidence_files: number; votes: number; guest_clues: number; personal_ledger_entries: number; team_ledger_entries: number; spy_ledger_entries: number; resource_ledger_entries: number; registration_open: boolean; voting_open: boolean; scoreboard_visible: boolean };
-  game: { registration_open: boolean; stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null; display_title: string | null; display_body: string | null; public_clue: string | null; timer_ends_at: string | null; invitation_code_updated_at: string | null } | null;
+  game: { registration_open: boolean; stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null; display_title: string | null; display_body: string | null; public_clue: string | null; timer_ends_at: string | null; invitation_code_updated_at: string | null; task_catalog_mode: 'demo' | 'live' } | null;
 };
 
 async function responseBody(response: Response) {
@@ -128,9 +128,9 @@ export default function AdminPage() {
     if (!data?.guests.length) return;
     const firstActiveGuest = data.guests.find((guest) => guest.active);
     if ((!selectedGuestId || !data.guests.some((guest) => guest.id === selectedGuestId && guest.active)) && firstActiveGuest) setSelectedGuestId(firstActiveGuest.id);
-    const firstActiveTask = data.tasks.find((task) => task.active);
+    const firstActiveTask = data.tasks.find((task) => task.active && (data.game?.task_catalog_mode === 'demo' ? task.is_demo : !task.is_demo));
     const firstActiveClue = data.clues.find((clue) => clue.active);
-    if ((!selectedTaskId || !data.tasks.some((task) => task.id === selectedTaskId && task.active)) && firstActiveTask) setSelectedTaskId(firstActiveTask.id);
+    if ((!selectedTaskId || !data.tasks.some((task) => task.id === selectedTaskId && task.active && (data.game?.task_catalog_mode === 'demo' ? task.is_demo : !task.is_demo))) && firstActiveTask) setSelectedTaskId(firstActiveTask.id);
     if ((!selectedClueId || !data.clues.some((clue) => clue.id === selectedClueId && clue.active)) && firstActiveClue) setSelectedClueId(firstActiveClue.id);
     if (!selectedAwardId && data.awards[0]) setSelectedAwardId(data.awards[0].id);
   }, [data, selectedGuestId, selectedTaskId, selectedClueId, selectedAwardId]);
@@ -285,6 +285,7 @@ export default function AdminPage() {
   if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">ORGANIZER ONLY</div><div className="heart-mark">♡</div><h1>主办方<br/>控制台</h1><p className="lead">管理婚礼流程、审核任务与揭晓结果。</p><form onSubmit={login}><label htmlFor="admin-password">管理员密码</label><input id="admin-password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required/><p className="login-note">连续输错五次后，该设备暂停登录十五分钟。</p><button disabled={busy}>{busy ? '登录中…' : '进入控制台'}</button>{error && <div className="notice error">{error}</div>}</form></section></main>;
 
   const activeGuests = data.guests.filter((guest) => guest.active);
+  const activeCatalogTasks = data.tasks.filter((task) => task.active && (data.game?.task_catalog_mode === 'demo' ? task.is_demo : !task.is_demo));
   const claimed = activeGuests.filter((guest) => guest.claimed_at).length;
   const drawn = activeGuests.filter((guest) => guest.drawn_at).length;
   const rosterGuest = data.guests.find((guest) => guest.id === rosterGuestId) ?? null;
@@ -318,7 +319,7 @@ export default function AdminPage() {
       <div className="launchpad-grid">
         <button type="button" onClick={() => openPanel('live')}><span className="launchpad-index">01</span><strong>现场总控</strong><small>注册、流程、大屏与团队计分</small><b>{STAGES.find(([value]) => value === data.game?.stage)?.[1] || '未设置'} →</b></button>
         <button type="button" onClick={() => openPanel('guests')}><span className="launchpad-index">02</span><strong>宾客管理</strong><small>名单、密码重置与参与进度</small><b>{claimed}/{activeGuests.length} 已认领 →</b></button>
-        <button type="button" onClick={() => openPanel('content')}><span className="launchpad-index">03</span><strong>任务与内容</strong><small>任务库、线索及隐藏实体卡</small><b>{data.tasks.filter((task) => task.active).length} 项启用 →</b></button>
+        <button type="button" onClick={() => openPanel('content')}><span className="launchpad-index">03</span><strong>任务与内容</strong><small>任务库、线索及隐藏实体卡</small><b>{data.game?.task_catalog_mode === 'demo' ? `${activeCatalogTasks.length} 项演示任务` : `${activeCatalogTasks.length} 项正式任务`} →</b></button>
         <button type="button" onClick={() => openPanel('review')}><span className="launchpad-index">04</span><strong>审核与积分</strong><small>任务审核、派发及间谍积分</small><b className={data.submissions.length ? 'needs-attention' : ''}>{data.submissions.length} 项待审核 →</b></button>
         <button type="button" onClick={() => openPanel('finale')}><span className="launchpad-index">05</span><strong>投票与揭晓</strong><small>票数、积分流水与颁奖结果</small><b>{data.votes.length} 票已提交 →</b></button>
         <button type="button" className="launchpad-danger" onClick={() => openPanel('data')}><span className="launchpad-index">06</span><strong>数据与清场</strong><small>导出备份并清空全部彩排记录</small><b className={rehearsalDataCount ? 'needs-attention' : ''}>{rehearsalDataCount ? `${rehearsalDataCount} 条运行记录` : '当前已清场'} →</b></button>
@@ -361,7 +362,7 @@ export default function AdminPage() {
       <label htmlFor="operation-guest">选择宾客</label><select id="operation-guest" value={selectedGuestId} onChange={(event) => setSelectedGuestId(event.target.value)}>{activeGuests.map((guest) => <option key={guest.id} value={guest.id}>{guest.name} · {guest.team} · {guest.points} 分</option>)}</select>
       {selectedGuest && <div className="operation-grid">
         <form onSubmit={(event) => { event.preventDefault(); void action({ type: 'configureGuest', guestId: selectedGuest.id, team, role }, '组别和身份已锁定，抽卡时会按此发放'); }}><h3>预设组别与身份</h3><p className="muted">保存后抽卡会严格按此发放；仅限尚未抽卡的宾客。</p><label htmlFor="guest-team">组别</label><select id="guest-team" value={team} onChange={(event) => setTeam(event.target.value)}><option value="玫瑰组">玫瑰组</option><option value="月桂组">月桂组</option><option value="星辰组">星辰组</option><option value="琥珀组">琥珀组</option></select><label htmlFor="guest-role">身份</label><select id="guest-role" value={role} onChange={(event) => setRole(event.target.value)}><option value="guest">祝福见证者</option><option value="spy">恶作剧者（间谍）</option><option value="helper">秘密信使</option></select><button disabled={busy || Boolean(selectedGuest.drawn_at)}>{selectedGuest.team_locked && selectedGuest.role_locked ? '更新锁定预设' : '锁定此预设'}</button></form>
-        <form onSubmit={(event) => { event.preventDefault(); void action({ type: 'assignTask', guestId: selectedGuest.id, taskId: selectedTaskId }, '任务已派发'); }}><h3>派发任务</h3><p className="muted">任务会在对应游戏阶段开放时出现在宾客手机上。</p><label htmlFor="assign-task">任务</label><select id="assign-task" value={selectedTaskId} onChange={(event) => setSelectedTaskId(event.target.value)}>{data.tasks.filter((task) => task.active).map((task) => <option key={task.id} value={task.id}>{task.grants_hidden_spy ? '◆ 隐藏间谍 · ' : ''}{task.title} · {task.points} 分</option>)}</select><button disabled={busy || !selectedTaskId}>派发给 {selectedGuest.name}</button></form>
+        <form onSubmit={(event) => { event.preventDefault(); void action({ type: 'assignTask', guestId: selectedGuest.id, taskId: selectedTaskId }, '任务已派发'); }}><h3>派发任务</h3><p className="muted">任务会在对应游戏阶段开放时出现在宾客手机上。</p><label htmlFor="assign-task">任务</label><select id="assign-task" value={selectedTaskId} onChange={(event) => setSelectedTaskId(event.target.value)}>{activeCatalogTasks.map((task) => <option key={task.id} value={task.id}>{task.grants_hidden_spy ? '◆ 隐藏间谍 · ' : ''}{task.title} · {task.points} 分</option>)}</select><button disabled={busy || !selectedTaskId}>派发给 {selectedGuest.name}</button></form>
         <form onSubmit={(event) => { event.preventDefault(); void action({ type: 'grantClue', guestId: selectedGuest.id, clueId: selectedClueId }, '线索已发放'); }}><h3>发放线索</h3><p className="muted">线索只会显示在这位宾客的私人任务页。</p><label htmlFor="grant-clue">线索</label><select id="grant-clue" value={selectedClueId} onChange={(event) => setSelectedClueId(event.target.value)}>{data.clues.filter((clue) => clue.active).map((clue) => <option key={clue.id} value={clue.id}>{clue.title}</option>)}</select><button disabled={busy || !selectedClueId}>发放给 {selectedGuest.name}</button></form>
         <form onSubmit={(event) => { event.preventDefault(); const amount = Number(pointAmount); void action({ type: 'adjustPoints', guestId: selectedGuest.id, amount, reason: pointReason }, '积分已调整').then((ok) => { if (ok) { setPointAmount(''); setPointReason(''); } }); }}><h3>人工调整积分</h3><p className="muted">可输入正数或负数；积分不会降到零以下，必须填写原因。</p><label htmlFor="point-amount">分数变化</label><input id="point-amount" type="number" min={-1000} max={1000} value={pointAmount} onChange={(event) => setPointAmount(event.target.value)} placeholder="例如 10 或 -5" required/><label htmlFor="point-reason">调整原因</label><input id="point-reason" value={pointReason} onChange={(event) => setPointReason(event.target.value)} maxLength={200} placeholder="例如：完成现场隐藏任务" required/><button disabled={busy || !pointAmount || !pointReason.trim()}>保存积分调整</button></form>
       </div>}
@@ -370,8 +371,9 @@ export default function AdminPage() {
     {activePanel === 'content' && <><section className="admin-grid">
       <article className="section-card">
         <div className="section-heading"><div><small>TASK LIBRARY</small><h2>任务库管理</h2></div><span>{data.tasks.filter((task) => task.active).length}/{data.tasks.length} 启用</span></div>
+        {data.game?.task_catalog_mode === 'demo' && <div className="demo-task-note"><strong>当前使用演示任务池</strong><p>宾客抽卡只会获得标记为“演示”的任务；现有候选任务仍保留，收到最终清单后再切换为正式模式。</p></div>}
         <label htmlFor="library-task">选择任务或新建</label>
-        <select id="library-task" value={libraryTaskId} onChange={(event) => setLibraryTaskId(event.target.value)}><option value="new">＋ 新建任务</option>{data.tasks.map((task) => <option key={task.id} value={task.id}>{task.active ? '●' : '○'} {task.grants_hidden_spy ? '◆ ' : ''}{task.title}</option>)}</select>
+        <select id="library-task" value={libraryTaskId} onChange={(event) => setLibraryTaskId(event.target.value)}><option value="new">＋ 新建任务</option>{data.tasks.map((task) => <option key={task.id} value={task.id}>{task.active ? '●' : '○'} {task.is_demo ? '演示 · ' : ''}{task.grants_hidden_spy ? '◆ ' : ''}{task.title}</option>)}</select>
         <form onSubmit={(event) => { event.preventDefault(); void action({ type: 'saveTask', taskId: libraryTaskId === 'new' ? null : libraryTaskId, ...newTask, points: Number(newTask.points) }, libraryTaskId === 'new' ? '任务已加入任务库' : '任务已保存').then((ok) => { if (ok && libraryTaskId === 'new') setLibraryTaskId('new'); }); }}>
           <label htmlFor="task-title">标题</label><input id="task-title" value={newTask.title} onChange={(event) => setNewTask({ ...newTask, title: event.target.value })} maxLength={120} required/>
           <label htmlFor="task-description">任务说明</label><textarea id="task-description" value={newTask.description} onChange={(event) => setNewTask({ ...newTask, description: event.target.value })} maxLength={1000} required/>

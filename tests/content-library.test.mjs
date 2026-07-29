@@ -31,7 +31,8 @@ test('admin loads inactive library entries but only offers active content for as
   const taskQuery = dataSource.slice(dataSource.indexOf("db.from('tasks')"), dataSource.indexOf("db.from('assignments')", dataSource.indexOf("db.from('tasks')")));
   assert.doesNotMatch(taskQuery, /eq\('active', true\)/);
   const page = await readFile(new URL('../app/admin/page.tsx', import.meta.url), 'utf8');
-  assert.match(page, /data\.tasks\.filter\(\(task\) => task\.active\)\.map/);
+  assert.match(page, /activeCatalogTasks\.map/);
+  assert.match(page, /task\.active && \(data\.game\?\.task_catalog_mode === 'demo' \? task\.is_demo : !task\.is_demo\)/);
   assert.match(page, /data\.clues\.filter\(\(clue\) => clue\.active\)\.map/);
   assert.match(page, /任务库管理/);
   assert.match(page, /线索库管理/);
