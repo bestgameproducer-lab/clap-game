@@ -13,10 +13,10 @@ test('drawn card remains visible across background guest-data refreshes', async 
   assert.match(page, /卡片不会自动消失，只有你点击上方按钮后才会隐藏/);
 });
 
-test('guest UI keeps unfinished task catalogue behind a clear placeholder', async () => {
+test('guest UI clearly labels the functional demo task catalogue', async () => {
   const page = await readFile(pageUrl, 'utf8');
 
-  assert.match(page, /const TASK_CONTENT_READY: boolean = false/);
-  assert.match(page, /任务内容待公布/);
-  assert.match(page, /最终任务清单确认后会在这里统一开放，现在无需完成或提交任务/);
+  assert.match(page, /task_catalog_mode: 'demo' \| 'live'/);
+  assert.match(page, /演示任务 · 之后会替换/);
+  assert.match(page, /用于测试领取、提交和审核流程，不代表婚礼当天的最终任务设计/);
 });
