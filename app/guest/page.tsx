@@ -176,9 +176,16 @@ export default function GuestPage() {
   }
 
   async function logout() {
-    try { await fetch('/api/guest-logout', { method: 'POST' }); } catch {}
+    setBusy(true); setError('');
+    try {
+      const response = await fetch('/api/guest-logout', { method: 'POST' });
+      if (!response.ok) throw new Error('logout_failed');
+    } catch {
+      setOffline(true); setError('安全退出需要联网完成。请恢复网络后重试，当前身份仍保持登录。'); setBusy(false); return;
+    }
     try { window.sessionStorage.removeItem(GUEST_CACHE_KEY); } catch {}
     setData(null); setInvitationCode(''); setGuests(null); setSelectedGuest(null); setClaimCode(''); setClaimCodeConfirm(''); setSearch(''); setShowSecrets(false); setRevealedCard(null);
+    setBusy(false);
   }
 
   async function drawCard() {
@@ -257,7 +264,7 @@ export default function GuestPage() {
       </div></div>
       {!revealedCard && <button className="draw-button" disabled={drawing} onClick={drawCard}>{drawing ? '丘比特正在洗牌…' : '抽取我的秘密卡'}</button>}
       {revealedCard && <button className="draw-button" onClick={enterMissionPage}>我记住了 · 进入任务页</button>}
-      {!revealedCard && <button className="text-button" onClick={logout}>退出此身份</button>}
+      {!revealedCard && <button className="text-button" disabled={busy} onClick={logout}>{busy ? '安全退出中…' : '退出此身份'}</button>}
       <p className="privacy-hint">请遮挡屏幕，身份卡离开本页后会自动隐藏。</p>
     </section></main>;
   }
@@ -268,7 +275,8 @@ export default function GuestPage() {
     <h1>{data.guest.name}</h1><p>你的组别、身份和任务已隐藏，防止身边的人看到。</p>
     <button onClick={() => setShowSecrets(true)}>查看我的秘密卡片</button>
     <small>看完后可随时再次隐藏，刷新页面也会自动隐藏。</small>
-    <button className="text-button" onClick={logout}>退出此身份</button>
+    {error && <div className="notice error" role="alert">{error}</div>}
+    <button className="text-button" disabled={busy} onClick={logout}>{busy ? '安全退出中…' : '退出此身份'}</button>
   </section></main>;
 
   const role = ROLE_LABELS[data.guest.role] ?? ROLE_LABELS.guest;
@@ -289,7 +297,7 @@ export default function GuestPage() {
     <section className="section-card"><div className="section-heading"><div><small>SPY CLUES</small><h2>已解锁线索</h2></div><span>{data.clues.length}</span></div>{data.clues.length === 0 ? <div className="empty-state">完成任务后，线索会在这里出现。</div> : data.clues.map((clue) => <div className="clue" key={clue.id}><strong>{clue.title}</strong><p>{clue.content}</p></div>)}</section>
     {data.game?.voting_open && <section className="section-card"><div className="section-heading"><div><small>FINAL VOTE</small><h2>谁是恶作剧者？</h2></div></div><p className="muted">只能选择本队宾客，投票关闭前可以修改。选中后会立即保存。</p><div className="vote-grid">{data.candidates.filter((candidate) => candidate.id !== data.guest.id).map((candidate) => <button disabled={busy || offline} className={data.existingVote === candidate.id ? 'vote-choice selected' : 'vote-choice'} key={candidate.id} onClick={() => vote(candidate.id)}>{data.existingVote === candidate.id ? '✓ ' : ''}{candidate.name}</button>)}</div>{offline && <p className="vote-offline-note">恢复网络后才能提交投票。</p>}</section>}
     {data.game?.results_visible && data.results && <section className="reveal-card"><small>THE FINAL REVEAL</small><h2>身份揭晓</h2>{data.results.votedTargetName ? <div className={`vote-verdict ${data.results.voteCorrect ? 'correct' : 'missed'}`}><span>你投给了 {data.results.votedTargetName}</span><strong>{data.results.voteCorrect ? '成功找到了恶作剧者' : '恶作剧者成功隐藏了自己'}</strong></div> : <div className="vote-verdict missed"><strong>你没有提交最终投票</strong></div>}<div className="team-role-reveal">{data.results.teamMembers.map((member) => <div key={member.id}><span>{member.name}</span><strong>{ROLE_LABELS[member.role]?.title ?? member.role}</strong></div>)}</div><p>感谢你成为这场婚礼故事的一部分。</p></section>}
-    <div className="footer-actions"><button onClick={() => setShowSecrets(false)}>隐藏我的秘密</button><button className="secondary" disabled={syncing} onClick={() => void load()}>{syncing ? '同步中…' : '刷新状态'}</button><button className="text-button" onClick={logout}>退出此身份</button></div>
+    <div className="footer-actions"><button onClick={() => setShowSecrets(false)}>隐藏我的秘密</button><button className="secondary" disabled={syncing} onClick={() => void load()}>{syncing ? '同步中…' : '刷新状态'}</button><button className="text-button" disabled={busy} onClick={logout}>{busy ? '安全退出中…' : '退出此身份'}</button></div>
     {offlineReady && <div className="offline-ready" role="status">弱网备用已准备 · 刷新后仍可打开本页</div>}
   </main>;
 }

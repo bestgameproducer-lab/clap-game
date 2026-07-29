@@ -18,6 +18,8 @@ test('guest page registers offline shell without persisting private data to loca
   assert.match(source, /window\.sessionStorage\.setItem\(GUEST_CACHE_KEY/);
   assert.doesNotMatch(source, /localStorage\.setItem\(GUEST_CACHE_KEY/);
   assert.match(source, /弱网备用已准备/);
+  assert.match(source, /安全退出需要联网完成/);
+  assert.match(source, /if \(!response\.ok\) throw new Error\('logout_failed'\)/);
 });
 
 test('service worker script is served without stale HTTP caching and with root scope', async () => {
