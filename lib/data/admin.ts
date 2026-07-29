@@ -22,8 +22,8 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
 export async function getAdminDashboardData() {
   const db = getSupabaseAdmin();
   const results = await Promise.all([
-    db.from('guests').select('id,name,login_name,team,role,points,claimed_at,drawn_at,created_at').order('team').order('name'),
-    db.from('assignments').select('id,guest_id,task_id,status,submitted_at,approved_at,rejected_at,rejection_reason,created_at,task:tasks(id,title,description,points,category,stage)'),
+    db.from('guests').select('id,name,login_name,team,role,points,claimed_at,drawn_at,team_locked,role_locked,created_at').order('team').order('name'),
+    db.from('assignments').select('id,guest_id,task_id,status,is_initial,completion_rank,reward_task_id,reward_clue_id,submitted_at,approved_at,rejected_at,rejection_reason,created_at,task:tasks(id,title,description,points,category,stage)'),
     db.from('tasks').select('id,title,description,points,role_scope,category,stage,active,created_at').eq('active', true).order('stage').order('title'),
     db.from('assignments').select('id,status,submitted_at,guest:guests(id,name),task:tasks(id,title,points)').eq('status', 'submitted'),
     db.from('votes').select('id,voter_guest_id,target_guest_id,created_at,voter:guests!votes_voter_guest_id_fkey(id,name,team),target:guests!votes_target_guest_id_fkey(id,name,team)'),

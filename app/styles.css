@@ -47,6 +47,11 @@ th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #eadfd6; 
 .notice.success { background: #e8f3eb; color: #356a46; }
 .connection-banner { margin:14px 0 0; padding:10px 13px; border-radius:13px; background:#e9f1ea; color:#38664a; font-size:12px; text-align:center; }
 .connection-banner.offline { background:#fff0dc; color:#7e5a25; }
+.reward-banner { margin-top:14px; padding:17px 18px; border:1px solid #dfc49f; border-radius:18px; background:linear-gradient(135deg,#fff7e8,#f6e5cc); color:#5c4537; box-shadow:0 10px 28px rgba(112,76,43,.08); }
+.reward-banner small,.reward-banner strong { display:block; }
+.reward-banner small { color:#9b6e43; font-size:9px; font-weight:900; letter-spacing:.15em; }
+.reward-banner strong { margin:5px 0; font:500 20px Georgia,'Noto Serif SC',serif; }
+.reward-banner p { margin:0; color:#826b59; font-size:12px; }
 .guest-list { display: grid; gap: 8px; max-height: 330px; overflow: auto; padding: 4px 2px; margin-top: 10px; }
 button.guest-choice { margin: 0; border-radius: 15px; background: #f5eee8; color: #443832; padding: 12px 14px; justify-content: space-between; }
 .guest-choice span { text-align: left; }

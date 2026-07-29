@@ -8,7 +8,7 @@ type RegistrationGuest = { id: string; name: string; loginName: string; hasPassw
 type SecretCard = { team: string; role: string; task: { id: string; title: string; description: string; points: number }; drawnAt: string };
 type GuestData = {
   guest: { id: string; name: string; team: string; role: string; points: number; drawn_at: string | null };
-  assignments: Array<{ id: string; status: string; rejection_reason: string | null; task: { title: string; description: string; points: number; category: string; stage: string } }>;
+  assignments: Array<{ id: string; status: string; is_initial: boolean; completion_rank: number | null; reward_task_id: string | null; reward_clue_id: string | null; rejection_reason: string | null; task: { title: string; description: string; points: number; category: string; stage: string } }>;
   clues: Array<{ id: string; title: string; content: string }>;
   game: { registration_open: boolean; stage: string; voting_open: boolean; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null } | null;
   candidates: Array<{ id: string; name: string; team: string }>;
@@ -258,6 +258,7 @@ export default function GuestPage() {
   </section></main>;
 
   const role = ROLE_LABELS[data.guest.role] ?? ROLE_LABELS.guest;
+  const rankedReward = data.assignments.find((assignment) => assignment.is_initial && assignment.completion_rank);
   return <main className="dashboard-shell">
     <section className="mission-hero">
       <div className="eyebrow">丘比特的婚礼考验</div>
@@ -267,6 +268,7 @@ export default function GuestPage() {
     </section>
     {(offline || syncing) && <div className={`connection-banner ${offline ? 'offline' : ''}`} role="status">{offline ? '离线只读模式 · 已显示最近同步的任务，提交和投票暂不可用' : '正在同步最新状态…'}</div>}
     {message && <div className="notice success" aria-live="polite">{message}</div>}{error && <div className="notice error" aria-live="polite">{error}</div>}
+    {rankedReward && <section className="reward-banner"><small>EARLY COMPLETION HONOR</small><strong>你是第 {rankedReward.completion_rank} 位完成首轮任务的宾客</strong><p>{rankedReward.reward_task_id && rankedReward.reward_clue_id ? '升级任务与一条秘密线索已经发放。' : rankedReward.reward_task_id ? '升级任务已经发放，将在第二轮开放。' : '你的首轮任务已经记录。'}</p></section>}
     <section className="section-card"><div className="section-heading"><div><small>SECRET MISSIONS</small><h2>我的秘密任务</h2></div><span>{data.assignments.length}</span></div>
       {data.assignments.length === 0 ? <div className="empty-state">本轮任务尚未开放，先享受婚礼吧。</div> : data.assignments.map((assignment, index) => <article className="mission-item" key={assignment.id}><div className="mission-number">{String(index + 1).padStart(2, '0')}</div><div className="mission-body"><div className="mission-meta"><span>{assignment.task.points} 分</span><span className={`status ${assignment.status}`}>{STATUS_LABELS[assignment.status] ?? assignment.status}</span></div><h3>{assignment.task.title}</h3><p>{assignment.task.description}</p>{assignment.status === 'rejected' && <div className="task-feedback">任务站留言：{assignment.rejection_reason || '请补充验证后再次提交。'}</div>}{(assignment.status === 'assigned' || assignment.status === 'rejected') && <button disabled={busy || offline} onClick={() => submit(assignment.id)}>{offline ? '联网后可提交' : assignment.status === 'rejected' ? '补充完成 · 再次提交' : '我已完成 · 提交验证'}</button>}</div></article>)}
     </section>

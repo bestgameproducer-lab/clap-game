@@ -27,6 +27,8 @@ export async function drawGuestCard(guestId: string) {
   const { data, error } = await getSupabaseAdmin().rpc('draw_guest_card', { p_guest_id: guestId });
   if (error?.message.includes('guest_not_claimed')) throw new ApiError(401, '请先认领宾客身份');
   if (error?.message.includes('draw_capacity_full')) throw new ApiError(409, '抽卡名额已经全部派发');
+  if (error?.message.includes('draw_preset_capacity_full')) throw new ApiError(409, '主办方预设的组别已经满员，请联系主办方调整');
+  if (error?.message.includes('draw_preset_role_capacity_full')) throw new ApiError(409, '主办方预设的身份名额冲突，请联系主办方调整');
   if (error?.message.includes('draw_task_missing')) throw new ApiError(409, '任务池尚未配置完成，请联系主办方');
   if (error) throw new Error(`Unable to draw guest card: ${error.message}`);
   const card = Array.isArray(data) ? data[0] : data;
@@ -53,7 +55,7 @@ export async function getGuestView(guestId: string) {
   if (guestError || !guest) throw new ApiError(401, '登录已失效');
   if (gameError || !game) throw new Error(`Unable to load game state: ${gameError?.message ?? 'missing row'}`);
   const results = await Promise.all([
-    db.from('assignments').select('id,status,rejection_reason,task:tasks(title,description,points,category,stage)').eq('guest_id', guestId).order('created_at'),
+    db.from('assignments').select('id,status,is_initial,completion_rank,reward_task_id,reward_clue_id,rejection_reason,task:tasks(title,description,points,category,stage)').eq('guest_id', guestId).order('created_at'),
     db.from('guest_clues').select('id,clue:clues(title,content)').eq('guest_id', guestId),
     db.from('guests').select('id,name,team').eq('team', guest.team).not('drawn_at', 'is', null).order('name'),
     db.from('votes').select('target_guest_id').eq('voter_guest_id', guestId).maybeSingle(),
