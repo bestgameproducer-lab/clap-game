@@ -1,8 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
+import 'server-only';
+import { getServerEnv } from './env';
 
 export function getSupabaseAdmin() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('Missing Supabase environment variables');
-  return createClient(url, key, { auth: { persistSession: false } });
+  const env = getServerEnv();
+  return createClient(env.supabaseUrl, env.supabaseServiceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 }

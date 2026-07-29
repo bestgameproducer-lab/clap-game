@@ -1,3 +1,10 @@
-import { NextResponse } from 'next/server'; import { cookies } from 'next/headers'; import { verify } from '@/lib/session'; import { getSupabaseAdmin } from '@/lib/supabase';
-export async function GET(){if(verify((await cookies()).get('admin_session')?.value)!=='admin')return NextResponse.json({error:'未授权'},{status:401}); const db=getSupabaseAdmin(); const [{data:guests},{data:assignments},{data:tasks},{data:submissions},{data:votes},{data:game}]=await Promise.all([
- db.from('guests').select('*').order('team').order('name'), db.from('assignments').select('*,task:tasks(*)'), db.from('tasks').select('*'), db.from('assignments').select('*,guest:guests(name),task:tasks(title,points)').eq('status','submitted'), db.from('votes').select('*,target:guests!votes_target_guest_id_fkey(name)'), db.from('game_state').select('*').eq('id',1).single()]); return NextResponse.json({guests:guests||[],assignments:assignments||[],tasks:tasks||[],submissions:submissions||[],votes:votes||[],game});}
+import { requireAdmin } from '@/lib/auth';
+import { getAdminDashboardData } from '@/lib/data/admin';
+import { apiErrorResponse, noStoreJson } from '@/lib/errors';
+
+export async function GET() {
+  try {
+    await requireAdmin();
+    return noStoreJson(await getAdminDashboardData());
+  } catch (error) { return apiErrorResponse(error); }
+}

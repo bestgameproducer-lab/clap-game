@@ -1,10 +1,22 @@
 import { NextResponse } from 'next/server';
+import { apiErrorResponse } from '@/lib/errors';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { sign } from '@/lib/session';
-export async function POST(req:Request){
- try{const {name,code}=await req.json(); const db=getSupabaseAdmin();
- const {data,error}=await db.from('guests').select('id,name').ilike('name',String(name).trim()).eq('login_code',String(code).trim()).single();
- if(error||!data)return NextResponse.json({error:'姓名或登录码不正确'},{status:401});
- const res=NextResponse.json({ok:true}); res.cookies.set('guest_session',sign(data.id),{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',maxAge:60*60*24*30,path:'/'}); return res;
- }catch{return NextResponse.json({error:'登录失败'},{status:500})}
+import { signSession } from '@/lib/session';
+import { assertSameOrigin, readJsonObject, requiredString } from '@/lib/validation';
+
+export async function POST(request: Request) {
+  try {
+    assertSameOrigin(request);
+    const body = await readJsonObject(request);
+    const name = requiredString(body.name, '姓名', 100);
+    const code = requiredString(body.code, '登录码', 32);
+    const { data, error } = await getSupabaseAdmin().from('guests').select('id,name').ilike('name', name).eq('login_code', code).single();
+    if (error || !data) return NextResponse.json({ error: '姓名或登录码不正确' }, { status: 401 });
+    const maxAge = 60 * 60 * 24 * 7;
+    const response = NextResponse.json({ ok: true });
+    response.cookies.set('guest_session', signSession('guest', data.id, maxAge), {
+      httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge, path: '/',
+    });
+    return response;
+  } catch (error) { return apiErrorResponse(error); }
 }

@@ -1,3 +1,14 @@
-import { NextResponse } from 'next/server'; import { cookies } from 'next/headers'; import { verify } from '@/lib/session'; import { getSupabaseAdmin } from '@/lib/supabase';
-export async function POST(req:Request){const guestId=verify((await cookies()).get('guest_session')?.value); if(!guestId)return NextResponse.json({error:'未登录'},{status:401}); const {assignmentId}=await req.json(); const db=getSupabaseAdmin();
- const {data}=await db.from('assignments').select('id,status').eq('id',assignmentId).eq('guest_id',guestId).single(); if(!data||data.status!=='assigned')return NextResponse.json({error:'任务状态不可提交'},{status:400}); await db.from('assignments').update({status:'submitted',submitted_at:new Date().toISOString()}).eq('id',assignmentId); return NextResponse.json({ok:true});}
+import { requireGuest } from '@/lib/auth';
+import { submitGuestAssignment } from '@/lib/data/guest';
+import { apiErrorResponse, noStoreJson } from '@/lib/errors';
+import { assertSameOrigin, readJsonObject, requiredUuid } from '@/lib/validation';
+
+export async function POST(request: Request) {
+  try {
+    assertSameOrigin(request);
+    const guestId = await requireGuest();
+    const body = await readJsonObject(request);
+    await submitGuestAssignment(requiredUuid(body.assignmentId, '任务 ID'), guestId);
+    return noStoreJson({ ok: true });
+  } catch (error) { return apiErrorResponse(error); }
+}

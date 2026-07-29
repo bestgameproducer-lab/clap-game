@@ -17,8 +17,9 @@
 
 1. 创建一个免费 Supabase 项目。
 2. 打开 SQL Editor。
-3. 先运行 `supabase/schema.sql`。
-4. 再运行 `supabase/seed-example.sql` 生成测试数据。
+3. 新项目先运行 `supabase/schema.sql`。
+4. 按文件名顺序运行 `supabase/migrations` 中尚未应用的迁移。迁移只允许向前执行，不要重复编辑已经上线的迁移文件。
+5. 如需本地示例数据，再运行 `supabase/seed-example.sql`。
 5. 在 Project Settings → API 中复制：
    - Project URL
    - `service_role` key
@@ -39,7 +40,7 @@ npm run dev
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY
 SESSION_SECRET=请填写至少32位随机字符串
-ADMIN_PASSWORD=你的管理员密码
+ADMIN_PASSWORD=请填写至少12位的管理员密码
 NEXT_PUBLIC_WEDDING_TITLE=我们的婚礼秘密任务
 ```
 
@@ -74,6 +75,18 @@ NEXT_PUBLIC_WEDDING_TITLE=我们的婚礼秘密任务
 - `guest_clues`：给指定宾客发放线索
 
 建议每位宾客使用不同的四位或六位码，并将姓名与登录码提前私发或印在座位卡背面。
+
+## 开发验证
+
+提交代码前运行：
+
+```bash
+npm run typecheck
+npm test
+npm run build
+```
+
+生产环境缺少 Supabase 配置、32 位会话密钥或 12 位管理员密码时，服务器会拒绝启动相关功能。不要在生产环境使用 `.env.example` 中的占位值。
 
 ## 当前 MVP 的边界
 

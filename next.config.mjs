@@ -7,6 +7,17 @@ const __dirname = path.dirname(__filename);
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: __dirname,
+  async headers() {
+    return [{
+      source: '/(.*)',
+      headers: [
+        { key: 'Referrer-Policy', value: 'same-origin' },
+        { key: 'X-Content-Type-Options', value: 'nosniff' },
+        { key: 'X-Frame-Options', value: 'DENY' },
+        { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+      ],
+    }];
+  },
 };
 
 export default nextConfig;
