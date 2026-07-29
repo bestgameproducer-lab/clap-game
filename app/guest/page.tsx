@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
+type RegistrationGuest = { id: string; name: string; loginName: string; team: string; claimed: boolean };
 type GuestData = {
   guest: { id: string; name: string; team: string; points: number };
   assignments: Array<{ id: string; status: string; task: { title: string; description: string; points: number } }>;
@@ -28,7 +30,9 @@ export default function GuestPage() {
   const [data, setData] = useState<GuestData | null>(null);
   const [checking, setChecking] = useState(true);
   const [invitationCode, setInvitationCode] = useState('');
-  const [loginName, setLoginName] = useState('');
+  const [guests, setGuests] = useState<RegistrationGuest[] | null>(null);
+  const [selectedGuest, setSelectedGuest] = useState<RegistrationGuest | null>(null);
+  const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -45,12 +49,27 @@ export default function GuestPage() {
 
   useEffect(() => { load(); }, []);
 
-  async function claimIdentity(event: React.FormEvent) {
+  async function unlockInvitation(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setError('');
+    try {
+      const response = await fetch('/api/registration/guests', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invitationCode }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || '邀请码验证失败');
+      setGuests(body.guests); setSearch('');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '邀请码验证失败'); }
+    finally { setBusy(false); }
+  }
+
+  async function claimIdentity(event: React.FormEvent) {
+    event.preventDefault(); if (!selectedGuest) return;
+    setBusy(true); setError('');
     try {
       const response = await fetch('/api/registration/claim', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invitationCode, loginName }),
+        body: JSON.stringify({ invitationCode, loginName: selectedGuest.loginName }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || '身份认领失败');
@@ -81,8 +100,14 @@ export default function GuestPage() {
 
   async function logout() {
     await fetch('/api/guest-logout', { method: 'POST' });
-    setData(null); setInvitationCode(''); setLoginName('');
+    setData(null); setInvitationCode(''); setGuests(null); setSelectedGuest(null); setSearch('');
   }
+
+  const filteredGuests = useMemo(() => {
+    if (!guests) return [];
+    const term = search.trim().toLowerCase();
+    return term ? guests.filter((guest) => `${guest.name} ${guest.loginName}`.toLowerCase().includes(term)) : guests;
+  }, [guests, search]);
 
   if (checking) return <main className="welcome-shell"><section className="welcome-card"><div className="heart-mark">♡</div><h1>正在打开婚礼任务</h1><p>丘比特正在确认你的身份…</p></section></main>;
 
@@ -91,17 +116,27 @@ export default function GuestPage() {
       <div className="eyebrow">ZIMIN &amp; ANRONG</div><div className="heart-mark">♡</div>
       <h1>丘比特的<br/>婚礼考验</h1>
       <p className="lead">从你来到婚礼现场的这一刻起，故事已经开始。</p>
-      <div className="step-row"><span className="active">1</span><i/><span>2</span></div>
+      <div className="step-row"><span className={!guests ? 'active' : 'done'}>1</span><i/><span className={guests && !selectedGuest ? 'active' : selectedGuest ? 'done' : ''}>2</span><i/><span className={selectedGuest ? 'active' : ''}>3</span></div>
       {error && <div className="notice error">{error}</div>}
-      <form onSubmit={claimIdentity}>
-        <div className="step-copy"><strong>领取你的婚礼身份</strong><small>宾客名单不会公开，每个身份只能认领一次</small></div>
+      {!guests && <form onSubmit={unlockInvitation}>
+        <div className="step-copy"><strong>打开婚礼入口</strong><small>请输入请柬上的共享邀请码</small></div>
         <label htmlFor="invite-code">婚礼邀请码</label>
         <input id="invite-code" value={invitationCode} onChange={(event) => setInvitationCode(event.target.value.toUpperCase())} autoCapitalize="characters" autoComplete="off" placeholder="例如 LOVE2026" required/>
-        <label htmlFor="login-name">拼音用户名</label>
-        <input id="login-name" value={loginName} onChange={(event) => setLoginName(event.target.value)} autoCapitalize="words" autoComplete="username" placeholder="例如 Ming Chen" required/>
-        <p className="login-note">使用邀请名单中的拼音或英文姓名，大小写均可。</p>
-        <button disabled={busy}>{busy ? '确认身份中…' : '确认身份 · 领取任务'}</button>
-      </form>
+        <button disabled={busy}>{busy ? '验证中…' : '进入宾客名单'}</button>
+      </form>}
+      {guests && !selectedGuest && <div>
+        <div className="step-copy"><strong>找到你的名字</strong><small>每个宾客身份只能被认领一次</small></div>
+        <label htmlFor="guest-search">搜索宾客</label>
+        <input id="guest-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="输入中文、拼音或英文名" autoFocus/>
+        <div className="guest-list">{filteredGuests.map((guest) => <button type="button" className="guest-choice" disabled={guest.claimed} key={guest.id} onClick={() => setSelectedGuest(guest)}><span><strong>{guest.name}</strong><small>{guest.loginName} · {guest.team}</small></span><b>{guest.claimed ? '已认领' : '选择'}</b></button>)}</div>
+        <button className="text-button" onClick={() => { setGuests(null); setError(''); }}>返回修改邀请码</button>
+      </div>}
+      {selectedGuest && <form onSubmit={claimIdentity}>
+        <div className="selected-identity"><small>请确认你的身份</small><strong>{selectedGuest.name}</strong><span>{selectedGuest.loginName} · {selectedGuest.team}</span></div>
+        <p className="login-note">确认后该身份会被锁定；如有误选，请联系主办方重置。</p>
+        <button disabled={busy}>{busy ? '认领中…' : '确认是我 · 领取任务'}</button>
+        <button type="button" className="text-button" onClick={() => { setSelectedGuest(null); setError(''); }}>返回宾客名单</button>
+      </form>}
     </section>
   </main>;
 

@@ -1,5 +1,13 @@
-import { NextResponse } from 'next/server';
+import { listRegistrationGuests } from '@/lib/data/registration';
+import { apiErrorResponse, noStoreJson } from '@/lib/errors';
+import { assertSameOrigin, readJsonObject, requiredString } from '@/lib/validation';
 
-export async function POST() {
-  return NextResponse.json({ error: '宾客名单不公开，请使用拼音用户名登录' }, { status: 410 });
+export async function POST(request: Request) {
+  try {
+    assertSameOrigin(request);
+    const body = await readJsonObject(request);
+    const invitationCode = requiredString(body.invitationCode, '婚礼邀请码', 64);
+    const guests = await listRegistrationGuests(invitationCode);
+    return noStoreJson({ guests });
+  } catch (error) { return apiErrorResponse(error); }
 }

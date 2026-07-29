@@ -12,6 +12,27 @@ function mapRegistrationError(message: string): never {
   throw new Error(`Registration operation failed: ${message}`);
 }
 
+export async function listRegistrationGuests(invitationCode: string) {
+  const db = getSupabaseAdmin();
+  const { error: invitationError } = await db.rpc('registration_guest_list', {
+    p_invitation_code: invitationCode,
+  });
+  if (invitationError) mapRegistrationError(invitationError.message);
+
+  const { data, error } = await db
+    .from('guests')
+    .select('id,name,login_name,team,claimed_at')
+    .order('name');
+  if (error) throw new Error(`Unable to load registration guests: ${error.message}`);
+  return (data ?? []).map((guest) => ({
+    id: guest.id,
+    name: guest.name,
+    loginName: guest.login_name,
+    team: guest.team,
+    claimed: guest.claimed_at !== null,
+  }));
+}
+
 export async function claimGuestIdentity(invitationCode: string, loginName: string) {
   const token = createGuestSessionToken();
   const expiresAt = new Date(Date.now() + GUEST_SESSION_MAX_AGE * 1000).toISOString();
