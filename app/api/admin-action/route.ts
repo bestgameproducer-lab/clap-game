@@ -105,6 +105,7 @@ export async function POST(request: Request) {
         id: body.taskId ? requiredUuid(body.taskId, '任务 ID') : null,
         title: requiredString(body.title, '任务标题', 120),
         description: requiredString(body.description, '任务说明', 1000),
+        verificationMethod: requiredString(body.verificationMethod, '验证方式', 500),
         points: requiredInteger(body.points, '任务积分', 1, 500),
         roleScope: requiredEnum(body.roleScope, '适用身份', ROLE_SCOPES),
         category: requiredEnum(body.category, '任务类型', TASK_CATEGORIES),

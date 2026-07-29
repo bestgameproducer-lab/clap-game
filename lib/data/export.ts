@@ -15,13 +15,13 @@ export async function getAdminCsvExport(kind: AdminExportKind) {
     headers = ['姓名', '登录名', '桌号', '长辈', '适合仪式任务', '启用', '工作人员备注', '组别', '身份', '积分', '已设置密码时间', '抽卡时间', '创建时间'];
     rows = (data ?? []).map((item) => [item.name, item.login_name, item.table_label, item.is_elder, item.ceremony_eligible, item.active, item.staff_notes, item.team, item.role, item.points, item.claimed_at, item.drawn_at, item.created_at]);
   } else if (kind === 'assignments') {
-    const { data, error } = await db.from('assignments').select('status,is_initial,completion_rank,submitted_at,approved_at,rejected_at,rejection_reason,created_at,guest:guests(name),task:tasks(title,points,category,stage)').order('created_at');
+    const { data, error } = await db.from('assignments').select('status,is_initial,completion_rank,submitted_at,approved_at,rejected_at,rejection_reason,created_at,guest:guests(name),task:tasks(title,verification_method,points,category,stage)').order('created_at');
     if (error) throw new Error(`Unable to export assignments: ${error.message}`);
-    headers = ['宾客', '任务', '积分', '类型', '阶段', '是否首轮', '完成名次', '状态', '提交时间', '通过时间', '退回时间', '退回原因', '创建时间'];
+    headers = ['宾客', '任务', '验证方式', '积分', '类型', '阶段', '是否首轮', '完成名次', '状态', '提交时间', '通过时间', '退回时间', '退回原因', '创建时间'];
     rows = (data ?? []).map((item) => {
       const guest = Array.isArray(item.guest) ? item.guest[0] : item.guest;
       const task = Array.isArray(item.task) ? item.task[0] : item.task;
-      return [guest?.name, task?.title, task?.points, task?.category, task?.stage, item.is_initial, item.completion_rank, item.status, item.submitted_at, item.approved_at, item.rejected_at, item.rejection_reason, item.created_at];
+      return [guest?.name, task?.title, task?.verification_method, task?.points, task?.category, task?.stage, item.is_initial, item.completion_rank, item.status, item.submitted_at, item.approved_at, item.rejected_at, item.rejection_reason, item.created_at];
     });
   } else if (kind === 'points') {
     const { data, error } = await db.from('points_ledger').select('amount,reason,actor,created_at,guest:guests(name)').order('created_at');

@@ -41,6 +41,7 @@ export async function drawGuestCard(guestId: string) {
       id: card.task_id,
       title: card.task_title,
       description: card.task_description,
+      verificationMethod: card.task_verification_method,
       points: card.task_points,
     },
     drawnAt: card.card_drawn_at,
@@ -56,7 +57,7 @@ export async function getGuestView(guestId: string) {
   if (guestError || !guest) throw new ApiError(401, '登录已失效');
   if (gameError || !game) throw new Error(`Unable to load game state: ${gameError?.message ?? 'missing row'}`);
   const results = await Promise.all([
-    db.from('assignments').select('id,status,is_initial,completion_rank,reward_task_id,reward_clue_id,rejection_reason,task:tasks(title,description,points,category,stage)').eq('guest_id', guestId).order('created_at'),
+    db.from('assignments').select('id,status,is_initial,completion_rank,reward_task_id,reward_clue_id,rejection_reason,task:tasks(title,description,verification_method,points,category,stage)').eq('guest_id', guestId).order('created_at'),
     db.from('guest_clues').select('id,clue:clues(title,content)').eq('guest_id', guestId),
     db.from('guests').select('id,name,team').eq('team', guest.team).not('drawn_at', 'is', null).order('name'),
     db.from('votes').select('target_guest_id').eq('voter_guest_id', guestId).eq('voting_round', game.voting_round).maybeSingle(),
