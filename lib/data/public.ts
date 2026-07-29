@@ -13,7 +13,7 @@ export async function getPublicScoreboard() {
   if (gameError || !game) throw new ApiError(503, '积分大屏暂时无法加载');
 
   if (!game.scoreboard_visible) {
-    return { visible: false, stage: game.stage, resultsVisible: false, displayTitle: null, displayBody: null, publicClue: null, timerEndsAt: null, updatedAt: game.updated_at, teams: [], leaders: [], voteCounts: [], revealedRoles: [] };
+    return { visible: false, stage: game.stage, resultsVisible: false, displayTitle: null, displayBody: null, publicClue: null, timerEndsAt: null, updatedAt: game.updated_at, teams: [], leaders: [], voteCounts: [], revealedRoles: [], awards: [] };
   }
 
   const [guestResult, assignmentResult, voteResult, teamPointResult] = await Promise.all([
@@ -27,10 +27,19 @@ export async function getPublicScoreboard() {
 
   const scoreboard = buildPublicScoreboard(guestResult.data ?? [], assignmentResult.data ?? [], voteResult.data ?? [], teamPointResult.data ?? []);
   let revealedRoles: Array<{ id: string; name: string; team: string; role: string }> = [];
+  let awards: Array<{ id: string; title: string; winnerName: string; winnerTeam: string | null; reason: string }> = [];
   if (game.results_visible) {
-    const { data, error: roleError } = await db.from('guests').select('id,name,team,role').in('role', ['spy', 'helper']).not('drawn_at', 'is', null).order('team').order('name');
-    if (roleError) throw new Error(`Unable to load revealed roles: ${roleError.message}`);
-    revealedRoles = data ?? [];
+    const [roleResult, awardResult] = await Promise.all([
+      db.from('guests').select('id,name,team,role').in('role', ['spy', 'helper']).not('drawn_at', 'is', null).order('team').order('name'),
+      db.from('awards').select('id,title,winner_team,reason,winner:guests(name,team)').eq('published', true).order('sort_order').order('created_at'),
+    ]);
+    const revealError = roleResult.error ?? awardResult.error;
+    if (revealError) throw new Error(`Unable to load published results: ${revealError.message}`);
+    revealedRoles = roleResult.data ?? [];
+    awards = (awardResult.data ?? []).map((award) => {
+      const winner = Array.isArray(award.winner) ? award.winner[0] : award.winner;
+      return { id: award.id, title: award.title, winnerName: winner?.name || award.winner_team || '待公布', winnerTeam: winner?.team || award.winner_team, reason: award.reason };
+    });
   }
 
   return {
@@ -46,5 +55,6 @@ export async function getPublicScoreboard() {
     leaders: scoreboard.leaders,
     voteCounts: game.results_visible ? scoreboard.voteCounts : [],
     revealedRoles,
+    awards,
   };
 }

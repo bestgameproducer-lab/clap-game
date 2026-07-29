@@ -15,6 +15,9 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
     if (error.message.includes('clue_already_granted')) throw new ApiError(409, '这位宾客已经获得该线索');
     if (error.message.includes('guest_card_already_drawn')) throw new ApiError(409, '宾客已经抽卡，不能直接修改组别或身份');
     if (error.message.includes('point_total_unchanged')) throw new ApiError(409, '积分没有发生变化');
+    if (error.message.includes('assignment_already_approved')) throw new ApiError(409, '该任务已经通过，不能重复加分');
+    if (error.message.includes('award_winner_required')) throw new ApiError(400, '发布奖项前必须选择获奖宾客或队伍');
+    if (error.message.includes('award_not_found')) throw new ApiError(404, '找不到奖项');
     throw new Error(`${fallback}: ${error.message}`);
   }
 }
@@ -33,6 +36,7 @@ export async function getAdminDashboardData() {
     db.from('points_ledger').select('id,guest_id,amount,reason,actor,created_at,guest:guests(id,name)').order('created_at', { ascending: false }).limit(50),
     db.from('audit_log').select('id,actor,action,target_type,target_id,details,created_at').order('created_at', { ascending: false }).limit(50),
     db.from('team_points_ledger').select('id,team,amount,reason,actor,created_at').order('created_at', { ascending: false }).limit(100),
+    db.from('awards').select('id,title,winner_guest_id,winner_team,reason,sort_order,published,updated_at,winner:guests(id,name,team)').order('sort_order').order('created_at'),
   ]);
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`Unable to load admin data: ${error.message}`);
@@ -40,7 +44,7 @@ export async function getAdminDashboardData() {
     guests: results[0].data ?? [], assignments: results[1].data ?? [], tasks: results[2].data ?? [],
     submissions: results[3].data ?? [], votes: results[4].data ?? [], game: results[5].data,
     clues: results[6].data ?? [], guestClues: results[7].data ?? [],
-    pointLedger: results[8].data ?? [], auditLog: results[9].data ?? [], teamPointLedger: results[10].data ?? [],
+    pointLedger: results[8].data ?? [], auditLog: results[9].data ?? [], teamPointLedger: results[10].data ?? [], awards: results[11].data ?? [],
   };
 }
 
@@ -78,6 +82,22 @@ export async function setGameStage(stage: string, actor: string) {
 export async function resetGuestClaim(guestId: string, actor: string) {
   const { error } = await getSupabaseAdmin().rpc('reset_guest_claim', { p_guest_id: guestId, p_actor: actor });
   ensureNoDatabaseError(error, 'Unable to reset guest claim');
+}
+
+export async function completeAssignmentAtStation(assignmentId: string, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('complete_assignment_at_station', {
+    p_assignment_id: assignmentId, p_actor: actor, p_reason: '任务站现场核验通过',
+  });
+  ensureNoDatabaseError(error, 'Unable to complete assignment at station');
+}
+
+export async function saveAward(input: { id: string | null; title: string; winnerGuestId: string | null; winnerTeam: string | null; reason: string; sortOrder: number; published: boolean }, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('save_award', {
+    p_award_id: input.id, p_title: input.title, p_winner_guest_id: input.winnerGuestId,
+    p_winner_team: input.winnerTeam, p_reason: input.reason, p_sort_order: input.sortOrder,
+    p_published: input.published, p_actor: actor,
+  });
+  ensureNoDatabaseError(error, 'Unable to save award');
 }
 
 export async function adjustGuestPoints(guestId: string, amount: number, actor: string, reason: string) {

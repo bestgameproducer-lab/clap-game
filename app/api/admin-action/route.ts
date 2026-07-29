@@ -3,6 +3,7 @@ import {
   adjustGuestPoints,
   adjustTeamPoints,
   approveAssignment,
+  completeAssignmentAtStation,
   assignTaskToGuest,
   configureGuestGameProfile,
   createGameClue,
@@ -14,6 +15,7 @@ import {
   setGameStage,
   setLiveDisplay,
   setRegistrationOpen,
+  saveAward,
 } from '@/lib/data/admin';
 import { ApiError, apiErrorResponse, noStoreJson } from '@/lib/errors';
 import { GAME_ROLES, ROLE_SCOPES, TASK_CATEGORIES, TASK_STAGES } from '@/lib/game-rules';
@@ -48,6 +50,8 @@ export async function POST(request: Request) {
       await resetGuestClaim(requiredUuid(body.guestId, '宾客 ID'), actor);
     } else if (type === 'approve') {
       await approveAssignment(requiredUuid(body.assignmentId, '任务 ID'), actor, '任务审核通过');
+    } else if (type === 'completeAtStation') {
+      await completeAssignmentAtStation(requiredUuid(body.assignmentId, '任务 ID'), actor);
     } else if (type === 'reject') {
       const reason = body.reason === undefined ? '管理员退回' : requiredString(body.reason, '退回原因', 500);
       await rejectAssignment(requiredUuid(body.assignmentId, '任务 ID'), actor, reason);
@@ -99,6 +103,17 @@ export async function POST(request: Request) {
         requiredString(body.content, '线索内容', 1000),
         actor,
       );
+    } else if (type === 'saveAward') {
+      const winnerKind = requiredEnum(body.winnerKind, '获奖对象类型', ['none', 'guest', 'team'] as const);
+      await saveAward({
+        id: body.awardId ? requiredUuid(body.awardId, '奖项 ID') : null,
+        title: requiredString(body.title, '奖项名称', 120),
+        winnerGuestId: winnerKind === 'guest' ? requiredUuid(body.winnerGuestId, '获奖宾客') : null,
+        winnerTeam: winnerKind === 'team' ? requiredString(body.winnerTeam, '获奖队伍', 40) : null,
+        reason: optionalString(body.reason, '颁奖理由', 500),
+        sortOrder: requiredInteger(body.sortOrder, '奖项顺序', 0, 9999),
+        published: requiredBoolean(body.published, '发布状态'),
+      }, actor);
     } else {
       throw new ApiError(400, '未知操作');
     }

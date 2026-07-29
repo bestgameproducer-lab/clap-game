@@ -15,6 +15,7 @@ type ScoreboardData = {
   leaders: Array<{ id: string; name: string; team: string; points: number; completedTasks: number }>;
   voteCounts: Array<{ id: string; name: string; team: string; votes: number }>;
   revealedRoles: Array<{ id: string; name: string; team: string; role: string }>;
+  awards: Array<{ id: string; title: string; winnerName: string; winnerTeam: string | null; reason: string }>;
 };
 
 const STAGE_LABELS: Record<string, string> = {
@@ -75,6 +76,7 @@ export default function ScoreboardPage() {
     <section className="team-score-grid">{data.teams.map((team, index) => <article className={index === 0 ? 'team-score winner' : 'team-score'} key={team.team}><span>0{index + 1}</span><div><small>{index === 0 ? 'LEADING TEAM' : 'TEAM'}</small><h2>{team.team}</h2><p>{team.guests} 位宾客 · {team.completedTasks} 项任务完成</p></div><strong>{team.points}<small>分</small></strong></article>)}</section>
     <section className="scoreboard-panel"><div className="scoreboard-title"><div><small>INDIVIDUAL HONORS</small><h2>个人荣誉榜</h2></div><span>TOP {Math.min(10, data.leaders.length)}</span></div>{data.leaders.length === 0 ? <div className="empty-state">积分尚未产生。</div> : <ol className="leaderboard-list">{data.leaders.map((guest, index) => <li key={guest.id}><b>{String(index + 1).padStart(2, '0')}</b><div><strong>{guest.name}</strong><small>{guest.team} · 完成 {guest.completedTasks} 项任务</small></div><span>{guest.points}</span></li>)}</ol>}</section>
     {data.resultsVisible && <section className="scoreboard-panel reveal-panel"><div className="scoreboard-title"><div><small>THE FINAL REVEAL</small><h2>身份揭晓</h2></div></div><div className="revealed-grid">{data.revealedRoles.map((guest) => <article key={guest.id}><small>{guest.team}</small><strong>{guest.name}</strong><span>{guest.role === 'spy' ? '丘比特的恶作剧者' : '丘比特的秘密信使'}</span></article>)}</div>{data.voteCounts.length > 0 && <><h3>宾客投票</h3><div className="vote-result-list">{data.voteCounts.map((guest) => <div key={guest.id}><span>{guest.name} · {guest.team}</span><strong>{guest.votes} 票</strong></div>)}</div></>}</section>}
+    {data.resultsVisible && data.awards.length > 0 && <section className="scoreboard-panel awards-panel"><div className="scoreboard-title"><div><small>CUPID HONORS</small><h2>今晚荣誉榜</h2></div></div><div className="award-grid">{data.awards.map((award) => <article key={award.id}><small>{award.title}</small><strong>{award.winnerName}</strong>{award.winnerTeam && award.winnerName !== award.winnerTeam && <span>{award.winnerTeam}</span>}{award.reason && <p>{award.reason}</p>}</article>)}</div></section>}
     <footer className="scoreboard-footer">每 10 秒自动更新 · {new Date(data.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</footer>
   </main>;
 }

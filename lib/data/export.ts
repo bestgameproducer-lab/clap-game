@@ -2,7 +2,7 @@ import 'server-only';
 import { buildCsv, type CsvCell } from '../csv';
 import { getSupabaseAdmin } from '../supabase';
 
-export type AdminExportKind = 'guests' | 'assignments' | 'points' | 'team-points' | 'audit';
+export type AdminExportKind = 'guests' | 'assignments' | 'points' | 'team-points' | 'awards' | 'audit';
 
 export async function getAdminCsvExport(kind: AdminExportKind) {
   const db = getSupabaseAdmin();
@@ -36,6 +36,14 @@ export async function getAdminCsvExport(kind: AdminExportKind) {
     if (error) throw new Error(`Unable to export team points: ${error.message}`);
     headers = ['组别', '团队积分变化', '原因', '操作人', '时间'];
     rows = (data ?? []).map((item) => [item.team, item.amount, item.reason, item.actor, item.created_at]);
+  } else if (kind === 'awards') {
+    const { data, error } = await db.from('awards').select('title,winner_team,reason,sort_order,published,updated_at,winner:guests(name)').order('sort_order').order('created_at');
+    if (error) throw new Error(`Unable to export awards: ${error.message}`);
+    headers = ['奖项', '获奖宾客', '获奖组别', '颁奖词', '排序', '已发布', '更新时间'];
+    rows = (data ?? []).map((item) => {
+      const winner = Array.isArray(item.winner) ? item.winner[0] : item.winner;
+      return [item.title, winner?.name, item.winner_team, item.reason, item.sort_order, item.published, item.updated_at];
+    });
   } else {
     const { data, error } = await db.from('audit_log').select('actor,action,target_type,target_id,details,created_at').order('created_at');
     if (error) throw new Error(`Unable to export audit log: ${error.message}`);
