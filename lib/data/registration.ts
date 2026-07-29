@@ -8,7 +8,6 @@ function mapRegistrationError(message: string): never {
   if (message.includes('invalid_invitation_code')) throw new ApiError(401, '婚礼邀请码不正确');
   if (message.includes('invalid_login_name')) throw new ApiError(401, '找不到这个拼音用户名，请检查拼写');
   if (message.includes('invalid_claim_code')) throw new ApiError(401, '四位宾客密码不正确');
-  if (message.includes('guest_already_claimed')) throw new ApiError(409, '该宾客身份已经被认领，请联系主办方重置');
   if (message.includes('guest_not_found')) throw new ApiError(404, '找不到该宾客');
   throw new Error(`Registration operation failed: ${message}`);
 }
@@ -22,14 +21,14 @@ export async function listRegistrationGuests(invitationCode: string) {
 
   const { data, error } = await db
     .from('guests')
-    .select('id,name,login_name,claimed_at')
+    .select('id,name,login_name,claim_code_hash')
     .order('name');
   if (error) throw new Error(`Unable to load registration guests: ${error.message}`);
   return (data ?? []).map((guest) => ({
     id: guest.id,
     name: guest.name,
     loginName: guest.login_name,
-    claimed: guest.claimed_at !== null,
+    hasPassword: guest.claim_code_hash !== null,
   }));
 }
 

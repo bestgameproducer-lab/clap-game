@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-type RegistrationGuest = { id: string; name: string; loginName: string; claimed: boolean };
+type RegistrationGuest = { id: string; name: string; loginName: string; hasPassword: boolean };
 type SecretCard = { team: string; role: string; task: { id: string; title: string; description: string; points: number }; drawnAt: string };
 type GuestData = {
   guest: { id: string; name: string; team: string; role: string; points: number; drawn_at: string | null };
@@ -40,6 +40,7 @@ export default function GuestPage() {
   const [guests, setGuests] = useState<RegistrationGuest[] | null>(null);
   const [selectedGuest, setSelectedGuest] = useState<RegistrationGuest | null>(null);
   const [claimCode, setClaimCode] = useState('');
+  const [claimCodeConfirm, setClaimCodeConfirm] = useState('');
   const [search, setSearch] = useState('');
   const [drawing, setDrawing] = useState(false);
   const [revealedCard, setRevealedCard] = useState<SecretCard | null>(null);
@@ -76,6 +77,9 @@ export default function GuestPage() {
 
   async function claimIdentity(event: React.FormEvent) {
     event.preventDefault(); if (!selectedGuest) return;
+    if (!selectedGuest.hasPassword && claimCode !== claimCodeConfirm) {
+      setError('两次输入的四位密码不一致'); return;
+    }
     setBusy(true); setError('');
     try {
       const response = await fetch('/api/registration/claim', {
@@ -111,7 +115,7 @@ export default function GuestPage() {
 
   async function logout() {
     await fetch('/api/guest-logout', { method: 'POST' });
-    setData(null); setInvitationCode(''); setGuests(null); setSelectedGuest(null); setClaimCode(''); setSearch(''); setShowSecrets(false); setRevealedCard(null);
+    setData(null); setInvitationCode(''); setGuests(null); setSelectedGuest(null); setClaimCode(''); setClaimCodeConfirm(''); setSearch(''); setShowSecrets(false); setRevealedCard(null);
   }
 
   async function drawCard() {
@@ -142,7 +146,7 @@ export default function GuestPage() {
   if (checking) return <main className="welcome-shell"><section className="welcome-card"><div className="heart-mark">♡</div><h1>正在打开婚礼任务</h1><p>丘比特正在确认你的身份…</p></section></main>;
 
   if (!data) return <main className="welcome-shell">
-    <section className="welcome-card">
+    <section className={`welcome-card ${guests ? 'compact-registration' : ''}`}>
       <div className="eyebrow">ZIMIN &amp; ANRONG</div><div className="heart-mark">♡</div>
       <h1>丘比特的<br/>婚礼考验</h1>
       <p className="lead">从你来到婚礼现场的这一刻起，故事已经开始。</p>
@@ -155,18 +159,20 @@ export default function GuestPage() {
         <button disabled={busy}>{busy ? '验证中…' : '进入宾客名单'}</button>
       </form>}
       {guests && !selectedGuest && <div>
-        <div className="step-copy"><strong>找到你的名字</strong><small>每个宾客身份只能被认领一次</small></div>
+        <div className="step-copy"><strong>找到你的名字</strong><small>首次进入时，由你自己设置四位密码</small></div>
         <label htmlFor="guest-search">搜索宾客</label>
         <input id="guest-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="输入中文、拼音或英文名" autoFocus/>
-        <div className="guest-list">{filteredGuests.map((guest) => <button type="button" className="guest-choice" disabled={guest.claimed} key={guest.id} onClick={() => { setSelectedGuest(guest); setClaimCode(''); }}><span><strong>{guest.name}</strong><small>{guest.loginName}</small></span><b>{guest.claimed ? '已认领' : '选择'}</b></button>)}</div>
+        <div className="guest-list">{filteredGuests.map((guest) => <button type="button" className="guest-choice" key={guest.id} onClick={() => { setSelectedGuest(guest); setClaimCode(''); setClaimCodeConfirm(''); setError(''); }}><span><strong>{guest.name}</strong><small>{guest.loginName}</small></span><b>{guest.hasPassword ? '登录' : '首次设置'}</b></button>)}</div>
         <button className="text-button" onClick={() => { setGuests(null); setError(''); }}>返回修改邀请码</button>
       </div>}
       {selectedGuest && <form onSubmit={claimIdentity}>
-        <div className="selected-identity"><small>请确认你的身份</small><strong>{selectedGuest.name}</strong><span>{selectedGuest.loginName}</span></div>
-        <label htmlFor="claim-code">我的四位宾客密码</label>
-        <input id="claim-code" className="claim-code-input" type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} autoComplete="one-time-code" value={claimCode} onChange={(event) => setClaimCode(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="••••" required autoFocus/>
-        <p className="login-note">这是你收到的个人密码。认领后身份会被锁定，如有误选请联系主办方。</p>
-        <button disabled={busy || claimCode.length !== 4}>{busy ? '认领中…' : '确认是我 · 开始抽卡'}</button>
+        <div className="selected-identity"><small>{selectedGuest.hasPassword ? '欢迎回来' : '请确认你的身份'}</small><strong>{selectedGuest.name}</strong><span>{selectedGuest.loginName}</span></div>
+        <div className="pin-heading"><strong>{selectedGuest.hasPassword ? '输入你的四位密码' : '设置你的四位密码'}</strong><small>{selectedGuest.hasPassword ? '这是你首次进入时自己设置的密码' : '只有你知道，用于以后再次登录'}</small></div>
+        <label htmlFor="claim-code">四位数字密码</label>
+        <input id="claim-code" className="claim-code-input" type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} autoComplete={selectedGuest.hasPassword ? 'current-password' : 'new-password'} value={claimCode} onChange={(event) => setClaimCode(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="••••" required autoFocus/>
+        {!selectedGuest.hasPassword && <><label htmlFor="claim-code-confirm">再次输入密码</label><input id="claim-code-confirm" className="claim-code-input" type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} autoComplete="new-password" value={claimCodeConfirm} onChange={(event) => setClaimCodeConfirm(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="••••" required/></>}
+        <p className="login-note">请记住这个密码。忘记后可联系主办方在后台重置。</p>
+        <button disabled={busy || claimCode.length !== 4 || (!selectedGuest.hasPassword && claimCodeConfirm.length !== 4)}>{busy ? (selectedGuest.hasPassword ? '登录中…' : '设置中…') : (selectedGuest.hasPassword ? '登录我的身份' : '设置密码 · 开始抽卡')}</button>
         <button type="button" className="text-button" onClick={() => { setSelectedGuest(null); setError(''); }}>返回宾客名单</button>
       </form>}
     </section>
