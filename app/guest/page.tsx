@@ -55,6 +55,7 @@ export default function GuestPage() {
   const [showSecrets, setShowSecrets] = useState(false);
   const [busy, setBusy] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [offlineReady, setOfflineReady] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -102,6 +103,19 @@ export default function GuestPage() {
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [load]);
+
+  useEffect(() => {
+    if (!('serviceWorker' in window.navigator)) return;
+    let active = true;
+    window.navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      .then(async (registration) => {
+        await registration.update();
+        await window.navigator.serviceWorker.ready;
+        if (active) setOfflineReady(true);
+      })
+      .catch(() => { if (active) setOfflineReady(false); });
+    return () => { active = false; };
+  }, []);
 
   async function unlockInvitation(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setError('');
@@ -276,5 +290,6 @@ export default function GuestPage() {
     {data.game?.voting_open && <section className="section-card"><div className="section-heading"><div><small>FINAL VOTE</small><h2>谁是恶作剧者？</h2></div></div><p className="muted">只能选择本队宾客，投票关闭前可以修改。选中后会立即保存。</p><div className="vote-grid">{data.candidates.filter((candidate) => candidate.id !== data.guest.id).map((candidate) => <button disabled={busy || offline} className={data.existingVote === candidate.id ? 'vote-choice selected' : 'vote-choice'} key={candidate.id} onClick={() => vote(candidate.id)}>{data.existingVote === candidate.id ? '✓ ' : ''}{candidate.name}</button>)}</div>{offline && <p className="vote-offline-note">恢复网络后才能提交投票。</p>}</section>}
     {data.game?.results_visible && data.results && <section className="reveal-card"><small>THE FINAL REVEAL</small><h2>身份揭晓</h2>{data.results.votedTargetName ? <div className={`vote-verdict ${data.results.voteCorrect ? 'correct' : 'missed'}`}><span>你投给了 {data.results.votedTargetName}</span><strong>{data.results.voteCorrect ? '成功找到了恶作剧者' : '恶作剧者成功隐藏了自己'}</strong></div> : <div className="vote-verdict missed"><strong>你没有提交最终投票</strong></div>}<div className="team-role-reveal">{data.results.teamMembers.map((member) => <div key={member.id}><span>{member.name}</span><strong>{ROLE_LABELS[member.role]?.title ?? member.role}</strong></div>)}</div><p>感谢你成为这场婚礼故事的一部分。</p></section>}
     <div className="footer-actions"><button onClick={() => setShowSecrets(false)}>隐藏我的秘密</button><button className="secondary" disabled={syncing} onClick={() => void load()}>{syncing ? '同步中…' : '刷新状态'}</button><button className="text-button" onClick={logout}>退出此身份</button></div>
+    {offlineReady && <div className="offline-ready" role="status">弱网备用已准备 · 刷新后仍可打开本页</div>}
   </main>;
 }

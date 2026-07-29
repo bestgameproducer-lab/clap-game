@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+
+test('guest service worker caches only the guest shell and static assets', async () => {
+  const source = await readFile(new URL('../public/sw.js', import.meta.url), 'utf8');
+  assert.match(source, /url\.pathname\.startsWith\('\/api\/'\)\) return/);
+  assert.match(source, /url\.pathname !== GUEST_PATH\) return/);
+  assert.match(source, /url\.pathname\.startsWith\('\/_next\/static\/'\)/);
+  for (const privatePath of ['/admin', '/host', '/station', '/api/guest-me']) {
+    assert.equal(source.includes(`cache.put('${privatePath}'`), false);
+  }
+});
+
+test('guest page registers offline shell without persisting private data to local storage', async () => {
+  const source = await readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8');
+  assert.match(source, /serviceWorker\.register\('\/sw\.js'/);
+  assert.match(source, /window\.sessionStorage\.setItem\(GUEST_CACHE_KEY/);
+  assert.doesNotMatch(source, /localStorage\.setItem\(GUEST_CACHE_KEY/);
+  assert.match(source, /弱网备用已准备/);
+});
+
+test('service worker script is served without stale HTTP caching and with root scope', async () => {
+  const source = await readFile(new URL('../next.config.mjs', import.meta.url), 'utf8');
+  assert.match(source, /source: '\/sw\.js'/);
+  assert.match(source, /no-cache, no-store, must-revalidate/);
+  assert.match(source, /Service-Worker-Allowed/);
+});
