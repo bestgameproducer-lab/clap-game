@@ -24,6 +24,9 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
     if (error.message.includes('clue_target_not_spy')) throw new ApiError(400, '线索只能绑定到已预设为间谍的宾客');
     if (error.message.includes('clue_spy_still_referenced')) throw new ApiError(409, '这位间谍仍有绑定线索，请先调整对应线索后再更改身份');
     if (error.message.includes('clue_rules_locked')) throw new ApiError(409, '线索已经发放，对应间谍和等级已锁定；仍可修正文案或停用');
+    if (error.message.includes('guest_login_conflict')) throw new ApiError(409, '这个登录名已经被其他宾客使用');
+    if (error.message.includes('guest_login_locked')) throw new ApiError(409, '宾客已经设置密码，登录名已锁定；可修改显示姓名或先重置密码');
+    if (error.message.includes('drawn_guest_cannot_deactivate')) throw new ApiError(409, '宾客已经抽卡，不能停用；请保留身份并由工作人员现场处理');
     throw new Error(`${fallback}: ${error.message}`);
   }
 }
@@ -31,7 +34,7 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
 export async function getAdminDashboardData() {
   const db = getSupabaseAdmin();
   const results = await Promise.all([
-    db.from('guests').select('id,name,login_name,team,role,points,claimed_at,drawn_at,team_locked,role_locked,created_at').order('team').order('name'),
+    db.from('guests').select('id,name,login_name,team,role,points,claimed_at,drawn_at,team_locked,role_locked,table_label,is_elder,ceremony_eligible,active,staff_notes,created_at').order('active', { ascending: false }).order('team').order('name'),
     db.from('assignments').select('id,guest_id,task_id,status,is_initial,completion_rank,reward_task_id,reward_clue_id,submitted_at,approved_at,rejected_at,rejection_reason,created_at,task:tasks(id,title,description,points,category,stage)'),
     db.from('tasks').select('id,title,description,points,role_scope,category,stage,active,created_at').order('stage').order('title'),
     db.from('assignments').select('id,status,submitted_at,guest:guests(id,name),task:tasks(id,title,points)').eq('status', 'submitted'),
@@ -150,6 +153,16 @@ export async function configureGuestGameProfile(guestId: string, team: string, r
     p_guest_id: guestId, p_team: team, p_role: role, p_actor: actor,
   });
   ensureNoDatabaseError(error, 'Unable to configure guest profile');
+}
+
+export async function saveGuestRoster(input: { id: string | null; name: string; loginName: string; tableLabel: string; isElder: boolean; ceremonyEligible: boolean; active: boolean; staffNotes: string }, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('save_guest_roster', {
+    p_guest_id: input.id, p_name: input.name, p_login_name: input.loginName,
+    p_table_label: input.tableLabel, p_is_elder: input.isElder,
+    p_ceremony_eligible: input.ceremonyEligible, p_active: input.active,
+    p_staff_notes: input.staffNotes, p_actor: actor,
+  });
+  ensureNoDatabaseError(error, 'Unable to save guest roster');
 }
 
 type SavedTask = {

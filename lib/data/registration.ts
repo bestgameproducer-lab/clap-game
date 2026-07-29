@@ -22,6 +22,7 @@ export async function listRegistrationGuests(invitationCode: string) {
   const { data, error } = await db
     .from('guests')
     .select('id,name,login_name,claim_code_hash')
+    .eq('active', true)
     .order('name');
   if (error) throw new Error(`Unable to load registration guests: ${error.message}`);
   return (data ?? []).map((guest) => ({

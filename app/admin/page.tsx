@@ -16,6 +16,7 @@ const ACTION_LABELS: Record<string, string> = {
   'guest.points_adjust': '调整积分', 'guest.profile_configure': '配置身份', 'guest.claim_reset': '重置密码',
   'clue.grant': '发放线索', 'clue.create': '创建线索', 'task.create': '创建任务',
   'clue.save': '保存线索', 'task.save': '保存任务',
+  'guest.roster_save': '保存宾客资料',
   'game_state.stage': '切换阶段', 'game_state.registration_open': '切换注册',
   'game_state.voting_open': '切换投票', 'game_state.results_visible': '切换揭晓',
   'game_state.scoreboard_visible': '切换大屏', 'game_state.live_display': '更新大屏内容',
@@ -25,7 +26,7 @@ const ACTION_LABELS: Record<string, string> = {
   'admin_session.create': '工作人员登录', 'admin_session.revoke': '工作人员安全退出',
 };
 
-type Guest = { id: string; name: string; login_name: string; team: string; role: string; points: number; claimed_at: string | null; drawn_at: string | null; team_locked: boolean; role_locked: boolean };
+type Guest = { id: string; name: string; login_name: string; team: string; role: string; points: number; claimed_at: string | null; drawn_at: string | null; team_locked: boolean; role_locked: boolean; table_label: string; is_elder: boolean; ceremony_eligible: boolean; active: boolean; staff_notes: string };
 type Task = { id: string; title: string; description: string; points: number; role_scope: string; category: string; stage: string; active: boolean };
 type Clue = { id: string; title: string; content: string; active: boolean; spy_guest_id: string | null; level: number; spy?: { id: string; name: string; team: string } };
 type AdminData = {
@@ -58,6 +59,7 @@ export default function AdminPage() {
   const [selectedClueId, setSelectedClueId] = useState('');
   const [libraryTaskId, setLibraryTaskId] = useState('new');
   const [libraryClueId, setLibraryClueId] = useState('new');
+  const [rosterGuestId, setRosterGuestId] = useState('new');
   const [team, setTeam] = useState('');
   const [role, setRole] = useState('guest');
   const [pointAmount, setPointAmount] = useState('');
@@ -68,6 +70,7 @@ export default function AdminPage() {
   const [liveDisplay, setLiveDisplay] = useState({ title: '', body: '', publicClue: '', timerMinutes: '0' });
   const [selectedAwardId, setSelectedAwardId] = useState('');
   const [awardForm, setAwardForm] = useState({ title: '', winnerKind: 'none', winnerGuestId: '', winnerTeam: '玫瑰组', reason: '', sortOrder: '100', published: false });
+  const [guestForm, setGuestForm] = useState({ name: '', loginName: '', tableLabel: '', isElder: false, ceremonyEligible: false, active: true, staffNotes: '' });
 
   async function load() {
     try {
@@ -81,7 +84,8 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!data?.guests.length) return;
-    if (!selectedGuestId || !data.guests.some((guest) => guest.id === selectedGuestId)) setSelectedGuestId(data.guests[0].id);
+    const firstActiveGuest = data.guests.find((guest) => guest.active);
+    if ((!selectedGuestId || !data.guests.some((guest) => guest.id === selectedGuestId && guest.active)) && firstActiveGuest) setSelectedGuestId(firstActiveGuest.id);
     const firstActiveTask = data.tasks.find((task) => task.active);
     const firstActiveClue = data.clues.find((clue) => clue.active);
     if ((!selectedTaskId || !data.tasks.some((task) => task.id === selectedTaskId && task.active)) && firstActiveTask) setSelectedTaskId(firstActiveTask.id);
@@ -100,6 +104,12 @@ export default function AdminPage() {
     const clue = data?.clues.find((item) => item.id === libraryClueId);
     if (clue) setNewClue({ title: clue.title, content: clue.content, active: clue.active, spyGuestId: clue.spy_guest_id || '', level: String(clue.level) });
   }, [data, libraryClueId]);
+
+  useEffect(() => {
+    if (rosterGuestId === 'new') { setGuestForm({ name: '', loginName: '', tableLabel: '', isElder: false, ceremonyEligible: false, active: true, staffNotes: '' }); return; }
+    const guest = data?.guests.find((item) => item.id === rosterGuestId);
+    if (guest) setGuestForm({ name: guest.name, loginName: guest.login_name, tableLabel: guest.table_label, isElder: guest.is_elder, ceremonyEligible: guest.ceremony_eligible, active: guest.active, staffNotes: guest.staff_notes });
+  }, [data, rosterGuestId]);
 
   const selectedGuest = useMemo(() => data?.guests.find((guest) => guest.id === selectedGuestId) ?? null, [data, selectedGuestId]);
 
@@ -146,18 +156,20 @@ export default function AdminPage() {
 
   if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">ORGANIZER ONLY</div><div className="heart-mark">♡</div><h1>主办方<br/>控制台</h1><p className="lead">管理婚礼流程、审核任务与揭晓结果。</p><form onSubmit={login}><label htmlFor="admin-password">管理员密码</label><input id="admin-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required/><button disabled={busy}>{busy ? '登录中…' : '进入控制台'}</button>{error && <div className="notice error">{error}</div>}</form></section></main>;
 
-  const claimed = data.guests.filter((guest) => guest.claimed_at).length;
-  const drawn = data.guests.filter((guest) => guest.drawn_at).length;
+  const activeGuests = data.guests.filter((guest) => guest.active);
+  const claimed = activeGuests.filter((guest) => guest.claimed_at).length;
+  const drawn = activeGuests.filter((guest) => guest.drawn_at).length;
+  const rosterGuest = data.guests.find((guest) => guest.id === rosterGuestId) ?? null;
   const votesByTarget = Object.entries(data.votes.reduce<Record<string, number>>((counts, vote) => {
     const name = vote.target?.name || '未知'; counts[name] = (counts[name] || 0) + 1; return counts;
   }, {})).sort((a, b) => b[1] - a[1]);
   const settledPersonalPoints = data.resultRewards.filter((reward) => reward.reward_type === 'guest_detective').reduce((sum, reward) => sum + reward.amount, 0);
   const settledTeamPoints = data.resultRewards.filter((reward) => reward.reward_type !== 'guest_detective').reduce((sum, reward) => sum + reward.amount, 0);
   const activeCategories = new Set(data.tasks.filter((task) => task.active).map((task) => task.category));
-  const spyGuests = data.guests.filter((guest) => guest.role === 'spy');
+  const spyGuests = data.guests.filter((guest) => guest.active && guest.role === 'spy');
   const spiesWithActiveClues = spyGuests.filter((spy) => data.clues.some((clue) => clue.active && clue.spy_guest_id === spy.id)).length;
   const readiness = [
-    { label: '宾客名单已导入', detail: `${data.guests.length} 位宾客`, ok: data.guests.length === 32 },
+    { label: '宾客名单已导入', detail: `${activeGuests.length} 位启用 · ${data.guests.length - activeGuests.length} 位停用`, ok: activeGuests.length === 32 },
     { label: '首轮任务可抽取', detail: `${data.tasks.filter((task) => task.active && task.category === 'standard').length} 项`, ok: activeCategories.has('standard') },
     { label: '升级任务已配置', detail: `${data.tasks.filter((task) => task.active && task.category === 'upgrade').length} 项`, ok: activeCategories.has('upgrade') },
     { label: '团队任务已配置', detail: `${data.tasks.filter((task) => task.active && task.category === 'group').length} 项`, ok: activeCategories.has('group') },
@@ -191,7 +203,7 @@ export default function AdminPage() {
     <section className="section-card"><div className="section-heading"><div><small>APPROVAL QUEUE</small><h2>待审核任务</h2></div><span>{data.submissions.length}</span></div>{data.submissions.length === 0 ? <div className="empty-state">暂无待审核提交。</div> : data.submissions.map((submission) => <div className="approval-row" key={submission.id}><div><strong>{submission.guest?.name}</strong><p>{submission.task?.title} · {submission.task?.points} 分</p></div><div><button disabled={busy} onClick={() => action({ type: 'approve', assignmentId: submission.id }, '任务已通过并自动加分')}>通过</button><button disabled={busy} className="danger" onClick={() => { const reason = window.prompt('请写明退回原因，宾客会看到这条说明：', '请补充照片或请相关宾客确认'); if (reason?.trim()) void action({ type: 'reject', assignmentId: submission.id, reason }, '任务已退回'); }}>退回</button></div></div>)}</section>
 
     <section className="section-card"><div className="section-heading"><div><small>QUICK OPERATIONS</small><h2>宾客操作台</h2></div></div>
-      <label htmlFor="operation-guest">选择宾客</label><select id="operation-guest" value={selectedGuestId} onChange={(event) => setSelectedGuestId(event.target.value)}>{data.guests.map((guest) => <option key={guest.id} value={guest.id}>{guest.name} · {guest.team} · {guest.points} 分</option>)}</select>
+      <label htmlFor="operation-guest">选择宾客</label><select id="operation-guest" value={selectedGuestId} onChange={(event) => setSelectedGuestId(event.target.value)}>{activeGuests.map((guest) => <option key={guest.id} value={guest.id}>{guest.name} · {guest.team} · {guest.points} 分</option>)}</select>
       {selectedGuest && <div className="operation-grid">
         <form onSubmit={(event) => { event.preventDefault(); void action({ type: 'configureGuest', guestId: selectedGuest.id, team, role }, '组别和身份已锁定，抽卡时会按此发放'); }}><h3>预设组别与身份</h3><p className="muted">保存后抽卡会严格按此发放；仅限尚未抽卡的宾客。</p><label htmlFor="guest-team">组别</label><select id="guest-team" value={team} onChange={(event) => setTeam(event.target.value)}><option value="玫瑰组">玫瑰组</option><option value="月桂组">月桂组</option><option value="星辰组">星辰组</option><option value="琥珀组">琥珀组</option></select><label htmlFor="guest-role">身份</label><select id="guest-role" value={role} onChange={(event) => setRole(event.target.value)}><option value="guest">祝福见证者</option><option value="spy">恶作剧者（间谍）</option><option value="helper">秘密信使</option></select><button disabled={busy || Boolean(selectedGuest.drawn_at)}>{selectedGuest.team_locked && selectedGuest.role_locked ? '更新锁定预设' : '锁定此预设'}</button></form>
         <form onSubmit={(event) => { event.preventDefault(); void action({ type: 'assignTask', guestId: selectedGuest.id, taskId: selectedTaskId }, '任务已派发'); }}><h3>派发任务</h3><p className="muted">任务会在对应游戏阶段开放时出现在宾客手机上。</p><label htmlFor="assign-task">任务</label><select id="assign-task" value={selectedTaskId} onChange={(event) => setSelectedTaskId(event.target.value)}>{data.tasks.filter((task) => task.active).map((task) => <option key={task.id} value={task.id}>{task.title} · {task.points} 分</option>)}</select><button disabled={busy || !selectedTaskId}>派发给 {selectedGuest.name}</button></form>
@@ -205,7 +217,9 @@ export default function AdminPage() {
       <article className="section-card"><div className="section-heading"><div><small>CLUE LIBRARY</small><h2>线索库管理</h2></div><span>{data.clues.filter((clue) => clue.active).length}/{data.clues.length} 启用</span></div><label htmlFor="library-clue">选择线索或新建</label><select id="library-clue" value={libraryClueId} onChange={(event) => setLibraryClueId(event.target.value)}><option value="new">＋ 新建线索</option>{data.clues.map((clue) => <option key={clue.id} value={clue.id}>{clue.active ? '●' : '○'} L{clue.level} · {clue.spy?.name || '通用'} · {clue.title}</option>)}</select><form onSubmit={(event) => { event.preventDefault(); void action({ type: 'saveClue', clueId: libraryClueId === 'new' ? null : libraryClueId, ...newClue, level: Number(newClue.level) }, libraryClueId === 'new' ? '线索已加入线索库' : '线索已保存').then((ok) => { if (ok && libraryClueId === 'new') setLibraryClueId('new'); }); }}><label htmlFor="clue-title">线索标题</label><input id="clue-title" value={newClue.title} onChange={(event) => setNewClue({ ...newClue, title: event.target.value })} maxLength={120} required/><label htmlFor="clue-content">线索内容</label><textarea id="clue-content" value={newClue.content} onChange={(event) => setNewClue({ ...newClue, content: event.target.value })} maxLength={1000} required/><div className="form-grid"><div><label htmlFor="clue-spy">对应间谍</label><select id="clue-spy" value={newClue.spyGuestId} onChange={(event) => setNewClue({ ...newClue, spyGuestId: event.target.value })}><option value="">通用线索</option>{spyGuests.map((guest) => <option key={guest.id} value={guest.id}>{guest.name} · {guest.team}</option>)}</select></div><div><label htmlFor="clue-level">线索等级</label><select id="clue-level" value={newClue.level} onChange={(event) => setNewClue({ ...newClue, level: event.target.value })}><option value="1">一级 · 模糊</option><option value="2">二级 · 收窄范围</option><option value="3">三级 · 接近答案</option></select></div></div><label className="ready-check"><input type="checkbox" checked={newClue.active} onChange={(event) => setNewClue({ ...newClue, active: event.target.checked })}/><span><strong>允许继续发放</strong><small>停用后已获得该线索的宾客仍可查看。</small></span></label>{libraryClueId !== 'new' && <p className="field-help">线索发放后，对应间谍和等级会锁定；仍可修正文案或停用。</p>}<button disabled={busy}>{libraryClueId === 'new' ? '创建线索' : '保存线索'}</button></form>{libraryClueId !== 'new' && <div className="library-preview"><div><strong>L{newClue.level} · {newClue.title}</strong><p>{newClue.content}</p></div></div>}</article>
     </section>
 
-    <section className="section-card"><div className="section-heading"><div><small>GUESTS</small><h2>宾客进度</h2></div><span>{data.guests.length}</span></div><div className="guest-admin-list">{data.guests.map((guest) => <article key={guest.id}><div className="guest-avatar">{guest.name.slice(0, 1)}</div><div><strong>{guest.name}</strong><small>{guest.login_name} · {guest.drawn_at ? `${guest.team} / ${ROLE_LABELS[guest.role] || guest.role}` : '待抽卡'} · {guest.points} 分</small></div><span className={guest.claimed_at ? 'claimed' : 'unclaimed'}>{guest.claimed_at ? (guest.drawn_at ? '已抽卡' : '待抽卡') : '未设置'}</span>{guest.claimed_at && <button className="mini-button" disabled={busy} onClick={() => { if (window.confirm(`确认重置 ${guest.name} 的密码并退出其所有设备？`)) void action({ type: 'resetGuestClaim', guestId: guest.id }, '宾客密码已重置'); }}>重置密码</button>}</article>)}</div></section>
+    <section className="section-card"><div className="section-heading"><div><small>GUEST ROSTER</small><h2>宾客名单管理</h2></div><span>{activeGuests.length} 位启用</span></div><label htmlFor="roster-guest">选择宾客或新增</label><select id="roster-guest" value={rosterGuestId} onChange={(event) => setRosterGuestId(event.target.value)}><option value="new">＋ 新增宾客</option>{data.guests.map((guest) => <option key={guest.id} value={guest.id}>{guest.active ? '●' : '○'} {guest.name} · {guest.login_name}</option>)}</select><form onSubmit={(event) => { event.preventDefault(); void action({ type: 'saveGuestRoster', guestId: rosterGuestId === 'new' ? null : rosterGuestId, ...guestForm }, rosterGuestId === 'new' ? '宾客已加入名单' : '宾客资料已保存'); }}><div className="form-grid"><div><label htmlFor="roster-name">显示姓名</label><input id="roster-name" value={guestForm.name} onChange={(event) => setGuestForm({ ...guestForm, name: event.target.value })} maxLength={120} required/></div><div><label htmlFor="roster-login">登录名</label><input id="roster-login" value={guestForm.loginName} disabled={Boolean(rosterGuest?.claimed_at)} onChange={(event) => setGuestForm({ ...guestForm, loginName: event.target.value })} maxLength={80} placeholder="例如 Fangzhou Chen" required/></div><div><label htmlFor="roster-table">桌号或座位</label><input id="roster-table" value={guestForm.tableLabel} onChange={(event) => setGuestForm({ ...guestForm, tableLabel: event.target.value })} maxLength={40} placeholder="例如 3 号桌"/></div></div>{rosterGuest?.claimed_at && <p className="field-help">宾客已设置密码，登录名已锁定；显示姓名、桌号和标记仍可修改。</p>}<label htmlFor="roster-notes">工作人员备注</label><textarea id="roster-notes" value={guestForm.staffNotes} onChange={(event) => setGuestForm({ ...guestForm, staffNotes: event.target.value })} maxLength={300} placeholder="仅主办方和导出文件可见，不填写不必要的个人信息。"/><div className="form-grid"><label className="ready-check"><input type="checkbox" checked={guestForm.isElder} onChange={(event) => setGuestForm({ ...guestForm, isElder: event.target.checked })}/><span><strong>长辈或轻量参与</strong><small>便于优先安排简单任务。</small></span></label><label className="ready-check"><input type="checkbox" checked={guestForm.ceremonyEligible} onChange={(event) => setGuestForm({ ...guestForm, ceremonyEligible: event.target.checked })}/><span><strong>适合仪式任务</strong><small>可承担递戒指、领掌等指定环节。</small></span></label><label className="ready-check"><input type="checkbox" checked={guestForm.active} disabled={Boolean(rosterGuest?.drawn_at)} onChange={(event) => setGuestForm({ ...guestForm, active: event.target.checked })}/><span><strong>允许认领和参与</strong><small>{rosterGuest?.drawn_at ? '已经抽卡，现场期间不能停用。' : '停用会撤销该宾客所有登录会话。'}</small></span></label></div><button disabled={busy}>{rosterGuestId === 'new' ? '添加到宾客名单' : '保存宾客资料'}</button></form></section>
+
+    <section className="section-card"><div className="section-heading"><div><small>GUESTS</small><h2>宾客进度</h2></div><span>{activeGuests.length}/{data.guests.length}</span></div><div className="guest-admin-list">{data.guests.map((guest) => <article key={guest.id}><div className="guest-avatar">{guest.name.slice(0, 1)}</div><div><strong>{guest.name}</strong><small>{guest.login_name}{guest.table_label ? ` · ${guest.table_label}` : ''}{guest.is_elder ? ' · 长辈' : ''}{guest.ceremony_eligible ? ' · 仪式候选' : ''} · {guest.drawn_at ? `${guest.team} / ${ROLE_LABELS[guest.role] || guest.role}` : '待抽卡'} · {guest.points} 分</small></div><span className={!guest.active ? 'unclaimed' : guest.claimed_at ? 'claimed' : 'unclaimed'}>{!guest.active ? '已停用' : guest.claimed_at ? (guest.drawn_at ? '已抽卡' : '待抽卡') : '未设置'}</span>{guest.active && guest.claimed_at && <button className="mini-button" disabled={busy} onClick={() => { if (window.confirm(`确认重置 ${guest.name} 的密码并退出其所有设备？`)) void action({ type: 'resetGuestClaim', guestId: guest.id }, '宾客密码已重置'); }}>重置密码</button>}</article>)}</div></section>
 
     <section className="admin-grid">
       <article className="section-card"><div className="section-heading"><div><small>VOTE COUNT</small><h2>第 {data.game?.voting_round || 0} 轮投票</h2></div><span>{data.votes.length}</span></div><p className="muted">已投票 {data.votes.length}/{drawn} 人，每人本轮只能投一次。统计仅在主办方后台可见。</p>{data.game?.results_visible && <div className="control-state on">本场已自动结算：个人 +{settledPersonalPoints} 分 · 团队 +{settledTeamPoints} 分</div>}{votesByTarget.length === 0 ? <div className="empty-state">暂无投票。</div> : <ol className="ranking-list">{votesByTarget.map(([name, count]) => <li key={name}><strong>{name}</strong><span>{count} 票</span></li>)}</ol>}</article>

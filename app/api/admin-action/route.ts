@@ -8,6 +8,7 @@ import {
   configureGuestGameProfile,
   saveGameClue,
   saveGameTask,
+  saveGuestRoster,
   grantClueToGuest,
   rejectAssignment,
   resetGuestClaim,
@@ -88,6 +89,17 @@ export async function POST(request: Request) {
         requiredEnum(body.role, '身份', GAME_ROLES),
         actor,
       );
+    } else if (type === 'saveGuestRoster') {
+      await saveGuestRoster({
+        id: body.guestId ? requiredUuid(body.guestId, '宾客 ID') : null,
+        name: requiredString(body.name, '宾客姓名', 120),
+        loginName: requiredString(body.loginName, '登录名', 80),
+        tableLabel: optionalString(body.tableLabel, '桌号', 40),
+        isElder: requiredBoolean(body.isElder, '长辈标记'),
+        ceremonyEligible: requiredBoolean(body.ceremonyEligible, '仪式任务标记'),
+        active: requiredBoolean(body.active, '宾客启用状态'),
+        staffNotes: optionalString(body.staffNotes, '工作人员备注', 300),
+      }, actor);
     } else if (type === 'saveTask') {
       await saveGameTask({
         id: body.taskId ? requiredUuid(body.taskId, '任务 ID') : null,

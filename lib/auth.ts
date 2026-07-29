@@ -24,5 +24,9 @@ export async function requireGuest() {
     .maybeSingle();
   if (error) throw new Error(`Unable to verify guest session: ${error.message}`);
   if (!data) throw new ApiError(401, '登录已失效');
+  const { data: guest, error: guestError } = await getSupabaseAdmin()
+    .from('guests').select('id').eq('id', data.guest_id).eq('active', true).maybeSingle();
+  if (guestError) throw new Error(`Unable to verify active guest: ${guestError.message}`);
+  if (!guest) throw new ApiError(401, '宾客身份已停用，请联系主办方');
   return data.guest_id;
 }

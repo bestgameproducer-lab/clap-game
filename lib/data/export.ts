@@ -10,10 +10,10 @@ export async function getAdminCsvExport(kind: AdminExportKind) {
   let rows: CsvCell[][];
 
   if (kind === 'guests') {
-    const { data, error } = await db.from('guests').select('name,login_name,team,role,points,claimed_at,drawn_at,created_at').order('team').order('name');
+    const { data, error } = await db.from('guests').select('name,login_name,table_label,is_elder,ceremony_eligible,active,staff_notes,team,role,points,claimed_at,drawn_at,created_at').order('team').order('name');
     if (error) throw new Error(`Unable to export guests: ${error.message}`);
-    headers = ['姓名', '登录名', '组别', '身份', '积分', '已设置密码时间', '抽卡时间', '创建时间'];
-    rows = (data ?? []).map((item) => [item.name, item.login_name, item.team, item.role, item.points, item.claimed_at, item.drawn_at, item.created_at]);
+    headers = ['姓名', '登录名', '桌号', '长辈', '适合仪式任务', '启用', '工作人员备注', '组别', '身份', '积分', '已设置密码时间', '抽卡时间', '创建时间'];
+    rows = (data ?? []).map((item) => [item.name, item.login_name, item.table_label, item.is_elder, item.ceremony_eligible, item.active, item.staff_notes, item.team, item.role, item.points, item.claimed_at, item.drawn_at, item.created_at]);
   } else if (kind === 'assignments') {
     const { data, error } = await db.from('assignments').select('status,is_initial,completion_rank,submitted_at,approved_at,rejected_at,rejection_reason,created_at,guest:guests(name),task:tasks(title,points,category,stage)').order('created_at');
     if (error) throw new Error(`Unable to export assignments: ${error.message}`);
