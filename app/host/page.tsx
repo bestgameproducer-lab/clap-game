@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { StaffLogoutButton } from '../staff-logout-button';
 
 const STAGES = [
   ['waiting', '等待开场'], ['task_round_1', '第一轮任务'], ['task_round_2', '第二轮任务'],
@@ -92,7 +93,7 @@ export default function HostPage() {
   const isCurrent = Boolean(selected && data.game?.current_host_segment_id === selected.id);
 
   return <main className="host-shell">
-    <header className="host-hero"><div><div className="eyebrow">PRIVATE HOST VIEW</div><h1>主持人流程台</h1><p>正确答案只在这里显示，不会发送给宾客或公开大屏。</p></div><div className="host-links"><a href="/scoreboard" target="_blank" rel="noreferrer">打开大屏 ↗</a><a href="/admin">主办方后台</a></div></header>
+    <header className="host-hero"><div><div className="eyebrow">PRIVATE HOST VIEW</div><h1>主持人流程台</h1><p>正确答案只在这里显示，不会发送给宾客或公开大屏。</p></div><div className="host-links"><a href="/scoreboard" target="_blank" rel="noreferrer">打开大屏 ↗</a><a href="/admin">主办方后台</a><StaffLogoutButton/></div></header>
     {message && <div className="notice success sticky-notice">{message}</div>}{error && <div className="notice error sticky-notice">{error}</div>}
     <div className="host-layout">
       <aside className="host-queue section-card"><div className="section-heading"><div><small>RUN OF SHOW</small><h2>流程题库</h2></div><button className="mini-button" onClick={() => setSelectedId('new')}>＋ 新建</button></div><div className="host-segment-list">{data.segments.map((segment, index) => <button key={segment.id} className={`${selectedId === segment.id ? 'selected' : ''} ${data.game?.current_host_segment_id === segment.id ? 'current' : ''}`} onClick={() => setSelectedId(segment.id)}><b>{String(index + 1).padStart(2, '0')}</b><span><strong>{segment.title}</strong><small>{STAGES.find(([value]) => value === segment.stage)?.[1] || segment.stage} · {segment.ready ? '可发布' : '待完善'}</small></span></button>)}</div></aside>

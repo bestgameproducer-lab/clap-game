@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { StaffLogoutButton } from '../staff-logout-button';
 
 const STATUS_LABELS: Record<string, string> = { assigned: '进行中', submitted: '待核验', approved: '已完成', rejected: '已退回' };
 const CATEGORY_LABELS: Record<string, string> = { standard: '普通', ceremony: '仪式', group: '团队', upgrade: '升级', hidden: '隐藏' };
@@ -76,7 +77,7 @@ export default function StationPage() {
   if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">CUPID STATION</div><div className="heart-mark">♡</div><h1>丘比特<br/>任务站</h1><p className="lead">核验任务、发放线索和隐藏奖励。</p><form onSubmit={login}><label htmlFor="station-password">管理员密码</label><input id="station-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required/><button disabled={busy}>{busy ? '登录中…' : '进入任务站'}</button>{error && <div className="notice error">{error}</div>}</form></section></main>;
 
   return <main className="station-shell">
-    <header className="station-hero"><div><div className="eyebrow">REDEMPTION DESK</div><h1>丘比特任务站</h1><p>当前阶段：{data.game?.stage || '未知'} · 本页面不显示任何隐藏身份</p></div><div className="host-links"><a href="/admin">主办方后台</a><a href="/host">主持人流程台</a></div></header>
+    <header className="station-hero"><div><div className="eyebrow">REDEMPTION DESK</div><h1>丘比特任务站</h1><p>当前阶段：{data.game?.stage || '未知'} · 本页面不显示任何隐藏身份</p></div><div className="host-links"><a href="/admin">主办方后台</a><a href="/host">主持人流程台</a><StaffLogoutButton/></div></header>
     {message && <div className="notice success sticky-notice">{message}</div>}{error && <div className="notice error sticky-notice">{error}</div>}
     <div className="station-layout">
       <aside className="station-guests section-card"><label htmlFor="station-search">搜索宾客</label><input id="station-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="姓名、拼音或组别"/><div className="station-guest-list">{filteredGuests.map((item) => <button key={item.id} className={item.id === guestId ? 'selected' : ''} onClick={() => setGuestId(item.id)}><span>{item.name.slice(0, 1)}</span><p><strong>{item.name}</strong><small>{item.team} · {item.points} 分</small></p><b>{item.drawn_at ? '已抽卡' : item.claimed_at ? '待抽卡' : '未认领'}</b></button>)}</div>{filteredGuests.length === 0 && <div className="empty-state">没有找到宾客。</div>}</aside>

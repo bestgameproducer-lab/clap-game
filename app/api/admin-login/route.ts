@@ -1,8 +1,9 @@
 import crypto from 'crypto';
 import { NextResponse } from 'next/server';
+import { ADMIN_SESSION_MAX_AGE } from '@/lib/admin-session';
+import { createAdminSession } from '@/lib/data/admin-session';
 import { apiErrorResponse } from '@/lib/errors';
 import { getAdminPassword } from '@/lib/env';
-import { signSession } from '@/lib/session';
 import { assertSameOrigin, readJsonObject, requiredString } from '@/lib/validation';
 
 export async function POST(request: Request) {
@@ -16,10 +17,10 @@ export async function POST(request: Request) {
     if (!crypto.timingSafeEqual(suppliedHash, expectedHash)) {
       return NextResponse.json({ error: '密码错误' }, { status: 401 });
     }
-    const maxAge = 60 * 60 * 12;
+    const token = await createAdminSession();
     const response = NextResponse.json({ ok: true });
-    response.cookies.set('admin_session', signSession('admin', 'shared-admin', maxAge), {
-      httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge, path: '/',
+    response.cookies.set('admin_session', token, {
+      httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: ADMIN_SESSION_MAX_AGE, path: '/',
     });
     return response;
   } catch (error) { return apiErrorResponse(error); }

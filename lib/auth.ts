@@ -1,12 +1,13 @@
 import 'server-only';
 import { cookies } from 'next/headers';
 import { ApiError } from './errors';
+import { verifyAdminSession } from './data/admin-session';
 import { hashGuestSessionToken } from './guest-session';
-import { verifySession } from './session';
 import { getSupabaseAdmin } from './supabase';
 
 export async function requireAdmin() {
-  const subject = verifySession((await cookies()).get('admin_session')?.value, 'admin');
+  const token = (await cookies()).get('admin_session')?.value;
+  const subject = token ? await verifyAdminSession(token) : null;
   if (!subject) throw new ApiError(401, '未授权');
   return subject;
 }

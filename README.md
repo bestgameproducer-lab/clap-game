@@ -18,6 +18,7 @@
 - 内置首轮、升级、团队和隐藏任务库
 - 前 10 位完成首轮任务者自动获得升级任务，前 3 位额外获得已配置线索
 - 所有主办方修改写入操作审计记录
+- 工作人员登录使用数据库中可撤销的哈希会话；后台、主持台和任务站均可安全退出共享设备
 - 最终投票与后台统计
 - 投票开关和结果公布开关
 - 可由后台单独开放的公开积分大屏，支持团队排名、个人榜与身份揭晓
@@ -56,7 +57,6 @@ npm run dev
 ```env
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY
-SESSION_SECRET=请填写至少32位随机字符串
 ADMIN_PASSWORD=请填写至少12位的管理员密码
 NEXT_PUBLIC_WEDDING_TITLE=我们的婚礼秘密任务
 ```
@@ -85,7 +85,7 @@ NEXT_PUBLIC_WEDDING_TITLE=我们的婚礼秘密任务
 
 1. 将项目上传到 GitHub 私有仓库。
 2. 在 Vercel 中导入仓库。
-3. 添加与 `.env.local` 相同的五个环境变量。
+3. 添加与 `.env.local` 相同的四个环境变量。
 4. 点击 Deploy。
 5. 用最终网址生成普通二维码。
 
@@ -113,7 +113,7 @@ npm test
 npm run build
 ```
 
-生产环境缺少 Supabase 配置、32 位会话密钥或 12 位管理员密码时，服务器会拒绝启动相关功能。不要在生产环境使用示例中的占位值。
+生产环境缺少 Supabase 配置或 12 位管理员密码时，服务器会拒绝启动相关功能。宾客和工作人员会话均使用随机令牌，数据库只保存不可逆哈希。不要在生产环境使用示例中的占位值。
 
 婚礼前准备、当天流程与故障恢复请参阅 [`docs/wedding-day-runbook.md`](docs/wedding-day-runbook.md)，人工验收项目请参阅 [`docs/acceptance-checklist.md`](docs/acceptance-checklist.md)。
 
