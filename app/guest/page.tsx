@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+
+const GUEST_CACHE_KEY = 'wedding-guest-session-cache-v1';
 
 type RegistrationGuest = { id: string; name: string; loginName: string; hasPassword: boolean };
 type SecretCard = { team: string; role: string; task: { id: string; title: string; description: string; points: number }; drawnAt: string };
@@ -11,6 +13,12 @@ type GuestData = {
   game: { registration_open: boolean; stage: string; voting_open: boolean; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null } | null;
   candidates: Array<{ id: string; name: string; team: string }>;
   existingVote: string | null;
+  results: null | {
+    teamMembers: Array<{ id: string; name: string; role: string }>;
+    votedTargetId: string | null;
+    votedTargetName: string | null;
+    voteCorrect: boolean | null;
+  };
 };
 
 const STAGES: Record<string, { label: string; note: string }> = {
@@ -46,20 +54,54 @@ export default function GuestPage() {
   const [revealedCard, setRevealedCard] = useState<SecretCard | null>(null);
   const [showSecrets, setShowSecrets] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [offline, setOffline] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
-  async function load() {
+  const load = useCallback(async (silent = false) => {
+    if (silent) setSyncing(true);
     try {
       const response = await fetch('/api/guest-me', { cache: 'no-store' });
-      if (response.ok) setData(await response.json());
-      else if (response.status === 401) setData(null);
+      if (response.ok) {
+        const nextData = await response.json();
+        setData(nextData); setOffline(false); setError('');
+        try { window.sessionStorage.setItem(GUEST_CACHE_KEY, JSON.stringify(nextData)); } catch {}
+      }
+      else if (response.status === 401) {
+        setData(null);
+        try { window.sessionStorage.removeItem(GUEST_CACHE_KEY); } catch {}
+      }
       else setError('暂时无法加载游戏，请稍后重试。');
-    } catch { setError('网络连接不稳定，请检查网络后重试。'); }
-    finally { setChecking(false); }
-  }
+    } catch {
+      setOffline(true); setError('网络连接不稳定，正在显示本机最近一次任务。');
+      try {
+        const cached = window.sessionStorage.getItem(GUEST_CACHE_KEY);
+        if (cached) setData(JSON.parse(cached));
+      } catch {}
+    } finally { setChecking(false); setSyncing(false); }
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    setOffline(!window.navigator.onLine);
+    void load();
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible' && window.navigator.onLine) void load(true); }, 15_000);
+    const handleOnline = () => { setOffline(false); void load(true); };
+    const handleOffline = () => setOffline(true);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') setShowSecrets(false);
+      else if (window.navigator.onLine) void load(true);
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [load]);
 
   async function unlockInvitation(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setError('');
@@ -94,27 +136,34 @@ export default function GuestPage() {
   }
 
   async function submit(assignmentId: string) {
-    setMessage(''); setError('');
-    const response = await fetch('/api/submit-task', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assignmentId }),
-    });
-    const body = await response.json();
-    if (!response.ok) { setError(body.error || '提交失败'); return; }
-    setMessage('任务已送到丘比特任务站，等待主办方确认。'); await load();
+    setMessage(''); setError(''); setBusy(true);
+    try {
+      const response = await fetch('/api/submit-task', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assignmentId }),
+      });
+      const body = await response.json();
+      if (!response.ok) { setError(body.error || '提交失败'); return; }
+      setMessage('任务已送到丘比特任务站，等待主办方确认。'); await load();
+    } catch { setOffline(true); setError('当前处于离线状态，任务尚未提交，请联网后重试。'); }
+    finally { setBusy(false); }
   }
 
   async function vote(targetGuestId: string) {
-    setError('');
-    const response = await fetch('/api/vote', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ targetGuestId }),
-    });
-    const body = await response.json();
-    if (!response.ok) { setError(body.error || '投票失败'); return; }
-    setMessage('投票已保存，投票关闭前仍可修改。'); await load();
+    setError(''); setBusy(true);
+    try {
+      const response = await fetch('/api/vote', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ targetGuestId }),
+      });
+      const body = await response.json();
+      if (!response.ok) { setError(body.error || '投票失败'); return; }
+      setMessage('投票已保存，投票关闭前仍可修改。'); await load();
+    } catch { setOffline(true); setError('当前处于离线状态，投票尚未保存，请联网后重试。'); }
+    finally { setBusy(false); }
   }
 
   async function logout() {
-    await fetch('/api/guest-logout', { method: 'POST' });
+    try { await fetch('/api/guest-logout', { method: 'POST' }); } catch {}
+    try { window.sessionStorage.removeItem(GUEST_CACHE_KEY); } catch {}
     setData(null); setInvitationCode(''); setGuests(null); setSelectedGuest(null); setClaimCode(''); setClaimCodeConfirm(''); setSearch(''); setShowSecrets(false); setRevealedCard(null);
   }
 
@@ -216,13 +265,14 @@ export default function GuestPage() {
       <div className="identity-strip"><small>你的秘密身份</small><strong>{role.title}</strong><p>{role.note}</p></div>
       <div className="stage-card"><small>当前环节</small><strong>{stage.label}</strong><p>{data.game?.phase_note || stage.note}</p></div>
     </section>
-    {message && <div className="notice success">{message}</div>}{error && <div className="notice error">{error}</div>}
+    {(offline || syncing) && <div className={`connection-banner ${offline ? 'offline' : ''}`} role="status">{offline ? '离线只读模式 · 已显示最近同步的任务，提交和投票暂不可用' : '正在同步最新状态…'}</div>}
+    {message && <div className="notice success" aria-live="polite">{message}</div>}{error && <div className="notice error" aria-live="polite">{error}</div>}
     <section className="section-card"><div className="section-heading"><div><small>SECRET MISSIONS</small><h2>我的秘密任务</h2></div><span>{data.assignments.length}</span></div>
-      {data.assignments.length === 0 ? <div className="empty-state">本轮任务尚未开放，先享受婚礼吧。</div> : data.assignments.map((assignment, index) => <article className="mission-item" key={assignment.id}><div className="mission-number">{String(index + 1).padStart(2, '0')}</div><div className="mission-body"><div className="mission-meta"><span>{assignment.task.points} 分</span><span className={`status ${assignment.status}`}>{STATUS_LABELS[assignment.status] ?? assignment.status}</span></div><h3>{assignment.task.title}</h3><p>{assignment.task.description}</p>{assignment.status === 'rejected' && <div className="task-feedback">任务站留言：{assignment.rejection_reason || '请补充验证后再次提交。'}</div>}{(assignment.status === 'assigned' || assignment.status === 'rejected') && <button onClick={() => submit(assignment.id)}>{assignment.status === 'rejected' ? '补充完成 · 再次提交' : '我已完成 · 提交验证'}</button>}</div></article>)}
+      {data.assignments.length === 0 ? <div className="empty-state">本轮任务尚未开放，先享受婚礼吧。</div> : data.assignments.map((assignment, index) => <article className="mission-item" key={assignment.id}><div className="mission-number">{String(index + 1).padStart(2, '0')}</div><div className="mission-body"><div className="mission-meta"><span>{assignment.task.points} 分</span><span className={`status ${assignment.status}`}>{STATUS_LABELS[assignment.status] ?? assignment.status}</span></div><h3>{assignment.task.title}</h3><p>{assignment.task.description}</p>{assignment.status === 'rejected' && <div className="task-feedback">任务站留言：{assignment.rejection_reason || '请补充验证后再次提交。'}</div>}{(assignment.status === 'assigned' || assignment.status === 'rejected') && <button disabled={busy || offline} onClick={() => submit(assignment.id)}>{offline ? '联网后可提交' : assignment.status === 'rejected' ? '补充完成 · 再次提交' : '我已完成 · 提交验证'}</button>}</div></article>)}
     </section>
     <section className="section-card"><div className="section-heading"><div><small>SPY CLUES</small><h2>已解锁线索</h2></div><span>{data.clues.length}</span></div>{data.clues.length === 0 ? <div className="empty-state">完成任务后，线索会在这里出现。</div> : data.clues.map((clue) => <div className="clue" key={clue.id}><strong>{clue.title}</strong><p>{clue.content}</p></div>)}</section>
-    {data.game?.voting_open && <section className="section-card"><div className="section-heading"><div><small>FINAL VOTE</small><h2>谁是恶作剧者？</h2></div></div><p className="muted">只能选择本队宾客，投票关闭前可以修改。</p><div className="vote-grid">{data.candidates.filter((candidate) => candidate.id !== data.guest.id).map((candidate) => <button className={data.existingVote === candidate.id ? 'vote-choice selected' : 'vote-choice'} key={candidate.id} onClick={() => vote(candidate.id)}>{candidate.name}</button>)}</div></section>}
-    {data.game?.results_visible && <section className="reveal-card"><small>THE STORY CONTINUES</small><h2>身份揭晓时刻</h2><p>请跟随主持人的现场公布与颁奖。</p></section>}
-    <div className="footer-actions"><button onClick={() => setShowSecrets(false)}>隐藏我的秘密</button><button className="secondary" onClick={load}>刷新状态</button><button className="text-button" onClick={logout}>退出此身份</button></div>
+    {data.game?.voting_open && <section className="section-card"><div className="section-heading"><div><small>FINAL VOTE</small><h2>谁是恶作剧者？</h2></div></div><p className="muted">只能选择本队宾客，投票关闭前可以修改。选中后会立即保存。</p><div className="vote-grid">{data.candidates.filter((candidate) => candidate.id !== data.guest.id).map((candidate) => <button disabled={busy || offline} className={data.existingVote === candidate.id ? 'vote-choice selected' : 'vote-choice'} key={candidate.id} onClick={() => vote(candidate.id)}>{data.existingVote === candidate.id ? '✓ ' : ''}{candidate.name}</button>)}</div>{offline && <p className="vote-offline-note">恢复网络后才能提交投票。</p>}</section>}
+    {data.game?.results_visible && data.results && <section className="reveal-card"><small>THE FINAL REVEAL</small><h2>身份揭晓</h2>{data.results.votedTargetName ? <div className={`vote-verdict ${data.results.voteCorrect ? 'correct' : 'missed'}`}><span>你投给了 {data.results.votedTargetName}</span><strong>{data.results.voteCorrect ? '成功找到了恶作剧者' : '恶作剧者成功隐藏了自己'}</strong></div> : <div className="vote-verdict missed"><strong>你没有提交最终投票</strong></div>}<div className="team-role-reveal">{data.results.teamMembers.map((member) => <div key={member.id}><span>{member.name}</span><strong>{ROLE_LABELS[member.role]?.title ?? member.role}</strong></div>)}</div><p>感谢你成为这场婚礼故事的一部分。</p></section>}
+    <div className="footer-actions"><button onClick={() => setShowSecrets(false)}>隐藏我的秘密</button><button className="secondary" disabled={syncing} onClick={() => void load()}>{syncing ? '同步中…' : '刷新状态'}</button><button className="text-button" onClick={logout}>退出此身份</button></div>
   </main>;
 }

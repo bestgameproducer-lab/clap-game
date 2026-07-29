@@ -33,14 +33,15 @@ export default function ScoreboardPage() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '积分大屏加载失败');
       setOffline(true);
-      if (!data) {
+      setData((current) => {
+        if (current) return current;
         try {
           const cached = window.localStorage.getItem('wedding-scoreboard-cache');
-          if (cached) setData(JSON.parse(cached));
-        } catch {}
-      }
+          return cached ? JSON.parse(cached) : null;
+        } catch { return null; }
+      });
     }
-  }, [data]);
+  }, []);
 
   useEffect(() => {
     void load();

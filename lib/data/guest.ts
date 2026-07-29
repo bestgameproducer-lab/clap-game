@@ -1,6 +1,7 @@
 import 'server-only';
 import { ApiError } from '../errors';
 import { isTaskVisibleAtStage } from '../game-rules';
+import { buildPublishedTeamResults } from '../result-core';
 import { getSupabaseAdmin } from '../supabase';
 
 export async function submitGuestAssignment(assignmentId: string, guestId: string) {
@@ -45,21 +46,41 @@ export async function drawGuestCard(guestId: string) {
 
 export async function getGuestView(guestId: string) {
   const db = getSupabaseAdmin();
-  const { data: guest, error: guestError } = await db.from('guests').select('id,name,team,role,points,drawn_at').eq('id', guestId).single();
+  const [{ data: guest, error: guestError }, { data: game, error: gameError }] = await Promise.all([
+    db.from('guests').select('id,name,team,role,points,drawn_at').eq('id', guestId).single(),
+    db.from('game_state').select('registration_open,stage,voting_open,results_visible,scoreboard_visible,phase_note').eq('id', 1).single(),
+  ]);
   if (guestError || !guest) throw new ApiError(401, '登录已失效');
+  if (gameError || !game) throw new Error(`Unable to load game state: ${gameError?.message ?? 'missing row'}`);
   const results = await Promise.all([
     db.from('assignments').select('id,status,rejection_reason,task:tasks(title,description,points,category,stage)').eq('guest_id', guestId).order('created_at'),
     db.from('guest_clues').select('id,clue:clues(title,content)').eq('guest_id', guestId),
-    db.from('game_state').select('registration_open,stage,voting_open,results_visible,scoreboard_visible,phase_note').eq('id', 1).single(),
-    db.from('guests').select('id,name,team').eq('team', guest.team).order('name'),
+    db.from('guests').select('id,name,team').eq('team', guest.team).not('drawn_at', 'is', null).order('name'),
     db.from('votes').select('target_guest_id').eq('voter_guest_id', guestId).maybeSingle(),
   ]);
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`Unable to load guest data: ${error.message}`);
   const visibleAssignments = (results[0].data ?? []).filter((assignment: { task: { stage?: string } | { stage?: string }[] | null }) => {
     const task = Array.isArray(assignment.task) ? assignment.task[0] : assignment.task;
-    return isTaskVisibleAtStage(task?.stage, results[2].data?.stage);
+    return isTaskVisibleAtStage(task?.stage, game.stage);
   });
+  let publishedResults: null | {
+    teamMembers: Array<{ id: string; name: string; role: string }>;
+    votedTargetId: string | null;
+    votedTargetName: string | null;
+    voteCorrect: boolean | null;
+  } = null;
+  if (game.results_visible) {
+    const { data: teamMembers, error: revealError } = await db
+      .from('guests')
+      .select('id,name,role')
+      .eq('team', guest.team)
+      .not('drawn_at', 'is', null)
+      .order('name');
+    if (revealError) throw new Error(`Unable to load published results: ${revealError.message}`);
+    const votedTargetId = results[3].data?.target_guest_id ?? null;
+    publishedResults = buildPublishedTeamResults(teamMembers ?? [], votedTargetId, true);
+  }
   return {
     guest,
     assignments: visibleAssignments,
@@ -68,8 +89,9 @@ export async function getGuestView(guestId: string) {
       title: Array.isArray(item.clue) ? item.clue[0]?.title : item.clue?.title,
       content: Array.isArray(item.clue) ? item.clue[0]?.content : item.clue?.content,
     })),
-    game: results[2].data,
-    candidates: results[3].data ?? [],
-    existingVote: results[4].data?.target_guest_id ?? null,
+    game,
+    candidates: results[2].data ?? [],
+    existingVote: results[3].data?.target_guest_id ?? null,
+    results: publishedResults,
   };
 }

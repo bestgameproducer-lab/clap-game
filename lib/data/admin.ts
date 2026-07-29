@@ -26,7 +26,7 @@ export async function getAdminDashboardData() {
     db.from('assignments').select('id,guest_id,task_id,status,submitted_at,approved_at,rejected_at,rejection_reason,created_at,task:tasks(id,title,description,points,category,stage)'),
     db.from('tasks').select('id,title,description,points,role_scope,category,stage,active,created_at').eq('active', true).order('stage').order('title'),
     db.from('assignments').select('id,status,submitted_at,guest:guests(id,name),task:tasks(id,title,points)').eq('status', 'submitted'),
-    db.from('votes').select('id,voter_guest_id,target_guest_id,created_at,target:guests!votes_target_guest_id_fkey(id,name)'),
+    db.from('votes').select('id,voter_guest_id,target_guest_id,created_at,voter:guests!votes_voter_guest_id_fkey(id,name,team),target:guests!votes_target_guest_id_fkey(id,name,team)'),
     db.from('game_state').select('id,registration_open,stage,voting_open,results_visible,scoreboard_visible,phase_note,updated_at').eq('id', 1).single(),
     db.from('clues').select('id,title,content,active,created_at').eq('active', true).order('created_at'),
     db.from('guest_clues').select('id,guest_id,clue_id,created_at,guest:guests(id,name),clue:clues(id,title)').order('created_at', { ascending: false }).limit(50),
