@@ -16,11 +16,12 @@ function requireValue(name: string, minimumLength = 1): string {
   return value;
 }
 
-export function getServerEnv() {
+export function getSupabaseEnv() {
   return {
     supabaseUrl: requireValue('SUPABASE_URL'),
     supabaseServiceRoleKey: requireValue('SUPABASE_SERVICE_ROLE_KEY', 20),
-    sessionSecret: requireValue('SESSION_SECRET', 32),
-    adminPassword: requireValue('ADMIN_PASSWORD', 12),
   };
 }
+
+export const getSessionSecret = () => requireValue('SESSION_SECRET', 32);
+export const getAdminPassword = () => requireValue('ADMIN_PASSWORD', 12);

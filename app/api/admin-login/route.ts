@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { apiErrorResponse } from '@/lib/errors';
-import { getServerEnv } from '@/lib/env';
+import { getAdminPassword } from '@/lib/env';
 import { signSession } from '@/lib/session';
 import { assertSameOrigin, readJsonObject, requiredString } from '@/lib/validation';
 
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     assertSameOrigin(request);
     const body = await readJsonObject(request);
     const supplied = requiredString(body.password, '密码', 256);
-    const expected = getServerEnv().adminPassword;
+    const expected = getAdminPassword();
     const suppliedHash = crypto.createHash('sha256').update(supplied).digest();
     const expectedHash = crypto.createHash('sha256').update(expected).digest();
     if (!crypto.timingSafeEqual(suppliedHash, expectedHash)) {
