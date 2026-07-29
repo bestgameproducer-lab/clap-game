@@ -133,5 +133,6 @@ button.mini-button { width:auto; margin:0; padding:6px 8px; font-size:11px; back
 .home-cta { display:flex; align-items:center; justify-content:space-between; max-width:360px; margin:0 auto; padding:15px 18px 15px 22px; border-radius:999px; background:#fff8f3; color:#573d34; text-decoration:none; font-weight:800; box-shadow:0 10px 28px rgba(39,24,19,.2); }
 .home-cta b { width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:#765247;color:#fff; }
 .privacy-note { color:#d9c3ba; font-size:11px; margin:16px 0 0; }
+.login-note { color:var(--muted); font-size:12px; margin:-8px 0 16px; text-align:left; }
 .organizer-link { justify-self:center; color:#77685f; font-size:12px; margin-top:18px; }
 @media(max-width:420px){.home-hero{padding:40px 20px 30px;border-radius:26px}.home-copy{font-size:14px}.rings{margin-top:18px}}

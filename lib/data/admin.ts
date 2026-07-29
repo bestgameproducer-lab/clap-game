@@ -15,7 +15,7 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
 export async function getAdminDashboardData() {
   const db = getSupabaseAdmin();
   const results = await Promise.all([
-    db.from('guests').select('id,name,team,points,claimed_at,created_at').order('team').order('name'),
+    db.from('guests').select('id,name,login_name,team,points,claimed_at,created_at').order('team').order('name'),
     db.from('assignments').select('id,guest_id,task_id,status,submitted_at,approved_at,created_at,task:tasks(id,title,description,points)'),
     db.from('tasks').select('id,title,description,points,role_scope,created_at'),
     db.from('assignments').select('id,status,submitted_at,guest:guests(id,name),task:tasks(id,title,points)').eq('status', 'submitted'),
