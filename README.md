@@ -43,12 +43,11 @@
 ## 2. 本地运行
 
 ```bash
-cp .env.example .env.local
 npm install
 npm run dev
 ```
 
-编辑 `.env.local`：
+在项目根目录新建仅供本机使用、不会提交到 Git 的 `.env.local`：
 
 ```env
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
@@ -108,7 +107,9 @@ npm test
 npm run build
 ```
 
-生产环境缺少 Supabase 配置、32 位会话密钥或 12 位管理员密码时，服务器会拒绝启动相关功能。不要在生产环境使用 `.env.example` 中的占位值。
+生产环境缺少 Supabase 配置、32 位会话密钥或 12 位管理员密码时，服务器会拒绝启动相关功能。不要在生产环境使用示例中的占位值。
+
+婚礼前准备、当天流程与故障恢复请参阅 [`docs/wedding-day-runbook.md`](docs/wedding-day-runbook.md)，人工验收项目请参阅 [`docs/acceptance-checklist.md`](docs/acceptance-checklist.md)。
 
 ## 当前 MVP 的边界
 

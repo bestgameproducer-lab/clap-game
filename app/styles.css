@@ -161,7 +161,22 @@ button.mini-button { width:auto; margin:0; padding:6px 8px; font-size:11px; back
 .audit-list>div { display:grid; grid-template-columns:1fr auto; gap:3px 10px; padding:10px 12px; border-bottom:1px solid #eee3dc; }
 .audit-list span,.audit-list small { color:#8a7c73; font-size:11px; }
 .audit-list small { grid-column:1/-1; }
+.readiness-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.readiness-list>div { display:flex; align-items:center; gap:10px; padding:12px; border-radius:14px; background:#f8f3ef; }
+.readiness-list b { width:28px; height:28px; flex:0 0 28px; display:grid; place-items:center; border-radius:50%; }
+.readiness-list .ready b { color:#fff; background:#477557; }
+.readiness-list .not-ready b { color:#fff; background:#a96845; }
+.readiness-list p,.readiness-list strong,.readiness-list small { display:block; margin:0; }
+.readiness-list small { margin-top:2px; color:#877970; }
+.ready-badge,.warning-badge { padding:5px 9px; border-radius:999px; font-size:12px; }
+.ready-badge { background:#dfeee3; color:#356947; }
+.warning-badge { background:#f5e5d9; color:#8d4f34; }
+.readiness-help { margin:12px 0 0; color:#8d4f34; font-size:12px; }
+.export-actions { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 18px; }
+.export-actions a { padding:9px 12px; border:1px solid #d8c4b8; border-radius:999px; color:#704e42; background:#fffaf7; font-size:12px; font-weight:800; text-decoration:none; }
+.export-actions a:focus-visible { outline:3px solid rgba(112,78,66,.24); outline-offset:2px; }
 @media(max-width:700px){.admin-grid,.guest-admin-list,.operation-grid{grid-template-columns:1fr}.approval-row{align-items:flex-start;flex-direction:column}.admin-hero{align-items:flex-start}.admin-hero h1{font-size:27px}.operation-grid .muted{min-height:0}.control-buttons{grid-template-columns:1fr}.guest-admin-list article{grid-template-columns:38px 1fr auto}.guest-admin-list .mini-button{grid-column:2/-1;justify-self:start}}
+@media(max-width:700px){.readiness-list{grid-template-columns:1fr}.export-actions a{flex:1 1 calc(50% - 8px);text-align:center}}
 .home-shell { width:min(620px,100%); min-height:100vh; display:grid; align-content:center; padding:28px 18px; }
 .home-hero { position:relative; text-align:center; border-radius:34px; padding:48px 28px 34px; color:#fff; background:linear-gradient(155deg,#4c352f 0%,#79564a 58%,#9f7765 100%); box-shadow:0 32px 80px rgba(65,38,29,.28); overflow:hidden; }
 .home-hero:before,.home-hero:after { content:''; position:absolute; border:1px solid rgba(255,255,255,.12); border-radius:50%; }

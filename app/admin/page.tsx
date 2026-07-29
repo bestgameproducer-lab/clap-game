@@ -109,10 +109,26 @@ export default function AdminPage() {
   const votesByTarget = Object.entries(data.votes.reduce<Record<string, number>>((counts, vote) => {
     const name = vote.target?.name || '未知'; counts[name] = (counts[name] || 0) + 1; return counts;
   }, {})).sort((a, b) => b[1] - a[1]);
+  const activeCategories = new Set(data.tasks.filter((task) => task.active).map((task) => task.category));
+  const readiness = [
+    { label: '宾客名单已导入', detail: `${data.guests.length} 位宾客`, ok: data.guests.length === 32 },
+    { label: '首轮任务可抽取', detail: `${data.tasks.filter((task) => task.active && task.category === 'standard').length} 项`, ok: activeCategories.has('standard') },
+    { label: '升级任务已配置', detail: `${data.tasks.filter((task) => task.active && task.category === 'upgrade').length} 项`, ok: activeCategories.has('upgrade') },
+    { label: '团队任务已配置', detail: `${data.tasks.filter((task) => task.active && task.category === 'group').length} 项`, ok: activeCategories.has('group') },
+    { label: '奖励线索充足', detail: `${data.clues.filter((clue) => clue.active).length} 条（至少 3 条）`, ok: data.clues.filter((clue) => clue.active).length >= 3 },
+    { label: '流程状态可用', detail: data.game ? `当前：${STAGES.find(([value]) => value === data.game?.stage)?.[1] || data.game.stage}` : '未读取到状态', ok: Boolean(data.game) },
+  ];
+  const readyCount = readiness.filter((item) => item.ok).length;
 
   return <main className="admin-shell">
     <section className="admin-hero"><div><div className="eyebrow">LIVE CONTROL</div><h1>婚礼游戏控制台</h1><p>{claimed}/{data.guests.length} 位宾客已认领 · {data.submissions.length} 项待审核</p></div><div className="live-dot">LIVE</div></section>
     {message && <div className="notice success sticky-notice">{message}</div>}{error && <div className="notice error sticky-notice">{error}</div>}
+
+    <section className="section-card readiness-card">
+      <div className="section-heading"><div><small>PRE-FLIGHT CHECK</small><h2>开场前就绪检查</h2></div><span className={readyCount === readiness.length ? 'ready-badge' : 'warning-badge'}>{readyCount}/{readiness.length}</span></div>
+      <div className="readiness-list">{readiness.map((item) => <div key={item.label} className={item.ok ? 'ready' : 'not-ready'}><b aria-hidden="true">{item.ok ? '✓' : '!'}</b><p><strong>{item.label}</strong><small>{item.detail}</small></p></div>)}</div>
+      {readyCount !== readiness.length && <p className="readiness-help">带感叹号的项目请在开放注册前处理；宾客人数应与最终名单一致。</p>}
+    </section>
 
     <section className="admin-grid">
       <article className="section-card"><div className="section-heading"><div><small>REGISTRATION</small><h2>宾客注册</h2></div></div><p className="muted">首次进入由宾客自行设置四位密码，忘记后可在宾客列表中重置。</p><button disabled={busy} onClick={() => action({ type: 'toggleRegistration', value: !data.game?.registration_open })}>{data.game?.registration_open ? '关闭注册' : '开放注册'}</button><div className={`control-state ${data.game?.registration_open ? 'on' : ''}`}>{data.game?.registration_open ? '● 注册开放中' : '○ 注册已关闭'}</div></article>
@@ -143,6 +159,6 @@ export default function AdminPage() {
       <article className="section-card"><div className="section-heading"><div><small>POINTS LEDGER</small><h2>积分流水</h2></div></div>{data.pointLedger.length === 0 ? <div className="empty-state">暂无积分记录。</div> : <div className="activity-list">{data.pointLedger.slice(0, 12).map((entry) => <div key={entry.id}><span className={entry.amount > 0 ? 'amount-positive' : 'amount-negative'}>{entry.amount > 0 ? '+' : ''}{entry.amount}</span><p><strong>{entry.guest?.name || '未知宾客'}</strong><small>{entry.reason}</small></p></div>)}</div>}</article>
     </section>
 
-    <section className="section-card"><div className="section-heading"><div><small>AUDIT LOG</small><h2>最近操作记录</h2></div></div>{data.auditLog.length === 0 ? <div className="empty-state">暂无后台操作。</div> : <div className="audit-list">{data.auditLog.slice(0, 20).map((entry) => <div key={entry.id}><strong>{ACTION_LABELS[entry.action] || entry.action}</strong><span>{new Date(entry.created_at).toLocaleString('zh-CN')}</span><small>{entry.actor}</small></div>)}</div>}</section>
+    <section className="section-card"><div className="section-heading"><div><small>DATA &amp; AUDIT</small><h2>数据备份与最近操作</h2></div></div><p className="muted">建议在彩排后和婚礼结束后各导出一次。文件不会包含宾客密码、会话或服务器密钥。</p><div className="export-actions"><a href="/api/admin-export?type=guests">导出宾客</a><a href="/api/admin-export?type=assignments">导出任务</a><a href="/api/admin-export?type=points">导出积分</a><a href="/api/admin-export?type=audit">导出审计</a></div>{data.auditLog.length === 0 ? <div className="empty-state">暂无后台操作。</div> : <div className="audit-list">{data.auditLog.slice(0, 20).map((entry) => <div key={entry.id}><strong>{ACTION_LABELS[entry.action] || entry.action}</strong><span>{new Date(entry.created_at).toLocaleString('zh-CN')}</span><small>{entry.actor}</small></div>)}</div>}</section>
   </main>;
 }
