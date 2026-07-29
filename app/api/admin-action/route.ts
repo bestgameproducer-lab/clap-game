@@ -105,6 +105,8 @@ export async function POST(request: Request) {
         title: requiredString(body.title, '线索标题', 120),
         content: requiredString(body.content, '线索内容', 1000),
         active: requiredBoolean(body.active, '线索启用状态'),
+        spyGuestId: body.spyGuestId ? requiredUuid(body.spyGuestId, '对应间谍') : null,
+        level: requiredInteger(body.level, '线索等级', 1, 3),
       }, actor);
     } else if (type === 'saveAward') {
       const winnerKind = requiredEnum(body.winnerKind, '获奖对象类型', ['none', 'guest', 'team'] as const);

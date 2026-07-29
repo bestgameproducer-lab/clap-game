@@ -21,6 +21,9 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
     if (error.message.includes('task_rules_locked')) throw new ApiError(409, '任务已派发；积分、身份范围、类型和开放阶段已锁定，只能修改文字或停用');
     if (error.message.includes('task_not_found')) throw new ApiError(404, '找不到任务');
     if (error.message.includes('clue_not_found')) throw new ApiError(404, '找不到线索');
+    if (error.message.includes('clue_target_not_spy')) throw new ApiError(400, '线索只能绑定到已预设为间谍的宾客');
+    if (error.message.includes('clue_spy_still_referenced')) throw new ApiError(409, '这位间谍仍有绑定线索，请先调整对应线索后再更改身份');
+    if (error.message.includes('clue_rules_locked')) throw new ApiError(409, '线索已经发放，对应间谍和等级已锁定；仍可修正文案或停用');
     throw new Error(`${fallback}: ${error.message}`);
   }
 }
@@ -34,7 +37,7 @@ export async function getAdminDashboardData() {
     db.from('assignments').select('id,status,submitted_at,guest:guests(id,name),task:tasks(id,title,points)').eq('status', 'submitted'),
     db.from('votes').select('id,voter_guest_id,target_guest_id,voting_round,created_at,voter:guests!votes_voter_guest_id_fkey(id,name,team),target:guests!votes_target_guest_id_fkey(id,name,team)'),
     db.from('game_state').select('id,registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note,display_title,display_body,public_clue,timer_ends_at,updated_at').eq('id', 1).single(),
-    db.from('clues').select('id,title,content,active,created_at').order('created_at'),
+    db.from('clues').select('id,title,content,active,spy_guest_id,level,created_at,spy:guests!clues_spy_guest_id_fkey(id,name,team)').order('level').order('created_at'),
     db.from('guest_clues').select('id,guest_id,clue_id,created_at,guest:guests(id,name),clue:clues(id,title)').order('created_at', { ascending: false }).limit(50),
     db.from('points_ledger').select('id,guest_id,amount,reason,actor,created_at,guest:guests(id,name)').order('created_at', { ascending: false }).limit(50),
     db.from('audit_log').select('id,actor,action,target_type,target_id,details,created_at').order('created_at', { ascending: false }).limit(50),
@@ -175,9 +178,10 @@ export async function saveGameTask(input: SavedTask, actor: string) {
   ensureNoDatabaseError(error, 'Unable to save task');
 }
 
-export async function saveGameClue(input: { id: string | null; title: string; content: string; active: boolean }, actor: string) {
+export async function saveGameClue(input: { id: string | null; title: string; content: string; active: boolean; spyGuestId: string | null; level: number }, actor: string) {
   const { error } = await getSupabaseAdmin().rpc('save_game_clue', {
-    p_clue_id: input.id, p_title: input.title, p_content: input.content, p_active: input.active, p_actor: actor,
+    p_clue_id: input.id, p_title: input.title, p_content: input.content, p_active: input.active,
+    p_spy_guest_id: input.spyGuestId, p_level: input.level, p_actor: actor,
   });
   ensureNoDatabaseError(error, 'Unable to save clue');
 }
