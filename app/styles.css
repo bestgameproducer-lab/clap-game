@@ -86,8 +86,12 @@ button.text-button { background: transparent; color: #76665e; padding: 8px; text
 .status { border-radius: 999px; padding: 4px 8px; font-size: 11px; background: #eee7e2; }
 .status.approved { background: #e5f1e8; color: #39704a; }
 .status.submitted { background: #fff2d8; color: #8b651d; }
+.status.rejected { background: #f8e2df; color: #91493f; }
+.task-feedback { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: #fff0ed; color: #82463e; font-size: 13px; line-height: 1.5; }
 .empty-state { padding: 24px 12px; text-align: center; color: #95877e; background: #faf6f2; border-radius: 14px; }
 .clue { background: #f5eee8; padding: 14px; border-radius: 14px; margin-top: 8px; line-height: 1.5; }
+.clue strong { display: block; color: #634a40; margin-bottom: 4px; }
+.clue p { margin: 0; color: #74675f; }
 .vote-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; }
 button.vote-choice { margin: 0; background: #eee4dd; color: #53443d; border-radius: 13px; }
 button.vote-choice.selected { background: #6f5145; color: #fff; }
@@ -117,7 +121,31 @@ button.vote-choice.selected { background: #6f5145; color: #fff; }
 .claimed,.unclaimed { font-size:11px; border-radius:999px; padding:4px 7px; white-space:nowrap; }
 .claimed { background:#dfeee3; color:#356947; }.unclaimed { background:#eee7e2; color:#807168; }
 button.mini-button { width:auto; margin:0; padding:6px 8px; font-size:11px; background:#8a554f; }
-@media(max-width:700px){.admin-grid,.guest-admin-list{grid-template-columns:1fr}.approval-row{align-items:flex-start;flex-direction:column}.admin-hero{align-items:flex-start}.admin-hero h1{font-size:27px}}
+.sticky-notice { position:sticky; top:8px; z-index:20; box-shadow:0 8px 30px rgba(69,48,38,.12); }
+.control-buttons { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; margin-top:12px; }
+.control-buttons button { margin:0; padding:10px 8px; font-size:12px; }
+.operation-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:16px; }
+.operation-grid form { padding:16px; border-radius:16px; background:#f8f3ef; }
+.operation-grid h3 { margin:0 0 4px; color:#4c3d36; }
+.operation-grid .muted { min-height:42px; margin:0; }
+.form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 10px; }
+.library-preview { display:grid; gap:7px; margin-top:16px; }
+.library-preview>div { padding:11px 12px; border-radius:12px; background:#f8f3ef; }
+.library-preview strong,.library-preview p { display:block; margin:0; }
+.library-preview p { color:#7e7068; font-size:12px; line-height:1.45; margin-top:3px; }
+.ranking-list { list-style:none; padding:0; margin:0; display:grid; gap:8px; }
+.ranking-list li { display:flex; justify-content:space-between; padding:12px 14px; border-radius:13px; background:#f8f3ef; }
+.ranking-list span { color:#8f6755; font-weight:800; }
+.activity-list,.audit-list { display:grid; gap:7px; max-height:420px; overflow:auto; }
+.activity-list>div { display:grid; grid-template-columns:48px 1fr; align-items:center; padding:10px 12px; border-radius:12px; background:#f8f3ef; }
+.activity-list>div>span { font-size:18px; font-weight:900; }
+.activity-list p,.activity-list strong,.activity-list small { display:block; margin:0; }
+.activity-list small { color:#867970; margin-top:2px; }
+.amount-positive { color:#34704a; }.amount-negative { color:#9b4545; }
+.audit-list>div { display:grid; grid-template-columns:1fr auto; gap:3px 10px; padding:10px 12px; border-bottom:1px solid #eee3dc; }
+.audit-list span,.audit-list small { color:#8a7c73; font-size:11px; }
+.audit-list small { grid-column:1/-1; }
+@media(max-width:700px){.admin-grid,.guest-admin-list,.operation-grid{grid-template-columns:1fr}.approval-row{align-items:flex-start;flex-direction:column}.admin-hero{align-items:flex-start}.admin-hero h1{font-size:27px}.operation-grid .muted{min-height:0}.control-buttons{grid-template-columns:1fr}.guest-admin-list article{grid-template-columns:38px 1fr auto}.guest-admin-list .mini-button{grid-column:2/-1;justify-self:start}}
 .home-shell { width:min(620px,100%); min-height:100vh; display:grid; align-content:center; padding:28px 18px; }
 .home-hero { position:relative; text-align:center; border-radius:34px; padding:48px 28px 34px; color:#fff; background:linear-gradient(155deg,#4c352f 0%,#79564a 58%,#9f7765 100%); box-shadow:0 32px 80px rgba(65,38,29,.28); overflow:hidden; }
 .home-hero:before,.home-hero:after { content:''; position:absolute; border:1px solid rgba(255,255,255,.12); border-radius:50%; }

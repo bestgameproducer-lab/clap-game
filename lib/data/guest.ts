@@ -1,5 +1,6 @@
 import 'server-only';
 import { ApiError } from '../errors';
+import { isTaskVisibleAtStage } from '../game-rules';
 import { getSupabaseAdmin } from '../supabase';
 
 export async function submitGuestAssignment(assignmentId: string, guestId: string) {
@@ -47,19 +48,25 @@ export async function getGuestView(guestId: string) {
   const { data: guest, error: guestError } = await db.from('guests').select('id,name,team,role,points,drawn_at').eq('id', guestId).single();
   if (guestError || !guest) throw new ApiError(401, '登录已失效');
   const results = await Promise.all([
-    db.from('assignments').select('id,status,task:tasks(title,description,points)').eq('guest_id', guestId).order('created_at'),
-    db.from('guest_clues').select('id,clue:clues(content)').eq('guest_id', guestId),
-    db.from('game_state').select('registration_open,stage,voting_open,results_visible').eq('id', 1).single(),
+    db.from('assignments').select('id,status,rejection_reason,task:tasks(title,description,points,category,stage)').eq('guest_id', guestId).order('created_at'),
+    db.from('guest_clues').select('id,clue:clues(title,content)').eq('guest_id', guestId),
+    db.from('game_state').select('registration_open,stage,voting_open,results_visible,scoreboard_visible,phase_note').eq('id', 1).single(),
     db.from('guests').select('id,name,team').eq('team', guest.team).order('name'),
     db.from('votes').select('target_guest_id').eq('voter_guest_id', guestId).maybeSingle(),
   ]);
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`Unable to load guest data: ${error.message}`);
+  const visibleAssignments = (results[0].data ?? []).filter((assignment: { task: { stage?: string } | { stage?: string }[] | null }) => {
+    const task = Array.isArray(assignment.task) ? assignment.task[0] : assignment.task;
+    return isTaskVisibleAtStage(task?.stage, results[2].data?.stage);
+  });
   return {
     guest,
-    assignments: results[0].data ?? [],
-    clues: (results[1].data ?? []).map((item: { id: string; clue: { content: string } | { content: string }[] | null }) => ({
-      id: item.id, content: Array.isArray(item.clue) ? item.clue[0]?.content : item.clue?.content,
+    assignments: visibleAssignments,
+    clues: (results[1].data ?? []).map((item: { id: string; clue: { title: string; content: string } | { title: string; content: string }[] | null }) => ({
+      id: item.id,
+      title: Array.isArray(item.clue) ? item.clue[0]?.title : item.clue?.title,
+      content: Array.isArray(item.clue) ? item.clue[0]?.content : item.clue?.content,
     })),
     game: results[2].data,
     candidates: results[3].data ?? [],

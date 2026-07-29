@@ -22,6 +22,23 @@ export function requiredBoolean(value: unknown, label: string): boolean {
   return value;
 }
 
+export function requiredInteger(value: unknown, label: string, minimum: number, maximum: number): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < minimum || value > maximum) {
+    throw new ApiError(400, `${label}格式不正确`);
+  }
+  return value;
+}
+
+export function requiredEnum<const T extends readonly string[]>(
+  value: unknown,
+  label: string,
+  allowed: T,
+): T[number] {
+  const result = requiredString(value, label, 80);
+  if (!allowed.includes(result)) throw new ApiError(400, `${label}格式不正确`);
+  return result as T[number];
+}
+
 export function requiredUuid(value: unknown, label: string): string {
   const result = requiredString(value, label, 36);
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(result)) {

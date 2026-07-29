@@ -5,9 +5,16 @@ import { getSupabaseAdmin } from '../supabase';
 function ensureNoDatabaseError(error: { message: string } | null, fallback: string): void {
   if (error) {
     if (error.message.includes('assignment_not_found')) throw new ApiError(404, '找不到任务');
+    if (error.message.includes('guest_not_found')) throw new ApiError(404, '找不到宾客');
+    if (error.message.includes('task_not_found')) throw new ApiError(404, '找不到可用任务');
+    if (error.message.includes('clue_not_found')) throw new ApiError(404, '找不到可用线索');
     if (error.message.includes('assignment_not_submitted') || error.message.includes('duplicate key')) {
       throw new ApiError(409, '该任务已经处理，无法重复操作');
     }
+    if (error.message.includes('task_already_assigned')) throw new ApiError(409, '这位宾客已经领取过该任务');
+    if (error.message.includes('clue_already_granted')) throw new ApiError(409, '这位宾客已经获得该线索');
+    if (error.message.includes('guest_card_already_drawn')) throw new ApiError(409, '宾客已经抽卡，不能直接修改组别或身份');
+    if (error.message.includes('point_total_unchanged')) throw new ApiError(409, '积分没有发生变化');
     throw new Error(`${fallback}: ${error.message}`);
   }
 }
@@ -16,17 +23,23 @@ export async function getAdminDashboardData() {
   const db = getSupabaseAdmin();
   const results = await Promise.all([
     db.from('guests').select('id,name,login_name,team,role,points,claimed_at,drawn_at,created_at').order('team').order('name'),
-    db.from('assignments').select('id,guest_id,task_id,status,submitted_at,approved_at,created_at,task:tasks(id,title,description,points)'),
-    db.from('tasks').select('id,title,description,points,role_scope,created_at'),
+    db.from('assignments').select('id,guest_id,task_id,status,submitted_at,approved_at,rejected_at,rejection_reason,created_at,task:tasks(id,title,description,points,category,stage)'),
+    db.from('tasks').select('id,title,description,points,role_scope,category,stage,active,created_at').eq('active', true).order('stage').order('title'),
     db.from('assignments').select('id,status,submitted_at,guest:guests(id,name),task:tasks(id,title,points)').eq('status', 'submitted'),
     db.from('votes').select('id,voter_guest_id,target_guest_id,created_at,target:guests!votes_target_guest_id_fkey(id,name)'),
-    db.from('game_state').select('id,registration_open,stage,voting_open,results_visible,updated_at').eq('id', 1).single(),
+    db.from('game_state').select('id,registration_open,stage,voting_open,results_visible,scoreboard_visible,phase_note,updated_at').eq('id', 1).single(),
+    db.from('clues').select('id,title,content,active,created_at').eq('active', true).order('created_at'),
+    db.from('guest_clues').select('id,guest_id,clue_id,created_at,guest:guests(id,name),clue:clues(id,title)').order('created_at', { ascending: false }).limit(50),
+    db.from('points_ledger').select('id,guest_id,amount,reason,actor,created_at,guest:guests(id,name)').order('created_at', { ascending: false }).limit(50),
+    db.from('audit_log').select('id,actor,action,target_type,target_id,details,created_at').order('created_at', { ascending: false }).limit(50),
   ]);
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`Unable to load admin data: ${error.message}`);
   return {
     guests: results[0].data ?? [], assignments: results[1].data ?? [], tasks: results[2].data ?? [],
     submissions: results[3].data ?? [], votes: results[4].data ?? [], game: results[5].data,
+    clues: results[6].data ?? [], guestClues: results[7].data ?? [],
+    pointLedger: results[8].data ?? [], auditLog: results[9].data ?? [],
   };
 }
 
@@ -44,7 +57,7 @@ export async function rejectAssignment(assignmentId: string, actor: string, reas
   ensureNoDatabaseError(error, 'Unable to reject assignment');
 }
 
-export async function setGameFlag(field: 'voting_open' | 'results_visible', value: boolean, actor: string) {
+export async function setGameFlag(field: 'voting_open' | 'results_visible' | 'scoreboard_visible', value: boolean, actor: string) {
   const { error } = await getSupabaseAdmin().rpc('set_game_flag', {
     p_field: field, p_value: value, p_actor: actor,
   });
@@ -64,4 +77,61 @@ export async function setGameStage(stage: string, actor: string) {
 export async function resetGuestClaim(guestId: string, actor: string) {
   const { error } = await getSupabaseAdmin().rpc('reset_guest_claim', { p_guest_id: guestId, p_actor: actor });
   ensureNoDatabaseError(error, 'Unable to reset guest claim');
+}
+
+export async function adjustGuestPoints(guestId: string, amount: number, actor: string, reason: string) {
+  const { error } = await getSupabaseAdmin().rpc('adjust_guest_points', {
+    p_guest_id: guestId, p_amount: amount, p_actor: actor, p_reason: reason,
+  });
+  ensureNoDatabaseError(error, 'Unable to adjust guest points');
+}
+
+export async function assignTaskToGuest(guestId: string, taskId: string, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('assign_task_to_guest', {
+    p_guest_id: guestId, p_task_id: taskId, p_actor: actor,
+  });
+  ensureNoDatabaseError(error, 'Unable to assign task');
+}
+
+export async function grantClueToGuest(guestId: string, clueId: string, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('grant_guest_clue', {
+    p_guest_id: guestId, p_clue_id: clueId, p_actor: actor,
+  });
+  ensureNoDatabaseError(error, 'Unable to grant clue');
+}
+
+export async function configureGuestGameProfile(guestId: string, team: string, role: string, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('configure_guest_game_profile', {
+    p_guest_id: guestId, p_team: team, p_role: role, p_actor: actor,
+  });
+  ensureNoDatabaseError(error, 'Unable to configure guest profile');
+}
+
+type NewTask = {
+  title: string;
+  description: string;
+  points: number;
+  roleScope: string;
+  category: string;
+  stage: string;
+};
+
+export async function createGameTask(input: NewTask, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('create_game_task', {
+    p_title: input.title,
+    p_description: input.description,
+    p_points: input.points,
+    p_role_scope: input.roleScope,
+    p_category: input.category,
+    p_stage: input.stage,
+    p_actor: actor,
+  });
+  ensureNoDatabaseError(error, 'Unable to create task');
+}
+
+export async function createGameClue(title: string, content: string, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('create_game_clue', {
+    p_title: title, p_content: content, p_actor: actor,
+  });
+  ensureNoDatabaseError(error, 'Unable to create clue');
 }

@@ -6,9 +6,9 @@ type RegistrationGuest = { id: string; name: string; loginName: string; hasPassw
 type SecretCard = { team: string; role: string; task: { id: string; title: string; description: string; points: number }; drawnAt: string };
 type GuestData = {
   guest: { id: string; name: string; team: string; role: string; points: number; drawn_at: string | null };
-  assignments: Array<{ id: string; status: string; task: { title: string; description: string; points: number } }>;
-  clues: Array<{ id: string; content: string }>;
-  game: { registration_open: boolean; stage: string; voting_open: boolean; results_visible: boolean } | null;
+  assignments: Array<{ id: string; status: string; rejection_reason: string | null; task: { title: string; description: string; points: number; category: string; stage: string } }>;
+  clues: Array<{ id: string; title: string; content: string }>;
+  game: { registration_open: boolean; stage: string; voting_open: boolean; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null } | null;
   candidates: Array<{ id: string; name: string; team: string }>;
   existingVote: string | null;
 };
@@ -24,7 +24,7 @@ const STAGES: Record<string, { label: string; note: string }> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  assigned: '进行中', submitted: '等待审核', approved: '已完成',
+  assigned: '进行中', submitted: '等待审核', approved: '已完成', rejected: '请补充验证',
 };
 
 const ROLE_LABELS: Record<string, { title: string; note: string }> = {
@@ -214,13 +214,13 @@ export default function GuestPage() {
       <div className="eyebrow">丘比特的婚礼考验</div>
       <div className="hero-line"><div><span className="team-chip">{data.guest.team}</span><h1>{data.guest.name}</h1></div><div className="score-orb"><strong>{data.guest.points}</strong><small>积分</small></div></div>
       <div className="identity-strip"><small>你的秘密身份</small><strong>{role.title}</strong><p>{role.note}</p></div>
-      <div className="stage-card"><small>当前环节</small><strong>{stage.label}</strong><p>{stage.note}</p></div>
+      <div className="stage-card"><small>当前环节</small><strong>{stage.label}</strong><p>{data.game?.phase_note || stage.note}</p></div>
     </section>
     {message && <div className="notice success">{message}</div>}{error && <div className="notice error">{error}</div>}
     <section className="section-card"><div className="section-heading"><div><small>SECRET MISSIONS</small><h2>我的秘密任务</h2></div><span>{data.assignments.length}</span></div>
-      {data.assignments.length === 0 ? <div className="empty-state">任务尚未派发，先享受婚礼吧。</div> : data.assignments.map((assignment, index) => <article className="mission-item" key={assignment.id}><div className="mission-number">0{index + 1}</div><div className="mission-body"><div className="mission-meta"><span>{assignment.task.points} 分</span><span className={`status ${assignment.status}`}>{STATUS_LABELS[assignment.status] ?? assignment.status}</span></div><h3>{assignment.task.title}</h3><p>{assignment.task.description}</p>{assignment.status === 'assigned' && <button onClick={() => submit(assignment.id)}>我已完成 · 提交验证</button>}</div></article>)}
+      {data.assignments.length === 0 ? <div className="empty-state">本轮任务尚未开放，先享受婚礼吧。</div> : data.assignments.map((assignment, index) => <article className="mission-item" key={assignment.id}><div className="mission-number">{String(index + 1).padStart(2, '0')}</div><div className="mission-body"><div className="mission-meta"><span>{assignment.task.points} 分</span><span className={`status ${assignment.status}`}>{STATUS_LABELS[assignment.status] ?? assignment.status}</span></div><h3>{assignment.task.title}</h3><p>{assignment.task.description}</p>{assignment.status === 'rejected' && <div className="task-feedback">任务站留言：{assignment.rejection_reason || '请补充验证后再次提交。'}</div>}{(assignment.status === 'assigned' || assignment.status === 'rejected') && <button onClick={() => submit(assignment.id)}>{assignment.status === 'rejected' ? '补充完成 · 再次提交' : '我已完成 · 提交验证'}</button>}</div></article>)}
     </section>
-    <section className="section-card"><div className="section-heading"><div><small>SPY CLUES</small><h2>已解锁线索</h2></div><span>{data.clues.length}</span></div>{data.clues.length === 0 ? <div className="empty-state">完成任务后，线索会在这里出现。</div> : data.clues.map((clue) => <div className="clue" key={clue.id}>⌁ {clue.content}</div>)}</section>
+    <section className="section-card"><div className="section-heading"><div><small>SPY CLUES</small><h2>已解锁线索</h2></div><span>{data.clues.length}</span></div>{data.clues.length === 0 ? <div className="empty-state">完成任务后，线索会在这里出现。</div> : data.clues.map((clue) => <div className="clue" key={clue.id}><strong>{clue.title}</strong><p>{clue.content}</p></div>)}</section>
     {data.game?.voting_open && <section className="section-card"><div className="section-heading"><div><small>FINAL VOTE</small><h2>谁是恶作剧者？</h2></div></div><p className="muted">只能选择本队宾客，投票关闭前可以修改。</p><div className="vote-grid">{data.candidates.filter((candidate) => candidate.id !== data.guest.id).map((candidate) => <button className={data.existingVote === candidate.id ? 'vote-choice selected' : 'vote-choice'} key={candidate.id} onClick={() => vote(candidate.id)}>{candidate.name}</button>)}</div></section>}
     {data.game?.results_visible && <section className="reveal-card"><small>THE STORY CONTINUES</small><h2>身份揭晓时刻</h2><p>请跟随主持人的现场公布与颁奖。</p></section>}
     <div className="footer-actions"><button onClick={() => setShowSecrets(false)}>隐藏我的秘密</button><button className="secondary" onClick={load}>刷新状态</button><button className="text-button" onClick={logout}>退出此身份</button></div>
