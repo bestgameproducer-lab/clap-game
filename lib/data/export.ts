@@ -15,7 +15,7 @@ export async function getAdminCsvExport(kind: AdminExportKind) {
     headers = ['姓名', '登录名', '桌号', '长辈', '适合仪式任务', '启用', '工作人员备注', '组别', '身份', '积分', '已设置密码时间', '抽卡时间', '创建时间'];
     rows = (data ?? []).map((item) => [item.name, item.login_name, item.table_label, item.is_elder, item.ceremony_eligible, item.active, item.staff_notes, item.team, item.role, item.points, item.claimed_at, item.drawn_at, item.created_at]);
   } else if (kind === 'assignments') {
-    const { data, error } = await db.from('assignments').select('status,is_initial,completion_rank,early_bonus_points,completion_note,verification_note,verified_by,verified_at,evidence_path,evidence_uploaded_at,submitted_at,approved_at,rejected_at,rejection_reason,created_at,guest:guests(name),task:tasks(title,verification_method,points,category,stage)').order('created_at');
+    const { data, error } = await db.from('assignments').select('status,is_initial,completion_rank,early_bonus_points,completion_note,verification_note,verified_by,verified_at,evidence_path,evidence_uploaded_at,submitted_at,approved_at,rejected_at,rejection_reason,created_at,guest:guests(name),task:tasks!assignments_task_id_fkey(title,verification_method,points,category,stage)').order('created_at');
     if (error) throw new Error(`Unable to export assignments: ${error.message}`);
     headers = ['宾客', '任务', '验证方式', '宾客完成说明', '已附验证照片', '照片上传时间', '工作人员核验记录', '核验人员', '核验时间', '任务积分', '前三额外积分', '类型', '阶段', '是否首轮', '完成名次', '状态', '提交时间', '通过时间', '退回时间', '退回原因', '创建时间'];
     rows = (data ?? []).map((item) => {

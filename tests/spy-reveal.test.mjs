@@ -45,10 +45,9 @@ test('published spy dossiers include only spy and activation missions with compl
 test('public data loads dossier sources only after results and omits private notes', async () => {
   const source = await readFile(new URL('../lib/data/public.ts', import.meta.url), 'utf8');
   const pointQuery = source.indexOf("db.from('spy_points_ledger').select('guest_id,amount,reason')");
-  const missionQuery = source.indexOf("db.from('assignments').select('guest_id,status,task:tasks(title,role_scope,grants_hidden_spy)')");
+  const missionQuery = source.indexOf("db.from('assignments').select('guest_id,status,task:tasks!assignments_task_id_fkey(title,role_scope,grants_hidden_spy)')");
   const boundary = source.lastIndexOf('if (game.results_visible)', pointQuery);
   assert.ok(boundary >= 0 && boundary < pointQuery);
   assert.ok(missionQuery > boundary);
   assert.equal(source.includes("spy_points_ledger').select('guest_id,amount,reason,note"), false);
 });
-

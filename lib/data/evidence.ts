@@ -13,7 +13,7 @@ function assignmentEvidencePath(guestId: string, assignmentId: string) {
 async function requireEditableGuestAssignment(assignmentId: string, guestId: string) {
   const db = getSupabaseAdmin();
   const [{ data, error }, { data: game, error: gameError }] = await Promise.all([
-    db.from('assignments').select('id,status,task:tasks(stage)').eq('id', assignmentId).eq('guest_id', guestId).maybeSingle(),
+    db.from('assignments').select('id,status,task:tasks!assignments_task_id_fkey(stage)').eq('id', assignmentId).eq('guest_id', guestId).maybeSingle(),
     db.from('game_state').select('stage').eq('id', 1).single(),
   ]);
   if (error || gameError) throw new Error(`Unable to authorize task evidence: ${error?.message ?? gameError?.message}`);

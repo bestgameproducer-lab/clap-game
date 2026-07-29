@@ -53,7 +53,7 @@ test('mobile guest page explains closed action windows', async () => {
   assert.match(page, /isTaskActionOpenAtStage/);
   assert.match(page, /抽卡入口暂未开放/);
   assert.match(page, /本环节已停止提交/);
-  assert.match(evidence, /task:tasks\(stage\)/);
+  assert.match(evidence, /task:tasks!assignments_task_id_fkey\(stage\)/);
   assert.match(evidence, /isTaskActionOpenAtStage\(task\?\.stage, game\?\.stage\)/);
   assert.equal((evidence.match(/await requireEditableGuestAssignment\(assignmentId, guestId\)/g) ?? []).length, 3);
 });

@@ -60,7 +60,7 @@ export async function getGuestView(guestId: string) {
   if (guestError || !guest) throw new ApiError(401, '登录已失效');
   if (gameError || !game) throw new Error(`Unable to load game state: ${gameError?.message ?? 'missing row'}`);
   const results = await Promise.all([
-    db.from('assignments').select('id,status,is_initial,completion_rank,early_bonus_points,reward_task_id,reward_clue_id,completion_note,verification_note,verified_at,evidence_path,evidence_uploaded_at,rejection_reason,task:tasks(title,description,verification_method,points,category,stage)').eq('guest_id', guestId).order('created_at'),
+    db.from('assignments').select('id,status,is_initial,completion_rank,early_bonus_points,reward_task_id,reward_clue_id,completion_note,verification_note,verified_at,evidence_path,evidence_uploaded_at,rejection_reason,task:tasks!assignments_task_id_fkey(title,description,verification_method,points,category,stage)').eq('guest_id', guestId).order('created_at'),
     db.from('guest_clues').select('id,clue:clues(title,content)').eq('guest_id', guestId),
     db.from('guests').select('id,name,team').eq('team', guest.team).not('drawn_at', 'is', null).order('name'),
     db.from('votes').select('target_guest_id').eq('voter_guest_id', guestId).eq('voting_round', game.voting_round).maybeSingle(),

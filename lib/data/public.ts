@@ -43,7 +43,7 @@ export async function getPublicScoreboard() {
       db.from('guests').select('id,name,team,role,is_hidden_spy').in('role', ['spy', 'helper']).not('drawn_at', 'is', null).order('team').order('name'),
       db.from('awards').select('id,title,winner_team,reason,winner:guests(name,team)').eq('published', true).order('sort_order').order('created_at'),
       db.from('spy_points_ledger').select('guest_id,amount,reason'),
-      db.from('assignments').select('guest_id,status,task:tasks(title,role_scope,grants_hidden_spy)'),
+      db.from('assignments').select('guest_id,status,task:tasks!assignments_task_id_fkey(title,role_scope,grants_hidden_spy)'),
     ]);
     const revealError = roleResult.error ?? awardResult.error ?? spyPointResult.error ?? spyMissionResult.error;
     if (revealError) throw new Error(`Unable to load published results: ${revealError.message}`);
