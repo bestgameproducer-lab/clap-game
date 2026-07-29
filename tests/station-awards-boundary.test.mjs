@@ -25,3 +25,10 @@ test('station completion and award publishing remain server-authoritative', asyn
   assert.match(migration, /not published or winner_guest_id is not null or winner_team is not null/);
   assert.match(migration, /revoke all on awards from public, anon, authenticated/);
 });
+
+test('award export is explicit and excludes private guest fields', async () => {
+  const source = await readFile(new URL('../lib/data/export.ts', import.meta.url), 'utf8');
+  const awardExport = source.slice(source.indexOf("kind === 'awards'"), source.indexOf("} else {", source.indexOf("kind === 'awards'")));
+  assert.match(awardExport, /title,winner_team,reason,sort_order,published,updated_at,winner:guests\(name\)/);
+  for (const forbidden of ['role', 'claim_code', 'password_hash', 'session']) assert.equal(awardExport.includes(forbidden), false);
+});
