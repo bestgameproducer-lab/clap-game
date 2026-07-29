@@ -1,5 +1,5 @@
 import { requireAdmin } from '@/lib/auth';
-import { publishHostSegment, saveHostSegment } from '@/lib/data/host';
+import { adjustTeamResources, publishHostSegment, saveHostSegment } from '@/lib/data/host';
 import { ApiError, apiErrorResponse, noStoreJson } from '@/lib/errors';
 import { GAME_STAGES } from '@/lib/game-rules';
 import { assertSameOrigin, optionalString, readJsonObject, requiredBoolean, requiredEnum, requiredInteger, requiredString, requiredUuid } from '@/lib/validation';
@@ -28,6 +28,15 @@ export async function POST(request: Request) {
     if (type === 'publishSegment') {
       await publishHostSegment(requiredUuid(body.segmentId, '主持环节 ID'), actor);
       return noStoreJson({ ok: true });
+    }
+    if (type === 'adjustResources') {
+      const balance = await adjustTeamResources({
+        team: requiredString(body.team, '组别', 40),
+        amount: requiredInteger(body.amount, '金币变化', -100, 100),
+        reason: requiredString(body.reason, '金币变化原因', 200),
+        eventKey: requiredUuid(body.eventKey, '幂等事件 ID'),
+      }, actor);
+      return noStoreJson({ ok: true, balance });
     }
     throw new ApiError(400, '未知操作');
   } catch (error) { return apiErrorResponse(error); }

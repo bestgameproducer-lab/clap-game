@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { StaffLogoutButton } from '../staff-logout-button';
+import { parseGuestRosterText } from '@/lib/guest-roster-import';
+import { recommendedTaskPoints } from '@/lib/task-points';
 
 const STAGES = [
   ['registration', '宾客报到'], ['waiting', '等待开场'], ['task_round_1', '第一轮任务'],
@@ -11,38 +13,52 @@ const TEAMS = ['玫瑰组', '月桂组', '星辰组', '琥珀组'] as const;
 
 const ROLE_LABELS: Record<string, string> = { guest: '祝福见证者', spy: '恶作剧者（间谍）', helper: '秘密信使' };
 const CATEGORY_LABELS: Record<string, string> = { standard: '普通任务', ceremony: '仪式任务', group: '团队任务', upgrade: '升级任务', hidden: '隐藏任务' };
+const SPY_POINT_LABELS: Record<string, string> = { team_wrong_answer: '误导队伍答错', resource_wasted: '诱导浪费资源', ordinary_guest_suspected: '让普通宾客被怀疑', escaped_vote: '未成为本队最高票', team_first: '所在队伍第一', all_spy_tasks_complete: '完成全部间谍任务' };
 const DEFAULT_VERIFICATION_METHOD = '向任务站工作人员说明完成过程；如任务涉及照片或合影，请出示对应照片。';
 const ACTION_LABELS: Record<string, string> = {
   'assignment.approve': '审核通过', 'assignment.reject': '退回任务', 'assignment.create': '派发任务',
   'guest.points_adjust': '调整积分', 'guest.profile_configure': '配置身份', 'guest.claim_reset': '重置密码',
   'clue.grant': '发放线索', 'clue.create': '创建线索', 'task.create': '创建任务',
-  'clue.save': '保存线索', 'task.save': '保存任务',
+  'clue.save': '保存线索', 'task.save': '保存任务', 'task.points_scale': '任务积分尺度校准',
   'guest.roster_save': '保存宾客资料',
+  'guest.roster_import': '批量导入宾客',
+  'assignment.early_bonus': '首轮前三额外奖励',
   'game_state.stage': '切换阶段', 'game_state.registration_open': '切换注册',
+  'game_state.invitation_code_rotate': '更换邀请码',
+  'game_state.phase_note': '更新宾客提示',
   'game_state.voting_open': '切换投票', 'game_state.results_visible': '切换揭晓',
   'game_state.scoreboard_visible': '切换大屏', 'game_state.live_display': '更新大屏内容',
   'team.points_adjust': '调整团队积分',
+  'team.resources_adjust': '调整丘比特金币',
   'host_segment.save': '保存主持环节', 'host_segment.publish': '发布主持环节',
   'award.save': '保存颁奖结果',
+  'hidden_task_code.issue': '生成隐藏任务卡', 'hidden_task_code.redeem': '兑换隐藏任务卡',
+  'spy_points.record': '记录间谍积分', 'spy_points.settle': '结算间谍积分',
+  'rehearsal.reset': '清空彩排运行数据', 'rehearsal.evidence_cleanup_pending': '验证照片待清理',
   'admin_session.create': '工作人员登录', 'admin_session.revoke': '工作人员安全退出',
 };
 
 type Guest = { id: string; name: string; login_name: string; team: string; role: string; is_hidden_spy: boolean; points: number; claimed_at: string | null; drawn_at: string | null; team_locked: boolean; role_locked: boolean; table_label: string; is_elder: boolean; ceremony_eligible: boolean; active: boolean; staff_notes: string };
 type Task = { id: string; title: string; description: string; verification_method: string; points: number; role_scope: string; category: string; stage: string; active: boolean; grants_hidden_spy: boolean };
 type Clue = { id: string; title: string; content: string; active: boolean; spy_guest_id: string | null; level: number; spy?: { id: string; name: string; team: string } };
+type HiddenTaskCode = { id: string; task_id: string; issued_by: string; issued_at: string; claimed_by: string | null; claimed_at: string | null; assignment_id: string | null; task?: { id: string; title: string; active: boolean }; guest?: { id: string; name: string } };
 type AdminData = {
   guests: Guest[];
   assignments: Array<{ id: string; guest_id: string; status: string; rejection_reason: string | null; task?: Task }>;
   tasks: Task[];
   clues: Clue[];
-  submissions: Array<{ id: string; guest?: { name: string }; task?: { title: string; points: number } }>;
+  submissions: Array<{ id: string; completion_note: string; evidence_uploaded_at: string | null; evidence_url: string | null; guest?: { name: string }; task?: { title: string; verification_method: string; points: number } }>;
   votes: Array<{ id: string; voter?: { name: string; team: string }; target?: { name: string; team: string } }>;
   pointLedger: Array<{ id: string; amount: number; reason: string; actor: string; created_at: string; guest?: { name: string } }>;
   auditLog: Array<{ id: number; actor: string; action: string; target_type: string; details: Record<string, unknown>; created_at: string }>;
   awards: Array<{ id: string; title: string; winner_guest_id: string | null; winner_team: string | null; reason: string; sort_order: number; published: boolean; winner?: { id: string; name: string; team: string } }>;
   teamPointLedger: Array<{ id: number; team: string; amount: number; reason: string; actor: string; created_at: string }>;
   resultRewards: Array<{ id: number; voting_round: number; reward_type: 'guest_detective' | 'team_detective' | 'team_completion'; guest_id: string | null; team: string | null; amount: number }>;
-  game: { registration_open: boolean; stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; scoreboard_visible: boolean; display_title: string | null; display_body: string | null; public_clue: string | null; timer_ends_at: string | null } | null;
+  hiddenTaskCodes: HiddenTaskCode[];
+  spyPointLedger: Array<{ id: number; guest_id: string; amount: number; reason: string; note: string; actor: string; voting_round: number | null; created_at: string; guest?: { id: string; name: string; team: string } }>;
+  preflight: { ready: boolean; blockedCount: number; items: Array<{ id: string; label: string; detail: string; status: 'ready' | 'warning' | 'blocked' }> };
+  rehearsalResetPreview: { claimed_guests: number; drawn_guests: number; assignments: number; evidence_files: number; votes: number; guest_clues: number; personal_ledger_entries: number; team_ledger_entries: number; spy_ledger_entries: number; resource_ledger_entries: number; registration_open: boolean; voting_open: boolean; scoreboard_visible: boolean };
+  game: { registration_open: boolean; stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null; display_title: string | null; display_body: string | null; public_clue: string | null; timer_ends_at: string | null; invitation_code_updated_at: string | null } | null;
 };
 
 async function responseBody(response: Response) {
@@ -65,13 +81,22 @@ export default function AdminPage() {
   const [role, setRole] = useState('guest');
   const [pointAmount, setPointAmount] = useState('');
   const [pointReason, setPointReason] = useState('');
-  const [newTask, setNewTask] = useState({ title: '', description: '', verificationMethod: DEFAULT_VERIFICATION_METHOD, points: '20', roleScope: 'all', category: 'standard', stage: 'task_round_1', active: true, grantsHiddenSpy: false });
+  const [newTask, setNewTask] = useState({ title: '', description: '', verificationMethod: DEFAULT_VERIFICATION_METHOD, points: '1', roleScope: 'all', category: 'standard', stage: 'task_round_1', active: true, grantsHiddenSpy: false });
   const [newClue, setNewClue] = useState({ title: '', content: '', active: true, spyGuestId: '', level: '1' });
   const [teamScore, setTeamScore] = useState({ team: '玫瑰组', amount: '5', reason: '团队游戏第一名' });
   const [liveDisplay, setLiveDisplay] = useState({ title: '', body: '', publicClue: '', timerMinutes: '0' });
   const [selectedAwardId, setSelectedAwardId] = useState('');
   const [awardForm, setAwardForm] = useState({ title: '', winnerKind: 'none', winnerGuestId: '', winnerTeam: '玫瑰组', reason: '', sortOrder: '100', published: false });
   const [guestForm, setGuestForm] = useState({ name: '', loginName: '', tableLabel: '', isElder: false, ceremonyEligible: false, active: true, staffNotes: '' });
+  const [generatedHiddenCode, setGeneratedHiddenCode] = useState<{ taskId: string; taskTitle: string; code: string } | null>(null);
+  const [spyScoreForm, setSpyScoreForm] = useState({ guestId: '', reason: 'team_wrong_answer', note: '' });
+  const [resetForm, setResetForm] = useState({ confirmation: '', backupConfirmed: false, reason: '婚礼正式开始前清空彩排记录' });
+  const [resetEventKey, setResetEventKey] = useState('');
+  const [resetCleanupPending, setResetCleanupPending] = useState(false);
+  const [invitationCodeForm, setInvitationCodeForm] = useState({ code: '', confirm: '' });
+  const [guestPhaseNote, setGuestPhaseNote] = useState('');
+  const [rosterImportText, setRosterImportText] = useState('');
+  const [rosterImportConfirmed, setRosterImportConfirmed] = useState(false);
 
   async function load() {
     try {
@@ -95,7 +120,7 @@ export default function AdminPage() {
   }, [data, selectedGuestId, selectedTaskId, selectedClueId, selectedAwardId]);
 
   useEffect(() => {
-    if (libraryTaskId === 'new') { setNewTask({ title: '', description: '', verificationMethod: DEFAULT_VERIFICATION_METHOD, points: '20', roleScope: 'all', category: 'standard', stage: 'task_round_1', active: true, grantsHiddenSpy: false }); return; }
+    if (libraryTaskId === 'new') { setNewTask({ title: '', description: '', verificationMethod: DEFAULT_VERIFICATION_METHOD, points: '1', roleScope: 'all', category: 'standard', stage: 'task_round_1', active: true, grantsHiddenSpy: false }); return; }
     const task = data?.tasks.find((item) => item.id === libraryTaskId);
     if (task) setNewTask({ title: task.title, description: task.description, verificationMethod: task.verification_method, points: String(task.points), roleScope: task.role_scope, category: task.category, stage: task.stage, active: task.active, grantsHiddenSpy: task.grants_hidden_spy });
   }, [data, libraryTaskId]);
@@ -113,6 +138,10 @@ export default function AdminPage() {
   }, [data, rosterGuestId]);
 
   const selectedGuest = useMemo(() => data?.guests.find((guest) => guest.id === selectedGuestId) ?? null, [data, selectedGuestId]);
+  const rosterImportPreview = useMemo(
+    () => parseGuestRosterText(rosterImportText, data?.guests.map((guest) => guest.login_name) ?? []),
+    [rosterImportText, data?.guests],
+  );
 
   useEffect(() => {
     if (!selectedGuest) return;
@@ -123,7 +152,8 @@ export default function AdminPage() {
   useEffect(() => {
     if (!data?.game) return;
     setLiveDisplay({ title: data.game.display_title || '', body: data.game.display_body || '', publicClue: data.game.public_clue || '', timerMinutes: '0' });
-  }, [data?.game?.display_title, data?.game?.display_body, data?.game?.public_clue]);
+    setGuestPhaseNote(data.game.phase_note || '');
+  }, [data?.game?.display_title, data?.game?.display_body, data?.game?.public_clue, data?.game?.phase_note]);
 
   useEffect(() => {
     const award = data?.awards.find((item) => item.id === selectedAwardId);
@@ -143,7 +173,7 @@ export default function AdminPage() {
   }
 
   async function action(body: Record<string, unknown>, success = '操作已保存') {
-    setError(''); setMessage(''); setBusy(true);
+    setError(''); setMessage(''); setGeneratedHiddenCode(null); setBusy(true);
     try {
       const response = await fetch('/api/admin-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const result = await responseBody(response);
@@ -155,7 +185,88 @@ export default function AdminPage() {
     finally { setBusy(false); }
   }
 
-  if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">ORGANIZER ONLY</div><div className="heart-mark">♡</div><h1>主办方<br/>控制台</h1><p className="lead">管理婚礼流程、审核任务与揭晓结果。</p><form onSubmit={login}><label htmlFor="admin-password">管理员密码</label><input id="admin-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required/><button disabled={busy}>{busy ? '登录中…' : '进入控制台'}</button>{error && <div className="notice error">{error}</div>}</form></section></main>;
+  function changeStage(stage: string) {
+    if (!data?.game || stage === data.game.stage || ['voting', 'results'].includes(stage)) return;
+    if (!window.confirm('切换婚礼环节会关闭当前投票、隐藏揭晓，并清空大屏上的上一题、公开线索和倒计时；已经结算的积分不会撤销。确认继续吗？')) return;
+    void action({ type: 'setStage', stage }, '游戏阶段已切换，大屏旧内容已清空');
+  }
+
+  function toggleVoting() {
+    const opening = !data?.game?.voting_open;
+    if (opening && !window.confirm('开启一轮新的最终投票？系统会关闭宾客注册、清空大屏旧题目；宾客每人本轮只能投一次，旧轮次会保留。')) return;
+    void action({ type: 'toggleVoting', value: opening }, opening ? '新一轮最终投票已开启，宾客注册已关闭' : '最终投票已关闭');
+  }
+
+  function toggleResults() {
+    const publishing = !data?.game?.results_visible;
+    const prompt = publishing
+      ? `确认公布身份并结算终局奖励？当前收到 ${data?.votes.length ?? 0} 票。系统会关闭投票并自动发放全部终局奖励。`
+      : '确认暂时隐藏公开身份？已经结算的个人、团队和间谍积分不会撤销；如需重新投票，必须开启一个新轮次。';
+    if (!window.confirm(prompt)) return;
+    void action({ type: 'toggleResults', value: publishing }, publishing ? '身份已公布，全部终局奖励已结算' : '公开身份已隐藏，已结算积分保持不变');
+  }
+
+  async function issueCode(task: Task, replacing: boolean) {
+    if (replacing && !window.confirm(`重新生成“${task.title}”的代码？之前打印或抄写的代码会立即失效。`)) return;
+    setError(''); setMessage(''); setBusy(true); setGeneratedHiddenCode(null);
+    try {
+      const response = await fetch('/api/admin-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'issueHiddenTaskCode', taskId: task.id }) });
+      const result = await responseBody(response);
+      if (!response.ok) throw new Error(result.error || '生成隐藏任务码失败');
+      if (typeof result.code !== 'string') throw new Error('服务器没有返回隐藏任务码');
+      setGeneratedHiddenCode({ taskId: task.id, taskTitle: task.title, code: result.code });
+      setMessage('隐藏任务码已生成；离开本页后无法再次查看，请立即写入对应实体卡。');
+      await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '生成隐藏任务码失败'); }
+    finally { setBusy(false); }
+  }
+
+  async function resetRehearsal(event: React.FormEvent) {
+    event.preventDefault();
+    if (!window.confirm('最后确认：这会退出全部宾客、清除抽卡、任务进度、投票、积分和竞拍记录。配置内容会保留。是否继续？')) return;
+    const eventKey = resetEventKey || crypto.randomUUID();
+    setResetEventKey(eventKey); setError(''); setMessage(''); setBusy(true);
+    try {
+      const response = await fetch('/api/admin-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'resetRehearsal', ...resetForm, eventKey }) });
+      const result = await responseBody(response);
+      if (!response.ok) throw new Error(result.error || '彩排清场失败');
+      setResetCleanupPending(Boolean(result.evidenceCleanupPending));
+      setMessage(result.evidenceCleanupPending ? '运行数据已清空，但部分验证照片仍待删除；请保持当前确认内容并点击“重试照片清理”。' : `彩排数据已安全清空${result.removedEvidence ? `，并删除 ${result.removedEvidence} 张验证照片` : ''}。`);
+      if (!result.evidenceCleanupPending) {
+        setResetForm({ confirmation: '', backupConfirmed: false, reason: '婚礼正式开始前清空彩排记录' });
+        setResetEventKey('');
+      }
+      await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '彩排清场失败'); }
+    finally { setBusy(false); }
+  }
+
+  async function rotateInvitationCode(event: React.FormEvent) {
+    event.preventDefault();
+    const code = invitationCodeForm.code.trim().toUpperCase();
+    if (code !== invitationCodeForm.confirm.trim().toUpperCase()) { setError('两次输入的邀请码不一致'); return; }
+    if (!window.confirm('确认更换共享邀请码？已登录宾客不会退出，但之后重新登录必须使用新邀请码；旧二维码网址仍然有效。')) return;
+    const ok = await action({ type: 'rotateInvitationCode', code }, '共享邀请码已安全更新，请立即同步到请柬和现场提示牌');
+    if (ok) setInvitationCodeForm({ code: '', confirm: '' });
+  }
+
+  async function importRoster(event: React.FormEvent) {
+    event.preventDefault();
+    if (!data?.game || data.game.registration_open || rosterImportPreview.issues.length || !rosterImportPreview.rows.length || !rosterImportConfirmed) return;
+    if (!window.confirm(`确认新增 ${rosterImportPreview.rows.length} 位宾客？批量导入不会覆盖现有宾客。`)) return;
+    setError(''); setMessage(''); setBusy(true);
+    try {
+      const response = await fetch('/api/admin-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'importGuestRoster', rows: rosterImportPreview.rows }) });
+      const result = await responseBody(response);
+      if (!response.ok) throw new Error(result.error || '批量导入失败');
+      setRosterImportText(''); setRosterImportConfirmed(false);
+      setMessage(`已新增 ${Number(result.importedCount) || rosterImportPreview.rows.length} 位宾客`);
+      await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '批量导入失败'); }
+    finally { setBusy(false); }
+  }
+
+  if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">ORGANIZER ONLY</div><div className="heart-mark">♡</div><h1>主办方<br/>控制台</h1><p className="lead">管理婚礼流程、审核任务与揭晓结果。</p><form onSubmit={login}><label htmlFor="admin-password">管理员密码</label><input id="admin-password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required/><p className="login-note">连续输错五次后，该设备暂停登录十五分钟。</p><button disabled={busy}>{busy ? '登录中…' : '进入控制台'}</button>{error && <div className="notice error">{error}</div>}</form></section></main>;
 
   const activeGuests = data.guests.filter((guest) => guest.active);
   const claimed = activeGuests.filter((guest) => guest.claimed_at).length;
@@ -166,34 +277,42 @@ export default function AdminPage() {
   }, {})).sort((a, b) => b[1] - a[1]);
   const settledPersonalPoints = data.resultRewards.filter((reward) => reward.reward_type === 'guest_detective').reduce((sum, reward) => sum + reward.amount, 0);
   const settledTeamPoints = data.resultRewards.filter((reward) => reward.reward_type !== 'guest_detective').reduce((sum, reward) => sum + reward.amount, 0);
-  const activeCategories = new Set(data.tasks.filter((task) => task.active).map((task) => task.category));
+  const activeHiddenTasks = data.tasks.filter((task) => task.active && task.category === 'hidden');
+  const issuedHiddenTaskIds = new Set(data.hiddenTaskCodes.map((code) => code.task_id));
+  const readyHiddenTaskCards = activeHiddenTasks.filter((task) => issuedHiddenTaskIds.has(task.id)).length;
   const spyGuests = data.guests.filter((guest) => guest.active && guest.role === 'spy');
-  const spiesWithActiveClues = spyGuests.filter((spy) => data.clues.some((clue) => clue.active && clue.spy_guest_id === spy.id)).length;
-  const readiness = [
-    { label: '宾客名单已导入', detail: `${activeGuests.length} 位启用 · ${data.guests.length - activeGuests.length} 位停用`, ok: activeGuests.length === 32 },
-    { label: '首轮任务可抽取', detail: `${data.tasks.filter((task) => task.active && task.category === 'standard').length} 项`, ok: activeCategories.has('standard') },
-    { label: '升级任务已配置', detail: `${data.tasks.filter((task) => task.active && task.category === 'upgrade').length} 项`, ok: activeCategories.has('upgrade') },
-    { label: '团队任务已配置', detail: `${data.tasks.filter((task) => task.active && task.category === 'group').length} 项`, ok: activeCategories.has('group') },
-    { label: '奖励线索充足', detail: `${data.clues.filter((clue) => clue.active).length} 条（至少 3 条）`, ok: data.clues.filter((clue) => clue.active).length >= 3 },
-    { label: '每位间谍已有专属线索', detail: spyGuests.length ? `${spiesWithActiveClues}/${spyGuests.length} 位已覆盖` : '请先预设间谍身份', ok: spyGuests.length > 0 && spiesWithActiveClues === spyGuests.length },
-    { label: '流程状态可用', detail: data.game ? `当前：${STAGES.find(([value]) => value === data.game?.stage)?.[1] || data.game.stage}` : '未读取到状态', ok: Boolean(data.game) },
-  ];
-  const readyCount = readiness.filter((item) => item.ok).length;
+  const drawnSpyGuests = spyGuests.filter((guest) => guest.drawn_at);
+  const spyScoreTotals = drawnSpyGuests.map((guest) => ({ guest, points: data.spyPointLedger.filter((entry) => entry.guest_id === guest.id).reduce((sum, entry) => sum + entry.amount, 0) }));
   const teamTotals = TEAMS.map((teamName) => ({ team: teamName, points: data.teamPointLedger.filter((entry) => entry.team === teamName).reduce((sum, entry) => sum + entry.amount, 0) }));
+  const finaleActive = Boolean(data.game?.voting_open || data.game?.results_visible || ['voting', 'results'].includes(data.game?.stage || ''));
+  const resetControlsClosed = !data.game?.registration_open && !data.game?.voting_open && !data.game?.scoreboard_visible;
+  const resetPreview = data.rehearsalResetPreview;
 
   return <main className="admin-shell">
     <section className="admin-hero"><div><div className="eyebrow">LIVE CONTROL</div><h1>婚礼游戏控制台</h1><p>{claimed}/{data.guests.length} 位宾客已认领 · {data.submissions.length} 项待审核</p></div><div className="admin-hero-actions"><a href="/station">任务站</a><a href="/host">主持人流程台</a><StaffLogoutButton/><div className="live-dot">LIVE</div></div></section>
     {message && <div className="notice success sticky-notice">{message}</div>}{error && <div className="notice error sticky-notice">{error}</div>}
 
     <section className="section-card readiness-card">
-      <div className="section-heading"><div><small>PRE-FLIGHT CHECK</small><h2>开场前就绪检查</h2></div><span className={readyCount === readiness.length ? 'ready-badge' : 'warning-badge'}>{readyCount}/{readiness.length}</span></div>
-      <div className="readiness-list">{readiness.map((item) => <div key={item.label} className={item.ok ? 'ready' : 'not-ready'}><b aria-hidden="true">{item.ok ? '✓' : '!'}</b><p><strong>{item.label}</strong><small>{item.detail}</small></p></div>)}</div>
-      {readyCount !== readiness.length && <p className="readiness-help">带感叹号的项目请在开放注册前处理；宾客人数应与最终名单一致。</p>}
+      <div className="section-heading"><div><small>PRE-FLIGHT CHECK</small><h2>开场前就绪检查</h2></div><span className={data.preflight.ready ? 'ready-badge' : 'warning-badge'}>{data.preflight.ready ? '可以开场' : `${data.preflight.blockedCount} 项待处理`}</span></div>
+      <div className="readiness-list">{data.preflight.items.map((item) => <div key={item.id} className={item.status === 'ready' ? 'ready' : 'not-ready'}><b aria-hidden="true">{item.status === 'ready' ? '✓' : '!'}</b><p><strong>{item.label}</strong><small>{item.detail}</small></p></div>)}</div>
+      {!data.preflight.ready && <p className="readiness-help">带感叹号的项目会影响完整流程，请在开放注册前处理。主持题目必须替换为真实答案，并确认每位间谍已有专属线索。</p>}
     </section>
 
     <section className="admin-grid">
-      <article className="section-card"><div className="section-heading"><div><small>REGISTRATION</small><h2>宾客注册</h2></div></div><p className="muted">首次进入由宾客自行设置四位密码，忘记后可在宾客列表中重置。</p><button disabled={busy} onClick={() => action({ type: 'toggleRegistration', value: !data.game?.registration_open })}>{data.game?.registration_open ? '关闭注册' : '开放注册'}</button><div className={`control-state ${data.game?.registration_open ? 'on' : ''}`}>{data.game?.registration_open ? '● 注册开放中' : '○ 注册已关闭'}</div></article>
-      <article className="section-card"><div className="section-heading"><div><small>GAME STAGE</small><h2>当前流程</h2></div></div><label htmlFor="game-stage">切换婚礼环节</label><select id="game-stage" value={data.game?.stage || 'registration'} disabled={busy} onChange={(event) => action({ type: 'setStage', stage: event.target.value }, '游戏阶段已切换')}>{STAGES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select><div className="control-buttons"><button disabled={busy} onClick={() => { const opening = !data.game?.voting_open; if (!opening || window.confirm('开启一轮新的最终投票？宾客每人只能投一次，旧轮次会保留在历史记录中。')) void action({ type: 'toggleVoting', value: opening }, opening ? '新一轮最终投票已开启' : '最终投票已关闭'); }}>{data.game?.voting_open ? '关闭投票' : '开启新投票'}</button><button disabled={busy} className="secondary" onClick={() => { const publishing = !data.game?.results_visible; if (!publishing || window.confirm('确认公布身份并结算终局奖励？系统会关闭投票，自动发放个人侦探分、队伍识破分和首轮完成率奖励。')) void action({ type: 'toggleResults', value: publishing }, publishing ? '身份已公布，终局奖励已结算' : '身份结果已隐藏'); }}>{data.game?.results_visible ? '隐藏揭晓' : '公布并结算'}</button><button disabled={busy} className="secondary" onClick={() => action({ type: 'toggleScoreboard', value: !data.game?.scoreboard_visible })}>{data.game?.scoreboard_visible ? '关闭大屏' : '开放大屏'}</button></div><div className={`control-state ${data.game?.voting_open ? 'on' : ''}`}>{data.game?.results_visible ? `● 第 ${data.game.voting_round} 轮已公布并锁定` : data.game?.voting_open ? `● 第 ${data.game.voting_round} 轮投票中 · ${data.votes.length}/${drawn} 人已投` : '○ 投票未开放'}</div></article>
+      <article className="section-card"><div className="section-heading"><div><small>REGISTRATION</small><h2>宾客注册</h2></div><span className={data.game?.invitation_code_updated_at ? 'ready-badge' : 'warning-badge'}>{data.game?.invitation_code_updated_at ? '邀请码已设置' : '请更换示例码'}</span></div><p className="muted">首次进入由宾客自行设置四位密码，忘记后可在宾客列表中重置。开启最终投票时注册会自动关闭。</p><button disabled={busy || (!data.game?.registration_open && finaleActive)} onClick={() => action({ type: 'toggleRegistration', value: !data.game?.registration_open })}>{data.game?.registration_open ? '关闭注册' : finaleActive ? '终局期间不可开放' : '开放注册'}</button><div className={`control-state ${data.game?.registration_open ? 'on' : ''}`}>{data.game?.registration_open ? '● 注册开放中' : finaleActive ? '○ 注册已关闭 · 先切回常规环节才能开放' : '○ 注册已关闭'}</div><form onSubmit={rotateInvitationCode}><h3>更换共享邀请码</h3><p className="field-help">使用 6–32 位英文字母、数字或连字符。系统只保存哈希，保存后不会再次显示原码。</p><label htmlFor="invitation-code-new">新邀请码</label><input id="invitation-code-new" value={invitationCodeForm.code} onChange={(event) => setInvitationCodeForm({ ...invitationCodeForm, code: event.target.value.toUpperCase() })} minLength={6} maxLength={32} pattern="[A-Z0-9-]{6,32}" autoCapitalize="characters" autoComplete="off" required/><label htmlFor="invitation-code-confirm">再次输入</label><input id="invitation-code-confirm" value={invitationCodeForm.confirm} onChange={(event) => setInvitationCodeForm({ ...invitationCodeForm, confirm: event.target.value.toUpperCase() })} minLength={6} maxLength={32} pattern="[A-Z0-9-]{6,32}" autoCapitalize="characters" autoComplete="off" required/><button disabled={busy || invitationCodeForm.code.length < 6 || invitationCodeForm.code !== invitationCodeForm.confirm}>保存并替换旧邀请码</button></form></article>
+      <article className="section-card">
+        <div className="section-heading"><div><small>GAME STAGE</small><h2>当前流程</h2></div></div>
+        <label htmlFor="game-stage">切换婚礼环节</label>
+        <select id="game-stage" value={data.game?.stage || 'registration'} disabled={busy} onChange={(event) => changeStage(event.target.value)}>{STAGES.map(([value, label]) => <option value={value} key={value} disabled={['voting', 'results'].includes(value)}>{label}{['voting', 'results'].includes(value) ? '（由下方按钮控制）' : ''}</option>)}</select>
+        <p className="field-help">手动切换会清空上一题和倒计时；投票与揭晓必须使用下方专用按钮，确保轮次和积分结算完整。</p>
+        <form onSubmit={(event) => { event.preventDefault(); void action({ type: 'setGuestPhaseNote', note: guestPhaseNote }, guestPhaseNote.trim() ? '宾客端环节提示已更新' : '宾客端环节提示已清空'); }}><label htmlFor="guest-phase-note">宾客手机上的当前提示</label><textarea id="guest-phase-note" value={guestPhaseNote} onChange={(event) => setGuestPhaseNote(event.target.value)} maxLength={500} placeholder="例如：第一轮任务延长五分钟，请完成后前往任务站核验。"/><div className="form-grid"><button disabled={busy}>发布宾客提示</button><button type="button" className="secondary" disabled={busy || !data.game?.phase_note} onClick={() => { void action({ type: 'setGuestPhaseNote', note: '' }, '宾客端环节提示已清空').then((ok) => { if (ok) setGuestPhaseNote(''); }); }}>清空提示</button></div></form>
+        <div className="control-buttons">
+          <button disabled={busy} onClick={toggleVoting}>{data.game?.voting_open ? '关闭投票' : '开启新投票'}</button>
+          <button disabled={busy} className="secondary" onClick={toggleResults}>{data.game?.results_visible ? '隐藏揭晓' : '公布并结算'}</button>
+          <button disabled={busy} className="secondary" onClick={() => action({ type: 'toggleScoreboard', value: !data.game?.scoreboard_visible })}>{data.game?.scoreboard_visible ? '关闭大屏' : '开放大屏'}</button>
+        </div>
+        <div className={`control-state ${data.game?.voting_open ? 'on' : ''}`}>{data.game?.results_visible ? `● 第 ${data.game.voting_round} 轮已公布并锁定` : data.game?.voting_open ? `● 第 ${data.game.voting_round} 轮投票中 · ${data.votes.length}/${drawn} 人已投` : data.game?.stage === 'voting' ? `○ 第 ${data.game.voting_round} 轮投票已关闭` : '○ 投票未开放'}</div>
+      </article>
     </section>
 
     <section className="admin-grid">
@@ -201,7 +320,7 @@ export default function AdminPage() {
       <article className="section-card"><div className="section-heading"><div><small>TEAM GAME SCORE</small><h2>团队游戏计分</h2></div></div><div className="team-total-list">{teamTotals.map((item) => <div key={item.team}><strong>{item.team}</strong><span>{item.points > 0 ? '+' : ''}{item.points} 团队分</span></div>)}</div><form onSubmit={(event) => { event.preventDefault(); void action({ type: 'adjustTeamPoints', team: teamScore.team, amount: Number(teamScore.amount), reason: teamScore.reason }, '团队积分已记录'); }}><label htmlFor="score-team">组别</label><select id="score-team" value={teamScore.team} onChange={(event) => setTeamScore({ ...teamScore, team: event.target.value })}>{TEAMS.map((teamName) => <option key={teamName}>{teamName}</option>)}</select><div className="form-grid"><div><label htmlFor="score-amount">分数变化</label><input id="score-amount" type="number" min={-1000} max={1000} value={teamScore.amount} onChange={(event) => setTeamScore({ ...teamScore, amount: event.target.value })} required/></div><div><label htmlFor="score-reason">原因</label><input id="score-reason" value={teamScore.reason} onChange={(event) => setTeamScore({ ...teamScore, reason: event.target.value })} maxLength={200} required/></div></div><div className="score-presets"><button type="button" onClick={() => setTeamScore({ ...teamScore, amount: '5', reason: '团队游戏第一名' })}>第一名 +5</button><button type="button" onClick={() => setTeamScore({ ...teamScore, amount: '3', reason: '团队游戏第二名' })}>第二名 +3</button><button type="button" onClick={() => setTeamScore({ ...teamScore, amount: '1', reason: '团队游戏参与分' })}>第三名 +1</button></div><button disabled={busy || !teamScore.amount || !teamScore.reason.trim()}>记录团队积分</button></form></article>
     </section>
 
-    <section className="section-card"><div className="section-heading"><div><small>APPROVAL QUEUE</small><h2>待审核任务</h2></div><span>{data.submissions.length}</span></div>{data.submissions.length === 0 ? <div className="empty-state">暂无待审核提交。</div> : data.submissions.map((submission) => <div className="approval-row" key={submission.id}><div><strong>{submission.guest?.name}</strong><p>{submission.task?.title} · {submission.task?.points} 分</p></div><div><button disabled={busy} onClick={() => action({ type: 'approve', assignmentId: submission.id }, '任务已通过并自动加分')}>通过</button><button disabled={busy} className="danger" onClick={() => { const reason = window.prompt('请写明退回原因，宾客会看到这条说明：', '请补充照片或请相关宾客确认'); if (reason?.trim()) void action({ type: 'reject', assignmentId: submission.id, reason }, '任务已退回'); }}>退回</button></div></div>)}</section>
+    <section className="section-card"><div className="section-heading"><div><small>APPROVAL QUEUE</small><h2>待审核任务</h2></div><span>{data.submissions.length}</span></div>{data.submissions.length === 0 ? <div className="empty-state">暂无待审核提交。</div> : data.submissions.map((submission) => <div className="approval-row" key={submission.id}><div><strong>{submission.guest?.name}</strong><p>{submission.task?.title} · {submission.task?.points} 分</p><div className="verification-note"><strong>核验要求</strong><span>{submission.task?.verification_method}</span></div>{submission.completion_note && <div className="submission-note"><strong>宾客完成说明</strong><span>{submission.completion_note}</span></div>}{submission.evidence_url && <figure className="evidence-preview compact"><a href={submission.evidence_url} target="_blank" rel="noreferrer"><img src={submission.evidence_url} alt={`${submission.task?.title || '任务'}的验证照片`} loading="lazy"/></a><figcaption>点击查看验证照片</figcaption></figure>}</div><div><button disabled={busy} onClick={() => { const verificationNote = window.prompt('请记录核验结果：', submission.task?.verification_method || '已由主办方核验通过'); if (verificationNote?.trim()) void action({ type: 'approve', assignmentId: submission.id, verificationNote }, '任务已通过并自动加分'); }}>通过</button><button disabled={busy} className="danger" onClick={() => { const reason = window.prompt('请写明退回原因，宾客会看到这条说明：', '请补充照片或请相关宾客确认'); if (reason?.trim()) void action({ type: 'reject', assignmentId: submission.id, reason }, '任务已退回'); }}>退回</button></div></div>)}</section>
 
     <section className="section-card"><div className="section-heading"><div><small>QUICK OPERATIONS</small><h2>宾客操作台</h2></div></div>
       <label htmlFor="operation-guest">选择宾客</label><select id="operation-guest" value={selectedGuestId} onChange={(event) => setSelectedGuestId(event.target.value)}>{activeGuests.map((guest) => <option key={guest.id} value={guest.id}>{guest.name} · {guest.team} · {guest.points} 分</option>)}</select>
@@ -214,21 +333,55 @@ export default function AdminPage() {
     </section>
 
     <section className="admin-grid">
-      <article className="section-card"><div className="section-heading"><div><small>TASK LIBRARY</small><h2>任务库管理</h2></div><span>{data.tasks.filter((task) => task.active).length}/{data.tasks.length} 启用</span></div><label htmlFor="library-task">选择任务或新建</label><select id="library-task" value={libraryTaskId} onChange={(event) => setLibraryTaskId(event.target.value)}><option value="new">＋ 新建任务</option>{data.tasks.map((task) => <option key={task.id} value={task.id}>{task.active ? '●' : '○'} {task.grants_hidden_spy ? '◆ ' : ''}{task.title}</option>)}</select><form onSubmit={(event) => { event.preventDefault(); void action({ type: 'saveTask', taskId: libraryTaskId === 'new' ? null : libraryTaskId, ...newTask, points: Number(newTask.points) }, libraryTaskId === 'new' ? '任务已加入任务库' : '任务已保存').then((ok) => { if (ok && libraryTaskId === 'new') setLibraryTaskId('new'); }); }}><label htmlFor="task-title">标题</label><input id="task-title" value={newTask.title} onChange={(event) => setNewTask({ ...newTask, title: event.target.value })} maxLength={120} required/><label htmlFor="task-description">任务说明</label><textarea id="task-description" value={newTask.description} onChange={(event) => setNewTask({ ...newTask, description: event.target.value })} maxLength={1000} required/><label htmlFor="task-verification">验证方式</label><textarea id="task-verification" value={newTask.verificationMethod} onChange={(event) => setNewTask({ ...newTask, verificationMethod: event.target.value })} maxLength={500} required/><p className="field-help">写清需要出示照片、提供口令、由相关宾客确认，或由工作人员现场观察。</p><div className="form-grid"><div><label htmlFor="task-points">积分</label><input id="task-points" type="number" min={1} max={500} value={newTask.points} onChange={(event) => setNewTask({ ...newTask, points: event.target.value })} required/></div><div><label htmlFor="task-role">适用身份</label><select id="task-role" value={newTask.roleScope} disabled={newTask.grantsHiddenSpy} onChange={(event) => setNewTask({ ...newTask, roleScope: event.target.value })}><option value="all">所有身份</option><option value="guest">祝福见证者</option><option value="spy">间谍</option><option value="helper">秘密信使</option></select></div><div><label htmlFor="task-category">类型</label><select id="task-category" value={newTask.category} disabled={newTask.grantsHiddenSpy} onChange={(event) => setNewTask({ ...newTask, category: event.target.value })}>{Object.entries(CATEGORY_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div><div><label htmlFor="task-stage">开放阶段</label><select id="task-stage" value={newTask.stage} disabled={newTask.grantsHiddenSpy} onChange={(event) => setNewTask({ ...newTask, stage: event.target.value })}>{STAGES.filter(([value]) => ['task_round_1', 'task_round_2', 'group_game'].includes(value)).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div></div><label className="ready-check"><input type="checkbox" checked={newTask.grantsHiddenSpy} onChange={(event) => setNewTask({ ...newTask, grantsHiddenSpy: event.target.checked, ...(event.target.checked ? { category: 'hidden', roleScope: 'guest', stage: 'task_round_2' } : {}) })}/><span><strong>完成后成为隐藏间谍</strong><small>全场只能启用并派发一张；审核通过时身份自动转化。</small></span></label><label className="ready-check"><input type="checkbox" checked={newTask.active} onChange={(event) => setNewTask({ ...newTask, active: event.target.checked })}/><span><strong>允许继续派发</strong><small>停用后不会影响已领取这项任务的宾客。</small></span></label>{libraryTaskId !== 'new' && <p className="field-help">任务一旦派发，积分、身份范围、类型、阶段和隐藏奖励会锁定；仍可修正文案或停用。</p>}<button disabled={busy}>{libraryTaskId === 'new' ? '创建任务' : '保存任务'}</button></form></article>
+      <article className="section-card">
+        <div className="section-heading"><div><small>TASK LIBRARY</small><h2>任务库管理</h2></div><span>{data.tasks.filter((task) => task.active).length}/{data.tasks.length} 启用</span></div>
+        <label htmlFor="library-task">选择任务或新建</label>
+        <select id="library-task" value={libraryTaskId} onChange={(event) => setLibraryTaskId(event.target.value)}><option value="new">＋ 新建任务</option>{data.tasks.map((task) => <option key={task.id} value={task.id}>{task.active ? '●' : '○'} {task.grants_hidden_spy ? '◆ ' : ''}{task.title}</option>)}</select>
+        <form onSubmit={(event) => { event.preventDefault(); void action({ type: 'saveTask', taskId: libraryTaskId === 'new' ? null : libraryTaskId, ...newTask, points: Number(newTask.points) }, libraryTaskId === 'new' ? '任务已加入任务库' : '任务已保存').then((ok) => { if (ok && libraryTaskId === 'new') setLibraryTaskId('new'); }); }}>
+          <label htmlFor="task-title">标题</label><input id="task-title" value={newTask.title} onChange={(event) => setNewTask({ ...newTask, title: event.target.value })} maxLength={120} required/>
+          <label htmlFor="task-description">任务说明</label><textarea id="task-description" value={newTask.description} onChange={(event) => setNewTask({ ...newTask, description: event.target.value })} maxLength={1000} required/>
+          <label htmlFor="task-verification">验证方式</label><textarea id="task-verification" value={newTask.verificationMethod} onChange={(event) => setNewTask({ ...newTask, verificationMethod: event.target.value })} maxLength={500} required/>
+          <p className="field-help">写清需要出示照片、提供口令、由相关宾客确认，或由工作人员现场观察。</p>
+          <div className="form-grid">
+            <div><label htmlFor="task-points">个人积分</label><input id="task-points" type="number" min={1} max={3} value={newTask.points} onChange={(event) => setNewTask({ ...newTask, points: event.target.value })} required/><p className="field-help">普通 1 分，升级/隐藏 2 分，特殊任务最多 3 分。</p></div>
+            <div><label htmlFor="task-role">适用身份</label><select id="task-role" value={newTask.roleScope} disabled={newTask.grantsHiddenSpy} onChange={(event) => { const roleScope = event.target.value; setNewTask({ ...newTask, roleScope, points: String(recommendedTaskPoints(newTask.category, roleScope, newTask.grantsHiddenSpy)) }); }}><option value="all">所有身份</option><option value="guest">祝福见证者</option><option value="spy">间谍</option><option value="helper">秘密信使</option></select></div>
+            <div><label htmlFor="task-category">类型</label><select id="task-category" value={newTask.category} disabled={newTask.grantsHiddenSpy} onChange={(event) => { const category = event.target.value; setNewTask({ ...newTask, category, points: String(recommendedTaskPoints(category, newTask.roleScope, newTask.grantsHiddenSpy)) }); }}>{Object.entries(CATEGORY_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+            <div><label htmlFor="task-stage">开放阶段</label><select id="task-stage" value={newTask.stage} disabled={newTask.grantsHiddenSpy} onChange={(event) => setNewTask({ ...newTask, stage: event.target.value })}>{STAGES.filter(([value]) => ['task_round_1', 'task_round_2', 'group_game'].includes(value)).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+          </div>
+          <label className="ready-check"><input type="checkbox" checked={newTask.grantsHiddenSpy} onChange={(event) => { const grantsHiddenSpy = event.target.checked; const category = grantsHiddenSpy ? 'hidden' : newTask.category; const roleScope = grantsHiddenSpy ? 'guest' : newTask.roleScope; setNewTask({ ...newTask, grantsHiddenSpy, category, roleScope, points: String(recommendedTaskPoints(category, roleScope, grantsHiddenSpy)), ...(grantsHiddenSpy ? { stage: 'task_round_2' } : {}) }); }}/><span><strong>完成后成为隐藏间谍</strong><small>全场只能启用并派发一张；审核通过时身份自动转化。</small></span></label>
+          <label className="ready-check"><input type="checkbox" checked={newTask.active} onChange={(event) => setNewTask({ ...newTask, active: event.target.checked })}/><span><strong>允许继续派发</strong><small>停用后不会影响已领取这项任务的宾客。</small></span></label>
+          {libraryTaskId !== 'new' && <p className="field-help">任务一旦派发，积分、身份范围、类型、阶段和隐藏奖励会锁定；仍可修正文案或停用。</p>}
+          <button disabled={busy}>{libraryTaskId === 'new' ? '创建任务' : '保存任务'}</button>
+        </form>
+      </article>
       <article className="section-card"><div className="section-heading"><div><small>CLUE LIBRARY</small><h2>线索库管理</h2></div><span>{data.clues.filter((clue) => clue.active).length}/{data.clues.length} 启用</span></div><label htmlFor="library-clue">选择线索或新建</label><select id="library-clue" value={libraryClueId} onChange={(event) => setLibraryClueId(event.target.value)}><option value="new">＋ 新建线索</option>{data.clues.map((clue) => <option key={clue.id} value={clue.id}>{clue.active ? '●' : '○'} L{clue.level} · {clue.spy?.name || '通用'} · {clue.title}</option>)}</select><form onSubmit={(event) => { event.preventDefault(); void action({ type: 'saveClue', clueId: libraryClueId === 'new' ? null : libraryClueId, ...newClue, level: Number(newClue.level) }, libraryClueId === 'new' ? '线索已加入线索库' : '线索已保存').then((ok) => { if (ok && libraryClueId === 'new') setLibraryClueId('new'); }); }}><label htmlFor="clue-title">线索标题</label><input id="clue-title" value={newClue.title} onChange={(event) => setNewClue({ ...newClue, title: event.target.value })} maxLength={120} required/><label htmlFor="clue-content">线索内容</label><textarea id="clue-content" value={newClue.content} onChange={(event) => setNewClue({ ...newClue, content: event.target.value })} maxLength={1000} required/><div className="form-grid"><div><label htmlFor="clue-spy">对应间谍</label><select id="clue-spy" value={newClue.spyGuestId} onChange={(event) => setNewClue({ ...newClue, spyGuestId: event.target.value })}><option value="">通用线索</option>{spyGuests.map((guest) => <option key={guest.id} value={guest.id}>{guest.name} · {guest.team}</option>)}</select></div><div><label htmlFor="clue-level">线索等级</label><select id="clue-level" value={newClue.level} onChange={(event) => setNewClue({ ...newClue, level: event.target.value })}><option value="1">一级 · 模糊</option><option value="2">二级 · 收窄范围</option><option value="3">三级 · 接近答案</option></select></div></div><label className="ready-check"><input type="checkbox" checked={newClue.active} onChange={(event) => setNewClue({ ...newClue, active: event.target.checked })}/><span><strong>允许继续发放</strong><small>停用后已获得该线索的宾客仍可查看。</small></span></label>{libraryClueId !== 'new' && <p className="field-help">线索发放后，对应间谍和等级会锁定；仍可修正文案或停用。</p>}<button disabled={busy}>{libraryClueId === 'new' ? '创建线索' : '保存线索'}</button></form>{libraryClueId !== 'new' && <div className="library-preview"><div><strong>L{newClue.level} · {newClue.title}</strong><p>{newClue.content}</p></div></div>}</article>
     </section>
 
-    <section className="section-card"><div className="section-heading"><div><small>GUEST ROSTER</small><h2>宾客名单管理</h2></div><span>{activeGuests.length} 位启用</span></div><label htmlFor="roster-guest">选择宾客或新增</label><select id="roster-guest" value={rosterGuestId} onChange={(event) => setRosterGuestId(event.target.value)}><option value="new">＋ 新增宾客</option>{data.guests.map((guest) => <option key={guest.id} value={guest.id}>{guest.active ? '●' : '○'} {guest.name} · {guest.login_name}</option>)}</select><form onSubmit={(event) => { event.preventDefault(); void action({ type: 'saveGuestRoster', guestId: rosterGuestId === 'new' ? null : rosterGuestId, ...guestForm }, rosterGuestId === 'new' ? '宾客已加入名单' : '宾客资料已保存'); }}><div className="form-grid"><div><label htmlFor="roster-name">显示姓名</label><input id="roster-name" value={guestForm.name} onChange={(event) => setGuestForm({ ...guestForm, name: event.target.value })} maxLength={120} required/></div><div><label htmlFor="roster-login">登录名</label><input id="roster-login" value={guestForm.loginName} disabled={Boolean(rosterGuest?.claimed_at)} onChange={(event) => setGuestForm({ ...guestForm, loginName: event.target.value })} maxLength={80} placeholder="例如 Fangzhou Chen" required/></div><div><label htmlFor="roster-table">桌号或座位</label><input id="roster-table" value={guestForm.tableLabel} onChange={(event) => setGuestForm({ ...guestForm, tableLabel: event.target.value })} maxLength={40} placeholder="例如 3 号桌"/></div></div>{rosterGuest?.claimed_at && <p className="field-help">宾客已设置密码，登录名已锁定；显示姓名、桌号和标记仍可修改。</p>}<label htmlFor="roster-notes">工作人员备注</label><textarea id="roster-notes" value={guestForm.staffNotes} onChange={(event) => setGuestForm({ ...guestForm, staffNotes: event.target.value })} maxLength={300} placeholder="仅主办方和导出文件可见，不填写不必要的个人信息。"/><div className="form-grid"><label className="ready-check"><input type="checkbox" checked={guestForm.isElder} onChange={(event) => setGuestForm({ ...guestForm, isElder: event.target.checked })}/><span><strong>长辈或轻量参与</strong><small>便于优先安排简单任务。</small></span></label><label className="ready-check"><input type="checkbox" checked={guestForm.ceremonyEligible} onChange={(event) => setGuestForm({ ...guestForm, ceremonyEligible: event.target.checked })}/><span><strong>适合仪式任务</strong><small>可承担递戒指、领掌等指定环节。</small></span></label><label className="ready-check"><input type="checkbox" checked={guestForm.active} disabled={Boolean(rosterGuest?.drawn_at)} onChange={(event) => setGuestForm({ ...guestForm, active: event.target.checked })}/><span><strong>允许认领和参与</strong><small>{rosterGuest?.drawn_at ? '已经抽卡，现场期间不能停用。' : '停用会撤销该宾客所有登录会话。'}</small></span></label></div><button disabled={busy}>{rosterGuestId === 'new' ? '添加到宾客名单' : '保存宾客资料'}</button></form></section>
+    <section className="section-card">
+      <div className="section-heading"><div><small>PHYSICAL HIDDEN CARDS</small><h2>隐藏任务实体卡</h2></div><span>{readyHiddenTaskCards}/{activeHiddenTasks.length}</span></div>
+      <p className="muted">每项已启用的隐藏任务可生成一个一次性代码。代码只显示一次，请立即写入或打印到对应实体卡；宾客找到后由任务站兑换。</p>
+      {generatedHiddenCode && <div className="generated-secret-code" role="status"><small>仅本次显示 · {generatedHiddenCode.taskTitle}</small><strong>{generatedHiddenCode.code}</strong><p>请现在记录。刷新或离开页面后，后台只保留散列，无法恢复原代码。</p></div>}
+      {activeHiddenTasks.length === 0 ? <div className="empty-state">请先在任务库创建并启用隐藏任务。</div> : <div className="hidden-code-list">{activeHiddenTasks.map((task) => {
+        const issued = data.hiddenTaskCodes.find((code) => code.task_id === task.id);
+        return <article key={task.id}><div><strong>{task.grants_hidden_spy ? '◆ ' : ''}{task.title}</strong><small>{task.points} 分 · {issued?.claimed_at ? `已由 ${issued.guest?.name || '宾客'} 领取` : issued ? '代码已生成，等待领取' : '尚未生成实体卡代码'}</small></div><button className="mini-button" disabled={busy || Boolean(issued?.claimed_at)} onClick={() => void issueCode(task, Boolean(issued))}>{issued?.claimed_at ? '已锁定' : issued ? '重新生成' : '生成代码'}</button></article>;
+      })}</div>}
+    </section>
+
+    <section className="section-card"><div className="section-heading"><div><small>GUEST ROSTER</small><h2>宾客名单管理</h2></div><span>{activeGuests.length} 位启用</span></div><details className="roster-import"><summary>从表格或文本批量新增</summary><p className="muted">每行填写“显示姓名 | 登录名 | 桌号”，也可以直接从三列表格复制。导入只新增，不覆盖已有宾客；长辈和仪式标记可在导入后逐人设置。</p><form onSubmit={importRoster}><label htmlFor="roster-import-text">待导入名单</label><textarea id="roster-import-text" rows={7} value={rosterImportText} onChange={(event) => { setRosterImportText(event.target.value); setRosterImportConfirmed(false); }} placeholder={'陈方舟 | Fangzhou Chen | 3 号桌\n李思然 | Siran Li | 3 号桌'} spellCheck={false}/>{data.game?.registration_open && <div className="notice error">为避免宾客正在认领时名单变化，请先在“当前流程”关闭注册。</div>}{rosterImportPreview.issues.length > 0 && <div className="import-issues">{rosterImportPreview.issues.slice(0, 6).map((issue) => <p key={`${issue.line}-${issue.message}`}><strong>{issue.line ? `第 ${issue.line} 行` : '名单'}：</strong>{issue.message}</p>)}</div>}{rosterImportPreview.rows.length > 0 && <div className="import-preview"><strong>预览 · {rosterImportPreview.rows.length} 位可新增</strong>{rosterImportPreview.rows.slice(0, 8).map((row) => <span key={row.loginName}>{row.name}<small>{row.loginName}{row.tableLabel ? ` · ${row.tableLabel}` : ''}</small></span>)}{rosterImportPreview.rows.length > 8 && <em>另有 {rosterImportPreview.rows.length - 8} 位</em>}</div>}<label className="ready-check"><input type="checkbox" checked={rosterImportConfirmed} onChange={(event) => setRosterImportConfirmed(event.target.checked)} disabled={!rosterImportPreview.rows.length || Boolean(rosterImportPreview.issues.length)}/><span><strong>我已核对预览中的显示姓名和登录名</strong><small>登录名用于搜索和登录，导入后仍可在下方逐人修改。</small></span></label><button disabled={busy || Boolean(data.game?.registration_open) || !rosterImportConfirmed || !rosterImportPreview.rows.length || Boolean(rosterImportPreview.issues.length)}>{busy ? '正在导入…' : `确认新增 ${rosterImportPreview.rows.length} 位宾客`}</button></form></details><label htmlFor="roster-guest">选择宾客或新增</label><select id="roster-guest" value={rosterGuestId} onChange={(event) => setRosterGuestId(event.target.value)}><option value="new">＋ 新增宾客</option>{data.guests.map((guest) => <option key={guest.id} value={guest.id}>{guest.active ? '●' : '○'} {guest.name} · {guest.login_name}</option>)}</select><form onSubmit={(event) => { event.preventDefault(); void action({ type: 'saveGuestRoster', guestId: rosterGuestId === 'new' ? null : rosterGuestId, ...guestForm }, rosterGuestId === 'new' ? '宾客已加入名单' : '宾客资料已保存'); }}><div className="form-grid"><div><label htmlFor="roster-name">显示姓名</label><input id="roster-name" value={guestForm.name} onChange={(event) => setGuestForm({ ...guestForm, name: event.target.value })} maxLength={120} required/></div><div><label htmlFor="roster-login">登录名</label><input id="roster-login" value={guestForm.loginName} disabled={Boolean(rosterGuest?.claimed_at)} onChange={(event) => setGuestForm({ ...guestForm, loginName: event.target.value })} maxLength={80} placeholder="例如 Fangzhou Chen" required/></div><div><label htmlFor="roster-table">桌号或座位</label><input id="roster-table" value={guestForm.tableLabel} onChange={(event) => setGuestForm({ ...guestForm, tableLabel: event.target.value })} maxLength={40} placeholder="例如 3 号桌"/></div></div>{rosterGuest?.claimed_at && <p className="field-help">宾客已设置密码，登录名已锁定；显示姓名、桌号和标记仍可修改。</p>}<label htmlFor="roster-notes">工作人员备注</label><textarea id="roster-notes" value={guestForm.staffNotes} onChange={(event) => setGuestForm({ ...guestForm, staffNotes: event.target.value })} maxLength={300} placeholder="仅主办方和导出文件可见，不填写不必要的个人信息。"/><div className="form-grid"><label className="ready-check"><input type="checkbox" checked={guestForm.isElder} onChange={(event) => setGuestForm({ ...guestForm, isElder: event.target.checked })}/><span><strong>长辈或轻量参与</strong><small>便于优先安排简单任务。</small></span></label><label className="ready-check"><input type="checkbox" checked={guestForm.ceremonyEligible} onChange={(event) => setGuestForm({ ...guestForm, ceremonyEligible: event.target.checked })}/><span><strong>适合仪式任务</strong><small>可承担递戒指、领掌等指定环节。</small></span></label><label className="ready-check"><input type="checkbox" checked={guestForm.active} disabled={Boolean(rosterGuest?.drawn_at)} onChange={(event) => setGuestForm({ ...guestForm, active: event.target.checked })}/><span><strong>允许认领和参与</strong><small>{rosterGuest?.drawn_at ? '已经抽卡，现场期间不能停用。' : '停用会撤销该宾客所有登录会话。'}</small></span></label></div><button disabled={busy}>{rosterGuestId === 'new' ? '添加到宾客名单' : '保存宾客资料'}</button></form></section>
 
     <section className="section-card"><div className="section-heading"><div><small>GUESTS</small><h2>宾客进度</h2></div><span>{activeGuests.length}/{data.guests.length}</span></div><div className="guest-admin-list">{data.guests.map((guest) => <article key={guest.id}><div className="guest-avatar">{guest.name.slice(0, 1)}</div><div><strong>{guest.name}</strong><small>{guest.login_name}{guest.table_label ? ` · ${guest.table_label}` : ''}{guest.is_elder ? ' · 长辈' : ''}{guest.ceremony_eligible ? ' · 仪式候选' : ''} · {guest.drawn_at ? `${guest.team} / ${guest.is_hidden_spy ? '隐藏间谍' : ROLE_LABELS[guest.role] || guest.role}` : '待抽卡'} · {guest.points} 分</small></div><span className={!guest.active ? 'unclaimed' : guest.claimed_at ? 'claimed' : 'unclaimed'}>{!guest.active ? '已停用' : guest.claimed_at ? (guest.drawn_at ? '已抽卡' : '待抽卡') : '未设置'}</span>{guest.active && guest.claimed_at && <button className="mini-button" disabled={busy} onClick={() => { if (window.confirm(`确认重置 ${guest.name} 的密码并退出其所有设备？`)) void action({ type: 'resetGuestClaim', guestId: guest.id }, '宾客密码已重置'); }}>重置密码</button>}</article>)}</div></section>
 
+    <section className="section-card spy-score-admin"><div className="section-heading"><div><small>PRIVATE SPY SCORE</small><h2>间谍积分台</h2></div><span>揭晓前保密</span></div><p className="muted">现场行为由主办方记录，每项固定 +1；逃脱投票、队伍第一和完成全部间谍任务会在公布身份时自动结算。间谍分不进入公开团队榜。</p>{drawnSpyGuests.length === 0 ? <div className="empty-state">尚无已抽卡的间谍。</div> : <><div className="spy-score-totals">{spyScoreTotals.map(({ guest, points }) => <div key={guest.id}><span>{guest.name} · {guest.team}</span><strong>{points} 分</strong></div>)}</div><form onSubmit={(event) => { event.preventDefault(); void action({ type: 'recordSpyPointEvent', guestId: spyScoreForm.guestId, reason: spyScoreForm.reason, note: spyScoreForm.note, eventKey: crypto.randomUUID() }, '间谍积分已私密记录').then((ok) => { if (ok) setSpyScoreForm({ ...spyScoreForm, note: '' }); }); }}><div className="form-grid"><div><label htmlFor="spy-score-guest">间谍</label><select id="spy-score-guest" value={spyScoreForm.guestId} onChange={(event) => setSpyScoreForm({ ...spyScoreForm, guestId: event.target.value })} required><option value="">请选择</option>{drawnSpyGuests.map((guest) => <option key={guest.id} value={guest.id}>{guest.name} · {guest.team}</option>)}</select></div><div><label htmlFor="spy-score-reason">现场事件 · +1</label><select id="spy-score-reason" value={spyScoreForm.reason} onChange={(event) => setSpyScoreForm({ ...spyScoreForm, reason: event.target.value })}>{Object.entries(SPY_POINT_LABELS).filter(([reason]) => ['team_wrong_answer', 'resource_wasted', 'ordinary_guest_suspected'].includes(reason)).map(([reason, label]) => <option key={reason} value={reason}>{label}</option>)}</select></div></div><label htmlFor="spy-score-note">现场备注（选填）</label><input id="spy-score-note" value={spyScoreForm.note} onChange={(event) => setSpyScoreForm({ ...spyScoreForm, note: event.target.value })} maxLength={300} placeholder="例如：第 2 题把玫瑰组引向错误答案"/><button disabled={busy || !spyScoreForm.guestId || Boolean(data.game?.results_visible)}>{data.game?.results_visible ? '身份已揭晓 · 积分锁定' : '私密记录 +1'}</button></form>{data.spyPointLedger.length > 0 && <div className="activity-list spy-ledger">{data.spyPointLedger.slice(0, 12).map((entry) => <div key={entry.id}><span className="amount-positive">+{entry.amount}</span><p><strong>{entry.guest?.name || '未知间谍'} · {SPY_POINT_LABELS[entry.reason] || entry.reason}</strong><small>{entry.note || (entry.voting_round ? `第 ${entry.voting_round} 轮自动结算` : '主办方现场记录')}</small></p></div>)}</div>}</>}</section>
+
     <section className="admin-grid">
-      <article className="section-card"><div className="section-heading"><div><small>VOTE COUNT</small><h2>第 {data.game?.voting_round || 0} 轮投票</h2></div><span>{data.votes.length}</span></div><p className="muted">已投票 {data.votes.length}/{drawn} 人，每人本轮只能投一次。统计仅在主办方后台可见。</p>{data.game?.results_visible && <div className="control-state on">本场已自动结算：个人 +{settledPersonalPoints} 分 · 团队 +{settledTeamPoints} 分</div>}{votesByTarget.length === 0 ? <div className="empty-state">暂无投票。</div> : <ol className="ranking-list">{votesByTarget.map(([name, count]) => <li key={name}><strong>{name}</strong><span>{count} 票</span></li>)}</ol>}</article>
+      <article className="section-card"><div className="section-heading"><div><small>VOTE COUNT</small><h2>第 {data.game?.voting_round || 0} 轮投票</h2></div><span>{data.votes.length}</span></div><p className="muted">已投票 {data.votes.length}/{drawn} 人，每人本轮只能投一次。统计仅在主办方后台可见。</p>{data.game?.results_visible && <div className="control-state on">本场已自动结算：个人 +{settledPersonalPoints} 分 · 团队 +{settledTeamPoints} 分 · 间谍 +{data.spyPointLedger.reduce((sum, entry) => sum + entry.amount, 0)} 分</div>}{votesByTarget.length === 0 ? <div className="empty-state">暂无投票。</div> : <ol className="ranking-list">{votesByTarget.map(([name, count]) => <li key={name}><strong>{name}</strong><span>{count} 票</span></li>)}</ol>}</article>
       <article className="section-card"><div className="section-heading"><div><small>POINTS LEDGER</small><h2>积分流水</h2></div></div>{data.pointLedger.length === 0 ? <div className="empty-state">暂无积分记录。</div> : <div className="activity-list">{data.pointLedger.slice(0, 12).map((entry) => <div key={entry.id}><span className={entry.amount > 0 ? 'amount-positive' : 'amount-negative'}>{entry.amount > 0 ? '+' : ''}{entry.amount}</span><p><strong>{entry.guest?.name || '未知宾客'}</strong><small>{entry.reason}</small></p></div>)}</div>}</article>
     </section>
 
     <section className="section-card"><div className="section-heading"><div><small>FINAL HONORS</small><h2>颁奖结果</h2></div><span>{data.awards.filter((award) => award.published).length}/{data.awards.length} 已公布</span></div><p className="muted">只有勾选“随身份揭晓公布”且已选择获奖者的奖项，才会在结果阶段显示到公开大屏。</p><div className="award-admin-grid"><div className="award-picker">{data.awards.map((award) => <button key={award.id} className={selectedAwardId === award.id ? 'selected' : ''} onClick={() => setSelectedAwardId(award.id)}><strong>{award.title}</strong><small>{award.published ? '已公布' : award.winner_guest_id || award.winner_team ? '待公布' : '待设置'}</small></button>)}</div><form onSubmit={(event) => { event.preventDefault(); void action({ type: 'saveAward', awardId: selectedAwardId, ...awardForm, sortOrder: Number(awardForm.sortOrder) }, '奖项已保存'); }}><label htmlFor="award-title">奖项名称</label><input id="award-title" value={awardForm.title} onChange={(event) => setAwardForm({ ...awardForm, title: event.target.value })} maxLength={120} required/><label htmlFor="winner-kind">获奖对象</label><select id="winner-kind" value={awardForm.winnerKind} onChange={(event) => setAwardForm({ ...awardForm, winnerKind: event.target.value, published: false })}><option value="none">暂不指定</option><option value="guest">宾客</option><option value="team">队伍</option></select>{awardForm.winnerKind === 'guest' && <><label htmlFor="award-guest">获奖宾客</label><select id="award-guest" value={awardForm.winnerGuestId} onChange={(event) => setAwardForm({ ...awardForm, winnerGuestId: event.target.value })} required><option value="">请选择</option>{data.guests.map((guest) => <option key={guest.id} value={guest.id}>{guest.name} · {guest.team}</option>)}</select></>}{awardForm.winnerKind === 'team' && <><label htmlFor="award-team">获奖队伍</label><select id="award-team" value={awardForm.winnerTeam} onChange={(event) => setAwardForm({ ...awardForm, winnerTeam: event.target.value })}>{TEAMS.map((teamName) => <option key={teamName}>{teamName}</option>)}</select></>}<label htmlFor="award-reason">颁奖理由</label><textarea id="award-reason" value={awardForm.reason} onChange={(event) => setAwardForm({ ...awardForm, reason: event.target.value })} maxLength={500} placeholder="例如：完成任务最多，并帮助多位宾客参与游戏。"/><label htmlFor="award-order">展示顺序</label><input id="award-order" type="number" min={0} max={9999} value={awardForm.sortOrder} onChange={(event) => setAwardForm({ ...awardForm, sortOrder: event.target.value })}/><label className="ready-check"><input type="checkbox" checked={awardForm.published} disabled={awardForm.winnerKind === 'none'} onChange={(event) => setAwardForm({ ...awardForm, published: event.target.checked })}/><span><strong>随身份揭晓公布</strong><small>结果尚未公布时，即使勾选也不会提前显示。</small></span></label><button disabled={busy || !selectedAwardId}>保存奖项</button></form></div></section>
 
-    <section className="section-card"><div className="section-heading"><div><small>DATA &amp; AUDIT</small><h2>数据备份与最近操作</h2></div></div><p className="muted">建议在彩排后和婚礼结束后各导出一次。文件不会包含宾客密码、会话或服务器密钥。</p><div className="export-actions"><a href="/api/admin-export?type=guests">导出宾客</a><a href="/api/admin-export?type=assignments">导出任务</a><a href="/api/admin-export?type=points">个人积分</a><a href="/api/admin-export?type=team-points">团队积分</a><a href="/api/admin-export?type=awards">导出奖项</a><a href="/api/admin-export?type=audit">导出审计</a></div>{data.auditLog.length === 0 ? <div className="empty-state">暂无后台操作。</div> : <div className="audit-list">{data.auditLog.slice(0, 20).map((entry) => <div key={entry.id}><strong>{ACTION_LABELS[entry.action] || entry.action}</strong><span>{new Date(entry.created_at).toLocaleString('zh-CN')}</span><small>{entry.actor}</small></div>)}</div>}</section>
+    <section className="section-card"><div className="section-heading"><div><small>DATA &amp; AUDIT</small><h2>数据备份与最近操作</h2></div></div><p className="muted">建议在彩排后和婚礼结束后各导出一次。文件不会包含宾客密码、会话或服务器密钥。</p><div className="export-actions"><a href="/api/admin-export?type=guests">导出宾客</a><a href="/api/admin-export?type=assignments">导出任务</a><a href="/api/admin-export?type=points">个人积分</a><a href="/api/admin-export?type=team-points">团队积分</a><a href="/api/admin-export?type=spy-points">间谍积分</a><a href="/api/admin-export?type=team-resources">竞拍金币</a><a href="/api/admin-export?type=awards">导出奖项</a><a href="/api/admin-export?type=audit">导出审计</a></div>{data.auditLog.length === 0 ? <div className="empty-state">暂无后台操作。</div> : <div className="audit-list">{data.auditLog.slice(0, 20).map((entry) => <div key={entry.id}><strong>{ACTION_LABELS[entry.action] || entry.action}</strong><span>{new Date(entry.created_at).toLocaleString('zh-CN')}</span><small>{entry.actor}</small></div>)}</div>}</section>
+
+    <section className="section-card danger-zone"><div className="section-heading"><div><small>REHEARSAL RESET</small><h2>彩排数据安全清场</h2></div><span className={resetControlsClosed ? 'ready-badge' : 'warning-badge'}>{resetControlsClosed ? '公开入口已关闭' : '请先关闭公开入口'}</span></div><p className="muted">保留宾客名单、锁定的队伍与初始身份、任务、线索、主持题库、奖项名称和实体卡代码；清除所有宾客登录、抽卡、任务进度、投票、积分、竞拍流水与发布状态。</p><div className="reset-preview-grid"><div><strong>{resetPreview.claimed_guests}</strong><span>已认领宾客</span></div><div><strong>{resetPreview.assignments}</strong><span>任务记录</span></div><div><strong>{resetPreview.votes}</strong><span>投票记录</span></div><div><strong>{resetPreview.evidence_files}</strong><span>验证照片</span></div></div><form onSubmit={resetRehearsal}><label className="ready-check"><input type="checkbox" checked={resetForm.backupConfirmed} onChange={(event) => setResetForm({ ...resetForm, backupConfirmed: event.target.checked })}/><span><strong>我已下载上方八类 CSV 备份</strong><small>清场不可从网页撤销；审计日志会永久保留本次操作摘要。</small></span></label><label htmlFor="reset-reason">清场原因</label><input id="reset-reason" value={resetForm.reason} onChange={(event) => setResetForm({ ...resetForm, reason: event.target.value })} minLength={3} maxLength={300} required/><label htmlFor="reset-confirmation">输入 RESET WEDDING 确认</label><input id="reset-confirmation" value={resetForm.confirmation} onChange={(event) => setResetForm({ ...resetForm, confirmation: event.target.value })} autoComplete="off" spellCheck={false} placeholder="RESET WEDDING" required/><button className="danger" disabled={busy || !resetControlsClosed || !resetForm.backupConfirmed || resetForm.confirmation !== 'RESET WEDDING' || resetForm.reason.trim().length < 3}>{busy ? '正在安全清场…' : resetCleanupPending ? '重试照片清理' : '清空彩排运行数据'}</button></form></section>
   </main>;
 }

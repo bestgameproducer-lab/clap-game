@@ -47,7 +47,10 @@ test('task API validates the flag and locks it after assignment', async () => {
   assert.match(route, /requiredBoolean\(body\.grantsHiddenSpy, '隐藏间谍奖励'\)/);
   assert.match(data, /p_grants_hidden_spy: input\.grantsHiddenSpy/);
   assert.match(page, /完成后成为隐藏间谍/);
-  assert.match(page, /category: 'hidden', roleScope: 'guest', stage: 'task_round_2'/);
+  assert.match(page, /const category = grantsHiddenSpy \? 'hidden' : newTask\.category/);
+  assert.match(page, /const roleScope = grantsHiddenSpy \? 'guest' : newTask\.roleScope/);
+  assert.match(page, /grantsHiddenSpy \? \{ stage: 'task_round_2' \} : \{\}/);
+  assert.match(page, /recommendedTaskPoints\(category, roleScope, grantsHiddenSpy\)/);
 });
 
 test('hidden-spy identity is private until the established results boundary', async () => {

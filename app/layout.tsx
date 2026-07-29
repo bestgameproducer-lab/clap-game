@@ -1,5 +1,6 @@
 import './styles.css';
 import type { Metadata, Viewport } from 'next';
+import { ViewportHeightSync } from './viewport-height-sync';
 
 export const metadata: Metadata = {
   title: 'Wedding Mission',
@@ -13,9 +14,10 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
+  interactiveWidget: 'resizes-content',
   themeColor: '#f7f2ec',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="zh-CN"><body>{children}</body></html>;
+  return <html lang="zh-CN"><body><ViewportHeightSync/>{children}</body></html>;
 }

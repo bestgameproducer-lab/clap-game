@@ -40,6 +40,6 @@ test('staff login and logout are same-origin, revocable, and audited', async () 
 test('all staff consoles expose the shared safe logout control', async () => {
   for (const path of ['../app/admin/page.tsx', '../app/host/page.tsx', '../app/station/page.tsx']) {
     const source = await readFile(new URL(path, import.meta.url), 'utf8');
-    assert.match(source, /<StaffLogoutButton\/>/);
+    assert.match(source, /<StaffLogoutButton(?:\s+[^>]*)?\/>/);
   }
 });

@@ -2,7 +2,7 @@ import { requireAdmin } from '@/lib/auth';
 import { getAdminCsvExport, type AdminExportKind } from '@/lib/data/export';
 import { ApiError, apiErrorResponse } from '@/lib/errors';
 
-const EXPORT_KINDS = new Set<AdminExportKind>(['guests', 'assignments', 'points', 'team-points', 'awards', 'audit']);
+const EXPORT_KINDS = new Set<AdminExportKind>(['guests', 'assignments', 'points', 'team-points', 'spy-points', 'team-resources', 'awards', 'audit']);
 
 export async function GET(request: Request) {
   try {

@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { compressTaskEvidence } from '@/lib/client-image';
+import { isTaskActionOpenAtStage } from '@/lib/game-rules';
 
 const GUEST_CACHE_KEY = 'wedding-guest-session-cache-v1';
 
@@ -8,7 +10,7 @@ type RegistrationGuest = { id: string; name: string; loginName: string; hasPassw
 type SecretCard = { team: string; role: string; task: { id: string; title: string; description: string; verificationMethod: string; points: number }; drawnAt: string };
 type GuestData = {
   guest: { id: string; name: string; team: string; role: string; is_hidden_spy: boolean; points: number; drawn_at: string | null };
-  assignments: Array<{ id: string; status: string; is_initial: boolean; completion_rank: number | null; reward_task_id: string | null; reward_clue_id: string | null; rejection_reason: string | null; task: { title: string; description: string; verification_method: string; points: number; category: string; stage: string } }>;
+  assignments: Array<{ id: string; status: string; is_initial: boolean; completion_rank: number | null; early_bonus_points: number; reward_task_id: string | null; reward_clue_id: string | null; completion_note: string; verification_note: string; verified_at: string | null; evidence_uploaded_at: string | null; evidence_url: string | null; rejection_reason: string | null; task: { title: string; description: string; verification_method: string; points: number; category: string; stage: string } }>;
   clues: Array<{ id: string; title: string; content: string }>;
   game: { registration_open: boolean; stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null } | null;
   candidates: Array<{ id: string; name: string; team: string }>;
@@ -19,6 +21,7 @@ type GuestData = {
     votedTargetName: string | null;
     voteCorrect: boolean | null;
     bonusPoints: number;
+    spyPoints: number | null;
   };
 };
 
@@ -47,6 +50,7 @@ export default function GuestPage() {
   const [checking, setChecking] = useState(true);
   const [invitationCode, setInvitationCode] = useState('');
   const [guests, setGuests] = useState<RegistrationGuest[] | null>(null);
+  const [registrationOpen, setRegistrationOpen] = useState(true);
   const [selectedGuest, setSelectedGuest] = useState<RegistrationGuest | null>(null);
   const [claimCode, setClaimCode] = useState('');
   const [claimCodeConfirm, setClaimCodeConfirm] = useState('');
@@ -60,6 +64,8 @@ export default function GuestPage() {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [completionNotes, setCompletionNotes] = useState<Record<string, string>>({});
+  const [evidenceBusyId, setEvidenceBusyId] = useState<string | null>(null);
 
   const load = useCallback(async (silent = false) => {
     if (silent) setSyncing(true);
@@ -68,7 +74,13 @@ export default function GuestPage() {
       if (response.ok) {
         const nextData = await response.json();
         setData(nextData); setOffline(false); setError('');
-        try { window.sessionStorage.setItem(GUEST_CACHE_KEY, JSON.stringify(nextData)); } catch {}
+        try {
+          const offlineSnapshot = {
+            ...nextData,
+            assignments: nextData.assignments.map((assignment: GuestData['assignments'][number]) => ({ ...assignment, evidence_url: null })),
+          };
+          window.sessionStorage.setItem(GUEST_CACHE_KEY, JSON.stringify(offlineSnapshot));
+        } catch {}
       }
       else if (response.status === 401) {
         setData(null);
@@ -127,7 +139,7 @@ export default function GuestPage() {
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || '邀请码验证失败');
-      setGuests(body.guests); setSearch('');
+      setGuests(body.guests); setRegistrationOpen(body.registrationOpen !== false); setSearch('');
     } catch (cause) { setError(cause instanceof Error ? cause.message : '邀请码验证失败'); }
     finally { setBusy(false); }
   }
@@ -150,17 +162,58 @@ export default function GuestPage() {
     finally { setBusy(false); }
   }
 
-  async function submit(assignmentId: string) {
+  async function submit(assignmentId: string, completionNote: string) {
     setMessage(''); setError(''); setBusy(true);
     try {
       const response = await fetch('/api/submit-task', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assignmentId }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assignmentId, completionNote }),
       });
       const body = await response.json();
       if (!response.ok) { setError(body.error || '提交失败'); return; }
       setMessage('任务已送到丘比特任务站，等待主办方确认。'); await load();
     } catch { setOffline(true); setError('当前处于离线状态，任务尚未提交，请联网后重试。'); }
     finally { setBusy(false); }
+  }
+
+  async function uploadEvidence(assignmentId: string, file: File) {
+    setMessage(''); setError(''); setEvidenceBusyId(assignmentId);
+    try {
+      const image = await compressTaskEvidence(file);
+      const authorization = await fetch('/api/task-evidence', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assignmentId }),
+      });
+      const uploadInfo = await authorization.json();
+      if (!authorization.ok) throw new Error(uploadInfo.error || '无法准备照片上传');
+      const upload = await fetch(uploadInfo.signedUrl, {
+        method: 'PUT', headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' }, body: image,
+      });
+      if (!upload.ok) throw new Error('照片上传失败，请检查网络后重试');
+      const confirmation = await fetch('/api/task-evidence', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignmentId, path: uploadInfo.path }),
+      });
+      const confirmationBody = await confirmation.json();
+      if (!confirmation.ok) throw new Error(confirmationBody.error || '照片确认失败，请重试');
+      setMessage('验证照片已安全保存，只有你和工作人员可以查看。');
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '照片上传失败');
+    } finally { setEvidenceBusyId(null); }
+  }
+
+  async function removeEvidence(assignmentId: string) {
+    setMessage(''); setError(''); setEvidenceBusyId(assignmentId);
+    try {
+      const response = await fetch('/api/task-evidence', {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assignmentId }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || '删除照片失败');
+      setMessage('验证照片已删除。');
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '删除照片失败');
+    } finally { setEvidenceBusyId(null); }
   }
 
   async function vote(targetGuestId: string) {
@@ -231,9 +284,9 @@ export default function GuestPage() {
         <button disabled={busy}>{busy ? '验证中…' : '进入宾客名单'}</button>
       </form>}
       {guests && !selectedGuest && <div>
-        <div className="step-copy"><strong>找到你的名字</strong><small>首次进入时，由你自己设置四位密码</small></div>
+        <div className="step-copy"><strong>找到你的名字</strong><small>{registrationOpen ? '首次进入时，由你自己设置四位密码' : '新宾客注册已结束；已设置密码的宾客仍可登录'}</small></div>
         <label htmlFor="guest-search">搜索宾客</label>
-        <input id="guest-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="输入中文、拼音或英文名" autoFocus/>
+        <input id="guest-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="输入中文、拼音或英文名"/>
         <div className="guest-list">{filteredGuests.map((guest) => <button type="button" className="guest-choice" key={guest.id} onClick={() => { setSelectedGuest(guest); setClaimCode(''); setClaimCodeConfirm(''); setError(''); }}><span><strong>{guest.name}</strong><small>{guest.loginName}</small></span><b>{guest.hasPassword ? '登录' : '首次设置'}</b></button>)}</div>
         <button className="text-button" onClick={() => { setGuests(null); setError(''); }}>返回修改邀请码</button>
       </div>}
@@ -251,6 +304,7 @@ export default function GuestPage() {
   </main>;
 
   if (!data.guest.drawn_at) {
+    const drawOpen = Boolean(data.game?.registration_open);
     const role = revealedCard ? ROLE_LABELS[revealedCard.role] ?? ROLE_LABELS.guest : null;
     return <main className="draw-shell"><section className="draw-stage">
       <div className="eyebrow">YOUR SECRET AWAITS</div>
@@ -264,7 +318,8 @@ export default function GuestPage() {
           <div className="card-task"><span>第一项秘密任务 · {revealedCard?.task.points} 分</span><strong>{revealedCard?.task.title}</strong><p>{revealedCard?.task.description}</p></div>
         </div>
       </div></div>
-      {!revealedCard && <button className="draw-button" disabled={drawing} onClick={drawCard}>{drawing ? '丘比特正在洗牌…' : '抽取我的秘密卡'}</button>}
+      {!revealedCard && <button className="draw-button" disabled={drawing || !drawOpen} onClick={drawCard}>{drawing ? '丘比特正在洗牌…' : drawOpen ? '抽取我的秘密卡' : '抽卡入口暂未开放'}</button>}
+      {!revealedCard && !drawOpen && <div className="notice">主办方目前已关闭宾客抽卡，请联系现场工作人员协助。</div>}
       {revealedCard && <button className="draw-button" onClick={enterMissionPage}>我记住了 · 进入任务页</button>}
       {!revealedCard && <button className="text-button" disabled={busy} onClick={logout}>{busy ? '安全退出中…' : '退出此身份'}</button>}
       <p className="privacy-hint">请遮挡屏幕，身份卡离开本页后会自动隐藏。</p>
@@ -295,13 +350,13 @@ export default function GuestPage() {
     {(offline || syncing) && <div className={`connection-banner ${offline ? 'offline' : ''}`} role="status">{offline ? '离线只读模式 · 已显示最近同步的任务，提交和投票暂不可用' : '正在同步最新状态…'}</div>}
     {message && <div className="notice success" aria-live="polite">{message}</div>}{error && <div className="notice error" aria-live="polite">{error}</div>}
     {data.guest.is_hidden_spy && !data.game?.results_visible && <section className="reward-banner"><small>SECRET ROLE ACTIVATED</small><strong>你已成为隐藏间谍</strong><p>不要向其他宾客展示本页。继续完成任务并隐藏真实阵营，身份只会在最终揭晓后公开。</p></section>}
-    {rankedReward && <section className="reward-banner"><small>EARLY COMPLETION HONOR</small><strong>你是第 {rankedReward.completion_rank} 位完成首轮任务的宾客</strong><p>{rankedReward.reward_task_id && rankedReward.reward_clue_id ? '升级任务与一条秘密线索已经发放。' : rankedReward.reward_task_id ? '升级任务已经发放，将在第二轮开放。' : '你的首轮任务已经记录。'}</p></section>}
+    {rankedReward && <section className="reward-banner"><small>EARLY COMPLETION HONOR</small><strong>你是第 {rankedReward.completion_rank} 位完成首轮任务的宾客</strong><p>{rankedReward.reward_task_id && rankedReward.reward_clue_id ? `升级任务、${rankedReward.early_bonus_points ? '额外 1 分和' : ''}一条秘密线索已经发放。` : rankedReward.reward_task_id ? '升级任务已经发放，将在第二轮开放。' : '你的首轮任务已经记录。'}</p></section>}
     <section className="section-card"><div className="section-heading"><div><small>SECRET MISSIONS</small><h2>我的秘密任务</h2></div><span>{data.assignments.length}</span></div>
-      {data.assignments.length === 0 ? <div className="empty-state">本轮任务尚未开放，先享受婚礼吧。</div> : data.assignments.map((assignment, index) => <article className="mission-item" key={assignment.id}><div className="mission-number">{String(index + 1).padStart(2, '0')}</div><div className="mission-body"><div className="mission-meta"><span>{assignment.task.points} 分</span><span className={`status ${assignment.status}`}>{STATUS_LABELS[assignment.status] ?? assignment.status}</span></div><h3>{assignment.task.title}</h3><p>{assignment.task.description}</p><div className="verification-note"><strong>如何验证</strong><span>{assignment.task.verification_method}</span></div>{assignment.status === 'rejected' && <div className="task-feedback">任务站留言：{assignment.rejection_reason || '请补充验证后再次提交。'}</div>}{(assignment.status === 'assigned' || assignment.status === 'rejected') && <button disabled={busy || offline} onClick={() => submit(assignment.id)}>{offline ? '联网后可提交' : assignment.status === 'rejected' ? '补充完成 · 再次提交' : '我已完成 · 提交验证'}</button>}</div></article>)}
+      {data.assignments.length === 0 ? <div className="empty-state">本轮任务尚未开放，先享受婚礼吧。</div> : data.assignments.map((assignment, index) => <article className="mission-item" key={assignment.id}><div className="mission-number">{String(index + 1).padStart(2, '0')}</div><div className="mission-body"><div className="mission-meta"><span>{assignment.task.points} 分</span><span className={`status ${assignment.status}`}>{STATUS_LABELS[assignment.status] ?? assignment.status}</span></div><h3>{assignment.task.title}</h3><p>{assignment.task.description}</p>{!isTaskActionOpenAtStage(assignment.task.stage, data.game?.stage) && (assignment.status === 'assigned' || assignment.status === 'rejected') && <div className="task-feedback">本环节已停止提交；如需补录，请到任务站联系工作人员。</div>}<div className="verification-note"><strong>如何验证</strong><span>{assignment.task.verification_method}</span></div>{assignment.evidence_url && <figure className="evidence-preview"><a href={assignment.evidence_url} target="_blank" rel="noreferrer"><img src={assignment.evidence_url} alt={`${assignment.task.title}的验证照片`} loading="lazy"/></a><figcaption>验证照片 · 仅你和工作人员可见</figcaption></figure>}{isTaskActionOpenAtStage(assignment.task.stage, data.game?.stage) && (assignment.status === 'assigned' || assignment.status === 'rejected') && <div className="evidence-controls"><label htmlFor={`evidence-${assignment.id}`}>{assignment.evidence_url ? '更换验证照片' : '添加验证照片（选填）'}</label><input id={`evidence-${assignment.id}`} type="file" accept="image/*" disabled={offline || evidenceBusyId === assignment.id} onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void uploadEvidence(assignment.id, file); }}/>{assignment.evidence_url && <button type="button" className="text-button" disabled={offline || evidenceBusyId === assignment.id} onClick={() => { if (window.confirm('删除这张验证照片？')) void removeEvidence(assignment.id); }}>删除照片</button>}{evidenceBusyId === assignment.id && <small>正在压缩并安全上传…</small>}</div>}{assignment.completion_note && <div className="submission-note"><strong>我的完成说明</strong><span>{assignment.completion_note}</span></div>}{assignment.status === 'approved' && assignment.verification_note && <div className="submission-note approved"><strong>任务站核验记录</strong><span>{assignment.verification_note}</span></div>}{assignment.status === 'rejected' && <div className="task-feedback">任务站留言：{assignment.rejection_reason || '请补充验证后再次提交。'}</div>}{isTaskActionOpenAtStage(assignment.task.stage, data.game?.stage) && (assignment.status === 'assigned' || assignment.status === 'rejected') && <div className="submission-form"><label htmlFor={`completion-note-${assignment.id}`}>完成说明（选填）</label><textarea id={`completion-note-${assignment.id}`} value={completionNotes[assignment.id] ?? assignment.completion_note ?? ''} onChange={(event) => setCompletionNotes({ ...completionNotes, [assignment.id]: event.target.value })} maxLength={500} placeholder="例如：已完成合影，照片会在任务站出示。"/><button disabled={busy || offline || evidenceBusyId === assignment.id} onClick={() => submit(assignment.id, completionNotes[assignment.id] ?? assignment.completion_note ?? '')}>{offline ? '联网后可提交' : assignment.status === 'rejected' ? '补充完成 · 再次提交' : '我已完成 · 提交验证'}</button></div>}</div></article>)}
     </section>
     <section className="section-card"><div className="section-heading"><div><small>SPY CLUES</small><h2>已解锁线索</h2></div><span>{data.clues.length}</span></div>{data.clues.length === 0 ? <div className="empty-state">完成任务后，线索会在这里出现。</div> : data.clues.map((clue) => <div className="clue" key={clue.id}><strong>{clue.title}</strong><p>{clue.content}</p></div>)}</section>
     {data.game?.voting_open && <section className="section-card"><div className="section-heading"><div><small>FINAL VOTE</small><h2>谁是恶作剧者？</h2></div><span>第 {data.game.voting_round} 轮</span></div><p className="muted">只能选择本队宾客。每人只有一次机会，确认后不能改票。</p><div className="vote-grid">{data.candidates.filter((candidate) => candidate.id !== data.guest.id).map((candidate) => <button disabled={busy || offline || Boolean(data.existingVote)} className={data.existingVote === candidate.id ? 'vote-choice selected' : 'vote-choice'} key={candidate.id} onClick={() => vote(candidate.id)}>{data.existingVote === candidate.id ? '✓ ' : ''}{candidate.name}</button>)}</div>{data.existingVote && <p className="vote-offline-note">你的本轮投票已安全保存。</p>}{offline && <p className="vote-offline-note">恢复网络后才能提交投票。</p>}</section>}
-    {data.game?.results_visible && data.results && <section className="reveal-card"><small>THE FINAL REVEAL</small><h2>身份揭晓</h2>{data.results.votedTargetName ? <div className={`vote-verdict ${data.results.voteCorrect ? 'correct' : 'missed'}`}><span>你投给了 {data.results.votedTargetName}</span><strong>{data.results.voteCorrect ? `成功找到恶作剧者 · 获得 ${data.results.bonusPoints} 分` : '恶作剧者成功隐藏了自己'}</strong></div> : <div className="vote-verdict missed"><strong>你没有提交最终投票</strong></div>}<div className="team-role-reveal">{data.results.teamMembers.map((member) => <div key={member.id}><span>{member.name}</span><strong>{member.is_hidden_spy ? '丘比特的暗线（隐藏间谍）' : ROLE_LABELS[member.role]?.title ?? member.role}</strong></div>)}</div><p>感谢你成为这场婚礼故事的一部分。</p></section>}
+    {data.game?.results_visible && data.results && <section className="reveal-card"><small>THE FINAL REVEAL</small><h2>身份揭晓</h2>{data.results.votedTargetName ? <div className={`vote-verdict ${data.results.voteCorrect ? 'correct' : 'missed'}`}><span>你投给了 {data.results.votedTargetName}</span><strong>{data.results.voteCorrect ? `成功找到恶作剧者 · 获得 ${data.results.bonusPoints} 分` : '恶作剧者成功隐藏了自己'}</strong></div> : <div className="vote-verdict missed"><strong>你没有提交最终投票</strong></div>}{typeof data.results.spyPoints === 'number' && <div className="spy-score-result"><span>你的恶作剧积分</span><strong>{data.results.spyPoints} 分</strong><small>此积分独立计算，不影响公开团队排名。</small></div>}<div className="team-role-reveal">{data.results.teamMembers.map((member) => <div key={member.id}><span>{member.name}</span><strong>{member.is_hidden_spy ? '丘比特的暗线（隐藏间谍）' : ROLE_LABELS[member.role]?.title ?? member.role}</strong></div>)}</div><p>感谢你成为这场婚礼故事的一部分。</p></section>}
     <div className="footer-actions"><button onClick={() => setShowSecrets(false)}>隐藏我的秘密</button><button className="secondary" disabled={syncing} onClick={() => void load()}>{syncing ? '同步中…' : '刷新状态'}</button><button className="text-button" disabled={busy} onClick={logout}>{busy ? '安全退出中…' : '退出此身份'}</button></div>
     {offlineReady && <div className="offline-ready" role="status">弱网备用已准备 · 刷新后仍可打开本页</div>}
   </main>;

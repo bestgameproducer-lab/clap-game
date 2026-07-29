@@ -20,7 +20,6 @@ export function buildPublicScoreboard(
   const teams = new Map<string, { team: string; points: number; guests: number; completedTasks: number }>();
   for (const guest of guests) {
     const current = teams.get(guest.team) ?? { team: guest.team, points: 0, guests: 0, completedTasks: 0 };
-    current.points += guest.points;
     current.guests += 1;
     current.completedTasks += approvedByGuest.get(guest.id) ?? 0;
     teams.set(guest.team, current);

@@ -8,11 +8,12 @@ const guests = [
   { id: 'c', name: 'C', team: '琥珀组', points: 25 },
 ];
 
-test('aggregates team points and approved tasks without role data', () => {
+test('keeps personal points out of team scoring while aggregating approved tasks', () => {
   const result = buildPublicScoreboard(guests, [
     { guest_id: 'a', status: 'approved' }, { guest_id: 'a', status: 'submitted' }, { guest_id: 'c', status: 'approved' },
   ], []);
-  assert.deepEqual(result.teams[0], { team: '玫瑰组', points: 30, guests: 2, completedTasks: 1 });
+  assert.deepEqual(result.teams.find((team) => team.team === '玫瑰组'), { team: '玫瑰组', points: 0, guests: 2, completedTasks: 1 });
+  assert.deepEqual(result.teams.find((team) => team.team === '琥珀组'), { team: '琥珀组', points: 0, guests: 1, completedTasks: 1 });
   assert.equal('role' in result.leaders[0], false);
 });
 
@@ -22,9 +23,25 @@ test('adds audited team-game points without changing personal rankings', () => {
     [{ team: '玫瑰组', amount: 5 }, { team: '月桂组', amount: 3 }],
   );
   assert.deepEqual(result.teams.map(({ team, points }) => ({ team, points })), [
-    { team: '玫瑰组', points: 7 }, { team: '月桂组', points: 3 },
+    { team: '玫瑰组', points: 5 }, { team: '月桂组', points: 3 },
   ]);
   assert.equal(result.leaders[0].points, 2);
+});
+
+test('team ranking cannot be changed by large personal task totals', () => {
+  const result = buildPublicScoreboard(
+    [
+      { id: 'a', name: 'A', team: '玫瑰组', points: 500 },
+      { id: 'b', name: 'B', team: '月桂组', points: 1 },
+    ],
+    [],
+    [],
+    [{ team: '月桂组', amount: 1 }],
+  );
+  assert.deepEqual(result.teams.map(({ team, points }) => ({ team, points })), [
+    { team: '月桂组', points: 1 }, { team: '玫瑰组', points: 0 },
+  ]);
+  assert.equal(result.leaders[0].name, 'A');
 });
 
 test('sorts individual leaders and vote counts deterministically', () => {

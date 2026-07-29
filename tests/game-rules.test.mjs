@@ -16,4 +16,6 @@ test('reveals current and completed-round tasks', () => {
 test('fails closed for missing or unknown game stages', () => {
   assert.equal(isTaskVisibleAtStage('task_round_1', undefined), false);
   assert.equal(isTaskVisibleAtStage('group_game', 'unexpected'), false);
+  assert.equal(isTaskVisibleAtStage(undefined, 'task_round_1'), false);
+  assert.equal(isTaskVisibleAtStage('unexpected', 'results'), false);
 });

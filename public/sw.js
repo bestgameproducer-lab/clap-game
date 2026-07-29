@@ -1,17 +1,19 @@
-const CACHE_NAME = 'wedding-guest-shell-v1';
-const GUEST_PATH = '/guest';
+const CACHE_NAME = 'wedding-public-shell-v2';
+const APP_PATHS = ['/guest', '/scoreboard'];
 const MANIFEST_PATH = '/manifest.webmanifest';
 
-async function cacheGuestShell() {
+async function cachePublicShells() {
   const cache = await caches.open(CACHE_NAME);
-  const response = await fetch(GUEST_PATH, { cache: 'reload' });
-  if (!response.ok) throw new Error('guest_shell_unavailable');
-  await cache.put(GUEST_PATH, response.clone());
-
-  const html = await response.text();
-  const assetPaths = [...html.matchAll(/(?:src|href)="([^"]+)"/g)]
-    .map((match) => match[1])
-    .filter((path) => path.startsWith('/_next/static/') || path === MANIFEST_PATH);
+  const assetPaths = [];
+  for (const path of APP_PATHS) {
+    const response = await fetch(path, { cache: 'reload' });
+    if (!response.ok) throw new Error('public_shell_unavailable');
+    await cache.put(path, response.clone());
+    const html = await response.text();
+    assetPaths.push(...[...html.matchAll(/(?:src|href)="([^"]+)"/g)]
+      .map((match) => match[1])
+      .filter((assetPath) => assetPath.startsWith('/_next/static/') || assetPath === MANIFEST_PATH));
+  }
   await Promise.allSettled([...new Set(assetPaths)].map(async (path) => {
     const asset = await fetch(path, { cache: 'reload' });
     if (asset.ok) await cache.put(path, asset);
@@ -19,13 +21,13 @@ async function cacheGuestShell() {
 }
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(cacheGuestShell().then(() => self.skipWaiting()));
+  event.waitUntil(cachePublicShells().then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const names = await caches.keys();
-    await Promise.all(names.filter((name) => name.startsWith('wedding-guest-shell-') && name !== CACHE_NAME).map((name) => caches.delete(name)));
+    await Promise.all(names.filter((name) => (name.startsWith('wedding-guest-shell-') || name.startsWith('wedding-public-shell-')) && name !== CACHE_NAME).map((name) => caches.delete(name)));
     await self.clients.claim();
   })());
 });
@@ -38,17 +40,17 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/')) return;
 
   if (request.mode === 'navigate') {
-    if (url.pathname !== GUEST_PATH) return;
+    if (!APP_PATHS.includes(url.pathname)) return;
     event.respondWith((async () => {
       try {
         const response = await fetch(request);
         if (response.ok) {
           const cache = await caches.open(CACHE_NAME);
-          await cache.put(GUEST_PATH, response.clone());
+          await cache.put(url.pathname, response.clone());
         }
         return response;
       } catch {
-        return (await caches.match(GUEST_PATH)) || Response.error();
+        return (await caches.match(url.pathname)) || Response.error();
       }
     })());
     return;

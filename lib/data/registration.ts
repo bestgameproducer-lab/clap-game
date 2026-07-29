@@ -14,23 +14,32 @@ function mapRegistrationError(message: string): never {
 
 export async function listRegistrationGuests(invitationCode: string) {
   const db = getSupabaseAdmin();
-  const { error: invitationError } = await db.rpc('registration_guest_list', {
+  const { data: permittedGuests, error: invitationError } = await db.rpc('registration_guest_list', {
     p_invitation_code: invitationCode,
   });
   if (invitationError) mapRegistrationError(invitationError.message);
 
+  const permittedIds = (permittedGuests ?? []).map((guest: { id: string }) => guest.id);
+  const { data: game, error: gameError } = await db.from('game_state').select('registration_open').eq('id', 1).single();
+  if (gameError || !game) throw new Error(`Unable to load registration state: ${gameError?.message ?? 'missing row'}`);
+  if (permittedIds.length === 0) return { guests: [], registrationOpen: game.registration_open };
+
   const { data, error } = await db
     .from('guests')
     .select('id,name,login_name,claim_code_hash')
+    .in('id', permittedIds)
     .eq('active', true)
     .order('name');
   if (error) throw new Error(`Unable to load registration guests: ${error.message}`);
-  return (data ?? []).map((guest) => ({
-    id: guest.id,
-    name: guest.name,
-    loginName: guest.login_name,
-    hasPassword: guest.claim_code_hash !== null,
-  }));
+  return {
+    registrationOpen: game.registration_open,
+    guests: (data ?? []).map((guest) => ({
+      id: guest.id,
+      name: guest.name,
+      loginName: guest.login_name,
+      hasPassword: guest.claim_code_hash !== null,
+    })),
+  };
 }
 
 export async function claimGuestIdentity(invitationCode: string, loginName: string, claimCode: string, attemptKey: string) {

@@ -1,5 +1,7 @@
 import { ApiError } from './errors';
 import { isFourDigitClaimCode } from './claim-code';
+import { isInvitationCode, normalizeInvitationCode } from './invitation-code';
+import type { GuestRosterImportRow } from './guest-roster-import';
 
 export type JsonObject = Record<string, unknown>;
 
@@ -56,6 +58,28 @@ export function requiredUuid(value: unknown, label: string): string {
 export function requiredClaimCode(value: unknown): string {
   if (!isFourDigitClaimCode(value)) throw new ApiError(400, '请输入四位数字宾客密码');
   return value;
+}
+
+export function requiredInvitationCode(value: unknown): string {
+  if (typeof value !== 'string') throw new ApiError(400, '邀请码需为 6–32 位英文字母、数字或连字符');
+  const result = normalizeInvitationCode(value);
+  if (!isInvitationCode(result)) throw new ApiError(400, '邀请码需为 6–32 位英文字母、数字或连字符');
+  return result;
+}
+
+export function requiredGuestRosterImportRows(value: unknown): GuestRosterImportRow[] {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 100) {
+    throw new ApiError(400, '批量名单需包含 1–100 位宾客');
+  }
+  return value.map((row, index) => {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) throw new ApiError(400, `第 ${index + 1} 行宾客格式不正确`);
+    const item = row as Record<string, unknown>;
+    return {
+      name: requiredString(item.name, `第 ${index + 1} 行显示姓名`, 120),
+      loginName: requiredString(item.loginName, `第 ${index + 1} 行登录名`, 80),
+      tableLabel: optionalString(item.tableLabel, `第 ${index + 1} 行桌号`, 40),
+    };
+  });
 }
 
 export function assertSameOrigin(request: Request) {
