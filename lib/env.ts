@@ -23,5 +23,4 @@ export function getSupabaseEnv() {
   };
 }
 
-export const getSessionSecret = () => requireValue('SESSION_SECRET', 32);
 export const getAdminPassword = () => requireValue('ADMIN_PASSWORD', 12);

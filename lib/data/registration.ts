@@ -14,25 +14,35 @@ function mapRegistrationError(message: string): never {
 
 export async function listRegistrationGuests(invitationCode: string) {
   const db = getSupabaseAdmin();
-  const { error: invitationError } = await db.rpc('registration_guest_list', {
+  const { data: permittedGuests, error: invitationError } = await db.rpc('registration_guest_list', {
     p_invitation_code: invitationCode,
   });
   if (invitationError) mapRegistrationError(invitationError.message);
 
+  const permittedIds = (permittedGuests ?? []).map((guest: { id: string }) => guest.id);
+  const { data: game, error: gameError } = await db.from('game_state').select('registration_open').eq('id', 1).single();
+  if (gameError || !game) throw new Error(`Unable to load registration state: ${gameError?.message ?? 'missing row'}`);
+  if (permittedIds.length === 0) return { guests: [], registrationOpen: game.registration_open };
+
   const { data, error } = await db
     .from('guests')
     .select('id,name,login_name,claim_code_hash')
+    .in('id', permittedIds)
+    .eq('active', true)
     .order('name');
   if (error) throw new Error(`Unable to load registration guests: ${error.message}`);
-  return (data ?? []).map((guest) => ({
-    id: guest.id,
-    name: guest.name,
-    loginName: guest.login_name,
-    hasPassword: guest.claim_code_hash !== null,
-  }));
+  return {
+    registrationOpen: game.registration_open,
+    guests: (data ?? []).map((guest) => ({
+      id: guest.id,
+      name: guest.name,
+      loginName: guest.login_name,
+      hasPassword: guest.claim_code_hash !== null,
+    })),
+  };
 }
 
-export async function claimGuestIdentity(invitationCode: string, loginName: string, claimCode: string) {
+export async function claimGuestIdentity(invitationCode: string, loginName: string, claimCode: string, attemptKey: string) {
   const token = createGuestSessionToken();
   const expiresAt = new Date(Date.now() + GUEST_SESSION_MAX_AGE * 1000).toISOString();
   const { data, error } = await getSupabaseAdmin().rpc('claim_guest_by_login', {
@@ -41,9 +51,24 @@ export async function claimGuestIdentity(invitationCode: string, loginName: stri
     p_claim_code: claimCode,
     p_token_hash: hashGuestSessionToken(token),
     p_expires_at: expiresAt,
+    p_attempt_key: attemptKey,
   });
   if (error) mapRegistrationError(error.message);
-  return { token, guest: Array.isArray(data) ? data[0] : data };
+  const guest = Array.isArray(data) ? data[0] : data;
+  if (!guest || guest.auth_status === 'invalid_claim_code') throw new ApiError(401, '四位宾客密码不正确');
+  if (guest.auth_status === 'rate_limited') {
+    const minutes = Math.max(1, Math.ceil(Number(guest.retry_after_seconds || 900) / 60));
+    throw new ApiError(429, `密码尝试次数过多，请 ${minutes} 分钟后再试`);
+  }
+  if (guest.auth_status !== 'ok') throw new Error('Registration operation returned an unknown authentication status');
+  return {
+    token,
+    guest: {
+      guest_id: guest.guest_id,
+      guest_name: guest.guest_name,
+      account_created: guest.account_created,
+    },
+  };
 }
 
 export async function revokeGuestSession(token: string) {

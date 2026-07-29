@@ -11,6 +11,6 @@ export default function Home() {
       <a className="home-cta" href="/guest"><span>进入婚礼任务</span><b>→</b></a>
       <p className="privacy-note">仅限受邀宾客 · 请不要向他人展示秘密任务</p>
     </section>
-    <a className="organizer-link" href="/admin">主办方控制台</a>
+    <div className="organizer-links"><a href="/admin">主办方控制台</a><a href="/host">主持人流程台</a><a href="/station">丘比特任务站</a></div>
   </main>;
 }

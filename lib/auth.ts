@@ -1,12 +1,42 @@
+import crypto from 'crypto';
 import 'server-only';
 import { cookies } from 'next/headers';
 import { ApiError } from './errors';
+import { verifyAdminSession } from './data/admin-session';
+import { getSupabaseEnv } from './env';
 import { hashGuestSessionToken } from './guest-session';
-import { verifySession } from './session';
 import { getSupabaseAdmin } from './supabase';
 
+function firstClientAddress(request: Request) {
+  const forwarded = request.headers.get('x-vercel-forwarded-for')
+    || request.headers.get('x-real-ip')
+    || request.headers.get('x-forwarded-for')
+    || 'unknown';
+  return forwarded.split(',')[0].trim().slice(0, 128) || 'unknown';
+}
+
+export function getGuestLoginAttemptKey(request: Request, loginName: string) {
+  const normalizedLogin = loginName.trim().replace(/\s+/g, ' ').toLowerCase();
+  const userAgent = (request.headers.get('user-agent') || 'unknown').slice(0, 256);
+  const { supabaseServiceRoleKey } = getSupabaseEnv();
+  return crypto
+    .createHmac('sha256', supabaseServiceRoleKey)
+    .update(`guest-login-v1\n${firstClientAddress(request)}\n${userAgent}\n${normalizedLogin}`)
+    .digest('hex');
+}
+
+export function getAdminLoginAttemptKey(request: Request) {
+  const userAgent = (request.headers.get('user-agent') || 'unknown').slice(0, 256);
+  const { supabaseServiceRoleKey } = getSupabaseEnv();
+  return crypto
+    .createHmac('sha256', supabaseServiceRoleKey)
+    .update(`admin-login-v1\n${firstClientAddress(request)}\n${userAgent}`)
+    .digest('hex');
+}
+
 export async function requireAdmin() {
-  const subject = verifySession((await cookies()).get('admin_session')?.value, 'admin');
+  const token = (await cookies()).get('admin_session')?.value;
+  const subject = token ? await verifyAdminSession(token) : null;
   if (!subject) throw new ApiError(401, '未授权');
   return subject;
 }
@@ -23,5 +53,9 @@ export async function requireGuest() {
     .maybeSingle();
   if (error) throw new Error(`Unable to verify guest session: ${error.message}`);
   if (!data) throw new ApiError(401, '登录已失效');
+  const { data: guest, error: guestError } = await getSupabaseAdmin()
+    .from('guests').select('id').eq('id', data.guest_id).eq('active', true).maybeSingle();
+  if (guestError) throw new Error(`Unable to verify active guest: ${guestError.message}`);
+  if (!guest) throw new ApiError(401, '宾客身份已停用，请联系主办方');
   return data.guest_id;
 }

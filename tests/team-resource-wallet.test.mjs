@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+
+const migration = await readFile(new URL('../supabase/migrations/202607290026_team_resource_wallet.sql', import.meta.url), 'utf8');
+const hostData = await readFile(new URL('../lib/data/host.ts', import.meta.url), 'utf8');
+const hostRoute = await readFile(new URL('../app/api/host-action/route.ts', import.meta.url), 'utf8');
+const hostPage = await readFile(new URL('../app/host/page.tsx', import.meta.url), 'utf8');
+const publicData = await readFile(new URL('../lib/data/public.ts', import.meta.url), 'utf8');
+const scoreboardCore = await readFile(new URL('../lib/scoreboard-core.ts', import.meta.url), 'utf8');
+
+test('team resource wallets are private, start at ten, and cannot be overdrawn', () => {
+  assert.match(migration, /balance integer not null default 10 check \(balance between 0 and 1000\)/);
+  assert.match(migration, /alter table team_resources enable row level security/);
+  assert.match(migration, /alter table team_resource_ledger enable row level security/);
+  assert.match(migration, /revoke all on team_resources from public, anon, authenticated/);
+  assert.match(migration, /if v_new_balance<0 then raise exception using errcode='P0001',message='insufficient_team_resources'/);
+});
+
+test('resource changes are atomic, audited, and retry-idempotent', () => {
+  const rpc = migration.slice(migration.indexOf('create or replace function adjust_team_resources'));
+  assert.match(rpc, /event_key uuid not null unique|p_event_key uuid/);
+  assert.match(rpc, /select \* into v_wallet from team_resources where team=p_team for update/);
+  assert.match(rpc, /if found then[\s\S]+return v_existing\.balance_after/);
+  assert.match(rpc, /exception when unique_violation/);
+  assert.match(rpc, /'team\.resources_adjust'/);
+  assert.match(rpc, /jsonb_build_object\('amount',p_amount,'balance_after',v_new_balance,'reason',trim\(p_reason\)\)/);
+});
+
+test('host mutation requires staff auth, same origin, and server validation', () => {
+  assert.match(hostRoute, /assertSameOrigin\(request\)/);
+  assert.match(hostRoute, /requireAdmin\(\)/);
+  assert.match(hostRoute, /requiredInteger\(body\.amount, '金币变化', -100, 100\)/);
+  assert.match(hostRoute, /requiredUuid\(body\.eventKey, '幂等事件 ID'\)/);
+  assert.match(hostData, /rpc\('adjust_team_resources'/);
+});
+
+test('host sees explicit resource DTOs while public scoring never reads wallets', () => {
+  assert.match(hostData, /from\('team_resources'\)\.select\('team,balance,updated_at'\)/);
+  assert.match(hostData, /from\('team_resource_ledger'\)\.select\('id,team,amount,balance_after,reason,actor,created_at'\)/);
+  assert.doesNotMatch(hostData, /from\('team_resources'\)\.select\('\*'\)/);
+  assert.doesNotMatch(publicData, /team_resources|team_resource_ledger/);
+  assert.doesNotMatch(scoreboardCore, /team_resources|team_resource_ledger/);
+});
+
+test('mobile host controls show balances and create one event key per submission', () => {
+  assert.match(hostPage, /资源竞拍钱包/);
+  assert.match(hostPage, /crypto\.randomUUID\(\)/);
+  assert.match(hostPage, /data\.resources\.find\(\(wallet\) => wallet\.team === team\)\?\.balance \?\? 10/);
+  assert.match(hostPage, /entry\.amount > 0 \? '\+' : ''/);
+});
