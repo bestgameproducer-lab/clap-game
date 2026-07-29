@@ -6,8 +6,8 @@ import {
   completeAssignmentAtStation,
   assignTaskToGuest,
   configureGuestGameProfile,
-  createGameClue,
-  createGameTask,
+  saveGameClue,
+  saveGameTask,
   grantClueToGuest,
   rejectAssignment,
   resetGuestClaim,
@@ -88,21 +88,24 @@ export async function POST(request: Request) {
         requiredEnum(body.role, '身份', GAME_ROLES),
         actor,
       );
-    } else if (type === 'createTask') {
-      await createGameTask({
+    } else if (type === 'saveTask') {
+      await saveGameTask({
+        id: body.taskId ? requiredUuid(body.taskId, '任务 ID') : null,
         title: requiredString(body.title, '任务标题', 120),
         description: requiredString(body.description, '任务说明', 1000),
         points: requiredInteger(body.points, '任务积分', 1, 500),
         roleScope: requiredEnum(body.roleScope, '适用身份', ROLE_SCOPES),
         category: requiredEnum(body.category, '任务类型', TASK_CATEGORIES),
         stage: requiredEnum(body.stage, '任务阶段', TASK_STAGES),
+        active: requiredBoolean(body.active, '任务启用状态'),
       }, actor);
-    } else if (type === 'createClue') {
-      await createGameClue(
-        requiredString(body.title, '线索标题', 120),
-        requiredString(body.content, '线索内容', 1000),
-        actor,
-      );
+    } else if (type === 'saveClue') {
+      await saveGameClue({
+        id: body.clueId ? requiredUuid(body.clueId, '线索 ID') : null,
+        title: requiredString(body.title, '线索标题', 120),
+        content: requiredString(body.content, '线索内容', 1000),
+        active: requiredBoolean(body.active, '线索启用状态'),
+      }, actor);
     } else if (type === 'saveAward') {
       const winnerKind = requiredEnum(body.winnerKind, '获奖对象类型', ['none', 'guest', 'team'] as const);
       await saveAward({

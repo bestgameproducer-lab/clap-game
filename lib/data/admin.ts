@@ -18,6 +18,9 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
     if (error.message.includes('assignment_already_approved')) throw new ApiError(409, '该任务已经通过，不能重复加分');
     if (error.message.includes('award_winner_required')) throw new ApiError(400, '发布奖项前必须选择获奖宾客或队伍');
     if (error.message.includes('award_not_found')) throw new ApiError(404, '找不到奖项');
+    if (error.message.includes('task_rules_locked')) throw new ApiError(409, '任务已派发；积分、身份范围、类型和开放阶段已锁定，只能修改文字或停用');
+    if (error.message.includes('task_not_found')) throw new ApiError(404, '找不到任务');
+    if (error.message.includes('clue_not_found')) throw new ApiError(404, '找不到线索');
     throw new Error(`${fallback}: ${error.message}`);
   }
 }
@@ -27,11 +30,11 @@ export async function getAdminDashboardData() {
   const results = await Promise.all([
     db.from('guests').select('id,name,login_name,team,role,points,claimed_at,drawn_at,team_locked,role_locked,created_at').order('team').order('name'),
     db.from('assignments').select('id,guest_id,task_id,status,is_initial,completion_rank,reward_task_id,reward_clue_id,submitted_at,approved_at,rejected_at,rejection_reason,created_at,task:tasks(id,title,description,points,category,stage)'),
-    db.from('tasks').select('id,title,description,points,role_scope,category,stage,active,created_at').eq('active', true).order('stage').order('title'),
+    db.from('tasks').select('id,title,description,points,role_scope,category,stage,active,created_at').order('stage').order('title'),
     db.from('assignments').select('id,status,submitted_at,guest:guests(id,name),task:tasks(id,title,points)').eq('status', 'submitted'),
     db.from('votes').select('id,voter_guest_id,target_guest_id,created_at,voter:guests!votes_voter_guest_id_fkey(id,name,team),target:guests!votes_target_guest_id_fkey(id,name,team)'),
     db.from('game_state').select('id,registration_open,stage,voting_open,results_visible,scoreboard_visible,phase_note,display_title,display_body,public_clue,timer_ends_at,updated_at').eq('id', 1).single(),
-    db.from('clues').select('id,title,content,active,created_at').eq('active', true).order('created_at'),
+    db.from('clues').select('id,title,content,active,created_at').order('created_at'),
     db.from('guest_clues').select('id,guest_id,clue_id,created_at,guest:guests(id,name),clue:clues(id,title)').order('created_at', { ascending: false }).limit(50),
     db.from('points_ledger').select('id,guest_id,amount,reason,actor,created_at,guest:guests(id,name)').order('created_at', { ascending: false }).limit(50),
     db.from('audit_log').select('id,actor,action,target_type,target_id,details,created_at').order('created_at', { ascending: false }).limit(50),
@@ -142,31 +145,35 @@ export async function configureGuestGameProfile(guestId: string, team: string, r
   ensureNoDatabaseError(error, 'Unable to configure guest profile');
 }
 
-type NewTask = {
+type SavedTask = {
+  id: string | null;
   title: string;
   description: string;
   points: number;
   roleScope: string;
   category: string;
   stage: string;
+  active: boolean;
 };
 
-export async function createGameTask(input: NewTask, actor: string) {
-  const { error } = await getSupabaseAdmin().rpc('create_game_task', {
+export async function saveGameTask(input: SavedTask, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('save_game_task', {
+    p_task_id: input.id,
     p_title: input.title,
     p_description: input.description,
     p_points: input.points,
     p_role_scope: input.roleScope,
     p_category: input.category,
     p_stage: input.stage,
+    p_active: input.active,
     p_actor: actor,
   });
-  ensureNoDatabaseError(error, 'Unable to create task');
+  ensureNoDatabaseError(error, 'Unable to save task');
 }
 
-export async function createGameClue(title: string, content: string, actor: string) {
-  const { error } = await getSupabaseAdmin().rpc('create_game_clue', {
-    p_title: title, p_content: content, p_actor: actor,
+export async function saveGameClue(input: { id: string | null; title: string; content: string; active: boolean }, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('save_game_clue', {
+    p_clue_id: input.id, p_title: input.title, p_content: input.content, p_active: input.active, p_actor: actor,
   });
-  ensureNoDatabaseError(error, 'Unable to create clue');
+  ensureNoDatabaseError(error, 'Unable to save clue');
 }
