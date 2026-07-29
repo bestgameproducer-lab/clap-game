@@ -17,6 +17,7 @@
 - 所有主办方修改写入操作审计记录
 - 最终投票与后台统计
 - 投票开关和结果公布开关
+- 可由后台单独开放的公开积分大屏，支持团队排名、个人榜与身份揭晓
 - Supabase 云数据库
 - 适合部署到 Vercel
 
@@ -56,6 +57,7 @@ NEXT_PUBLIC_WEDDING_TITLE=我们的婚礼秘密任务
 - 首页：`http://localhost:3000`
 - 宾客页：`http://localhost:3000/guest`
 - 后台：`http://localhost:3000/admin`
+- 公开积分大屏：`http://localhost:3000/scoreboard`
 
 登录流程：
 
