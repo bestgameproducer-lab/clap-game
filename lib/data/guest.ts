@@ -19,6 +19,7 @@ export async function castGuestVote(voterGuestId: string, targetGuestId: string)
   if (error?.message.includes('self_vote')) throw new ApiError(400, '不能投自己');
   if (error?.message.includes('voting_closed')) throw new ApiError(409, '投票尚未开放或已经关闭');
   if (error?.message.includes('cross_team_vote')) throw new ApiError(400, '只能投给本队宾客');
+  if (error?.message.includes('vote_already_cast')) throw new ApiError(409, '你已经提交过本轮投票，不能再次修改');
   if (error?.message.includes('guest_not_found')) throw new ApiError(404, '找不到投票对象');
   if (error) throw new Error(`Unable to save vote: ${error.message}`);
 }
@@ -50,7 +51,7 @@ export async function getGuestView(guestId: string) {
   const db = getSupabaseAdmin();
   const [{ data: guest, error: guestError }, { data: game, error: gameError }] = await Promise.all([
     db.from('guests').select('id,name,team,role,points,drawn_at').eq('id', guestId).single(),
-    db.from('game_state').select('registration_open,stage,voting_open,results_visible,scoreboard_visible,phase_note').eq('id', 1).single(),
+    db.from('game_state').select('registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note').eq('id', 1).single(),
   ]);
   if (guestError || !guest) throw new ApiError(401, '登录已失效');
   if (gameError || !game) throw new Error(`Unable to load game state: ${gameError?.message ?? 'missing row'}`);
@@ -58,7 +59,7 @@ export async function getGuestView(guestId: string) {
     db.from('assignments').select('id,status,is_initial,completion_rank,reward_task_id,reward_clue_id,rejection_reason,task:tasks(title,description,points,category,stage)').eq('guest_id', guestId).order('created_at'),
     db.from('guest_clues').select('id,clue:clues(title,content)').eq('guest_id', guestId),
     db.from('guests').select('id,name,team').eq('team', guest.team).not('drawn_at', 'is', null).order('name'),
-    db.from('votes').select('target_guest_id').eq('voter_guest_id', guestId).maybeSingle(),
+    db.from('votes').select('target_guest_id').eq('voter_guest_id', guestId).eq('voting_round', game.voting_round).maybeSingle(),
   ]);
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`Unable to load guest data: ${error.message}`);
@@ -71,17 +72,21 @@ export async function getGuestView(guestId: string) {
     votedTargetId: string | null;
     votedTargetName: string | null;
     voteCorrect: boolean | null;
+    bonusPoints: number;
   } = null;
   if (game.results_visible) {
-    const { data: teamMembers, error: revealError } = await db
-      .from('guests')
-      .select('id,name,role')
-      .eq('team', guest.team)
-      .not('drawn_at', 'is', null)
-      .order('name');
-    if (revealError) throw new Error(`Unable to load published results: ${revealError.message}`);
+    const [{ data: teamMembers, error: revealError }, { data: rewards, error: rewardError }] = await Promise.all([
+      db.from('guests').select('id,name,role').eq('team', guest.team).not('drawn_at', 'is', null).order('name'),
+      db.from('result_rewards').select('amount').eq('guest_id', guestId),
+    ]);
+    if (revealError || rewardError) throw new Error(`Unable to load published results: ${revealError?.message ?? rewardError?.message}`);
     const votedTargetId = results[3].data?.target_guest_id ?? null;
-    publishedResults = buildPublishedTeamResults(teamMembers ?? [], votedTargetId, true);
+    const baseResults = buildPublishedTeamResults(teamMembers ?? [], votedTargetId, true);
+    if (!baseResults) throw new Error('Unable to build published results');
+    publishedResults = {
+      ...baseResults,
+      bonusPoints: (rewards ?? []).reduce((sum, reward) => sum + reward.amount, 0),
+    };
   }
   return {
     guest,

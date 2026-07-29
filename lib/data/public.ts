@@ -7,7 +7,7 @@ export async function getPublicScoreboard() {
   const db = getSupabaseAdmin();
   const { data: game, error: gameError } = await db
     .from('game_state')
-    .select('stage,scoreboard_visible,results_visible,display_title,display_body,public_clue,timer_ends_at,updated_at')
+    .select('stage,voting_round,scoreboard_visible,results_visible,display_title,display_body,public_clue,timer_ends_at,updated_at')
     .eq('id', 1)
     .single();
   if (gameError || !game) throw new ApiError(503, '积分大屏暂时无法加载');
@@ -19,7 +19,7 @@ export async function getPublicScoreboard() {
   const [guestResult, assignmentResult, voteResult, teamPointResult] = await Promise.all([
     db.from('guests').select('id,name,team,points').not('drawn_at', 'is', null).order('name'),
     db.from('assignments').select('guest_id,status').eq('status', 'approved'),
-    db.from('votes').select('target_guest_id'),
+    db.from('votes').select('target_guest_id').eq('voting_round', game.voting_round),
     db.from('team_points_ledger').select('team,amount'),
   ]);
   const error = guestResult.error ?? assignmentResult.error ?? voteResult.error ?? teamPointResult.error;
