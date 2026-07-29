@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-type RegistrationGuest = { id: string; name: string; loginName: string; team: string; claimed: boolean };
+type RegistrationGuest = { id: string; name: string; loginName: string; claimed: boolean };
+type SecretCard = { team: string; role: string; task: { id: string; title: string; description: string; points: number }; drawnAt: string };
 type GuestData = {
-  guest: { id: string; name: string; team: string; points: number };
+  guest: { id: string; name: string; team: string; role: string; points: number; drawn_at: string | null };
   assignments: Array<{ id: string; status: string; task: { title: string; description: string; points: number } }>;
   clues: Array<{ id: string; content: string }>;
   game: { registration_open: boolean; stage: string; voting_open: boolean; results_visible: boolean } | null;
@@ -26,13 +27,23 @@ const STATUS_LABELS: Record<string, string> = {
   assigned: '进行中', submitted: '等待审核', approved: '已完成',
 };
 
+const ROLE_LABELS: Record<string, { title: string; note: string }> = {
+  spy: { title: '丘比特的恶作剧者（间谍）', note: '隐藏自己，完成你的秘密干扰任务。' },
+  helper: { title: '丘比特的秘密信使', note: '暗中帮助队友，让线索自然流动。' },
+  guest: { title: '丘比特的祝福见证者', note: '完成祝福任务，并留意身边的可疑行动。' },
+};
+
 export default function GuestPage() {
   const [data, setData] = useState<GuestData | null>(null);
   const [checking, setChecking] = useState(true);
   const [invitationCode, setInvitationCode] = useState('');
   const [guests, setGuests] = useState<RegistrationGuest[] | null>(null);
   const [selectedGuest, setSelectedGuest] = useState<RegistrationGuest | null>(null);
+  const [claimCode, setClaimCode] = useState('');
   const [search, setSearch] = useState('');
+  const [drawing, setDrawing] = useState(false);
+  const [revealedCard, setRevealedCard] = useState<SecretCard | null>(null);
+  const [showSecrets, setShowSecrets] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -69,7 +80,7 @@ export default function GuestPage() {
     try {
       const response = await fetch('/api/registration/claim', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invitationCode, loginName: selectedGuest.loginName }),
+        body: JSON.stringify({ invitationCode, loginName: selectedGuest.loginName, claimCode }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || '身份认领失败');
@@ -100,7 +111,26 @@ export default function GuestPage() {
 
   async function logout() {
     await fetch('/api/guest-logout', { method: 'POST' });
-    setData(null); setInvitationCode(''); setGuests(null); setSelectedGuest(null); setSearch('');
+    setData(null); setInvitationCode(''); setGuests(null); setSelectedGuest(null); setClaimCode(''); setSearch(''); setShowSecrets(false); setRevealedCard(null);
+  }
+
+  async function drawCard() {
+    setDrawing(true); setError('');
+    try {
+      const [response] = await Promise.all([
+        fetch('/api/draw-card', { method: 'POST' }),
+        new Promise((resolve) => window.setTimeout(resolve, 1500)),
+      ]);
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || '抽卡失败');
+      setRevealedCard(body.card);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '抽卡失败，请重试'); }
+    finally { setDrawing(false); }
+  }
+
+  async function enterMissionPage() {
+    setShowSecrets(true);
+    await load();
   }
 
   const filteredGuests = useMemo(() => {
@@ -128,23 +158,56 @@ export default function GuestPage() {
         <div className="step-copy"><strong>找到你的名字</strong><small>每个宾客身份只能被认领一次</small></div>
         <label htmlFor="guest-search">搜索宾客</label>
         <input id="guest-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="输入中文、拼音或英文名" autoFocus/>
-        <div className="guest-list">{filteredGuests.map((guest) => <button type="button" className="guest-choice" disabled={guest.claimed} key={guest.id} onClick={() => setSelectedGuest(guest)}><span><strong>{guest.name}</strong><small>{guest.loginName} · {guest.team}</small></span><b>{guest.claimed ? '已认领' : '选择'}</b></button>)}</div>
+        <div className="guest-list">{filteredGuests.map((guest) => <button type="button" className="guest-choice" disabled={guest.claimed} key={guest.id} onClick={() => { setSelectedGuest(guest); setClaimCode(''); }}><span><strong>{guest.name}</strong><small>{guest.loginName}</small></span><b>{guest.claimed ? '已认领' : '选择'}</b></button>)}</div>
         <button className="text-button" onClick={() => { setGuests(null); setError(''); }}>返回修改邀请码</button>
       </div>}
       {selectedGuest && <form onSubmit={claimIdentity}>
-        <div className="selected-identity"><small>请确认你的身份</small><strong>{selectedGuest.name}</strong><span>{selectedGuest.loginName} · {selectedGuest.team}</span></div>
-        <p className="login-note">确认后该身份会被锁定；如有误选，请联系主办方重置。</p>
-        <button disabled={busy}>{busy ? '认领中…' : '确认是我 · 领取任务'}</button>
+        <div className="selected-identity"><small>请确认你的身份</small><strong>{selectedGuest.name}</strong><span>{selectedGuest.loginName}</span></div>
+        <label htmlFor="claim-code">我的四位宾客密码</label>
+        <input id="claim-code" className="claim-code-input" type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} autoComplete="one-time-code" value={claimCode} onChange={(event) => setClaimCode(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="••••" required autoFocus/>
+        <p className="login-note">这是你收到的个人密码。认领后身份会被锁定，如有误选请联系主办方。</p>
+        <button disabled={busy || claimCode.length !== 4}>{busy ? '认领中…' : '确认是我 · 开始抽卡'}</button>
         <button type="button" className="text-button" onClick={() => { setSelectedGuest(null); setError(''); }}>返回宾客名单</button>
       </form>}
     </section>
   </main>;
 
+  if (!data.guest.drawn_at) {
+    const role = revealedCard ? ROLE_LABELS[revealedCard.role] ?? ROLE_LABELS.guest : null;
+    return <main className="draw-shell"><section className="draw-stage">
+      <div className="eyebrow">YOUR SECRET AWAITS</div>
+      <h1>{revealedCard ? '命运之卡已经揭晓' : `${data.guest.name}，准备好了吗？`}</h1>
+      <p>{revealedCard ? '记住你的身份与任务，然后把卡片藏好。' : '丘比特将同时为你抽取组别、秘密身份和第一项任务。每个人只有一次机会。'}</p>
+      {error && <div className="notice error">{error}</div>}
+      <div className={`secret-card-scene ${drawing ? 'drawing' : ''} ${revealedCard ? 'revealed' : ''}`}><div className="secret-card">
+        <div className="secret-card-back"><span>♡</span><strong>CUPID&apos;S<br/>SECRET</strong><small>ZIMIN &amp; ANRONG</small></div>
+        <div className="secret-card-front"><small>你被选中成为</small><h2>{role?.title}</h2><p>{role?.note}</p>
+          <div className="card-team"><span>你的组别</span><strong>{revealedCard?.team}</strong></div>
+          <div className="card-task"><span>第一项秘密任务 · {revealedCard?.task.points} 分</span><strong>{revealedCard?.task.title}</strong><p>{revealedCard?.task.description}</p></div>
+        </div>
+      </div></div>
+      {!revealedCard && <button className="draw-button" disabled={drawing} onClick={drawCard}>{drawing ? '丘比特正在洗牌…' : '抽取我的秘密卡'}</button>}
+      {revealedCard && <button className="draw-button" onClick={enterMissionPage}>我记住了 · 进入任务页</button>}
+      {!revealedCard && <button className="text-button" onClick={logout}>退出此身份</button>}
+      <p className="privacy-hint">请遮挡屏幕，身份卡离开本页后会自动隐藏。</p>
+    </section></main>;
+  }
+
   const stage = STAGES[data.game?.stage ?? 'registration'] ?? STAGES.registration;
+  if (!showSecrets) return <main className="privacy-shell"><section className="privacy-cover">
+    <div className="privacy-lock">♡</div><div className="eyebrow">PRIVATE CARD</div>
+    <h1>{data.guest.name}</h1><p>你的组别、身份和任务已隐藏，防止身边的人看到。</p>
+    <button onClick={() => setShowSecrets(true)}>查看我的秘密卡片</button>
+    <small>看完后可随时再次隐藏，刷新页面也会自动隐藏。</small>
+    <button className="text-button" onClick={logout}>退出此身份</button>
+  </section></main>;
+
+  const role = ROLE_LABELS[data.guest.role] ?? ROLE_LABELS.guest;
   return <main className="dashboard-shell">
     <section className="mission-hero">
       <div className="eyebrow">丘比特的婚礼考验</div>
       <div className="hero-line"><div><span className="team-chip">{data.guest.team}</span><h1>{data.guest.name}</h1></div><div className="score-orb"><strong>{data.guest.points}</strong><small>积分</small></div></div>
+      <div className="identity-strip"><small>你的秘密身份</small><strong>{role.title}</strong><p>{role.note}</p></div>
       <div className="stage-card"><small>当前环节</small><strong>{stage.label}</strong><p>{stage.note}</p></div>
     </section>
     {message && <div className="notice success">{message}</div>}{error && <div className="notice error">{error}</div>}
@@ -154,6 +217,6 @@ export default function GuestPage() {
     <section className="section-card"><div className="section-heading"><div><small>SPY CLUES</small><h2>已解锁线索</h2></div><span>{data.clues.length}</span></div>{data.clues.length === 0 ? <div className="empty-state">完成任务后，线索会在这里出现。</div> : data.clues.map((clue) => <div className="clue" key={clue.id}>⌁ {clue.content}</div>)}</section>
     {data.game?.voting_open && <section className="section-card"><div className="section-heading"><div><small>FINAL VOTE</small><h2>谁是恶作剧者？</h2></div></div><p className="muted">只能选择本队宾客，投票关闭前可以修改。</p><div className="vote-grid">{data.candidates.filter((candidate) => candidate.id !== data.guest.id).map((candidate) => <button className={data.existingVote === candidate.id ? 'vote-choice selected' : 'vote-choice'} key={candidate.id} onClick={() => vote(candidate.id)}>{candidate.name}</button>)}</div></section>}
     {data.game?.results_visible && <section className="reveal-card"><small>THE STORY CONTINUES</small><h2>身份揭晓时刻</h2><p>请跟随主持人的现场公布与颁奖。</p></section>}
-    <div className="footer-actions"><button className="secondary" onClick={load}>刷新状态</button><button className="text-button" onClick={logout}>退出此身份</button></div>
+    <div className="footer-actions"><button onClick={() => setShowSecrets(false)}>隐藏我的秘密</button><button className="secondary" onClick={load}>刷新状态</button><button className="text-button" onClick={logout}>退出此身份</button></div>
   </main>;
 }

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { signSessionToken, verifySessionToken } from '../lib/session-core.ts';
+import { isFourDigitClaimCode } from '../lib/claim-code.ts';
 
 const secret = 'a-test-secret-that-is-longer-than-32-characters';
 const now = Date.UTC(2026, 6, 28);
@@ -19,4 +20,12 @@ test('rejects tampered and wrong-kind sessions', () => {
 test('rejects expired sessions', () => {
   const token = signSessionToken('admin', 'shared-admin', 10, secret, now);
   assert.equal(verifySessionToken(token, 'admin', secret, now + 11_000), null);
+});
+
+test('accepts exactly four ASCII digits for a guest claim code', () => {
+  assert.equal(isFourDigitClaimCode('0123'), true);
+  assert.equal(isFourDigitClaimCode('123'), false);
+  assert.equal(isFourDigitClaimCode('12345'), false);
+  assert.equal(isFourDigitClaimCode('12a3'), false);
+  assert.equal(isFourDigitClaimCode(1234), false);
 });

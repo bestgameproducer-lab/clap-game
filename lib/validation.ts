@@ -1,4 +1,5 @@
 import { ApiError } from './errors';
+import { isFourDigitClaimCode } from './claim-code';
 
 export type JsonObject = Record<string, unknown>;
 
@@ -27,6 +28,11 @@ export function requiredUuid(value: unknown, label: string): string {
     throw new ApiError(400, `${label}格式不正确`);
   }
   return result;
+}
+
+export function requiredClaimCode(value: unknown): string {
+  if (!isFourDigitClaimCode(value)) throw new ApiError(400, '请输入四位数字宾客密码');
+  return value;
 }
 
 export function assertSameOrigin(request: Request) {
