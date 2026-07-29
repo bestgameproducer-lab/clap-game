@@ -7,24 +7,25 @@ export async function getPublicScoreboard() {
   const db = getSupabaseAdmin();
   const { data: game, error: gameError } = await db
     .from('game_state')
-    .select('stage,scoreboard_visible,results_visible,updated_at')
+    .select('stage,scoreboard_visible,results_visible,display_title,display_body,public_clue,timer_ends_at,updated_at')
     .eq('id', 1)
     .single();
   if (gameError || !game) throw new ApiError(503, '积分大屏暂时无法加载');
 
   if (!game.scoreboard_visible) {
-    return { visible: false, stage: game.stage, resultsVisible: false, updatedAt: game.updated_at, teams: [], leaders: [], voteCounts: [], revealedRoles: [] };
+    return { visible: false, stage: game.stage, resultsVisible: false, displayTitle: null, displayBody: null, publicClue: null, timerEndsAt: null, updatedAt: game.updated_at, teams: [], leaders: [], voteCounts: [], revealedRoles: [] };
   }
 
-  const [guestResult, assignmentResult, voteResult] = await Promise.all([
+  const [guestResult, assignmentResult, voteResult, teamPointResult] = await Promise.all([
     db.from('guests').select('id,name,team,points').not('drawn_at', 'is', null).order('name'),
     db.from('assignments').select('guest_id,status').eq('status', 'approved'),
     db.from('votes').select('target_guest_id'),
+    db.from('team_points_ledger').select('team,amount'),
   ]);
-  const error = guestResult.error ?? assignmentResult.error ?? voteResult.error;
+  const error = guestResult.error ?? assignmentResult.error ?? voteResult.error ?? teamPointResult.error;
   if (error) throw new Error(`Unable to load public scoreboard: ${error.message}`);
 
-  const scoreboard = buildPublicScoreboard(guestResult.data ?? [], assignmentResult.data ?? [], voteResult.data ?? []);
+  const scoreboard = buildPublicScoreboard(guestResult.data ?? [], assignmentResult.data ?? [], voteResult.data ?? [], teamPointResult.data ?? []);
   let revealedRoles: Array<{ id: string; name: string; team: string; role: string }> = [];
   if (game.results_visible) {
     const { data, error: roleError } = await db.from('guests').select('id,name,team,role').in('role', ['spy', 'helper']).not('drawn_at', 'is', null).order('team').order('name');
@@ -36,6 +37,10 @@ export async function getPublicScoreboard() {
     visible: true,
     stage: game.stage,
     resultsVisible: game.results_visible,
+    displayTitle: game.display_title,
+    displayBody: game.display_body,
+    publicClue: game.public_clue,
+    timerEndsAt: game.timer_ends_at,
     updatedAt: game.updated_at,
     teams: scoreboard.teams,
     leaders: scoreboard.leaders,

@@ -16,6 +16,17 @@ test('aggregates team points and approved tasks without role data', () => {
   assert.equal('role' in result.leaders[0], false);
 });
 
+test('adds audited team-game points without changing personal rankings', () => {
+  const result = buildPublicScoreboard(
+    [{ id: 'a', name: 'A', team: '玫瑰组', points: 2 }], [], [],
+    [{ team: '玫瑰组', amount: 5 }, { team: '月桂组', amount: 3 }],
+  );
+  assert.deepEqual(result.teams.map(({ team, points }) => ({ team, points })), [
+    { team: '玫瑰组', points: 7 }, { team: '月桂组', points: 3 },
+  ]);
+  assert.equal(result.leaders[0].points, 2);
+});
+
 test('sorts individual leaders and vote counts deterministically', () => {
   const result = buildPublicScoreboard(guests, [], [{ target_guest_id: 'c' }, { target_guest_id: 'c' }, { target_guest_id: 'a' }]);
   assert.equal(result.leaders[0].name, 'C');

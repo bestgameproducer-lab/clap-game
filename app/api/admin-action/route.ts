@@ -1,6 +1,7 @@
 import { requireAdmin } from '@/lib/auth';
 import {
   adjustGuestPoints,
+  adjustTeamPoints,
   approveAssignment,
   assignTaskToGuest,
   configureGuestGameProfile,
@@ -11,12 +12,14 @@ import {
   resetGuestClaim,
   setGameFlag,
   setGameStage,
+  setLiveDisplay,
   setRegistrationOpen,
 } from '@/lib/data/admin';
 import { ApiError, apiErrorResponse, noStoreJson } from '@/lib/errors';
 import { GAME_ROLES, ROLE_SCOPES, TASK_CATEGORIES, TASK_STAGES } from '@/lib/game-rules';
 import {
   assertSameOrigin,
+  optionalString,
   readJsonObject,
   requiredBoolean,
   requiredEnum,
@@ -54,6 +57,21 @@ export async function POST(request: Request) {
         requiredInteger(body.amount, '积分调整', -1000, 1000),
         actor,
         requiredString(body.reason, '调整原因', 200),
+      );
+    } else if (type === 'adjustTeamPoints') {
+      await adjustTeamPoints(
+        requiredString(body.team, '组别', 40),
+        requiredInteger(body.amount, '团队积分调整', -1000, 1000),
+        actor,
+        requiredString(body.reason, '调整原因', 200),
+      );
+    } else if (type === 'setLiveDisplay') {
+      await setLiveDisplay(
+        optionalString(body.title, '大屏标题', 120),
+        optionalString(body.body, '大屏内容', 1000),
+        optionalString(body.publicClue, '公开线索', 500),
+        requiredInteger(body.timerMinutes, '倒计时', 0, 120),
+        actor,
       );
     } else if (type === 'assignTask') {
       await assignTaskToGuest(requiredUuid(body.guestId, '宾客 ID'), requiredUuid(body.taskId, '任务 ID'), actor);

@@ -17,6 +17,12 @@ export function requiredString(value: unknown, label: string, maximum = 200): st
   return result;
 }
 
+export function optionalString(value: unknown, label: string, maximum = 200): string {
+  if (value === undefined || value === null) return '';
+  if (typeof value !== 'string' || value.length > maximum) throw new ApiError(400, `${label}格式不正确`);
+  return value.trim();
+}
+
 export function requiredBoolean(value: unknown, label: string): boolean {
   if (typeof value !== 'boolean') throw new ApiError(400, `${label}格式不正确`);
   return value;

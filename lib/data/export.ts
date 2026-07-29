@@ -2,7 +2,7 @@ import 'server-only';
 import { buildCsv, type CsvCell } from '../csv';
 import { getSupabaseAdmin } from '../supabase';
 
-export type AdminExportKind = 'guests' | 'assignments' | 'points' | 'audit';
+export type AdminExportKind = 'guests' | 'assignments' | 'points' | 'team-points' | 'audit';
 
 export async function getAdminCsvExport(kind: AdminExportKind) {
   const db = getSupabaseAdmin();
@@ -31,6 +31,11 @@ export async function getAdminCsvExport(kind: AdminExportKind) {
       const guest = Array.isArray(item.guest) ? item.guest[0] : item.guest;
       return [guest?.name, item.amount, item.reason, item.actor, item.created_at];
     });
+  } else if (kind === 'team-points') {
+    const { data, error } = await db.from('team_points_ledger').select('team,amount,reason,actor,created_at').order('created_at');
+    if (error) throw new Error(`Unable to export team points: ${error.message}`);
+    headers = ['组别', '团队积分变化', '原因', '操作人', '时间'];
+    rows = (data ?? []).map((item) => [item.team, item.amount, item.reason, item.actor, item.created_at]);
   } else {
     const { data, error } = await db.from('audit_log').select('actor,action,target_type,target_id,details,created_at').order('created_at');
     if (error) throw new Error(`Unable to export audit log: ${error.message}`);

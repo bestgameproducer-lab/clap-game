@@ -27,11 +27,12 @@ export async function getAdminDashboardData() {
     db.from('tasks').select('id,title,description,points,role_scope,category,stage,active,created_at').eq('active', true).order('stage').order('title'),
     db.from('assignments').select('id,status,submitted_at,guest:guests(id,name),task:tasks(id,title,points)').eq('status', 'submitted'),
     db.from('votes').select('id,voter_guest_id,target_guest_id,created_at,voter:guests!votes_voter_guest_id_fkey(id,name,team),target:guests!votes_target_guest_id_fkey(id,name,team)'),
-    db.from('game_state').select('id,registration_open,stage,voting_open,results_visible,scoreboard_visible,phase_note,updated_at').eq('id', 1).single(),
+    db.from('game_state').select('id,registration_open,stage,voting_open,results_visible,scoreboard_visible,phase_note,display_title,display_body,public_clue,timer_ends_at,updated_at').eq('id', 1).single(),
     db.from('clues').select('id,title,content,active,created_at').eq('active', true).order('created_at'),
     db.from('guest_clues').select('id,guest_id,clue_id,created_at,guest:guests(id,name),clue:clues(id,title)').order('created_at', { ascending: false }).limit(50),
     db.from('points_ledger').select('id,guest_id,amount,reason,actor,created_at,guest:guests(id,name)').order('created_at', { ascending: false }).limit(50),
     db.from('audit_log').select('id,actor,action,target_type,target_id,details,created_at').order('created_at', { ascending: false }).limit(50),
+    db.from('team_points_ledger').select('id,team,amount,reason,actor,created_at').order('created_at', { ascending: false }).limit(100),
   ]);
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`Unable to load admin data: ${error.message}`);
@@ -39,7 +40,7 @@ export async function getAdminDashboardData() {
     guests: results[0].data ?? [], assignments: results[1].data ?? [], tasks: results[2].data ?? [],
     submissions: results[3].data ?? [], votes: results[4].data ?? [], game: results[5].data,
     clues: results[6].data ?? [], guestClues: results[7].data ?? [],
-    pointLedger: results[8].data ?? [], auditLog: results[9].data ?? [],
+    pointLedger: results[8].data ?? [], auditLog: results[9].data ?? [], teamPointLedger: results[10].data ?? [],
   };
 }
 
@@ -84,6 +85,20 @@ export async function adjustGuestPoints(guestId: string, amount: number, actor: 
     p_guest_id: guestId, p_amount: amount, p_actor: actor, p_reason: reason,
   });
   ensureNoDatabaseError(error, 'Unable to adjust guest points');
+}
+
+export async function adjustTeamPoints(team: string, amount: number, actor: string, reason: string) {
+  const { error } = await getSupabaseAdmin().rpc('adjust_team_points', {
+    p_team: team, p_amount: amount, p_actor: actor, p_reason: reason,
+  });
+  ensureNoDatabaseError(error, 'Unable to adjust team points');
+}
+
+export async function setLiveDisplay(title: string, body: string, publicClue: string, timerMinutes: number, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('set_live_display', {
+    p_title: title, p_body: body, p_public_clue: publicClue, p_timer_minutes: timerMinutes, p_actor: actor,
+  });
+  ensureNoDatabaseError(error, 'Unable to update live display');
 }
 
 export async function assignTaskToGuest(guestId: string, taskId: string, actor: string) {

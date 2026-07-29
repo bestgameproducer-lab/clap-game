@@ -1,11 +1,13 @@
 export type ScoreboardGuest = { id: string; name: string; team: string; points: number };
 export type ScoreboardAssignment = { guest_id: string; status: string };
 export type ScoreboardVote = { target_guest_id: string };
+export type ScoreboardTeamPoint = { team: string; amount: number };
 
 export function buildPublicScoreboard(
   guests: ScoreboardGuest[],
   assignments: ScoreboardAssignment[],
   votes: ScoreboardVote[],
+  teamPoints: ScoreboardTeamPoint[] = [],
 ) {
   const approvedByGuest = new Map<string, number>();
   for (const assignment of assignments) {
@@ -22,6 +24,11 @@ export function buildPublicScoreboard(
     current.guests += 1;
     current.completedTasks += approvedByGuest.get(guest.id) ?? 0;
     teams.set(guest.team, current);
+  }
+  for (const entry of teamPoints) {
+    const current = teams.get(entry.team) ?? { team: entry.team, points: 0, guests: 0, completedTasks: 0 };
+    current.points += entry.amount;
+    teams.set(entry.team, current);
   }
 
   return {
