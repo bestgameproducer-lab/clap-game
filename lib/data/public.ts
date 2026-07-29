@@ -26,11 +26,11 @@ export async function getPublicScoreboard() {
   if (error) throw new Error(`Unable to load public scoreboard: ${error.message}`);
 
   const scoreboard = buildPublicScoreboard(guestResult.data ?? [], assignmentResult.data ?? [], voteResult.data ?? [], teamPointResult.data ?? []);
-  let revealedRoles: Array<{ id: string; name: string; team: string; role: string }> = [];
+  let revealedRoles: Array<{ id: string; name: string; team: string; role: string; is_hidden_spy: boolean }> = [];
   let awards: Array<{ id: string; title: string; winnerName: string; winnerTeam: string | null; reason: string }> = [];
   if (game.results_visible) {
     const [roleResult, awardResult] = await Promise.all([
-      db.from('guests').select('id,name,team,role').in('role', ['spy', 'helper']).not('drawn_at', 'is', null).order('team').order('name'),
+      db.from('guests').select('id,name,team,role,is_hidden_spy').in('role', ['spy', 'helper']).not('drawn_at', 'is', null).order('team').order('name'),
       db.from('awards').select('id,title,winner_team,reason,winner:guests(name,team)').eq('published', true).order('sort_order').order('created_at'),
     ]);
     const revealError = roleResult.error ?? awardResult.error;

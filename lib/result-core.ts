@@ -1,4 +1,4 @@
-export type RevealedTeamMember = { id: string; name: string; role: string };
+export type RevealedTeamMember = { id: string; name: string; role: string; is_hidden_spy: boolean };
 
 export function buildPublishedTeamResults(
   teamMembers: RevealedTeamMember[],

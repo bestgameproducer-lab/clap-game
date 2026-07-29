@@ -50,7 +50,7 @@ export async function drawGuestCard(guestId: string) {
 export async function getGuestView(guestId: string) {
   const db = getSupabaseAdmin();
   const [{ data: guest, error: guestError }, { data: game, error: gameError }] = await Promise.all([
-    db.from('guests').select('id,name,team,role,points,drawn_at').eq('id', guestId).single(),
+    db.from('guests').select('id,name,team,role,is_hidden_spy,points,drawn_at').eq('id', guestId).single(),
     db.from('game_state').select('registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note').eq('id', 1).single(),
   ]);
   if (guestError || !guest) throw new ApiError(401, '登录已失效');
@@ -68,7 +68,7 @@ export async function getGuestView(guestId: string) {
     return isTaskVisibleAtStage(task?.stage, game.stage);
   });
   let publishedResults: null | {
-    teamMembers: Array<{ id: string; name: string; role: string }>;
+    teamMembers: Array<{ id: string; name: string; role: string; is_hidden_spy: boolean }>;
     votedTargetId: string | null;
     votedTargetName: string | null;
     voteCorrect: boolean | null;
@@ -76,7 +76,7 @@ export async function getGuestView(guestId: string) {
   } = null;
   if (game.results_visible) {
     const [{ data: teamMembers, error: revealError }, { data: rewards, error: rewardError }] = await Promise.all([
-      db.from('guests').select('id,name,role').eq('team', guest.team).not('drawn_at', 'is', null).order('name'),
+      db.from('guests').select('id,name,role,is_hidden_spy').eq('team', guest.team).not('drawn_at', 'is', null).order('name'),
       db.from('result_rewards').select('amount').eq('guest_id', guestId),
     ]);
     if (revealError || rewardError) throw new Error(`Unable to load published results: ${revealError?.message ?? rewardError?.message}`);

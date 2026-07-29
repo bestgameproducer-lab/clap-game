@@ -12,13 +12,18 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
       throw new ApiError(409, '该任务已经处理，无法重复操作');
     }
     if (error.message.includes('task_already_assigned')) throw new ApiError(409, '这位宾客已经领取过该任务');
+    if (error.message.includes('hidden_spy_guest_ineligible')) throw new ApiError(409, '隐藏间谍任务只能派给已抽卡的普通宾客');
+    if (error.message.includes('hidden_spy_already_activated')) throw new ApiError(409, '本场已经激活一位隐藏间谍，不能重复操作');
+    if (error.message.includes('hidden_spy_task_already_assigned')) throw new ApiError(409, '隐藏间谍任务已经派发，请处理当前任务');
+    if (error.message.includes('active_hidden_spy_task_exists')) throw new ApiError(409, '任务库只能启用一张隐藏间谍卡');
+    if (error.message.includes('invalid_hidden_spy_task')) throw new ApiError(400, '隐藏间谍卡必须是第二轮、仅限普通宾客的隐藏任务');
     if (error.message.includes('clue_already_granted')) throw new ApiError(409, '这位宾客已经获得该线索');
     if (error.message.includes('guest_card_already_drawn')) throw new ApiError(409, '宾客已经抽卡，不能直接修改组别或身份');
     if (error.message.includes('point_total_unchanged')) throw new ApiError(409, '积分没有发生变化');
     if (error.message.includes('assignment_already_approved')) throw new ApiError(409, '该任务已经通过，不能重复加分');
     if (error.message.includes('award_winner_required')) throw new ApiError(400, '发布奖项前必须选择获奖宾客或队伍');
     if (error.message.includes('award_not_found')) throw new ApiError(404, '找不到奖项');
-    if (error.message.includes('task_rules_locked')) throw new ApiError(409, '任务已派发；积分、身份范围、类型和开放阶段已锁定，只能修改文字或停用');
+    if (error.message.includes('task_rules_locked')) throw new ApiError(409, '任务已派发；积分、身份范围、类型、开放阶段和隐藏奖励已锁定，只能修改文字或停用');
     if (error.message.includes('task_not_found')) throw new ApiError(404, '找不到任务');
     if (error.message.includes('clue_not_found')) throw new ApiError(404, '找不到线索');
     if (error.message.includes('clue_target_not_spy')) throw new ApiError(400, '线索只能绑定到已预设为间谍的宾客');
@@ -34,9 +39,9 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
 export async function getAdminDashboardData() {
   const db = getSupabaseAdmin();
   const results = await Promise.all([
-    db.from('guests').select('id,name,login_name,team,role,points,claimed_at,drawn_at,team_locked,role_locked,table_label,is_elder,ceremony_eligible,active,staff_notes,created_at').order('active', { ascending: false }).order('team').order('name'),
+    db.from('guests').select('id,name,login_name,team,role,is_hidden_spy,points,claimed_at,drawn_at,team_locked,role_locked,table_label,is_elder,ceremony_eligible,active,staff_notes,created_at').order('active', { ascending: false }).order('team').order('name'),
     db.from('assignments').select('id,guest_id,task_id,status,is_initial,completion_rank,reward_task_id,reward_clue_id,submitted_at,approved_at,rejected_at,rejection_reason,created_at,task:tasks(id,title,description,points,category,stage)'),
-    db.from('tasks').select('id,title,description,points,role_scope,category,stage,active,created_at').order('stage').order('title'),
+    db.from('tasks').select('id,title,description,points,role_scope,category,stage,active,grants_hidden_spy,created_at').order('stage').order('title'),
     db.from('assignments').select('id,status,submitted_at,guest:guests(id,name),task:tasks(id,title,points)').eq('status', 'submitted'),
     db.from('votes').select('id,voter_guest_id,target_guest_id,voting_round,created_at,voter:guests!votes_voter_guest_id_fkey(id,name,team),target:guests!votes_target_guest_id_fkey(id,name,team)'),
     db.from('game_state').select('id,registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note,display_title,display_body,public_clue,timer_ends_at,updated_at').eq('id', 1).single(),
@@ -174,6 +179,7 @@ type SavedTask = {
   category: string;
   stage: string;
   active: boolean;
+  grantsHiddenSpy: boolean;
 };
 
 export async function saveGameTask(input: SavedTask, actor: string) {
@@ -186,6 +192,7 @@ export async function saveGameTask(input: SavedTask, actor: string) {
     p_category: input.category,
     p_stage: input.stage,
     p_active: input.active,
+    p_grants_hidden_spy: input.grantsHiddenSpy,
     p_actor: actor,
   });
   ensureNoDatabaseError(error, 'Unable to save task');

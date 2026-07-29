@@ -7,14 +7,14 @@ const GUEST_CACHE_KEY = 'wedding-guest-session-cache-v1';
 type RegistrationGuest = { id: string; name: string; loginName: string; hasPassword: boolean };
 type SecretCard = { team: string; role: string; task: { id: string; title: string; description: string; points: number }; drawnAt: string };
 type GuestData = {
-  guest: { id: string; name: string; team: string; role: string; points: number; drawn_at: string | null };
+  guest: { id: string; name: string; team: string; role: string; is_hidden_spy: boolean; points: number; drawn_at: string | null };
   assignments: Array<{ id: string; status: string; is_initial: boolean; completion_rank: number | null; reward_task_id: string | null; reward_clue_id: string | null; rejection_reason: string | null; task: { title: string; description: string; points: number; category: string; stage: string } }>;
   clues: Array<{ id: string; title: string; content: string }>;
   game: { registration_open: boolean; stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null } | null;
   candidates: Array<{ id: string; name: string; team: string }>;
   existingVote: string | null;
   results: null | {
-    teamMembers: Array<{ id: string; name: string; role: string }>;
+    teamMembers: Array<{ id: string; name: string; role: string; is_hidden_spy: boolean }>;
     votedTargetId: string | null;
     votedTargetName: string | null;
     voteCorrect: boolean | null;
@@ -281,7 +281,9 @@ export default function GuestPage() {
     <button className="text-button" disabled={busy} onClick={logout}>{busy ? '安全退出中…' : '退出此身份'}</button>
   </section></main>;
 
-  const role = ROLE_LABELS[data.guest.role] ?? ROLE_LABELS.guest;
+  const role = data.guest.is_hidden_spy
+    ? { title: '丘比特的暗线（隐藏间谍）', note: '你的阵营已经改变。请继续伪装成普通宾客，直到最终揭晓。' }
+    : ROLE_LABELS[data.guest.role] ?? ROLE_LABELS.guest;
   const rankedReward = data.assignments.find((assignment) => assignment.is_initial && assignment.completion_rank);
   return <main className="dashboard-shell">
     <section className="mission-hero">
@@ -292,13 +294,14 @@ export default function GuestPage() {
     </section>
     {(offline || syncing) && <div className={`connection-banner ${offline ? 'offline' : ''}`} role="status">{offline ? '离线只读模式 · 已显示最近同步的任务，提交和投票暂不可用' : '正在同步最新状态…'}</div>}
     {message && <div className="notice success" aria-live="polite">{message}</div>}{error && <div className="notice error" aria-live="polite">{error}</div>}
+    {data.guest.is_hidden_spy && !data.game?.results_visible && <section className="reward-banner"><small>SECRET ROLE ACTIVATED</small><strong>你已成为隐藏间谍</strong><p>不要向其他宾客展示本页。继续完成任务并隐藏真实阵营，身份只会在最终揭晓后公开。</p></section>}
     {rankedReward && <section className="reward-banner"><small>EARLY COMPLETION HONOR</small><strong>你是第 {rankedReward.completion_rank} 位完成首轮任务的宾客</strong><p>{rankedReward.reward_task_id && rankedReward.reward_clue_id ? '升级任务与一条秘密线索已经发放。' : rankedReward.reward_task_id ? '升级任务已经发放，将在第二轮开放。' : '你的首轮任务已经记录。'}</p></section>}
     <section className="section-card"><div className="section-heading"><div><small>SECRET MISSIONS</small><h2>我的秘密任务</h2></div><span>{data.assignments.length}</span></div>
       {data.assignments.length === 0 ? <div className="empty-state">本轮任务尚未开放，先享受婚礼吧。</div> : data.assignments.map((assignment, index) => <article className="mission-item" key={assignment.id}><div className="mission-number">{String(index + 1).padStart(2, '0')}</div><div className="mission-body"><div className="mission-meta"><span>{assignment.task.points} 分</span><span className={`status ${assignment.status}`}>{STATUS_LABELS[assignment.status] ?? assignment.status}</span></div><h3>{assignment.task.title}</h3><p>{assignment.task.description}</p>{assignment.status === 'rejected' && <div className="task-feedback">任务站留言：{assignment.rejection_reason || '请补充验证后再次提交。'}</div>}{(assignment.status === 'assigned' || assignment.status === 'rejected') && <button disabled={busy || offline} onClick={() => submit(assignment.id)}>{offline ? '联网后可提交' : assignment.status === 'rejected' ? '补充完成 · 再次提交' : '我已完成 · 提交验证'}</button>}</div></article>)}
     </section>
     <section className="section-card"><div className="section-heading"><div><small>SPY CLUES</small><h2>已解锁线索</h2></div><span>{data.clues.length}</span></div>{data.clues.length === 0 ? <div className="empty-state">完成任务后，线索会在这里出现。</div> : data.clues.map((clue) => <div className="clue" key={clue.id}><strong>{clue.title}</strong><p>{clue.content}</p></div>)}</section>
     {data.game?.voting_open && <section className="section-card"><div className="section-heading"><div><small>FINAL VOTE</small><h2>谁是恶作剧者？</h2></div><span>第 {data.game.voting_round} 轮</span></div><p className="muted">只能选择本队宾客。每人只有一次机会，确认后不能改票。</p><div className="vote-grid">{data.candidates.filter((candidate) => candidate.id !== data.guest.id).map((candidate) => <button disabled={busy || offline || Boolean(data.existingVote)} className={data.existingVote === candidate.id ? 'vote-choice selected' : 'vote-choice'} key={candidate.id} onClick={() => vote(candidate.id)}>{data.existingVote === candidate.id ? '✓ ' : ''}{candidate.name}</button>)}</div>{data.existingVote && <p className="vote-offline-note">你的本轮投票已安全保存。</p>}{offline && <p className="vote-offline-note">恢复网络后才能提交投票。</p>}</section>}
-    {data.game?.results_visible && data.results && <section className="reveal-card"><small>THE FINAL REVEAL</small><h2>身份揭晓</h2>{data.results.votedTargetName ? <div className={`vote-verdict ${data.results.voteCorrect ? 'correct' : 'missed'}`}><span>你投给了 {data.results.votedTargetName}</span><strong>{data.results.voteCorrect ? `成功找到恶作剧者 · 获得 ${data.results.bonusPoints} 分` : '恶作剧者成功隐藏了自己'}</strong></div> : <div className="vote-verdict missed"><strong>你没有提交最终投票</strong></div>}<div className="team-role-reveal">{data.results.teamMembers.map((member) => <div key={member.id}><span>{member.name}</span><strong>{ROLE_LABELS[member.role]?.title ?? member.role}</strong></div>)}</div><p>感谢你成为这场婚礼故事的一部分。</p></section>}
+    {data.game?.results_visible && data.results && <section className="reveal-card"><small>THE FINAL REVEAL</small><h2>身份揭晓</h2>{data.results.votedTargetName ? <div className={`vote-verdict ${data.results.voteCorrect ? 'correct' : 'missed'}`}><span>你投给了 {data.results.votedTargetName}</span><strong>{data.results.voteCorrect ? `成功找到恶作剧者 · 获得 ${data.results.bonusPoints} 分` : '恶作剧者成功隐藏了自己'}</strong></div> : <div className="vote-verdict missed"><strong>你没有提交最终投票</strong></div>}<div className="team-role-reveal">{data.results.teamMembers.map((member) => <div key={member.id}><span>{member.name}</span><strong>{member.is_hidden_spy ? '丘比特的暗线（隐藏间谍）' : ROLE_LABELS[member.role]?.title ?? member.role}</strong></div>)}</div><p>感谢你成为这场婚礼故事的一部分。</p></section>}
     <div className="footer-actions"><button onClick={() => setShowSecrets(false)}>隐藏我的秘密</button><button className="secondary" disabled={syncing} onClick={() => void load()}>{syncing ? '同步中…' : '刷新状态'}</button><button className="text-button" disabled={busy} onClick={logout}>{busy ? '安全退出中…' : '退出此身份'}</button></div>
     {offlineReady && <div className="offline-ready" role="status">弱网备用已准备 · 刷新后仍可打开本页</div>}
   </main>;

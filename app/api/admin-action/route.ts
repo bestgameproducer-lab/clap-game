@@ -110,6 +110,7 @@ export async function POST(request: Request) {
         category: requiredEnum(body.category, '任务类型', TASK_CATEGORIES),
         stage: requiredEnum(body.stage, '任务阶段', TASK_STAGES),
         active: requiredBoolean(body.active, '任务启用状态'),
+        grantsHiddenSpy: requiredBoolean(body.grantsHiddenSpy, '隐藏间谍奖励'),
       }, actor);
     } else if (type === 'saveClue') {
       await saveGameClue({
