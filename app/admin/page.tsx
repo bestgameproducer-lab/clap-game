@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { StaffLogoutButton } from '../staff-logout-button';
+import { createEventKey } from '@/lib/event-key';
 import { parseGuestRosterText } from '@/lib/guest-roster-import';
 import { GAME_STAGE_OPTIONS, gameStageCopy } from '@/lib/game-stages';
 import { recommendedTaskPoints } from '@/lib/task-points';
@@ -310,10 +311,10 @@ export default function AdminPage() {
 
   async function resetRehearsal(event: React.FormEvent) {
     event.preventDefault();
-    if (!window.confirm('最后确认：系统会先自动关闭注册、投票和公开大屏，再退出全部宾客并清除抽卡、任务进度、投票、积分和竞拍记录。宾客名单与配置内容会保留。是否继续？')) return;
-    const eventKey = resetEventKey || crypto.randomUUID();
-    setResetEventKey(eventKey); setError(''); setMessage(''); setBusy(true);
     try {
+      if (!window.confirm('最后确认：系统会先自动关闭注册、投票和公开大屏，再退出全部宾客并清除抽卡、任务进度、投票、积分和竞拍记录。宾客名单与配置内容会保留。是否继续？')) return;
+      const eventKey = resetEventKey || createEventKey();
+      setResetEventKey(eventKey); setError(''); setMessage(''); setBusy(true);
       const response = await fetch('/api/admin-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'resetRehearsal', ...resetForm, eventKey }) });
       const result = await responseBody(response);
       if (!response.ok) throw new Error(result.error || '彩排清场失败');
@@ -324,7 +325,7 @@ export default function AdminPage() {
         setResetEventKey('');
       }
       await load();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : '彩排清场失败'); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '当前浏览器无法发起彩排清场，请刷新管理台后重试'); }
     finally { setBusy(false); }
   }
 
