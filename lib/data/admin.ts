@@ -41,6 +41,10 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
     if (error.message.includes('clue_already_granted')) throw new ApiError(409, '这位宾客已经获得该线索');
     if (error.message.includes('guest_not_secret_clue_eligible')) throw new ApiError(409, '这位宾客不参与秘密线索玩法，但仍应可以正常通过任务；请刷新后重试');
     if (error.message.includes('guest_card_already_drawn')) throw new ApiError(409, '宾客已经抽卡，不能直接修改组别或身份');
+    if (error.message.includes('story_role_active_player_required')) throw new ApiError(409, '剧情职务只能分配给活跃任务玩家');
+    if (error.message.includes('story_role_capacity_full')) throw new ApiError(409, '这个剧情职务的名额已经用完');
+    if (error.message.includes('invalid_story_role')) throw new ApiError(400, '剧情职务无效');
+    if (error.message.includes('invalid_alliance_clue')) throw new ApiError(400, '联盟线索标题或片段长度不正确');
     if (error.message.includes('point_total_unchanged')) throw new ApiError(409, '积分没有发生变化');
     if (error.message.includes('assignment_already_approved')) throw new ApiError(409, '该任务已经通过，不能重复加分');
     if (error.message.includes('verification_note_required')) throw new ApiError(400, '请填写核验记录');
@@ -66,9 +70,9 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
 export async function getAdminDashboardData() {
   const db = getSupabaseAdmin();
   const results = await Promise.all([
-    db.from('guests').select('id,name,login_name,team,role,is_hidden_spy,points,claimed_at,drawn_at,team_locked,role_locked,table_label,is_elder,ceremony_eligible,active,staff_notes,participation_mode,relationship,story_role,uses_app,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,special_card_title,special_card_body,created_at').order('active', { ascending: false }).order('team').order('name'),
+    db.from('guests').select('id,name,login_name,team,role,is_hidden_spy,points,claimed_at,drawn_at,team_locked,role_locked,table_label,is_elder,ceremony_eligible,active,staff_notes,participation_mode,relationship,story_role,uses_app,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,special_card_title,special_card_body,player_code,unlocked_role,created_at').order('active', { ascending: false }).order('team').order('name'),
     db.from('assignments').select('id,guest_id,task_id,status,is_initial,completion_rank,early_bonus_points,reward_task_id,reward_clue_id,completion_note,verification_note,verified_by,verified_at,evidence_path,evidence_uploaded_at,submitted_at,approved_at,rejected_at,rejection_reason,created_at,task:tasks!assignments_task_id_fkey(id,title,description,verification_method,points,category,stage)'),
-    db.from('tasks').select('id,title,description,verification_method,points,role_scope,category,stage,active,grants_hidden_spy,is_demo,story_role_scope,created_at').order('stage').order('title'),
+    db.from('tasks').select('id,title,description,verification_method,points,role_scope,category,stage,active,grants_hidden_spy,is_demo,story_role_scope,mission_code,mechanic,score_policy,created_at').order('stage').order('title'),
     db.from('assignments').select('id,status,completion_note,evidence_path,evidence_uploaded_at,submitted_at,guest:guests(id,name),task:tasks!assignments_task_id_fkey(id,title,verification_method,points)').eq('status', 'submitted'),
     db.from('votes').select('id,voter_guest_id,target_guest_id,voting_round,created_at,voter:guests!votes_voter_guest_id_fkey(id,name,team),target:guests!votes_target_guest_id_fkey(id,name,team)'),
     db.from('game_state').select('id,registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note,display_title,display_body,public_clue,timer_ends_at,invitation_code_updated_at,task_catalog_mode,updated_at').eq('id', 1).single(),
@@ -84,6 +88,9 @@ export async function getAdminDashboardData() {
     db.from('host_segments').select('id,title,stage,ready,active').order('sort_order').order('created_at'),
     db.from('team_resources').select('team,balance,updated_at').order('team'),
     db.rpc('preview_rehearsal_reset'),
+    db.from('heart_slots').select('heart_code,pair_key,side,guest_id,assigned_at,guest:guests(id,name)').order('heart_code'),
+    db.from('player_relationships').select('id,relationship_type,status,player_a_confirmed,player_b_confirmed,activated_at,player_a:guests!player_relationships_player_a_id_fkey(id,name),player_b:guests!player_relationships_player_b_id_fkey(id,name)').order('created_at', { ascending: false }),
+    db.from('alliance_clue_fragments').select('pair_key,title,left_fragment,right_fragment,active,updated_at').order('pair_key'),
   ]);
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`Unable to load admin data: ${error.message}`);
@@ -107,7 +114,24 @@ export async function getAdminDashboardData() {
     resourceWallets,
     preflight: buildWeddingPreflight({ guests, tasks, clues, hiddenTaskCodes, hostSegments, resourceWallets, hasGameState: Boolean(results[5].data), invitationCodeRotated: Boolean(results[5].data?.invitation_code_updated_at) }),
     rehearsalResetPreview: results[17].data ?? {},
+    heartSlots: results[18].data ?? [],
+    playerRelationships: results[19].data ?? [],
+    allianceClues: results[20].data ?? [],
   };
+}
+
+export async function getPrintableMissionCards() {
+  const db = getSupabaseAdmin();
+  const [{ data: guests, error: guestError }, { data: assignments, error: assignmentError }] = await Promise.all([
+    db.from('guests').select('id,name,login_name,player_code,participation_mode,relationship,special_card_title,special_card_body').eq('active', true).eq('uses_app', true).order('name'),
+    db.from('assignments').select('guest_id,task:tasks!assignments_task_id_fkey(title,description,verification_method)').eq('is_initial', true),
+  ]);
+  if (guestError || assignmentError) throw new Error(`Unable to load printable cards: ${guestError?.message ?? assignmentError?.message}`);
+  const taskByGuest = new Map((assignments ?? []).map((assignment) => {
+    const task = Array.isArray(assignment.task) ? assignment.task[0] : assignment.task;
+    return [assignment.guest_id, task ?? null];
+  }));
+  return (guests ?? []).map((guest) => ({ ...guest, task: taskByGuest.get(guest.id) ?? null }));
 }
 
 export async function approveAssignment(assignmentId: string, actor: string, reason: string) {
@@ -275,6 +299,25 @@ export async function configureGuestGameProfile(guestId: string, team: string, r
     p_guest_id: guestId, p_team: team, p_role: role, p_actor: actor,
   });
   ensureNoDatabaseError(error, 'Unable to configure guest profile');
+}
+
+export async function configureGuestStoryRole(guestId: string, storyRole: string, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('configure_guest_story_role', {
+    p_guest_id: guestId, p_story_role: storyRole, p_actor: actor,
+  });
+  ensureNoDatabaseError(error, 'Unable to configure guest story role');
+}
+
+export async function saveAllianceClue(input: { pairKey: string; title: string; leftFragment: string; rightFragment: string; active: boolean }, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('save_alliance_clue_fragment', {
+    p_pair_key: input.pairKey,
+    p_title: input.title,
+    p_left_fragment: input.leftFragment,
+    p_right_fragment: input.rightFragment,
+    p_active: input.active,
+    p_actor: actor,
+  });
+  ensureNoDatabaseError(error, 'Unable to save alliance clue');
 }
 
 export async function saveGuestRoster(input: { id: string | null; name: string; loginName: string; tableLabel: string; isElder: boolean; ceremonyEligible: boolean; active: boolean; staffNotes: string }, actor: string) {

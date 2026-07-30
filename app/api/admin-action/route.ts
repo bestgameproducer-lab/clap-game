@@ -6,6 +6,7 @@ import {
   completeAssignmentAtStation,
   assignTaskToGuest,
   configureGuestGameProfile,
+  configureGuestStoryRole,
   saveGameClue,
   saveGameTask,
   saveGuestRoster,
@@ -24,9 +25,10 @@ import {
   setGuestPhaseNote,
   setRegistrationOpen,
   saveAward,
+  saveAllianceClue,
 } from '@/lib/data/admin';
 import { ApiError, apiErrorResponse, noStoreJson } from '@/lib/errors';
-import { GAME_ROLES, MANUAL_GAME_STAGES, ROLE_SCOPES, TASK_CATEGORIES, TASK_STAGES } from '@/lib/game-rules';
+import { GAME_ROLES, MANUAL_GAME_STAGES, ROLE_SCOPES, STORY_ROLES, TASK_CATEGORIES, TASK_STAGES } from '@/lib/game-rules';
 import {
   assertSameOrigin,
   optionalString,
@@ -133,6 +135,20 @@ export async function POST(request: Request) {
         requiredEnum(body.role, '身份', GAME_ROLES),
         actor,
       );
+    } else if (type === 'configureStoryRole') {
+      await configureGuestStoryRole(
+        requiredUuid(body.guestId, '宾客 ID'),
+        requiredEnum(body.storyRole, '剧情职务', STORY_ROLES),
+        actor,
+      );
+    } else if (type === 'saveAllianceClue') {
+      await saveAllianceClue({
+        pairKey: requiredEnum(body.pairKey, '爱心配对', ['A', 'B'] as const),
+        title: requiredString(body.title, '线索标题', 120),
+        leftFragment: optionalString(body.leftFragment, '左半线索', 500),
+        rightFragment: optionalString(body.rightFragment, '右半线索', 500),
+        active: requiredBoolean(body.active, '线索状态'),
+      }, actor);
     } else if (type === 'saveGuestRoster') {
       await saveGuestRoster({
         id: body.guestId ? requiredUuid(body.guestId, '宾客 ID') : null,

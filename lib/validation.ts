@@ -60,6 +60,12 @@ export function requiredClaimCode(value: unknown): string {
   return value;
 }
 
+export function requiredPlayerCode(value: unknown): string {
+  const code = requiredString(value, '玩家编号', 12).toUpperCase();
+  if (!/^P[0-9]{3,6}$/.test(code)) throw new ApiError(400, '玩家编号格式不正确');
+  return code;
+}
+
 export function requiredInvitationCode(value: unknown): string {
   if (typeof value !== 'string') throw new ApiError(400, '邀请码需为 6–32 位英文字母、数字或连字符');
   const result = normalizeInvitationCode(value);
