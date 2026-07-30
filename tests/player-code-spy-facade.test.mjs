@@ -26,7 +26,8 @@ test('a trickster dashboard stays ordinary until the separate private reader ope
   assert.match(page, /nextData\.guest\.role === 'spy' && assignment\.task\.category === 'hidden'/);
   assert.match(page, /<span>\{assignment\.task\.points\} 分<\/span>/);
   assert.doesNotMatch(page, /完成但不计个人分|完成记录 · 不计个人分/);
-  assert.match(page, /const dashboardRole = usesTricksterFacade \? ROLE_LABELS\.guest : role/);
+  assert.match(page, /identityVisible \? <><strong>\{role\.title\}<\/strong><p>\{role\.note\}<\/p><\/>/);
+  assert.match(page, /isTrickster && identityVisible && !data\.game\?\.results_visible \? 'trickster-identity'/);
   assert.match(page, /const readerAssignments = usesTricksterFacade \? trueTricksterAssignments : data\.assignments/);
   assert.match(page, /<details className="mission-item"/);
   assert.doesNotMatch(page, /trickster-dossier-inline|openTricksterDossier|trickster-facade/);

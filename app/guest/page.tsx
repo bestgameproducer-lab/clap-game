@@ -623,13 +623,12 @@ export default function GuestPage() {
   const trueTricksterAssignments = usesTricksterFacade ? data.assignments.filter((assignment) => assignment.task.category === 'hidden') : [];
   const dashboardAssignments = usesTricksterFacade ? data.assignments.filter((assignment) => assignment.task.category !== 'hidden') : data.assignments;
   const readerAssignments = usesTricksterFacade ? trueTricksterAssignments : data.assignments;
-  const dashboardRole = usesTricksterFacade ? ROLE_LABELS.guest : role;
   return <main className="dashboard-shell">
     <section className="mission-hero">
       <div className="eyebrow">丘比特的婚礼考验</div>
       <div className="hero-line"><div><span className="team-chip">{isHonorGuest ? data.guest.special_card_title || '亲爱的家人' : data.guest.team}</span><h1>{data.guest.name}</h1></div><div className="score-orb"><strong>{data.guest.points}</strong><small>积分</small></div></div>
       <div className="hero-player-code"><div><small>我的玩家编号</small><strong>{data.guest.player_code}</strong></div><button type="button" className={playerCodeCopied ? 'copied' : ''} onClick={() => { void navigator.clipboard?.writeText(data.guest.player_code); setPlayerCodeCopied(true); window.setTimeout(() => setPlayerCodeCopied(false), 1800); }}>{playerCodeCopied ? '已复制 ✓' : '复制编号'}</button></div>
-      <div className={`identity-strip ${identityVisible ? 'visible' : 'concealed'} ${isTrickster && identityVisible && !usesTricksterFacade && !data.game?.results_visible ? 'trickster-identity' : ''}`}>
+      <div className={`identity-strip ${identityVisible ? 'visible' : 'concealed'} ${isTrickster && identityVisible && !data.game?.results_visible ? 'trickster-identity' : ''}`}>
         <div className="identity-strip-heading">
           <small>{hasPublicIdentity ? '你的公开身份' : '你的秘密身份'}</small>
           {!hasPublicIdentity && <div className="identity-private-actions">
@@ -637,7 +636,7 @@ export default function GuestPage() {
             <button type="button" className="identity-reader-button" onClick={() => { setShowSecrets(false); setSecretReaderOpen(true); }}>展开查看</button>
           </div>}
         </div>
-        {identityVisible ? <><strong>{dashboardRole.title}</strong><p>{dashboardRole.note}</p></> : <><strong className="identity-mask" aria-hidden="true">••••••</strong><p>短按住可快速查看；需要完整阅读时请点“展开查看”。</p></>}
+        {identityVisible ? <><strong>{role.title}</strong><p>{role.note}</p></> : <><strong className="identity-mask" aria-hidden="true">••••••</strong><p>短按住可快速查看；需要完整阅读时请点“展开查看”。</p></>}
       </div>
       {isActivePlayer && !data.game?.results_visible && <div className="identity-game-rule"><strong>所有宾客共同规则</strong><span>最终揭晓前，不主动告诉别人你的身份、阵营或任务，也不要要求别人展示手机。</span></div>}
       <div className="stage-card"><small>当前婚礼环节</small><strong>{stage.label}</strong><p className="stage-default-prompt">{stage.note}</p>{data.game?.phase_note && <div className="stage-live-note"><b>主办方最新提示</b><span>{data.game.phase_note}</span></div>}</div>

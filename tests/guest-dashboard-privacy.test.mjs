@@ -16,7 +16,7 @@ test('the recurring dashboard stays visible while only a private identity is con
     assert.ok(page.includes(handler), `missing secret hold handler: ${handler}`);
   }
   assert.doesNotMatch(page, /setShowSecrets\(\(visible\) => !visible\)/);
-  assert.match(page, /const dashboardRole = usesTricksterFacade \? ROLE_LABELS\.guest : role/);
+  assert.match(page, /identityVisible \? <><strong>\{role\.title\}<\/strong><p>\{role\.note\}<\/p><\/>/);
   assert.match(page, /setRevealedCard\(null\);\s*setShowSecrets\(false\)/);
 });
 
