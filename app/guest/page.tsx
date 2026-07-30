@@ -62,6 +62,7 @@ export default function GuestPage() {
   const [search, setSearch] = useState('');
   const [drawing, setDrawing] = useState(false);
   const [revealedCard, setRevealedCard] = useState<SecretCard | null>(null);
+  const [specialCardRevealed, setSpecialCardRevealed] = useState(false);
   const [showSecrets, setShowSecrets] = useState(false);
   const [busy, setBusy] = useState(false);
   const [offline, setOffline] = useState(false);
@@ -125,6 +126,13 @@ export default function GuestPage() {
   useEffect(() => {
     if (!('serviceWorker' in window.navigator)) return;
     let active = true;
+    let refreshing = false;
+    const refreshForNewVersion = () => {
+      if (!active || refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    };
+    window.navigator.serviceWorker.addEventListener('controllerchange', refreshForNewVersion);
     window.navigator.serviceWorker.register('/sw.js', { scope: '/' })
       .then(async (registration) => {
         await registration.update();
@@ -132,7 +140,10 @@ export default function GuestPage() {
         if (active) setOfflineReady(true);
       })
       .catch(() => { if (active) setOfflineReady(false); });
-    return () => { active = false; };
+    return () => {
+      active = false;
+      window.navigator.serviceWorker.removeEventListener('controllerchange', refreshForNewVersion);
+    };
   }, []);
 
   async function unlockInvitation(event: React.FormEvent) {
@@ -244,7 +255,7 @@ export default function GuestPage() {
       setOffline(true); setError('安全退出需要联网完成。请恢复网络后重试，当前身份仍保持登录。'); setBusy(false); return;
     }
     try { window.sessionStorage.removeItem(GUEST_CACHE_KEY); } catch {}
-    setData(null); setInvitationCode(''); setGuests(null); setSelectedGuest(null); setClaimCode(''); setClaimCodeConfirm(''); setSearch(''); setShowSecrets(false); setRevealedCard(null);
+    setData(null); setInvitationCode(''); setGuests(null); setSelectedGuest(null); setClaimCode(''); setClaimCodeConfirm(''); setSearch(''); setShowSecrets(false); setRevealedCard(null); setSpecialCardRevealed(false);
     setBusy(false);
   }
 
@@ -266,6 +277,13 @@ export default function GuestPage() {
     setRevealedCard(null);
     setShowSecrets(true);
     await load();
+  }
+
+  async function revealSpecialCard() {
+    setDrawing(true); setError('');
+    await new Promise((resolve) => window.setTimeout(resolve, 1500));
+    setSpecialCardRevealed(true);
+    setDrawing(false);
   }
 
   const filteredGuests = useMemo(() => {
@@ -309,14 +327,34 @@ export default function GuestPage() {
     </section>
   </main>;
 
-  if (data.guest.participation_mode !== 'ACTIVE_PLAYER') return <main className="special-card-shell">
-    <section className={`special-guest-card ${data.guest.participation_mode === 'HONOR_GUEST' ? 'honor' : 'principal'}`}>
-      <div className="eyebrow">{data.guest.participation_mode === 'HONOR_GUEST' ? 'YOUR HONOR MISSION' : 'A PLACE JUST FOR YOU'}</div>
+  if (data.guest.participation_mode === 'HONOR_GUEST') return <main className="draw-shell honor-draw-shell"><section className="draw-stage honor-draw-stage">
+    <div className="eyebrow">A SURPRISE FOR FAMILY</div>
+    <h1>{specialCardRevealed ? '这张卡，送给你' : `${data.guest.name}，准备好了吗？`}</h1>
+    <p>{specialCardRevealed ? '谢谢你一路陪伴新人走到今天。请慢慢读完，这张卡不会自动消失。' : '丘比特为你准备了一张特别的惊喜卡。请点击卡片下方的按钮，亲自揭晓。'}</p>
+    <div className={`secret-card-scene honor-surprise-scene ${drawing ? 'drawing' : ''} ${specialCardRevealed ? 'revealed' : ''}`}><div className="secret-card">
+      <div className="secret-card-back"><span>♡</span><strong>CUPID&apos;S<br/>SECRET</strong><small>ZIMIN &amp; ANRONG</small></div>
+      <div className="secret-card-front honor-surprise-front">
+        <small>{data.guest.relationship || '家人'}</small>
+        <div className="special-card-heart">♡</div>
+        <h2>{data.guest.special_card_title || '家庭守护者'}</h2>
+        <h3>{data.guest.name}</h3>
+        <p>{data.guest.special_card_body || '你已经完成了最重要的任务：陪伴新人长大，并见证他们建立自己的家庭。'}</p>
+        <div className="special-card-seal">ZIMIN &amp; ANRONG</div>
+      </div>
+    </div></div>
+    {!specialCardRevealed && <button className="draw-button" disabled={drawing} onClick={revealSpecialCard}>{drawing ? '丘比特正在洗牌…' : '抽取我的惊喜卡'}</button>}
+    <button className="text-button" disabled={busy || drawing} onClick={logout}>{busy ? '安全退出中…' : '退出此身份'}</button>
+    <p className="privacy-hint">这是一张家人专属惊喜卡，不进入普通任务、组别或积分系统。</p>
+  </section></main>;
+
+  if (data.guest.participation_mode === 'PRINCIPAL') return <main className="special-card-shell">
+    <section className="special-guest-card principal">
+      <div className="eyebrow">A PLACE JUST FOR YOU</div>
       <div className="special-card-heart">♡</div>
       <small>{data.guest.relationship || '特别宾客'}</small>
-      <h1>{data.guest.special_card_title || (data.guest.participation_mode === 'HONOR_GUEST' ? '你的荣誉任务' : '你的专属席位')}</h1>
+      <h1>{data.guest.special_card_title || '你的专属席位'}</h1>
       <h2>{data.guest.name}</h2>
-      <p>{data.guest.special_card_body || '这是一项只属于你的荣誉任务，不进入普通挑战和积分排名。'}</p>
+      <p>{data.guest.special_card_body || '这是一张只属于你的卡片。'}</p>
       <div className="special-card-seal">ZIMIN &amp; ANRONG</div>
       <button className="text-button" disabled={busy} onClick={logout}>{busy ? '安全退出中…' : '退出此身份'}</button>
     </section>

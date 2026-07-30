@@ -15,19 +15,22 @@ test('all 32 final guests remain app-login eligible while runtime rehearsal data
   assert.match(migration, /claim_code_hash=null,claimed_at=null,drawn_at=null/);
 });
 
-test('honor guests and the couple login to dedicated cards instead of random tasks', async () => {
-  const [migration, guestPage, guestData] = await Promise.all([
+test('honor guests draw a dedicated family surprise instead of a random task', async () => {
+  const [migration, surpriseMigration, guestPage, guestData] = await Promise.all([
     readFile(migrationUrl, 'utf8'),
+    readFile(new URL('../supabase/migrations/202607290042_honor_surprise_copy.sql', import.meta.url), 'utf8'),
     readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../lib/data/guest.ts', import.meta.url), 'utf8'),
   ]);
   assert.match(migration, /'HONOR_GUEST'/);
   assert.match(migration, /'PRINCIPAL'/);
-  assert.match(migration, /荣誉任务 · 家庭守护者/);
+  assert.match(surpriseMigration, /你已经完成了最重要的任务：一路陪伴新郎长大/);
   assert.match(migration, /guest_not_mission_eligible/);
-  assert.match(guestPage, /data\.guest\.participation_mode !== 'ACTIVE_PLAYER'/);
+  assert.match(guestPage, /data\.guest\.participation_mode === 'HONOR_GUEST'/);
   assert.match(guestPage, /data\.guest\.special_card_title/);
-  assert.match(guestPage, /YOUR HONOR MISSION/);
+  assert.match(guestPage, /revealSpecialCard/);
+  assert.match(guestPage, /抽取我的惊喜卡/);
+  assert.match(guestPage, /specialCardRevealed \? 'revealed'/);
   assert.match(guestData, /participation_mode !== 'ACTIVE_PLAYER'/);
 });
 
