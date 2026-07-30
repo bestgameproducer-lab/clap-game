@@ -10,10 +10,10 @@ export async function getAdminCsvExport(kind: AdminExportKind) {
   let rows: CsvCell[][];
 
   if (kind === 'guests') {
-    const { data, error } = await db.from('guests').select('name,login_name,table_label,is_elder,ceremony_eligible,active,staff_notes,team,role,points,claimed_at,drawn_at,created_at').order('team').order('name');
+    const { data, error } = await db.from('guests').select('name,login_name,participation_mode,relationship,story_role,uses_app,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,special_card_title,table_label,is_elder,ceremony_eligible,active,staff_notes,team,role,points,claimed_at,drawn_at,created_at').order('team').order('name');
     if (error) throw new Error(`Unable to export guests: ${error.message}`);
-    headers = ['姓名', '登录名', '桌号', '长辈', '适合仪式任务', '启用', '工作人员备注', '组别', '身份', '积分', '已设置密码时间', '抽卡时间', '创建时间'];
-    rows = (data ?? []).map((item) => [item.name, item.login_name, item.table_label, item.is_elder, item.ceremony_eligible, item.active, item.staff_notes, item.team, item.role, item.points, item.claimed_at, item.drawn_at, item.created_at]);
+    headers = ['姓名', '登录名', '参与类型', '与新人关系', '剧情职务', '使用软件', '可领任务', '可进入隐藏身份池', '计个人积分', '专属卡标题', '桌号', '长辈', '适合仪式任务', '启用', '工作人员备注', '组别', '身份', '积分', '已设置密码时间', '抽卡时间', '创建时间'];
+    rows = (data ?? []).map((item) => [item.name, item.login_name, item.participation_mode, item.relationship, item.story_role, item.uses_app, item.eligible_for_mission, item.eligible_for_secret_role, item.eligible_for_personal_score, item.special_card_title, item.table_label, item.is_elder, item.ceremony_eligible, item.active, item.staff_notes, item.team, item.role, item.points, item.claimed_at, item.drawn_at, item.created_at]);
   } else if (kind === 'assignments') {
     const { data, error } = await db.from('assignments').select('status,is_initial,completion_rank,early_bonus_points,completion_note,verification_note,verified_by,verified_at,evidence_path,evidence_uploaded_at,submitted_at,approved_at,rejected_at,rejection_reason,created_at,guest:guests(name),task:tasks!assignments_task_id_fkey(title,verification_method,points,category,stage)').order('created_at');
     if (error) throw new Error(`Unable to export assignments: ${error.message}`);

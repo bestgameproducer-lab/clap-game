@@ -29,6 +29,7 @@ export async function castGuestVote(voterGuestId: string, targetGuestId: string)
 export async function drawGuestCard(guestId: string) {
   const { data, error } = await getSupabaseAdmin().rpc('draw_guest_card', { p_guest_id: guestId });
   if (error?.message.includes('guest_not_claimed')) throw new ApiError(401, '请先认领宾客身份');
+  if (error?.message.includes('guest_not_mission_eligible')) throw new ApiError(409, '你的专属内容不需要抽取普通任务');
   if (error?.message.includes('draw_registration_closed')) throw new ApiError(409, '抽卡入口已经关闭，请联系主办方');
   if (error?.message.includes('draw_capacity_full')) throw new ApiError(409, '抽卡名额已经全部派发');
   if (error?.message.includes('draw_preset_capacity_full')) throw new ApiError(409, '主办方预设的组别已经满员，请联系主办方调整');
@@ -40,6 +41,7 @@ export async function drawGuestCard(guestId: string) {
   return {
     team: card.guest_team,
     role: card.guest_role,
+    storyRole: card.guest_story_role,
     task: {
       id: card.task_id,
       title: card.task_title,
@@ -54,11 +56,14 @@ export async function drawGuestCard(guestId: string) {
 export async function getGuestView(guestId: string) {
   const db = getSupabaseAdmin();
   const [{ data: guest, error: guestError }, { data: game, error: gameError }] = await Promise.all([
-    db.from('guests').select('id,name,team,role,is_hidden_spy,points,drawn_at').eq('id', guestId).single(),
+    db.from('guests').select('id,name,team,role,is_hidden_spy,points,drawn_at,participation_mode,relationship,story_role,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,special_card_title,special_card_body').eq('id', guestId).single(),
     db.from('game_state').select('registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note,task_catalog_mode').eq('id', 1).single(),
   ]);
   if (guestError || !guest) throw new ApiError(401, '登录已失效');
   if (gameError || !game) throw new Error(`Unable to load game state: ${gameError?.message ?? 'missing row'}`);
+  if (guest.participation_mode !== 'ACTIVE_PLAYER') {
+    return { guest, assignments: [], clues: [], game, candidates: [], existingVote: null, results: null };
+  }
   const results = await Promise.all([
     db.from('assignments').select('id,status,is_initial,completion_rank,early_bonus_points,reward_task_id,reward_clue_id,completion_note,verification_note,verified_at,evidence_path,evidence_uploaded_at,rejection_reason,task:tasks!assignments_task_id_fkey(title,description,verification_method,points,category,stage)').eq('guest_id', guestId).order('created_at'),
     db.from('guest_clues').select('id,clue:clues(title,content)').eq('guest_id', guestId),
