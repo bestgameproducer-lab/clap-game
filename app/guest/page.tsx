@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { compressTaskEvidence } from '@/lib/client-image';
 import { isTaskActionOpenAtStage } from '@/lib/game-rules';
 import { gameStageCopy } from '@/lib/game-stages';
@@ -58,6 +59,17 @@ const STORY_ROLE_LABELS: Record<string, { title: string; note: string }> = {
   STAR_HOLDER: { title: '星星持有者', note: '悄悄寻找另一位星星玩家，和对方组成星光联盟。' },
 };
 
+function CardScene({ className, label, disabled = false, onActivate, children }: {
+  className: string;
+  label: string;
+  disabled?: boolean;
+  onActivate?: () => void;
+  children: ReactNode;
+}) {
+  if (onActivate) return <button type="button" className={`${className} secret-card-trigger`} aria-label={label} disabled={disabled} onClick={onActivate}>{children}</button>;
+  return <div className={className}>{children}</div>;
+}
+
 export default function GuestPage() {
   const [data, setData] = useState<GuestData | null>(null);
   const [checking, setChecking] = useState(true);
@@ -77,7 +89,7 @@ export default function GuestPage() {
   const [offlineReady, setOfflineReady] = useState(false);
   const [manualRefreshing, setManualRefreshing] = useState(false);
   const [refreshNotice, setRefreshNotice] = useState('');
-  const [contentNotice, setContentNotice] = useState('');
+  const [contentNotice, setContentNotice] = useState<{ title: string; detail: string } | null>(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [completionNotes, setCompletionNotes] = useState<Record<string, string>>({});
@@ -90,7 +102,6 @@ export default function GuestPage() {
   const loadRequestRef = useRef(0);
   const manualRefreshRef = useRef(false);
   const refreshNoticeTimerRef = useRef<number | null>(null);
-  const contentNoticeTimerRef = useRef<number | null>(null);
   const contentSnapshotRef = useRef<null | { stage: string; phaseNote: string; assignmentIds: string[]; clueIds: string[]; confirmationIds: string[] }>(null);
 
   const load = useCallback(async () => {
@@ -110,20 +121,21 @@ export default function GuestPage() {
             .map((confirmation: { id: string }) => confirmation.id),
         };
         const previousSnapshot = contentSnapshotRef.current;
-        let nextNotice = '';
+        let nextNotice: { title: string; detail: string } | null = null;
         if (previousSnapshot) {
-          if (previousSnapshot.stage !== nextSnapshot.stage) nextNotice = `已进入「${gameStageCopy(nextSnapshot.stage).label}」`;
-          else if (nextSnapshot.assignmentIds.some((id: string) => !previousSnapshot.assignmentIds.includes(id))) nextNotice = '你收到了一项新的任务内容';
-          else if (nextSnapshot.clueIds.some((id: string) => !previousSnapshot.clueIds.includes(id))) nextNotice = '一条新的秘密线索已经解锁';
-          else if (nextSnapshot.confirmationIds.some((id: string) => !previousSnapshot.confirmationIds.includes(id))) nextNotice = '你收到了一项好友确认请求';
-          else if (previousSnapshot.phaseNote !== nextSnapshot.phaseNote && nextSnapshot.phaseNote) nextNotice = '主办方发布了新的现场提示';
+          const newAssignment = nextData.assignments.find((assignment: GuestData['assignments'][number]) => !previousSnapshot.assignmentIds.includes(assignment.id));
+          const newClue = nextData.clues.find((clue: GuestData['clues'][number]) => !previousSnapshot.clueIds.includes(clue.id));
+          const newConfirmation = (nextData.missionStory?.mutualConfirmations ?? []).find((confirmation: { id: string; direction: string; status: string; otherGuestName: string }) => confirmation.direction === 'INCOMING' && confirmation.status === 'PENDING' && !previousSnapshot.confirmationIds.includes(confirmation.id));
+          if (previousSnapshot.stage !== nextSnapshot.stage) {
+            const stageCopy = gameStageCopy(nextSnapshot.stage);
+            nextNotice = { title: `已进入「${stageCopy.label}」`, detail: nextSnapshot.phaseNote || stageCopy.note };
+          } else if (newAssignment) nextNotice = { title: '你收到了一项新任务', detail: newAssignment.task.title };
+          else if (newClue) nextNotice = { title: '一条新的秘密线索已经解锁', detail: newClue.title };
+          else if (newConfirmation) nextNotice = { title: '你收到了一项好友确认请求', detail: `${newConfirmation.otherGuestName} 正在等待你的确认` };
+          else if (previousSnapshot.phaseNote !== nextSnapshot.phaseNote && nextSnapshot.phaseNote) nextNotice = { title: '主办方发布了新的现场提示', detail: nextSnapshot.phaseNote };
         }
         contentSnapshotRef.current = nextSnapshot;
-        if (nextNotice) {
-          setContentNotice(nextNotice);
-          if (contentNoticeTimerRef.current !== null) window.clearTimeout(contentNoticeTimerRef.current);
-          contentNoticeTimerRef.current = window.setTimeout(() => setContentNotice(''), 4200);
-        }
+        if (nextNotice) setContentNotice(nextNotice);
         setData(nextData); setOffline(false); setError('');
         try {
           const offlineSnapshot = {
@@ -174,7 +186,6 @@ export default function GuestPage() {
 
   useEffect(() => () => {
     if (refreshNoticeTimerRef.current !== null) window.clearTimeout(refreshNoticeTimerRef.current);
-    if (contentNoticeTimerRef.current !== null) window.clearTimeout(contentNoticeTimerRef.current);
   }, []);
 
   async function refreshManually() {
@@ -490,18 +501,18 @@ export default function GuestPage() {
   if (data.guest.participation_mode === 'HONOR_GUEST' && (!data.guest.special_card_revealed_at || specialCardRevealed)) return <main className="draw-shell honor-draw-shell"><section className="draw-stage honor-draw-stage">
     <div className="eyebrow">A SURPRISE FOR FAMILY</div>
     <h1>{specialCardRevealed ? '这张卡，送给你' : `${data.guest.name}，准备好了吗？`}</h1>
-    <p>{specialCardRevealed ? '谢谢你一路陪伴新人走到今天。请慢慢读完，这张卡不会自动消失。' : '丘比特为你准备了一张特别的惊喜卡。请点击卡片下方的按钮，亲自揭晓。'}</p>
-    <div className={`secret-card-scene honor-surprise-scene ${drawing ? 'drawing' : ''} ${specialCardRevealed ? 'revealed' : ''}`}><div className="secret-card">
-      <div className="secret-card-back"><span>♡</span><strong>CUPID&apos;S<br/>SECRET</strong><small>ZIMIN &amp; ANRONG</small></div>
+    <p>{specialCardRevealed ? '谢谢你一路陪伴新人走到今天。请慢慢读完，这张卡不会自动消失。' : '丘比特为你准备了一张特别的惊喜卡。轻触卡片，或使用下方按钮亲自揭晓。'}</p>
+    <CardScene className={`secret-card-scene honor-surprise-scene ${drawing ? 'drawing' : ''} ${specialCardRevealed ? 'revealed' : ''}`} label="抽取我的家庭惊喜卡" disabled={drawing} onActivate={specialCardRevealed ? undefined : () => void revealSpecialCard()}><div className="secret-card">
+      <div className="secret-card-back"><span>♡</span><strong>CUPID&apos;S<br/>SECRET</strong><small>ZIMIN &amp; ANRONG</small>{!specialCardRevealed && <em>轻触卡片抽取</em>}</div>
       <div className="secret-card-front honor-surprise-front">
-        <small>{data.guest.relationship || '家人'}</small>
+        <small>FAMILY HONOR</small>
         <div className="special-card-heart">♡</div>
         <h2>{data.guest.special_card_title || '家庭守护者'}</h2>
         <h3>{data.guest.name}</h3>
         <p>{data.guest.special_card_body || '你已经完成了最重要的任务：陪伴新人长大，并见证他们建立自己的家庭。'}</p>
         <div className="special-card-seal">ZIMIN &amp; ANRONG</div>
       </div>
-    </div></div>
+    </div></CardScene>
     {error && <div className="notice error" role="alert">{error}</div>}
     {!specialCardRevealed && <button className="draw-button" disabled={drawing} onClick={revealSpecialCard}>{drawing ? '丘比特正在洗牌…' : '抽取我的惊喜卡'}</button>}
     {specialCardRevealed && <button className="draw-button" onClick={() => { setSpecialCardRevealed(false); setShowSecrets(false); }}>我已读完 · 进入游戏主页</button>}
@@ -533,14 +544,14 @@ export default function GuestPage() {
       <h1>{revealedCard ? '命运之卡已经揭晓' : `${data.guest.name}，准备好了吗？`}</h1>
       <p>{revealedCard ? '慢慢看完你的组别和身份，确认记住后再亲自收起卡片。' : '丘比特将同时为你抽取组别与秘密身份。每个人只有一次机会。'}</p>
       {error && <div className="notice error">{error}</div>}
-      <div className={`secret-card-scene ${drawing ? 'drawing' : ''} ${revealedCard ? 'revealed' : ''}`}><div className="secret-card">
-        <div className="secret-card-back"><span>♡</span><strong>CUPID&apos;S<br/>SECRET</strong><small>ZIMIN &amp; ANRONG</small></div>
+      <CardScene className={`secret-card-scene ${drawing ? 'drawing' : ''} ${revealedCard ? 'revealed' : ''}`} label="抽取我的秘密卡" disabled={drawing || !drawOpen} onActivate={revealedCard || !drawOpen ? undefined : () => void drawCard()}><div className="secret-card">
+        <div className="secret-card-back"><span>♡</span><strong>CUPID&apos;S<br/>SECRET</strong><small>ZIMIN &amp; ANRONG</small>{!revealedCard && drawOpen && <em>轻触卡片抽取</em>}</div>
         <div className={`secret-card-front ${isTricksterCard ? 'trickster-card-front' : ''}`}><small>你被选中成为</small><h2>{role?.title}</h2><p>{role?.note}</p>
           {revealedCard && <div className={`identity-secrecy-callout ${isTricksterCard ? 'critical' : ''}`}><strong>{isTricksterCard ? '这是必须隐藏的身份' : '你的身份必须保密'}</strong><span>{isTricksterCard ? '请伪装成普通宾客：不要口头承认、不要展示本页、不要直接询问他人身份，只能使用规定暗号试探。' : '在最终揭晓前，不要说出身份、阵营或任务，也不要把手机页面展示给其他宾客。'}</span></div>}
           <div className="card-team"><span>你的组别</span><strong>{revealedCard?.team}</strong></div>
           <div className="card-task"><span>{data.game?.task_catalog_mode === 'demo' ? '演示任务 · 之后会替换' : '第一项秘密任务'} · {revealedCard?.role === 'spy' ? '完成但不计个人分' : `${revealedCard?.task.points} 分`}</span><strong>{revealedCard?.task.title}</strong><p>{revealedCard?.task.description}</p></div>
         </div>
-      </div></div>
+      </div></CardScene>
       {!revealedCard && <button className="draw-button" disabled={drawing || !drawOpen} onClick={drawCard}>{drawing ? '丘比特正在洗牌…' : drawOpen ? '抽取我的秘密卡' : '抽卡入口暂未开放'}</button>}
       {!revealedCard && !drawOpen && <div className="notice">主办方目前已关闭宾客抽卡，请联系现场工作人员协助。</div>}
       {revealedCard && <button className="draw-button" onClick={enterMissionPage}>我已经看清楚 · 收起卡片</button>}
@@ -573,7 +584,7 @@ export default function GuestPage() {
   return <main className="dashboard-shell">
     <section className="mission-hero">
       <div className="eyebrow">丘比特的婚礼考验</div>
-      <div className="hero-line"><div><span className="team-chip">{isHonorGuest ? data.guest.relationship || '家人' : data.guest.team}</span><h1>{data.guest.name}</h1></div><div className="score-orb"><strong>{data.guest.points}</strong><small>积分</small></div></div>
+      <div className="hero-line"><div><span className="team-chip">{isHonorGuest ? data.guest.special_card_title || '亲爱的家人' : data.guest.team}</span><h1>{data.guest.name}</h1></div><div className="score-orb"><strong>{data.guest.points}</strong><small>积分</small></div></div>
       <div className={`identity-strip ${identityVisible ? 'visible' : 'concealed'} ${isTrickster && identityVisible && !data.game?.results_visible ? 'trickster-identity' : ''}`}>
         <div className="identity-strip-heading"><small>{hasPublicIdentity ? '你的公开身份' : '你的秘密身份'}</small>{!hasPublicIdentity && <button type="button" className="identity-hold-button" aria-pressed={identityVisible} onPointerDown={(event) => { event.preventDefault(); try { event.currentTarget.setPointerCapture(event.pointerId); } catch {} setShowSecrets(true); }} onPointerUp={() => setShowSecrets(false)} onPointerCancel={() => setShowSecrets(false)} onLostPointerCapture={() => setShowSecrets(false)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setShowSecrets(true); } }} onKeyUp={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setShowSecrets(false); } }} onBlur={() => setShowSecrets(false)} onContextMenu={(event) => event.preventDefault()}>{identityVisible ? '松开隐藏' : '按住查看'}</button>}</div>
         {identityVisible ? <><strong>{role.title}</strong><p>{role.note}</p></> : <><strong className="identity-mask" aria-hidden="true">••••••</strong><p>身份已遮盖，按住右侧按钮查看，松手自动隐藏。</p></>}
@@ -601,6 +612,6 @@ export default function GuestPage() {
     <div className="footer-actions"><button className={`secondary refresh-button ${manualRefreshing ? 'refreshing' : ''}`} disabled={manualRefreshing} onClick={() => void refreshManually()}><span className="refresh-icon" aria-hidden="true">↻</span><span>{manualRefreshing ? '刷新中…' : '刷新状态'}</span></button><button className="text-button" disabled={busy} onClick={logout}>{busy ? '安全退出中…' : '退出此身份'}</button></div>
     {refreshNotice && <div className="notice success manual-refresh-notice" role="status">{refreshNotice}</div>}
     {offlineReady && <div className="offline-ready" role="status">弱网备用已准备 · 刷新后仍可打开本页</div>}
-    {contentNotice && <div className="new-content-toast" role="status" aria-live="polite"><span>NEW</span><strong>{contentNotice}</strong><small>页面内容已经自动更新</small></div>}
+    {contentNotice && <div className="new-content-backdrop"><section className="new-content-dialog" role="dialog" aria-modal="true" aria-labelledby="new-content-title"><header><span>NEW ACTIVITY</span><button type="button" aria-label="关闭新活动提示" onClick={() => setContentNotice(null)}>×</button></header><strong id="new-content-title">{contentNotice.title}</strong><p>{contentNotice.detail}</p><button type="button" onClick={() => setContentNotice(null)}>知道了 · 查看更新</button></section></div>}
   </main>;
 }
