@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { requireAdmin } from '@/lib/auth';
 import {
   adjustGuestPoints,
@@ -135,7 +136,7 @@ export async function POST(request: Request) {
         guestId: requiredUuid(body.guestId, '间谍宾客 ID'),
         reason: requiredEnum(body.reason, '间谍积分事件', ['team_wrong_answer', 'resource_wasted', 'ordinary_guest_suspected'] as const),
         note: optionalString(body.note, '现场记录', 300),
-        eventKey: requiredUuid(body.eventKey, '幂等事件 ID'),
+        eventKey: body.eventKey === undefined ? randomUUID() : requiredUuid(body.eventKey, '幂等事件 ID'),
       }, actor);
     } else if (type === 'resetRehearsal') {
       result = { ok: true, ...(await resetRehearsalData({

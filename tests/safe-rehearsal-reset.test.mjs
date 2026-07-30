@@ -8,6 +8,7 @@ const migration = `${baseMigration}\n${fixMigration}`;
 const adminData = await readFile(new URL('../lib/data/admin.ts', import.meta.url), 'utf8');
 const adminRoute = await readFile(new URL('../app/api/admin-action/route.ts', import.meta.url), 'utf8');
 const adminPage = await readFile(new URL('../app/admin/page.tsx', import.meta.url), 'utf8');
+const eventKey = await readFile(new URL('../lib/event-key.ts', import.meta.url), 'utf8');
 
 function resetFunction() {
   return migration.slice(migration.lastIndexOf('create or replace function reset_rehearsal_data'));
@@ -66,8 +67,18 @@ test('admin mutation is authenticated, same-origin, and validates every destruct
   assert.match(adminRoute, /requireAdmin\(\)/);
   assert.match(adminRoute, /type === 'resetRehearsal'/);
   assert.match(adminRoute, /requiredBoolean\(body\.backupConfirmed, '备份确认'\)/);
-  assert.match(adminRoute, /requiredUuid\(body\.eventKey, '幂等事件 ID'\)/);
+  assert.match(adminRoute, /body\.eventKey === undefined \? randomUUID\(\) : requiredUuid\(body\.eventKey, '幂等事件 ID'\)/);
   assert.match(adminRoute, /requiredString\(body\.reason, '清场原因', 300\)/);
+});
+
+test('mobile reset generates a valid event key without requiring crypto.randomUUID', () => {
+  const resetHandler = adminPage.slice(adminPage.indexOf('async function resetRehearsal'), adminPage.indexOf('async function rotateInvitationCode'));
+  assert.match(resetHandler, /createEventKey\(\)/);
+  assert.doesNotMatch(resetHandler, /crypto\.randomUUID/);
+  assert.match(eventKey, /typeof source\?\.randomUUID === 'function'/);
+  assert.match(eventKey, /typeof source\?\.getRandomValues === 'function'/);
+  assert.match(eventKey, /bytes\[6\].*0x40/);
+  assert.match(eventKey, /bytes\[8\].*0x80/);
 });
 
 test('linked private evidence is removed after the transactional database reset', () => {
