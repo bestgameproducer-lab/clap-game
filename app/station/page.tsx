@@ -35,9 +35,9 @@ export default function StationPage() {
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const loadRequestRef = useRef(0);
 
-  async function load() {
+  async function load(interactive = false) {
     const requestId = ++loadRequestRef.current;
-    setSyncing(true);
+    if (interactive) setSyncing(true);
     try {
       const response = await fetch('/api/station-data', { cache: 'no-store' });
       if (requestId !== loadRequestRef.current) return;
@@ -65,7 +65,7 @@ export default function StationPage() {
           setClueId((current) => current || parsed.clues?.[0]?.id || '');
         }
       } catch { try { window.sessionStorage.removeItem(STATION_CACHE_KEY); } catch {} }
-    } finally { if (requestId === loadRequestRef.current) setSyncing(false); }
+    } finally { if (interactive) setSyncing(false); }
   }
 
   useEffect(() => {
@@ -187,7 +187,7 @@ export default function StationPage() {
 
   return <main className="station-shell">
     <header className="station-hero"><div><div className="eyebrow">REDEMPTION DESK</div><h1>丘比特任务站</h1><p>当前阶段：{data.game?.stage || '未知'} · 本页面不显示任何隐藏身份</p></div><div className="host-links"><a href="/admin">主办方后台</a><a href="/host">主持人流程台</a><StaffLogoutButton clearSessionStorageKeys={[STATION_CACHE_KEY]}/></div></header>
-    {(offline || syncing) && <div className={`connection-banner ${offline ? 'offline' : ''}`} role="status"><span>{offline ? '离线只读 · 可查看最近同步的宾客与任务文字，验证照片可能需要联网；所有记录操作已禁用' : '正在同步任务站…'}</span>{offline && <button className="mini-button" disabled={syncing} onClick={() => void load()}>{syncing ? '重连中…' : '重新连接'}</button>}</div>}
+    {offline && <div className="connection-banner offline" role="status"><span>离线只读 · 可查看最近同步的宾客与任务文字，验证照片可能需要联网；所有记录操作已禁用</span><button className="mini-button" disabled={syncing} onClick={() => void load(true)}>{syncing ? '重连中…' : '重新连接'}</button></div>}
     {message && <div className="notice success sticky-notice">{message}</div>}{error && <div className="notice error sticky-notice">{error}</div>}
     <div className="station-layout">
       <aside className="station-guests section-card"><label htmlFor="station-search">搜索宾客</label><input id="station-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="姓名、拼音或组别"/><div className="station-guest-list">{filteredGuests.map((item) => <button key={item.id} className={item.id === guestId ? 'selected' : ''} onClick={() => setGuestId(item.id)}><span>{item.name.slice(0, 1)}</span><p><strong>{item.name}</strong><small>{item.team} · {item.points} 分</small></p><b>{item.drawn_at ? '已抽卡' : item.claimed_at ? '待抽卡' : '未认领'}</b></button>)}</div>{filteredGuests.length === 0 && <div className="empty-state">没有找到宾客。</div>}</aside>

@@ -9,9 +9,13 @@ test('the recurring dashboard stays visible while only a private identity is con
 
   assert.doesNotMatch(page, /if \(!showSecrets\) return <main className="privacy-shell"/);
   assert.match(page, /const identityVisible = hasPublicIdentity \|\| showSecrets/);
-  assert.match(page, /身份已遮盖，需要时由本人点击查看/);
-  assert.match(page, /aria-expanded=\{identityVisible\}/);
-  assert.match(page, /identityVisible \? '隐藏身份' : '点击查看'/);
+  assert.match(page, /身份已遮盖，按住右侧按钮查看，松手自动隐藏/);
+  assert.match(page, /aria-pressed=\{identityVisible\}/);
+  assert.match(page, /identityVisible \? '松开隐藏' : '按住查看'/);
+  for (const handler of ['onPointerDown', 'onPointerUp', 'onPointerCancel', 'onLostPointerCapture', 'onKeyDown', 'onKeyUp', 'onBlur']) {
+    assert.ok(page.includes(handler), `missing secret hold handler: ${handler}`);
+  }
+  assert.doesNotMatch(page, /setShowSecrets\(\(visible\) => !visible\)/);
   assert.match(page, /is_hidden_spy && !data\.game\?\.results_visible && identityVisible/);
   assert.match(page, /setRevealedCard\(null\);\s*setShowSecrets\(false\)/);
 });

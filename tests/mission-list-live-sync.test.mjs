@@ -36,3 +36,22 @@ test('all live surfaces refresh while visible and ignore stale responses', async
     assert.match(source, /requestId !== loadRequestRef\.current/);
   }
 });
+
+test('background refresh stays visually silent while manual guest refresh has feedback', async () => {
+  const [guest, station, host, scoreboard, styles] = await Promise.all([
+    read('app/guest/page.tsx'),
+    read('app/station/page.tsx'),
+    read('app/host/page.tsx'),
+    read('app/scoreboard/page.tsx'),
+    read('app/styles.css'),
+  ]);
+  assert.match(guest, /useLiveRefresh\(async \(\) => \{ if \(!manualRefreshRef\.current\) await load\(\); \}/);
+  assert.doesNotMatch(guest, /正在同步最新状态/);
+  assert.doesNotMatch(station, /正在同步任务站/);
+  assert.doesNotMatch(host, /正在同步主持台/);
+  assert.match(guest, /refreshManually\(\)/);
+  assert.match(guest, /状态已刷新/);
+  assert.match(guest, /manualRefreshing \? '刷新中…' : '刷新状态'/);
+  assert.match(styles, /\.refresh-button\.refreshing \.refresh-icon/);
+  assert.match(scoreboard, /自动更新已开启\{offline \?/);
+});

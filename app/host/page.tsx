@@ -48,9 +48,9 @@ export default function HostPage() {
   const [syncing, setSyncing] = useState(false);
   const loadRequestRef = useRef(0);
 
-  async function load(preferredId?: string) {
+  async function load(preferredId?: string, interactive = false) {
     const requestId = ++loadRequestRef.current;
-    setSyncing(true);
+    if (interactive) setSyncing(true);
     try {
       const response = await fetch('/api/host-data', { cache: 'no-store' });
       if (requestId !== loadRequestRef.current) return;
@@ -74,7 +74,7 @@ export default function HostPage() {
       } catch {
         clearHostCache();
       }
-    } finally { if (requestId === loadRequestRef.current) setSyncing(false); }
+    } finally { if (interactive) setSyncing(false); }
   }
 
   useEffect(() => {
@@ -133,7 +133,7 @@ export default function HostPage() {
 
   return <main className="host-shell">
     <header className="host-hero"><div><div className="eyebrow">PRIVATE HOST VIEW</div><h1>主持人流程台</h1><p>正确答案只在这里显示，不会发送给宾客或公开大屏。</p></div><div className="host-links"><a href="/scoreboard" target="_blank" rel="noreferrer">打开大屏 ↗</a><a href="/admin">主办方后台</a><StaffLogoutButton clearSessionStorageKeys={HOST_CACHE_KEYS}/></div></header>
-    {(offline || syncing) && <div className={`connection-banner ${offline ? 'offline' : ''}`} role="status"><span>{offline ? '离线只读 · 正在显示本标签页最近同步的私密主持内容，发布与计分已禁用' : '正在同步主持台…'}</span>{offline && <button className="mini-button" disabled={syncing} onClick={() => void load()}>{syncing ? '重连中…' : '重新连接'}</button>}</div>}
+    {offline && <div className="connection-banner offline" role="status"><span>离线只读 · 正在显示本标签页最近同步的私密主持内容，发布与计分已禁用</span><button className="mini-button" disabled={syncing} onClick={() => void load(undefined, true)}>{syncing ? '重连中…' : '重新连接'}</button></div>}
     {message && <div className="notice success sticky-notice">{message}</div>}{error && <div className="notice error sticky-notice">{error}</div>}
     <section className="section-card host-status-card"><div className="section-heading"><div><small>LIVE OPERATIONS</small><h2>现场流程状态</h2></div><span className={data.game?.results_visible ? 'ready-badge' : ''}>{data.game?.results_visible ? '身份已揭晓' : '身份保密中'}</span></div><div className="host-status-grid"><div><span>当前阶段</span><strong>{currentStageLabel}</strong></div><div><span>公开大屏</span><strong>{data.game?.scoreboard_visible ? '已开放' : '未开放'}</strong></div><div><span>宾客注册</span><strong>{data.game?.registration_open ? '开放中' : '已关闭'}</strong></div><div><span>第 {data.game?.voting_round || 0} 轮投票</span><strong>{data.game?.voting_open ? `${data.voteCount}/${data.drawnGuestCount} 已投` : data.game?.results_visible ? '已锁定' : '未开放'}</strong></div></div>{data.game?.display_title && <p className="host-screen-now"><span>大屏当前内容</span><strong>{data.game.display_title}</strong></p>}{data.game?.results_visible ? (data.voteCounts.length > 0 ? <div className="host-vote-summary"><h3>揭晓票数</h3>{data.voteCounts.map((item) => <div key={item.guest.id}><span>{item.guest.name}<small>{item.guest.team}</small></span><strong>{item.count} 票</strong></div>)}</div> : <div className="empty-state">本轮没有投票。</div>) : <p className="field-help">票数排名会在身份揭晓后显示；投票期间这里只显示完成人数，避免影响主持判断。</p>}</section>
     <div className="host-layout">
