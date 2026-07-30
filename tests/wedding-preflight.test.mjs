@@ -7,7 +7,7 @@ function completeFixture() {
   const guests = WEDDING_TEAMS.flatMap((team, teamIndex) => Array.from({ length: 8 }, (_, index) => ({
     id: `${teamIndex}-${index}`, active: true, team,
     role: index === 0 ? 'spy' : index === 1 ? 'helper' : 'guest', is_hidden_spy: false,
-    drawn_at: null, team_locked: true, role_locked: true,
+    drawn_at: null, team_locked: true, role_locked: true, participation_mode: 'ACTIVE_PLAYER',
   })));
   const tasks = [
     ...['guest', 'spy', 'helper'].map((role, index) => ({ id: `role-${index}`, active: true, role_scope: role, category: 'standard', stage: 'task_round_1' })),

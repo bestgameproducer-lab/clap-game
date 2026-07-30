@@ -65,9 +65,9 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
 export async function getAdminDashboardData() {
   const db = getSupabaseAdmin();
   const results = await Promise.all([
-    db.from('guests').select('id,name,login_name,team,role,is_hidden_spy,points,claimed_at,drawn_at,team_locked,role_locked,table_label,is_elder,ceremony_eligible,active,staff_notes,created_at').order('active', { ascending: false }).order('team').order('name'),
+    db.from('guests').select('id,name,login_name,team,role,is_hidden_spy,points,claimed_at,drawn_at,team_locked,role_locked,table_label,is_elder,ceremony_eligible,active,staff_notes,participation_mode,relationship,story_role,uses_app,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,special_card_title,special_card_body,created_at').order('active', { ascending: false }).order('team').order('name'),
     db.from('assignments').select('id,guest_id,task_id,status,is_initial,completion_rank,early_bonus_points,reward_task_id,reward_clue_id,completion_note,verification_note,verified_by,verified_at,evidence_path,evidence_uploaded_at,submitted_at,approved_at,rejected_at,rejection_reason,created_at,task:tasks!assignments_task_id_fkey(id,title,description,verification_method,points,category,stage)'),
-    db.from('tasks').select('id,title,description,verification_method,points,role_scope,category,stage,active,grants_hidden_spy,is_demo,created_at').order('stage').order('title'),
+    db.from('tasks').select('id,title,description,verification_method,points,role_scope,category,stage,active,grants_hidden_spy,is_demo,story_role_scope,created_at').order('stage').order('title'),
     db.from('assignments').select('id,status,completion_note,evidence_path,evidence_uploaded_at,submitted_at,guest:guests(id,name),task:tasks!assignments_task_id_fkey(id,title,verification_method,points)').eq('status', 'submitted'),
     db.from('votes').select('id,voter_guest_id,target_guest_id,voting_round,created_at,voter:guests!votes_voter_guest_id_fkey(id,name,team),target:guests!votes_target_guest_id_fkey(id,name,team)'),
     db.from('game_state').select('id,registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note,display_title,display_body,public_clue,timer_ends_at,invitation_code_updated_at,task_catalog_mode,updated_at').eq('id', 1).single(),

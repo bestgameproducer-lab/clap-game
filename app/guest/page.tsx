@@ -7,9 +7,9 @@ import { isTaskActionOpenAtStage } from '@/lib/game-rules';
 const GUEST_CACHE_KEY = 'wedding-guest-session-cache-v1';
 
 type RegistrationGuest = { id: string; name: string; loginName: string; hasPassword: boolean };
-type SecretCard = { team: string; role: string; task: { id: string; title: string; description: string; verificationMethod: string; points: number }; drawnAt: string };
+type SecretCard = { team: string; role: string; storyRole: string; task: { id: string; title: string; description: string; verificationMethod: string; points: number }; drawnAt: string };
 type GuestData = {
-  guest: { id: string; name: string; team: string; role: string; is_hidden_spy: boolean; points: number; drawn_at: string | null };
+  guest: { id: string; name: string; team: string; role: string; is_hidden_spy: boolean; points: number; drawn_at: string | null; participation_mode: 'ACTIVE_PLAYER' | 'HONOR_GUEST' | 'PRINCIPAL'; relationship: string; story_role: string; eligible_for_mission: boolean; eligible_for_secret_role: boolean; eligible_for_personal_score: boolean; special_card_title: string; special_card_body: string };
   assignments: Array<{ id: string; status: string; is_initial: boolean; completion_rank: number | null; early_bonus_points: number; reward_task_id: string | null; reward_clue_id: string | null; completion_note: string; verification_note: string; verified_at: string | null; evidence_uploaded_at: string | null; evidence_url: string | null; rejection_reason: string | null; task: { title: string; description: string; verification_method: string; points: number; category: string; stage: string } }>;
   clues: Array<{ id: string; title: string; content: string }>;
   game: { registration_open: boolean; stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null; task_catalog_mode: 'demo' | 'live' } | null;
@@ -43,6 +43,11 @@ const ROLE_LABELS: Record<string, { title: string; note: string }> = {
   spy: { title: '丘比特的恶作剧者（间谍）', note: '隐藏自己，完成你的秘密干扰任务。' },
   helper: { title: '丘比特的秘密信使', note: '暗中帮助队友，让线索自然流动。' },
   guest: { title: '丘比特的祝福见证者', note: '完成祝福任务，并留意身边的可疑行动。' },
+};
+
+const STORY_ROLE_LABELS: Record<string, { title: string; note: string }> = {
+  OFFICIANT: { title: '誓词引导人', note: '在工作人员提示的环节，引导新人完成誓词。请在仪式开始前保守这个秘密。' },
+  RING_KEEPER: { title: '戒指守护者', note: '在工作人员提示后领取戒指盒，并在交换戒指环节将它送到新人身边。' },
 };
 
 export default function GuestPage() {
@@ -304,11 +309,24 @@ export default function GuestPage() {
     </section>
   </main>;
 
+  if (data.guest.participation_mode !== 'ACTIVE_PLAYER') return <main className="special-card-shell">
+    <section className={`special-guest-card ${data.guest.participation_mode === 'HONOR_GUEST' ? 'honor' : 'principal'}`}>
+      <div className="eyebrow">{data.guest.participation_mode === 'HONOR_GUEST' ? 'YOUR HONOR MISSION' : 'A PLACE JUST FOR YOU'}</div>
+      <div className="special-card-heart">♡</div>
+      <small>{data.guest.relationship || '特别宾客'}</small>
+      <h1>{data.guest.special_card_title || (data.guest.participation_mode === 'HONOR_GUEST' ? '你的荣誉任务' : '你的专属席位')}</h1>
+      <h2>{data.guest.name}</h2>
+      <p>{data.guest.special_card_body || '这是一项只属于你的荣誉任务，不进入普通挑战和积分排名。'}</p>
+      <div className="special-card-seal">ZIMIN &amp; ANRONG</div>
+      <button className="text-button" disabled={busy} onClick={logout}>{busy ? '安全退出中…' : '退出此身份'}</button>
+    </section>
+  </main>;
+
   // A background refresh can observe drawn_at before the guest has finished reading.
   // Keep the reveal on screen until the guest explicitly dismisses it.
   if (!data.guest.drawn_at || revealedCard) {
     const drawOpen = Boolean(data.game?.registration_open);
-    const role = revealedCard ? ROLE_LABELS[revealedCard.role] ?? ROLE_LABELS.guest : null;
+    const role = revealedCard ? STORY_ROLE_LABELS[revealedCard.storyRole] ?? ROLE_LABELS[revealedCard.role] ?? ROLE_LABELS.guest : null;
     return <main className="draw-shell"><section className="draw-stage">
       <div className="eyebrow">YOUR SECRET AWAITS</div>
       <h1>{revealedCard ? '命运之卡已经揭晓' : `${data.guest.name}，准备好了吗？`}</h1>
@@ -339,7 +357,9 @@ export default function GuestPage() {
     <button className="text-button" disabled={busy} onClick={logout}>{busy ? '安全退出中…' : '退出此身份'}</button>
   </section></main>;
 
-  const role = data.guest.is_hidden_spy
+  const role = data.guest.story_role !== 'NONE' && STORY_ROLE_LABELS[data.guest.story_role]
+    ? STORY_ROLE_LABELS[data.guest.story_role]
+    : data.guest.is_hidden_spy
     ? { title: '丘比特的暗线（隐藏间谍）', note: '你的阵营已经改变。请继续伪装成普通宾客，直到最终揭晓。' }
     : ROLE_LABELS[data.guest.role] ?? ROLE_LABELS.guest;
   const rankedReward = data.assignments.find((assignment) => assignment.is_initial && assignment.completion_rank);

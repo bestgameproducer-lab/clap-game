@@ -2,7 +2,7 @@ export const WEDDING_TEAMS = ['玫瑰组', '月桂组', '星辰组', '琥珀组'
 
 type PreflightGuest = {
   id: string; active: boolean; team: string; role: string; is_hidden_spy: boolean;
-  drawn_at: string | null; team_locked: boolean; role_locked: boolean;
+  drawn_at: string | null; team_locked: boolean; role_locked: boolean; participation_mode: string;
 };
 type PreflightTask = { id: string; active: boolean; role_scope: string; category: string; stage: string };
 type PreflightClue = { active: boolean; spy_guest_id: string | null };
@@ -31,7 +31,8 @@ export function buildWeddingPreflight(input: {
   hasGameState: boolean;
   invitationCodeRotated: boolean;
 }) {
-  const activeGuests = input.guests.filter((guest) => guest.active);
+  const invitedGuests = input.guests.filter((guest) => guest.active);
+  const activeGuests = invitedGuests.filter((guest) => guest.participation_mode === 'ACTIVE_PLAYER');
   const committedGuests = activeGuests.filter((guest) => guest.drawn_at || guest.team_locked);
   const activeTasks = input.tasks.filter((task) => task.active);
   const activeHidden = activeTasks.filter((task) => task.category === 'hidden');
@@ -61,7 +62,7 @@ export function buildWeddingPreflight(input: {
   const items: PreflightItem[] = [
     item('game-state', '核心流程状态可用', input.hasGameState ? '数据库流程状态已读取' : '无法读取 game_state', input.hasGameState),
     item('invitation-code', '正式邀请码已设置', input.invitationCodeRotated ? '已由主办方安全更新' : '仍是公开示例码或尚未在后台确认', input.invitationCodeRotated),
-    item('guest-roster', '32 位宾客名单', `${activeGuests.length} 位启用`, activeGuests.length === 32),
+    item('guest-roster', '32 位宾客名单', `${invitedGuests.length} 位可登录 · ${activeGuests.length} 位任务玩家`, invitedGuests.length === 32),
     item('draw-capacity', '抽卡容量没有冲突', teamSummary.map((team) => `${team.team} ${team.total}/8`).join(' · '), capacityValid),
     item('role-task-pools', '三种身份均有首轮任务', poolByRole.map((pool) => `${pool.role} ${pool.count}`).join(' · '), poolByRole.every((pool) => pool.count > 0)),
     item('upgrade-pool', '升级任务池充足', `${activeTasks.filter((task) => task.category === 'upgrade').length} 项启用（建议至少 5 项）`, activeTasks.filter((task) => task.category === 'upgrade').length >= 5),
