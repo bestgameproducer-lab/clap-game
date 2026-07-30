@@ -40,6 +40,7 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
     if (error.message.includes('invalid_task_points')) throw new ApiError(400, '任务积分必须是 0–12 分');
     if (error.message.includes('hidden_role_conflict')) throw new ApiError(409, '丘比特帮手不能同时担任仪式、图案角色或恶作剧者');
     if (error.message.includes('cupid_helper_already_assigned')) throw new ApiError(409, '全场已经指定了一位丘比特帮手');
+    if (error.message.includes('preset_spy_team_conflict')) throw new ApiError(409, '这个组已经预设了一位恶作剧者，请为其中一人选择其他组别');
     if (error.message.includes('symbol_pairing_count_invalid')) throw new ApiError(409, '阶段结束前，爱心和星星都必须各有五位玩家完成抽卡');
     if (error.message.includes('symbol_pairing_incomplete')) throw new ApiError(409, '阶段结束前，爱心和星星都需要先形成两组正式联盟，并处理全部待确认邀请');
     if (error.message.includes('assignment_already_completed')) throw new ApiError(409, '已经完成并计分的任务不能直接改派；如需纠错请调整积分并保留审计记录');
