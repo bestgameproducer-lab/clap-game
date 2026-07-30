@@ -233,21 +233,35 @@ export default function GuestPage() {
     if (!('serviceWorker' in window.navigator)) return;
     let active = true;
     let refreshing = false;
+    let removeUpdateChecks = () => {};
     const refreshForNewVersion = () => {
       if (!active || refreshing) return;
       refreshing = true;
       window.location.reload();
     };
     window.navigator.serviceWorker.addEventListener('controllerchange', refreshForNewVersion);
-    window.navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    window.navigator.serviceWorker.register('/sw.js?v=5-private-reader', { scope: '/', updateViaCache: 'none' })
       .then(async (registration) => {
+        const checkForUpdate = () => {
+          if (active && document.visibilityState === 'visible') void registration.update();
+        };
+        window.addEventListener('pageshow', checkForUpdate);
+        window.addEventListener('focus', checkForUpdate);
+        document.addEventListener('visibilitychange', checkForUpdate);
+        removeUpdateChecks = () => {
+          window.removeEventListener('pageshow', checkForUpdate);
+          window.removeEventListener('focus', checkForUpdate);
+          document.removeEventListener('visibilitychange', checkForUpdate);
+        };
         await registration.update();
         await window.navigator.serviceWorker.ready;
         if (active) setOfflineReady(true);
+        if (!active) removeUpdateChecks();
       })
       .catch(() => { if (active) setOfflineReady(false); });
     return () => {
       active = false;
+      removeUpdateChecks();
       window.navigator.serviceWorker.removeEventListener('controllerchange', refreshForNewVersion);
     };
   }, []);

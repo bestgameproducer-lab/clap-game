@@ -15,7 +15,10 @@ test('service worker caches only public app shells and static assets', async () 
 
 test('guest page registers offline shell without persisting private data to local storage', async () => {
   const source = await readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8');
-  assert.match(source, /serviceWorker\.register\('\/sw\.js'/);
+  assert.match(source, /serviceWorker\.register\('\/sw\.js\?v=5-private-reader'/);
+  assert.match(source, /updateViaCache: 'none'/);
+  assert.match(source, /addEventListener\('pageshow', checkForUpdate\)/);
+  assert.match(source, /addEventListener\('visibilitychange', checkForUpdate\)/);
   assert.match(source, /serviceWorker\.addEventListener\('controllerchange'/);
   assert.match(source, /window\.sessionStorage\.setItem\(GUEST_CACHE_KEY/);
   assert.doesNotMatch(source, /localStorage\.setItem\(GUEST_CACHE_KEY/);
@@ -37,7 +40,8 @@ test('public scoreboard keeps a timestamped tab-only snapshot and reports stale 
   assert.match(source, /window\.sessionStorage\.getItem\(SCOREBOARD_CACHE_KEY\)/);
   assert.doesNotMatch(source, /localStorage\.setItem\(SCOREBOARD_CACHE_KEY/);
   assert.match(source, /window\.localStorage\.removeItem\('wedding-scoreboard-cache'\)/);
-  assert.match(source, /serviceWorker\.register\('\/sw\.js'/);
+  assert.match(source, /serviceWorker\.register\('\/sw\.js\?v=5-private-reader'/);
+  assert.match(source, /updateViaCache: 'none'/);
   assert.match(source, /window\.addEventListener\('offline', disconnect\)/);
   assert.match(source, /最近同步 \{lastSyncLabel\}/);
   assert.match(source, /离线刷新备用已准备/);
