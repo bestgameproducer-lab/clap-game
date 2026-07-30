@@ -7,8 +7,8 @@ const pageUrl = new URL('../app/guest/page.tsx', import.meta.url);
 test('drawn card remains visible across background guest-data refreshes', async () => {
   const page = await readFile(pageUrl, 'utf8');
 
-  assert.match(page, /if \(!data\.guest\.drawn_at \|\| revealedCard\)/);
-  assert.match(page, /setRevealedCard\(null\);\s*setShowSecrets\(true\)/);
+  assert.match(page, /if \(data\.guest\.participation_mode === 'ACTIVE_PLAYER' && \(!data\.guest\.drawn_at \|\| revealedCard\)\)/);
+  assert.match(page, /setRevealedCard\(null\);\s*setShowSecrets\(false\)/);
   assert.match(page, /我已经看清楚 · 收起卡片/);
   assert.match(page, /卡片不会自动消失，只有你点击上方按钮后才会隐藏/);
 });
