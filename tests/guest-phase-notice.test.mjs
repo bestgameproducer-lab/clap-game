@@ -23,7 +23,8 @@ test('admin route validates and publishes the guest-only notice', async () => {
   ]);
   assert.match(route, /setGuestPhaseNote\(optionalString\(body\.note, '宾客端环节提示', 500\), actor\)/);
   assert.match(data, /rpc\('set_guest_phase_note'/);
-  assert.match(page, /宾客手机上的当前提示/);
+  assert.match(page, /临时补充提示（选填）/);
+  assert.match(page, /宾客端默认提示/);
   assert.match(page, /type: 'setGuestPhaseNote', note: ''/);
   assert.match(guestData, /select\('registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note,task_catalog_mode,[^']+'\)/);
   assert.equal(publicData.includes("select('phase_note"), false);

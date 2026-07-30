@@ -3,13 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { StaffLogoutButton } from '../staff-logout-button';
 import { parseGuestRosterText } from '@/lib/guest-roster-import';
+import { GAME_STAGE_OPTIONS, gameStageCopy } from '@/lib/game-stages';
 import { recommendedTaskPoints } from '@/lib/task-points';
 import { useLiveRefresh } from '@/lib/use-live-refresh';
 
-const STAGES = [
-  ['registration', '宾客报到'], ['waiting', '等待开场'], ['task_round_1', '第一轮任务'],
-  ['task_round_2', '第二轮任务'], ['group_game', '团队挑战'], ['voting', '最终投票'], ['results', '身份揭晓'],
-] as const;
+const STAGES = GAME_STAGE_OPTIONS;
 const TEAMS = ['玫瑰组', '月桂组', '星辰组', '琥珀组'] as const;
 
 const ROLE_LABELS: Record<string, string> = { guest: '祝福见证者', spy: '恶作剧者（间谍）', helper: '秘密信使' };
@@ -270,10 +268,14 @@ export default function AdminPage() {
     });
   }
 
-  function changeStage(stage: string) {
+  async function changeStage(stage: string) {
     if (!data?.game || stage === data.game.stage || ['voting', 'results'].includes(stage)) return;
-    if (!window.confirm('切换婚礼环节会关闭当前投票、隐藏揭晓，并清空大屏上的上一题、公开线索和倒计时；已经结算的积分不会撤销。确认继续吗？')) return;
-    void action({ type: 'setStage', stage }, '游戏阶段已切换，大屏旧内容已清空');
+    if (!window.confirm(`切换到「${gameStageCopy(stage).label}」？系统会关闭当前投票、隐藏揭晓，并清空大屏上的上一题、公开线索和倒计时；已经结算的积分不会撤销。`)) return;
+    const changed = await action({ type: 'setStage', stage }, `已切换到「${gameStageCopy(stage).label}」`);
+    if (changed && data.game.phase_note) {
+      const cleared = await action({ type: 'setGuestPhaseNote', note: '' }, '婚礼环节已切换，宾客端已恢复该阶段的默认提示');
+      if (cleared) setGuestPhaseNote('');
+    }
   }
 
   function toggleVoting() {
@@ -408,9 +410,10 @@ export default function AdminPage() {
       <article className="section-card">
         <div className="section-heading"><div><small>GAME STAGE</small><h2>当前流程</h2></div></div>
         <label htmlFor="game-stage">切换婚礼环节</label>
-        <select id="game-stage" value={data.game?.stage || 'registration'} disabled={busy} onChange={(event) => changeStage(event.target.value)}>{STAGES.map(([value, label]) => <option value={value} key={value} disabled={['voting', 'results'].includes(value)}>{label}{['voting', 'results'].includes(value) ? '（由下方按钮控制）' : ''}</option>)}</select>
+        <select id="game-stage" value={data.game?.stage || 'registration'} disabled={busy} onChange={(event) => void changeStage(event.target.value)}>{STAGES.map(([value, label]) => <option value={value} key={value} disabled={['voting', 'results'].includes(value)}>{label}{['voting', 'results'].includes(value) ? '（由下方按钮控制）' : ''}</option>)}</select>
         <p className="field-help">手动切换会清空上一题和倒计时；投票与揭晓必须使用下方专用按钮，确保轮次和积分结算完整。</p>
-        <form onSubmit={(event) => { event.preventDefault(); void action({ type: 'setGuestPhaseNote', note: guestPhaseNote }, guestPhaseNote.trim() ? '宾客端环节提示已更新' : '宾客端环节提示已清空'); }}><label htmlFor="guest-phase-note">宾客手机上的当前提示</label><textarea id="guest-phase-note" value={guestPhaseNote} onChange={(event) => setGuestPhaseNote(event.target.value)} maxLength={500} placeholder="例如：第一轮任务延长五分钟，请完成后前往任务站核验。"/><div className="form-grid"><button disabled={busy}>发布宾客提示</button><button type="button" className="secondary" disabled={busy || !data.game?.phase_note} onClick={() => { void action({ type: 'setGuestPhaseNote', note: '' }, '宾客端环节提示已清空').then((ok) => { if (ok) setGuestPhaseNote(''); }); }}>清空提示</button></div></form>
+        <div className="stage-default-preview"><small>宾客端默认提示</small><strong>{gameStageCopy(data.game?.stage).label}</strong><p>{gameStageCopy(data.game?.stage).note}</p></div>
+        <form onSubmit={(event) => { event.preventDefault(); void action({ type: 'setGuestPhaseNote', note: guestPhaseNote }, guestPhaseNote.trim() ? '宾客端补充提示已更新' : '宾客端已恢复默认提示'); }}><label htmlFor="guest-phase-note">临时补充提示（选填）</label><textarea id="guest-phase-note" value={guestPhaseNote} onChange={(event) => setGuestPhaseNote(event.target.value)} maxLength={500} placeholder="例如：第一阶段延长五分钟，请完成后前往任务站核验。留空则只显示上方默认提示。"/><div className="form-grid"><button disabled={busy}>发布补充提示</button><button type="button" className="secondary" disabled={busy || !data.game?.phase_note} onClick={() => { void action({ type: 'setGuestPhaseNote', note: '' }, '宾客端已恢复当前阶段默认提示').then((ok) => { if (ok) setGuestPhaseNote(''); }); }}>恢复默认提示</button></div></form>
         <div className="control-buttons">
           <button disabled={busy} onClick={toggleVoting}>{data.game?.voting_open ? '关闭投票' : '开启新投票'}</button>
           <button disabled={busy} className="secondary" onClick={toggleResults}>{data.game?.results_visible ? '隐藏揭晓' : '公布并结算'}</button>
