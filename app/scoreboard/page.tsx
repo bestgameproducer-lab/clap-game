@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { gameStageCopy } from '@/lib/game-stages';
 import { useLiveRefresh } from '@/lib/use-live-refresh';
 
 type ScoreboardData = {
@@ -26,11 +27,6 @@ type ScoreboardData = {
     actions?: Array<{ reason: string; label: string; count: number; points: number }>;
     missions?: Array<{ title: string; completed: boolean }>;
   }>;
-};
-
-const STAGE_LABELS: Record<string, string> = {
-  registration: '宾客报到', waiting: '等待开场', task_round_1: '第一轮秘密任务', task_round_2: '第二轮升级任务',
-  group_game: '团队挑战', voting: '最终投票', results: '身份揭晓',
 };
 
 const SCOREBOARD_CACHE_KEY = 'wedding-scoreboard-cache-v2';
@@ -106,15 +102,15 @@ export default function ScoreboardPage() {
 
   if (!data) return <main className="scoreboard-shell"><section className="scoreboard-wait"><div className="rings">♡</div><h1>丘比特正在统计</h1><p>{error || '正在读取现场积分…'}</p><button onClick={() => void load()}>重新连接</button></section></main>;
   const lastSyncLabel = lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '尚未成功同步';
-  if (!data.visible) return <main className="scoreboard-shell"><section className="scoreboard-wait"><div className="eyebrow">ZIMIN &amp; ANRONG</div><div className="rings">♡</div><h1>积分大屏尚未开放</h1><p>当前环节：{STAGE_LABELS[data.stage] || data.stage}</p><small>主办方开放后，本页面会自动更新。</small>{offline && <div className="offline-pill">离线副本 · 最近同步 {lastSyncLabel}</div>}</section></main>;
+  if (!data.visible) return <main className="scoreboard-shell"><section className="scoreboard-wait"><div className="eyebrow">ZIMIN &amp; ANRONG</div><div className="rings">♡</div><h1>积分大屏尚未开放</h1><p>当前环节：{gameStageCopy(data.stage).label}</p><small>主办方开放后，本页面会自动更新。</small>{offline && <div className="offline-pill">离线副本 · 最近同步 {lastSyncLabel}</div>}</section></main>;
 
   const remainingSeconds = data.timerEndsAt ? Math.max(0, Math.ceil((new Date(data.timerEndsAt).getTime() - now) / 1000)) : null;
   const timerLabel = remainingSeconds === null ? null : `${String(Math.floor(remainingSeconds / 60)).padStart(2, '0')}:${String(remainingSeconds % 60).padStart(2, '0')}`;
 
   return <main className="scoreboard-shell">
-    <header className="scoreboard-header"><div><div className="eyebrow">LIVE WEDDING MISSION</div><h1>丘比特积分榜</h1><p>{STAGE_LABELS[data.stage] || data.stage}</p></div><div className={`scoreboard-live ${offline ? 'cached' : ''}`}>{offline ? 'CACHED' : 'LIVE'}</div></header>
+    <header className="scoreboard-header"><div><div className="eyebrow">LIVE WEDDING MISSION</div><h1>丘比特积分榜</h1><p>{gameStageCopy(data.stage).label}</p></div><div className={`scoreboard-live ${offline ? 'cached' : ''}`}>{offline ? 'CACHED' : 'LIVE'}</div></header>
     {error && <div className="scoreboard-error" role="status"><span>{error} · 正在显示 {lastSyncLabel} 的最近副本</span><button className="mini-button" onClick={() => void load()}>重新连接</button></div>}
-    {(data.displayTitle || data.displayBody || data.publicClue || timerLabel) && <section className="live-display-panel"><div><small>NOW PLAYING</small><h2>{data.displayTitle || STAGE_LABELS[data.stage] || data.stage}</h2>{data.displayBody && <p>{data.displayBody}</p>}{data.publicClue && <div className="public-clue"><b>公开线索</b><span>{data.publicClue}</span></div>}</div>{timerLabel && <strong className={remainingSeconds === 0 ? 'timer-ended' : ''}>{timerLabel}<small>{remainingSeconds === 0 ? 'TIME' : 'REMAINING'}</small></strong>}</section>}
+    {(data.displayTitle || data.displayBody || data.publicClue || timerLabel) && <section className="live-display-panel"><div><small>NOW PLAYING</small><h2>{data.displayTitle || gameStageCopy(data.stage).label}</h2>{data.displayBody && <p>{data.displayBody}</p>}{data.publicClue && <div className="public-clue"><b>公开线索</b><span>{data.publicClue}</span></div>}</div>{timerLabel && <strong className={remainingSeconds === 0 ? 'timer-ended' : ''}>{timerLabel}<small>{remainingSeconds === 0 ? 'TIME' : 'REMAINING'}</small></strong>}</section>}
     <section className="team-score-grid">{data.teams.map((team, index) => <article className={index === 0 && team.points > 0 ? 'team-score winner' : 'team-score'} key={team.team}><span>0{index + 1}</span><div><small>{index === 0 && team.points > 0 ? 'LEADING TEAM' : 'TEAM'}</small><h2>{team.team}</h2><p>{team.guests} 位宾客 · {team.completedTasks} 项任务完成</p></div><strong>{team.points}<small>团队分</small></strong></article>)}</section>
     <p className="scoreboard-scope-note">团队榜只计算团队游戏、任务完成率和侦探奖励；个人任务积分仅进入下方个人荣誉榜。</p>
     <section className="scoreboard-panel"><div className="scoreboard-title"><div><small>INDIVIDUAL HONORS</small><h2>个人荣誉榜</h2></div><span>TOP {Math.min(10, data.leaders.length)}</span></div>{data.leaders.length === 0 ? <div className="empty-state">积分尚未产生。</div> : <ol className="leaderboard-list">{data.leaders.map((guest, index) => <li key={guest.id}><b>{String(index + 1).padStart(2, '0')}</b><div><strong>{guest.name}</strong><small>{guest.team} · 完成 {guest.completedTasks} 项任务</small></div><span>{guest.points}</span></li>)}</ol>}</section>
