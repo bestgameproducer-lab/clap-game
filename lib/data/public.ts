@@ -92,7 +92,7 @@ export async function getPublicScoreboard() {
     timerEndsAt: game.timer_ends_at,
     updatedAt: game.updated_at,
     teams: scoreboard.teams,
-    leaders: scoreboard.leaders,
+    leaders: ['registration', 'waiting', 'task_round_1'].includes(game.stage) ? [] : scoreboard.leaders,
     voteCounts: game.results_visible ? scoreboard.voteCounts : [],
     revealedRoles,
     awards,

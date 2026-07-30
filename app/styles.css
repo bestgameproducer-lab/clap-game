@@ -352,6 +352,29 @@ button.draw-button { width:min(350px,86vw); margin:0 auto; padding:15px 18px; ba
 .honor-boundary-note { display:grid; gap:3px; margin-top:14px; padding:13px 14px; border-radius:14px; background:#f5eee8; }
 .honor-boundary-note strong { color:#755548; font-size:13px; }
 .honor-boundary-note span { color:#85766d; font-size:12px; line-height:1.55; }
+.story-connection-card{overflow:hidden;border:1px solid #ead8ce;background:linear-gradient(155deg,#fff,#fbf4ef)}
+.story-connection-card.trickster{border-color:#6e5147;background:linear-gradient(150deg,#4d3932,#2e2521);color:#fff}
+.story-connection-card.trickster .section-heading h2,.story-connection-card.trickster .section-heading span{color:#fff}
+.story-connection-card.trickster .section-heading small,.story-connection-card.trickster .connection-form>p{color:#d9c5bc}
+.player-code-card{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 12px;margin:14px 0;padding:14px 15px;border-radius:15px;background:#f3e8e1}
+.player-code-card small{grid-column:1;color:#8e6c5f;font-size:10px;font-weight:800;letter-spacing:.11em}
+.player-code-card strong{font:500 30px/1 Georgia,serif;color:#66483e;letter-spacing:.08em}
+.player-code-card .mini-button{grid-column:2;grid-row:1/3}
+.player-code-card.dark{background:rgba(255,255,255,.09)}
+.player-code-card.dark small{color:#d7bfb5}.player-code-card.dark strong{color:#fff}
+.connection-form{display:grid;gap:8px;margin-top:14px}
+.connection-form>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.connection-form input{text-transform:uppercase;letter-spacing:.08em}
+.connection-form button{margin:0;padding-inline:18px}
+.connection-form>p{margin:0;color:#7a6b63;font-size:12px;line-height:1.55}
+.story-unlock{margin-top:14px;padding:15px;border-radius:15px;background:#e7f2e9;color:#315f43}
+.story-unlock.lonely{background:#fff0d8;color:#7a5624}
+.story-unlock strong{display:block}.story-unlock p{margin:5px 0 0;line-height:1.6}
+.signal-script{display:grid;gap:5px;margin-top:14px;padding:15px;border:1px solid rgba(255,255,255,.14);border-radius:15px;background:rgba(255,255,255,.06)}
+.signal-script small{margin-top:5px;color:#d6b6aa;font-size:9px;font-weight:800;letter-spacing:.1em}.signal-script strong{font-size:14px;line-height:1.55}
+.split-clue{margin-top:14px;padding:16px;border:1px dashed #bb8e7c;border-radius:15px;background:#fff9f5}
+.split-clue small,.split-clue strong{display:block}.split-clue small{color:#9a7162;font-size:10px;font-weight:800;letter-spacing:.08em}.split-clue strong{margin-top:8px;color:#543d34;font:500 20px/1.45 Georgia,'Noto Serif SC',serif}.split-clue p{margin:8px 0 0;color:#7c6d65;font-size:12px;line-height:1.55}
+.heart-slot-admin,.relationship-admin-list{display:grid;gap:8px;margin-top:14px}.heart-slot-admin>div,.relationship-admin-list>div{display:grid;grid-template-columns:minmax(110px,.7fr) minmax(0,1fr) auto;gap:10px;align-items:center;padding:11px 12px;border-radius:12px;background:#f8f3ef}.heart-slot-admin span,.relationship-admin-list span{min-width:0;overflow-wrap:anywhere}.heart-slot-admin small,.relationship-admin-list small{color:#8a756a;text-align:right}.alliance-clue-form{padding:14px 0;border-top:1px solid #eaded7}.alliance-clue-form:first-of-type{border-top:0}.alliance-clue-form h3{margin:0 0 10px}
 .special-card-shell{width:min(560px,100%);min-height:100vh;min-height:var(--app-height,100dvh);display:grid;place-items:center;padding:22px 16px 44px;padding:max(22px,calc(env(safe-area-inset-top) + 8px)) max(16px,env(safe-area-inset-right)) max(44px,calc(env(safe-area-inset-bottom) + 24px)) max(16px,env(safe-area-inset-left))}
 .special-guest-card{width:100%;padding:42px 28px 28px;border:1px solid #d9c7b9;border-radius:30px;background:radial-gradient(circle at top right,rgba(244,211,199,.72),transparent 36%),#fffaf4;box-shadow:0 28px 80px rgba(71,46,30,.16);text-align:center;color:#493831}
 .special-guest-card.honor{border-color:#d6c29a;background:radial-gradient(circle at top right,rgba(241,217,159,.46),transparent 38%),#fffaf1}
@@ -360,6 +383,12 @@ button.draw-button { width:min(350px,86vw); margin:0 auto; padding:15px 18px; ba
 @keyframes card-shuffle { from{transform:translateX(-7px) rotate(-2deg) scale(.985)} to{transform:translateX(7px) rotate(2deg) scale(1.015)} }
 @keyframes card-reveal-pop { from{transform:scale(.97)} to{transform:scale(1)} }
 @media(max-width:420px){.section-card{padding:16px}.mission-item{grid-template-columns:30px minmax(0,1fr);gap:8px}.secret-card-scene,.secret-card,.secret-card-back,.secret-card-front{min-height:465px}.secret-card-front{padding:25px 20px}.secret-card-front h2{font-size:25px}.honor-surprise-front>p{font-size:13px;line-height:1.8}.honor-surprise-front h3{margin-bottom:14px}}
+@media(max-width:420px){.connection-form>div{grid-template-columns:1fr}.connection-form button{width:100%}.player-code-card strong{font-size:26px}}
+@media(max-width:560px){.heart-slot-admin>div,.relationship-admin-list>div{grid-template-columns:1fr}.heart-slot-admin small,.relationship-admin-list small{text-align:left}}
+.print-cards-shell{min-height:100vh;padding:28px;background:#eee6df;color:#3f332e}.print-cards-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;max-width:1100px;margin:0 auto 24px}.print-cards-toolbar small{color:#9c7566;font-size:10px;font-weight:900;letter-spacing:.14em}.print-cards-toolbar h1{margin:5px 0;font:500 40px Georgia,'Noto Serif SC',serif}.print-cards-toolbar p{margin:0;color:#776961}.print-cards-button{width:auto}.print-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;max-width:1100px;margin:auto}.print-mission-card{display:flex;min-height:470px;flex-direction:column;padding:28px;border:1px solid #d9c9bf;border-radius:22px;background:#fffdf9;break-inside:avoid}.print-card-brand{display:flex;align-items:center;justify-content:space-between;color:#a17061}.print-card-brand span{font:42px/1 Georgia,serif}.print-card-brand small{font-size:9px;font-weight:900;letter-spacing:.2em}.print-mission-card h2{margin:24px 0 4px;font:500 30px Georgia,'Noto Serif SC',serif}.print-player-code{margin:0;color:#786961}.print-player-code strong{color:#60463d;letter-spacing:.08em}.print-card-task{margin-top:22px;padding-top:20px;border-top:1px solid #eaded6}.print-card-task small{color:#a27969;font-size:9px;font-weight:900;letter-spacing:.14em}.print-card-task h3{margin:8px 0;font-size:20px}.print-card-task p{color:#695d56;line-height:1.7}.print-card-task b{display:block;color:#826657;font-size:12px;line-height:1.5}.print-card-task.pending{opacity:.72}.print-mission-card footer{margin-top:auto;padding-top:18px;color:#94857c;font-size:10px;line-height:1.5}
+@media(max-width:700px){.print-cards-toolbar{align-items:stretch;flex-direction:column}.print-card-grid{grid-template-columns:1fr}.print-mission-card{min-height:420px}}
+@page{size:A4;margin:10mm}
+@media print{.print-cards-shell{padding:0;background:#fff}.print-cards-toolbar{display:none}.print-card-grid{grid-template-columns:repeat(2,1fr);gap:7mm;max-width:none}.print-mission-card{min-height:128mm;padding:9mm;border-radius:4mm;page-break-inside:avoid}.print-mission-card footer{font-size:8px}}
 @media(max-width:420px){.reset-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .scoreboard-shell { width:min(1180px,100%); min-height:100vh; min-height:var(--app-height,100dvh); padding:30px 24px 50px; padding:max(30px,calc(env(safe-area-inset-top) + 8px)) max(24px,env(safe-area-inset-right)) max(50px,calc(env(safe-area-inset-bottom) + 24px)) max(24px,env(safe-area-inset-left)); }

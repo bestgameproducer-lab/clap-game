@@ -63,10 +63,29 @@ export async function revealHonorSpecialCard(guestId: string) {
   return data;
 }
 
+export async function requestGuestConnection(guestId: string, targetCode: string, relationshipType: string) {
+  const { data, error } = await getSupabaseAdmin().rpc('request_player_connection', {
+    p_guest_id: guestId,
+    p_target_code: targetCode,
+    p_relationship_type: relationshipType,
+  });
+  if (error?.message.includes('connection_guest_not_ready')) throw new ApiError(409, '请先完成抽卡');
+  if (error?.message.includes('connection_target_not_found')) throw new ApiError(404, '没有找到这个玩家编号');
+  if (error?.message.includes('connection_self_target')) throw new ApiError(400, '不能输入自己的玩家编号');
+  if (error?.message.includes('heart_connection_stage_closed')) throw new ApiError(409, '爱心确认尚未开放或已经结束');
+  if (error?.message.includes('heart_holder_required')) throw new ApiError(409, '只有爱心持有者之间可以进行配对确认');
+  if (error?.message.includes('heart_pair_not_matched')) throw new ApiError(409, '两张爱心并不匹配，请继续寻找');
+  if (error?.message.includes('trickster_connection_stage_closed')) throw new ApiError(409, '丘比特的召集令尚未开放或已经结束');
+  if (error?.message.includes('trickster_connection_forbidden')) throw new ApiError(403, '当前身份不能使用这项秘密确认');
+  if (error?.message.includes('trickster_attempt_limit')) throw new ApiError(409, '三次试探机会已经用完');
+  if (error) throw new Error(`Unable to request player connection: ${error.message}`);
+  return data as { relationshipType: string; status: 'NO_MATCH' | 'PENDING' | 'ACTIVE' };
+}
+
 export async function getGuestView(guestId: string) {
   const db = getSupabaseAdmin();
   const [{ data: guest, error: guestError }, { data: game, error: gameError }] = await Promise.all([
-    db.from('guests').select('id,name,team,role,is_hidden_spy,points,drawn_at,special_card_revealed_at,participation_mode,relationship,story_role,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,special_card_title,special_card_body').eq('id', guestId).single(),
+    db.from('guests').select('id,name,team,role,is_hidden_spy,points,drawn_at,special_card_revealed_at,participation_mode,relationship,story_role,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,special_card_title,special_card_body,player_code,unlocked_role').eq('id', guestId).single(),
     db.from('game_state').select('registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note,task_catalog_mode').eq('id', 1).single(),
   ]);
   if (guestError || !guest) throw new ApiError(401, '登录已失效');
@@ -75,10 +94,14 @@ export async function getGuestView(guestId: string) {
     return { guest, assignments: [], clues: [], game, candidates: [], existingVote: null, results: null };
   }
   const results = await Promise.all([
-    db.from('assignments').select('id,status,is_initial,completion_rank,early_bonus_points,reward_task_id,reward_clue_id,completion_note,verification_note,verified_at,evidence_path,evidence_uploaded_at,rejection_reason,task:tasks!assignments_task_id_fkey(title,description,verification_method,points,category,stage)').eq('guest_id', guestId).order('created_at'),
+    db.from('assignments').select('id,status,is_initial,completion_rank,early_bonus_points,reward_task_id,reward_clue_id,completion_note,verification_note,verified_at,evidence_path,evidence_uploaded_at,rejection_reason,task:tasks!assignments_task_id_fkey(title,description,verification_method,points,category,stage,mission_code,mechanic,score_policy)').eq('guest_id', guestId).order('created_at'),
     db.from('guest_clues').select('id,clue:clues(title,content)').eq('guest_id', guestId),
     db.from('guests').select('id,name,team').eq('team', guest.team).not('drawn_at', 'is', null).order('name'),
     db.from('votes').select('target_guest_id').eq('voter_guest_id', guestId).eq('voting_round', game.voting_round).maybeSingle(),
+    db.from('heart_slots').select('heart_code,pair_key,side').eq('guest_id', guestId).maybeSingle(),
+    db.from('player_relationships').select('id,relationship_type,player_a_id,player_b_id,player_a_confirmed,player_b_confirmed,status,activated_at,player_a:guests!player_relationships_player_a_id_fkey(id,name),player_b:guests!player_relationships_player_b_id_fkey(id,name)').or(`player_a_id.eq.${guestId},player_b_id.eq.${guestId}`).order('created_at'),
+    db.from('trickster_signal_attempts').select('id', { count: 'exact', head: true }).eq('guest_id', guestId),
+    db.from('alliance_clue_fragments').select('pair_key,title,left_fragment,right_fragment,active').eq('active', true),
   ]);
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`Unable to load guest data: ${error.message}`);
@@ -111,6 +134,26 @@ export async function getGuestView(guestId: string) {
       spyPoints: guest.role === 'spy' ? (spyRewards ?? []).reduce((sum, reward) => sum + reward.amount, 0) : null,
     };
   }
+  const heart = results[4].data;
+  const relationships = (results[5].data ?? []).map((relationship) => {
+    const isPlayerA = relationship.player_a_id === guestId;
+    const partner = isPlayerA
+      ? (Array.isArray(relationship.player_b) ? relationship.player_b[0] : relationship.player_b)
+      : (Array.isArray(relationship.player_a) ? relationship.player_a[0] : relationship.player_a);
+    return {
+      id: relationship.id,
+      type: relationship.relationship_type,
+      status: relationship.status,
+      partnerName: partner?.name ?? '另一位宾客',
+      confirmedByMe: isPlayerA ? relationship.player_a_confirmed : relationship.player_b_confirmed,
+      confirmedByPartner: isPlayerA ? relationship.player_b_confirmed : relationship.player_a_confirmed,
+      activatedAt: relationship.activated_at,
+    };
+  });
+  const activeAlliance = relationships.some((relationship) => relationship.type === 'CUPID_ALLIANCE' && relationship.status === 'ACTIVE');
+  const fragmentConfig = heart && activeAlliance
+    ? (results[7].data ?? []).find((fragment) => fragment.pair_key === heart.pair_key)
+    : null;
   return {
     guest,
     assignments: signedVisibleAssignments,
@@ -123,5 +166,16 @@ export async function getGuestView(guestId: string) {
     candidates: results[2].data ?? [],
     existingVote: results[3].data?.target_guest_id ?? null,
     results: publishedResults,
+    missionStory: {
+      playerCode: guest.player_code,
+      unlockedRole: guest.unlocked_role,
+      heart: heart ? { code: heart.heart_code, pairKey: heart.pair_key, side: heart.side } : null,
+      relationships,
+      tricksterAttemptsUsed: results[6].count ?? 0,
+      allianceClue: fragmentConfig ? {
+        title: fragmentConfig.title,
+        fragment: heart?.side === 'LEFT' ? fragmentConfig.left_fragment : fragmentConfig.right_fragment,
+      } : null,
+    },
   };
 }

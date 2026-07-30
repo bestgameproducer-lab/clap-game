@@ -1,11 +1,12 @@
 export const GAME_STAGES = ['registration', 'waiting', 'task_round_1', 'task_round_2', 'group_game', 'voting', 'results'] as const;
 export const MANUAL_GAME_STAGES = ['registration', 'waiting', 'task_round_1', 'task_round_2', 'group_game'] as const;
 export const TASK_STAGES = ['task_round_1', 'task_round_2', 'group_game'] as const;
-export const GAME_ROLES = ['guest', 'spy', 'helper'] as const;
+export const GAME_ROLES = ['guest', 'spy'] as const;
 export const PARTICIPATION_MODES = ['ACTIVE_PLAYER', 'HONOR_GUEST', 'PRINCIPAL'] as const;
 export const STORY_ROLES = ['NONE', 'OFFICIANT', 'RING_KEEPER', 'GROOM_CHEERLEADER', 'BRIDE_CHEERLEADER', 'APPLAUSE_STARTER', 'HEART_HOLDER'] as const;
 export const ROLE_SCOPES = ['all', ...GAME_ROLES] as const;
 export const TASK_CATEGORIES = ['standard', 'ceremony', 'group', 'upgrade', 'hidden'] as const;
+export const PLAYER_RELATIONSHIP_TYPES = ['CUPID_ALLIANCE', 'TRICKSTER_CONNECTION'] as const;
 
 const STAGE_ORDER: Record<string, number> = {
   registration: 0,
