@@ -27,25 +27,25 @@ test('resource changes are atomic, audited, and retry-idempotent', () => {
   assert.match(rpc, /jsonb_build_object\('amount',p_amount,'balance_after',v_new_balance,'reason',trim\(p_reason\)\)/);
 });
 
-test('host mutation requires staff auth, same origin, and server validation', () => {
+test('resource mutations are no longer exposed by the minimal host route', () => {
   assert.match(hostRoute, /assertSameOrigin\(request\)/);
   assert.match(hostRoute, /requireAdmin\(\)/);
-  assert.match(hostRoute, /requiredInteger\(body\.amount, '金币变化', -100, 100\)/);
-  assert.match(hostRoute, /requiredUuid\(body\.eventKey, '幂等事件 ID'\)/);
+  assert.doesNotMatch(hostRoute, /adjustResources|金币变化/);
   assert.match(hostData, /rpc\('adjust_team_resources'/);
 });
 
-test('host sees explicit resource DTOs while public scoring never reads wallets', () => {
-  assert.match(hostData, /from\('team_resources'\)\.select\('team,balance,updated_at'\)/);
-  assert.match(hostData, /from\('team_resource_ledger'\)\.select\('id,team,amount,balance_after,reason,actor,created_at'\)/);
-  assert.doesNotMatch(hostData, /from\('team_resources'\)\.select\('\*'\)/);
+test('resource wallets remain private and absent from host score data', () => {
+  const scoreDto = hostData.slice(hostData.indexOf('export async function getHostDashboardData'), hostData.indexOf('export async function adjustHostTeamPoints'));
+  assert.doesNotMatch(scoreDto, /team_resources|team_resource_ledger/);
   assert.doesNotMatch(publicData, /team_resources|team_resource_ledger/);
   assert.doesNotMatch(scoreboardCore, /team_resources|team_resource_ledger/);
 });
 
-test('mobile host controls show balances and create one event key per submission', () => {
-  assert.match(hostPage, /资源竞拍钱包/);
-  assert.match(hostPage, /crypto\.randomUUID\(\)/);
-  assert.match(hostPage, /data\.resources\.find\(\(wallet\) => wallet\.team === team\)\?\.balance \?\? 10/);
-  assert.match(hostPage, /entry\.amount > 0 \? '\+' : ''/);
+test('mobile host score controls create one event key per submission', () => {
+  assert.doesNotMatch(hostPage, /资源竞拍钱包/);
+  assert.match(hostPage, /createEventKey\(\)/);
+  assert.match(hostPage, /pendingScoreRef\.current\?\.signature === signature/);
+  assert.match(hostPage, /JSON\.stringify\(\{ \.\.\.body, eventKey: pending\.eventKey \}\)/);
+  assert.match(hostPage, /团队加分/);
+  assert.match(hostPage, /个人加分/);
 });
