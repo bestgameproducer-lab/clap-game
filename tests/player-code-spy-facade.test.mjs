@@ -14,7 +14,7 @@ test('every dashboard exposes the guest player code near the hero', async () => 
   assert.match(page, /复制编号/);
 });
 
-test('a trickster dashboard presents one ordinary facade before the private dossier opens', async () => {
+test('a trickster dashboard stays ordinary until the separate private reader opens', async () => {
   const [page, styles] = await Promise.all([
     readFile(pageUrl, 'utf8'),
     readFile(stylesUrl, 'utf8'),
@@ -26,9 +26,12 @@ test('a trickster dashboard presents one ordinary facade before the private doss
   assert.match(page, /nextData\.guest\.role === 'spy' && assignment\.task\.category === 'hidden'/);
   assert.match(page, /<span>\{assignment\.task\.points\} 分<\/span>/);
   assert.doesNotMatch(page, /完成但不计个人分|完成记录 · 不计个人分/);
-  assert.match(page, /className="trickster-dossier-inline"/);
-  assert.match(page, /阅读后再次点击上方任务卡即可关闭/);
-  assert.match(page, /trueTricksterAssignments\.map/);
-  assert.match(styles, /\.trickster-dossier-inline/);
-  assert.match(styles, /@keyframes trickster-dossier-reveal/);
+  assert.match(page, /const dashboardRole = usesTricksterFacade \? ROLE_LABELS\.guest : role/);
+  assert.match(page, /const readerAssignments = usesTricksterFacade \? trueTricksterAssignments : data\.assignments/);
+  assert.match(page, /<details className="mission-item"/);
+  assert.doesNotMatch(page, /trickster-dossier-inline|openTricksterDossier|trickster-facade/);
+  assert.match(page, /setSecretReaderOpen\(true\)/);
+  assert.match(page, /readerAssignments\.map/);
+  assert.match(page, /再次点击 · 隐藏内容/);
+  assert.match(styles, /\.secret-reader-command/);
 });

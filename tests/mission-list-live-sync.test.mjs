@@ -11,7 +11,7 @@ test('guest missions are newest-first and independently collapsible', async () =
     read('app/styles.css'),
   ]);
   assert.match(dataSource, /order\('created_at', \{ ascending: false \}\)\.order\('id', \{ ascending: false \}\)/);
-  assert.match(guestPage, /<details[^>]+className=\{`mission-item/);
+  assert.match(guestPage, /<details className="mission-item"/);
   assert.match(guestPage, /expandedAssignments\[assignment\.id\] \?\? false/);
   assert.match(guestPage, /onToggle=/);
   assert.match(styles, /\.mission-summary/);
