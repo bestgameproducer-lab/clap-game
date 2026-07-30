@@ -84,6 +84,7 @@ export default function GuestPage() {
   const [revealedCard, setRevealedCard] = useState<SecretCard | null>(null);
   const [specialCardRevealed, setSpecialCardRevealed] = useState(false);
   const [showSecrets, setShowSecrets] = useState(false);
+  const [secretReaderOpen, setSecretReaderOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [offline, setOffline] = useState(false);
   const [offlineReady, setOfflineReady] = useState(false);
@@ -148,6 +149,8 @@ export default function GuestPage() {
       }
       else if (response.status === 401) {
         setData(null);
+        setShowSecrets(false);
+        setSecretReaderOpen(false);
         try { window.sessionStorage.removeItem(GUEST_CACHE_KEY); } catch {}
       }
       else setError('暂时无法加载游戏，请稍后重试。');
@@ -170,17 +173,37 @@ export default function GuestPage() {
     const handleOnline = () => setOffline(false);
     const handleOffline = () => setOffline(true);
     const handleVisibility = () => {
-      if (document.visibilityState === 'hidden') setShowSecrets(false);
+      if (document.visibilityState === 'hidden') {
+        setShowSecrets(false);
+        setSecretReaderOpen(false);
+      }
     };
+    const handleWindowBlur = () => { setShowSecrets(false); setSecretReaderOpen(false); };
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('blur', handleWindowBlur);
     document.addEventListener('visibilitychange', handleVisibility);
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('blur', handleWindowBlur);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [load]);
+
+  useEffect(() => {
+    if (!secretReaderOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSecretReaderOpen(false);
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [secretReaderOpen]);
 
   useLiveRefresh(async () => { if (!manualRefreshRef.current) await load(); }, undefined, Boolean(data));
 
@@ -337,7 +360,7 @@ export default function GuestPage() {
       setOffline(true); setError('安全退出需要联网完成。请恢复网络后重试，当前身份仍保持登录。'); setBusy(false); return;
     }
     try { window.sessionStorage.removeItem(GUEST_CACHE_KEY); } catch {}
-    setData(null); setInvitationCode(''); setGuests(null); setSelectedGuest(null); setClaimCode(''); setClaimCodeConfirm(''); setSearch(''); setShowSecrets(false); setRevealedCard(null); setSpecialCardRevealed(false);
+    setData(null); setInvitationCode(''); setGuests(null); setSelectedGuest(null); setClaimCode(''); setClaimCodeConfirm(''); setSearch(''); setShowSecrets(false); setSecretReaderOpen(false); setRevealedCard(null); setSpecialCardRevealed(false);
     setBusy(false);
   }
 
@@ -586,8 +609,14 @@ export default function GuestPage() {
       <div className="eyebrow">丘比特的婚礼考验</div>
       <div className="hero-line"><div><span className="team-chip">{isHonorGuest ? data.guest.special_card_title || '亲爱的家人' : data.guest.team}</span><h1>{data.guest.name}</h1></div><div className="score-orb"><strong>{data.guest.points}</strong><small>积分</small></div></div>
       <div className={`identity-strip ${identityVisible ? 'visible' : 'concealed'} ${isTrickster && identityVisible && !data.game?.results_visible ? 'trickster-identity' : ''}`}>
-        <div className="identity-strip-heading"><small>{hasPublicIdentity ? '你的公开身份' : '你的秘密身份'}</small>{!hasPublicIdentity && <button type="button" className="identity-hold-button" aria-pressed={identityVisible} onPointerDown={(event) => { event.preventDefault(); try { event.currentTarget.setPointerCapture(event.pointerId); } catch {} setShowSecrets(true); }} onPointerUp={() => setShowSecrets(false)} onPointerCancel={() => setShowSecrets(false)} onLostPointerCapture={() => setShowSecrets(false)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setShowSecrets(true); } }} onKeyUp={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setShowSecrets(false); } }} onBlur={() => setShowSecrets(false)} onContextMenu={(event) => event.preventDefault()}>{identityVisible ? '松开隐藏' : '按住查看'}</button>}</div>
-        {identityVisible ? <><strong>{role.title}</strong><p>{role.note}</p></> : <><strong className="identity-mask" aria-hidden="true">••••••</strong><p>身份已遮盖，按住右侧按钮查看，松手自动隐藏。</p></>}
+        <div className="identity-strip-heading">
+          <small>{hasPublicIdentity ? '你的公开身份' : '你的秘密身份'}</small>
+          {!hasPublicIdentity && <div className="identity-private-actions">
+            <button type="button" className="identity-hold-button" aria-pressed={identityVisible} onPointerDown={(event) => { event.preventDefault(); try { event.currentTarget.setPointerCapture(event.pointerId); } catch {} setShowSecrets(true); }} onPointerUp={() => setShowSecrets(false)} onPointerCancel={() => setShowSecrets(false)} onLostPointerCapture={() => setShowSecrets(false)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setShowSecrets(true); } }} onKeyUp={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setShowSecrets(false); } }} onBlur={() => setShowSecrets(false)} onContextMenu={(event) => event.preventDefault()}>{identityVisible ? '松开隐藏' : '按住查看'}</button>
+            <button type="button" className="identity-reader-button" onClick={() => { setShowSecrets(false); setSecretReaderOpen(true); }}>展开阅读</button>
+          </div>}
+        </div>
+        {identityVisible ? <><strong>{role.title}</strong><p>{role.note}</p></> : <><strong className="identity-mask" aria-hidden="true">••••••</strong><p>短按住可快速查看；内容较长时请点“展开阅读”，可安全滚动。</p></>}
       </div>
       {isActivePlayer && !data.game?.results_visible && <div className="identity-game-rule"><strong>所有宾客共同规则</strong><span>最终揭晓前，不主动告诉别人你的身份、阵营或任务，也不要要求别人展示手机。</span></div>}
       <div className="stage-card"><small>当前婚礼环节</small><strong>{stage.label}</strong><p className="stage-default-prompt">{stage.note}</p>{data.game?.phase_note && <div className="stage-live-note"><b>主办方最新提示</b><span>{data.game.phase_note}</span></div>}</div>
@@ -612,6 +641,17 @@ export default function GuestPage() {
     <div className="footer-actions"><button className={`secondary refresh-button ${manualRefreshing ? 'refreshing' : ''}`} disabled={manualRefreshing} onClick={() => void refreshManually()}><span className="refresh-icon" aria-hidden="true">↻</span><span>{manualRefreshing ? '刷新中…' : '刷新状态'}</span></button><button className="text-button" disabled={busy} onClick={logout}>{busy ? '安全退出中…' : '退出此身份'}</button></div>
     {refreshNotice && <div className="notice success manual-refresh-notice" role="status">{refreshNotice}</div>}
     {offlineReady && <div className="offline-ready" role="status">弱网备用已准备 · 刷新后仍可打开本页</div>}
+    {secretReaderOpen && !hasPublicIdentity && <div className="secret-reader-backdrop">
+      <section className={`secret-reader-dialog ${isTrickster ? 'trickster' : ''}`} role="dialog" aria-modal="true" aria-labelledby="secret-reader-title">
+        <header className="secret-reader-header"><div><small>PRIVATE VIEW</small><strong id="secret-reader-title">身份与秘密任务</strong></div><button type="button" aria-label="隐藏并关闭秘密内容" onClick={() => setSecretReaderOpen(false)}>×</button></header>
+        <div className="secret-reader-content">
+          <section className="secret-reader-identity"><small>你的秘密身份</small><h2>{role.title}</h2><p>{role.note}</p></section>
+          <section className={`secret-reader-rule ${isTrickster ? 'critical' : ''}`}><strong>{isTrickster ? '必须隐藏身份' : '阅读时请遮挡屏幕'}</strong><p>{isTrickster ? '不要承认身份、不要展示本页、不要直接询问别人是不是同伴；请继续伪装成普通宾客，只使用规定暗号行动。' : '最终揭晓前，不要向任何人透露你的身份、阵营或任务。'}</p></section>
+          <section className="secret-reader-missions"><div className="secret-reader-section-heading"><small>SECRET MISSIONS</small><strong>我的秘密任务</strong><span>{data.assignments.length}</span></div>{data.assignments.length === 0 ? <p className="secret-reader-empty">本轮任务尚未开放。</p> : data.assignments.map((assignment, index) => <article key={assignment.id}><div><small>任务 {String(index + 1).padStart(2, '0')}</small><span className={`status ${assignment.status}`}>{STATUS_LABELS[assignment.status] ?? assignment.status}</span></div><h3>{assignment.task.title}</h3><p>{assignment.task.description}</p><aside><strong>如何验证</strong><span>{assignment.task.verification_method}</span></aside></article>)}</section>
+        </div>
+        <footer className="secret-reader-footer"><button type="button" onClick={() => setSecretReaderOpen(false)}>隐藏并关闭</button><small>切换应用或锁屏时会自动隐藏。</small></footer>
+      </section>
+    </div>}
     {contentNotice && <div className="new-content-backdrop"><section className="new-content-dialog" role="dialog" aria-modal="true" aria-labelledby="new-content-title"><header><span>NEW ACTIVITY</span><button type="button" aria-label="关闭新活动提示" onClick={() => setContentNotice(null)}>×</button></header><strong id="new-content-title">{contentNotice.title}</strong><p>{contentNotice.detail}</p><button type="button" onClick={() => setContentNotice(null)}>知道了 · 查看更新</button></section></div>}
   </main>;
 }
