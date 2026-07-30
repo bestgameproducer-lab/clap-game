@@ -1,6 +1,6 @@
 import 'server-only';
 import { ApiError } from '../errors';
-import { isTaskVisibleAtStage } from '../game-rules';
+import { isAssignmentVisibleAtStage } from '../game-rules';
 import { buildPublishedTeamResults } from '../result-core';
 import { getSupabaseAdmin } from '../supabase';
 import { signEvidencePaths } from './evidence';
@@ -150,9 +150,14 @@ export async function getGuestView(guestId: string) {
   ]);
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`Unable to load guest data: ${error.message}`);
-  const visibleAssignments = (results[0].data ?? []).filter((assignment: { task: { stage?: string } | { stage?: string }[] | null }) => {
+  const visibleAssignments = (results[0].data ?? []).filter((assignment: { is_initial: boolean; task: { stage?: string; mission_code?: string | null } | { stage?: string; mission_code?: string | null }[] | null }) => {
     const task = Array.isArray(assignment.task) ? assignment.task[0] : assignment.task;
-    return isTaskVisibleAtStage(task?.stage, game.stage);
+    return isAssignmentVisibleAtStage({
+      taskStage: task?.stage,
+      gameStage: game.stage,
+      isInitial: assignment.is_initial,
+      missionCode: task?.mission_code,
+    });
   });
   const signedVisibleAssignments = await signEvidencePaths(visibleAssignments);
   let publishedResults: null | {

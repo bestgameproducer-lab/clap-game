@@ -28,6 +28,25 @@ export function isTaskVisibleAtStage(taskStage: string | null | undefined, gameS
   return required <= current;
 }
 
+export function isAssignmentVisibleAtStage(input: {
+  taskStage: string | null | undefined;
+  gameStage: string | null | undefined;
+  isInitial: boolean;
+  missionCode: string | null | undefined;
+}): boolean {
+  const waitingForFirstRound = input.taskStage === 'task_round_1'
+    && ['registration', 'waiting'].includes(input.gameStage ?? '')
+    && (input.isInitial || ['P1-TRICKSTER-001', 'P1-SPECIAL-001'].includes(input.missionCode ?? ''));
+  return waitingForFirstRound || isTaskVisibleAtStage(input.taskStage, input.gameStage);
+}
+
+export function isTaskWaitingForStage(taskStage: string | null | undefined, gameStage: string | null | undefined): boolean {
+  const required = STAGE_ORDER[taskStage ?? ''];
+  const current = STAGE_ORDER[gameStage ?? ''];
+  if (required === undefined || current === undefined) return false;
+  return required > current;
+}
+
 export function isTaskActionOpenAtStage(taskStage: string | null | undefined, gameStage: string | null | undefined): boolean {
   if (!TASK_STAGES.includes(taskStage as (typeof TASK_STAGES)[number])) return false;
   if (!TASK_STAGES.includes(gameStage as (typeof TASK_STAGES)[number])) return false;
