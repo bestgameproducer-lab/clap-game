@@ -62,7 +62,8 @@ test('evidence records appear in guest, staff, and assignment export views', asy
   assert.match(guestPage, /任务站核验记录/);
   assert.match(stationPage, /宾客完成说明/);
   assert.match(stationPage, /verificationNote/);
-  assert.match(adminPage, /请记录核验结果/);
+  assert.match(adminPage, /approveSubmission/);
+  assert.doesNotMatch(adminPage, /window\.prompt/);
   assert.match(stationData, /completion_note,verification_note,verified_at/);
   for (const header of ['宾客完成说明', '工作人员核验记录', '核验人员', '核验时间']) {
     assert.match(exportData, new RegExp(`'${header}'`));

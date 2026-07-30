@@ -31,6 +31,7 @@ export default function StationPage() {
   const [offline, setOffline] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [evidenceBusyId, setEvidenceBusyId] = useState<string | null>(null);
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
 
   async function load() {
     setSyncing(true);
@@ -91,6 +92,37 @@ export default function StationPage() {
       setMessage(success); await load(); return true;
     } catch (cause) { setOffline(!navigator.onLine); setError(cause instanceof Error ? cause.message : '操作失败'); return false; }
     finally { setBusy(false); }
+  }
+
+  async function approveAtStation(assignment: Assignment) {
+    const verificationNote = (reviewNotes[assignment.id]?.trim()
+      || `已按任务要求核验：${assignment.task?.verification_method || '工作人员现场确认'}`).slice(0, 500);
+    const approved = await action(
+      { type: 'completeAtStation', assignmentId: assignment.id, verificationNote },
+      '任务已核验通过并加分',
+    );
+    if (approved) setReviewNotes((current) => {
+      const next = { ...current };
+      delete next[assignment.id];
+      return next;
+    });
+  }
+
+  async function rejectAtStation(assignment: Assignment) {
+    const reason = reviewNotes[assignment.id]?.trim();
+    if (!reason) {
+      setError('退回任务前，请先填写退回原因。');
+      return;
+    }
+    const rejected = await action(
+      { type: 'reject', assignmentId: assignment.id, reason },
+      '任务已退回',
+    );
+    if (rejected) setReviewNotes((current) => {
+      const next = { ...current };
+      delete next[assignment.id];
+      return next;
+    });
   }
 
   async function uploadEvidence(assignmentId: string, file: File) {
@@ -177,7 +209,7 @@ export default function StationPage() {
                 {assignment.status === 'approved' && assignment.verification_note && <div className="submission-note approved"><strong>已核验</strong><span>{assignment.verification_note}</span></div>}
                 {assignment.rejection_reason && <div className="rejection-copy">上次退回：{assignment.rejection_reason}</div>}
               </div>
-              <div><span>{STATUS_LABELS[assignment.status] || assignment.status}</span>{assignment.status !== 'approved' && <button disabled={busy || offline || evidenceBusyId === assignment.id} onClick={() => { const verificationNote = window.prompt(`请记录如何核验“${assignment.task?.title}”：`, assignment.task?.verification_method || '已由工作人员现场核验'); if (verificationNote?.trim()) void action({ type: 'completeAtStation', assignmentId: assignment.id, verificationNote }, '任务已核验通过并加分'); }}>{offline ? '联网后核验' : '现场通过'}</button>}{assignment.status === 'submitted' && <button className="danger" disabled={busy || offline || evidenceBusyId === assignment.id} onClick={() => { const reason = window.prompt('退回原因：', '请按照任务核验要求补充证明'); if (reason?.trim()) void action({ type: 'reject', assignmentId: assignment.id, reason }, '任务已退回'); }}>退回</button>}</div>
+              <div className="station-review-actions"><span>{STATUS_LABELS[assignment.status] || assignment.status}</span>{assignment.status !== 'approved' && <><label htmlFor={`station-review-note-${assignment.id}`}>核验备注 <small>通过可留空</small></label><input id={`station-review-note-${assignment.id}`} value={reviewNotes[assignment.id] || ''} onChange={(event) => setReviewNotes((current) => ({ ...current, [assignment.id]: event.target.value }))} maxLength={500} placeholder="退回时请填写原因"/><button data-testid={`station-approve-${assignment.id}`} disabled={busy || offline || evidenceBusyId === assignment.id} onClick={() => void approveAtStation(assignment)}>{offline ? '联网后核验' : busy ? '处理中…' : '现场通过并加分'}</button></>}{assignment.status === 'submitted' && <button className="danger" disabled={busy || offline || evidenceBusyId === assignment.id || !reviewNotes[assignment.id]?.trim()} onClick={() => void rejectAtStation(assignment)}>退回</button>}</div>
             </article>)}</div>}
           </article>
           <div className="station-tools">
