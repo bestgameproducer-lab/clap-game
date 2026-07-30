@@ -16,6 +16,7 @@ test('service worker caches only public app shells and static assets', async () 
 test('guest page registers offline shell without persisting private data to local storage', async () => {
   const source = await readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8');
   assert.match(source, /serviceWorker\.register\('\/sw\.js'/);
+  assert.match(source, /serviceWorker\.addEventListener\('controllerchange'/);
   assert.match(source, /window\.sessionStorage\.setItem\(GUEST_CACHE_KEY/);
   assert.doesNotMatch(source, /localStorage\.setItem\(GUEST_CACHE_KEY/);
   assert.match(source, /弱网备用已准备/);

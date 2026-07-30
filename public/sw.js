@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wedding-public-shell-v2';
+const CACHE_NAME = 'wedding-public-shell-v3';
 const APP_PATHS = ['/guest', '/scoreboard'];
 const MANIFEST_PATH = '/manifest.webmanifest';
 
