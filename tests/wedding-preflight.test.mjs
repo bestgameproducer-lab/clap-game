@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { buildWeddingPreflight, WEDDING_TEAMS } from '../lib/preflight.ts';
+import { buildWeddingPreflight, PHASE_ONE_MISSION_SPECS, WEDDING_TEAMS } from '../lib/preflight.ts';
 
 function completeFixture() {
   const guests = WEDDING_TEAMS.flatMap((team, teamIndex) => Array.from({ length: 8 }, (_, index) => ({
@@ -13,9 +13,8 @@ function completeFixture() {
   const storyIndexes = [1,2,3,4,5,6,7,9,10,11,12,13,14,15,17,18];
   storyRoles.forEach((role, index) => { guests[storyIndexes[index]].story_role = role; });
   guests[19].hidden_role = 'CUPID_HELPER';
-  const officialCodes = ['P1-CER-001','P1-CER-002','P1-CER-003','P1-CER-004','P1-CER-005','P1-HEART-001','P1-STAR-001','P1-SOCIAL-001','P1-BONUS-001','P1-SPECIAL-001','P1-DECOY-001','P1-DECOY-002','P1-DECOY-003','P1-DECOY-004','P1-DECOY-005','P1-DECOY-006','P1-TRICKSTER-001'];
   const tasks = [
-    ...officialCodes.map((mission_code, index) => ({ id: `official-${index}`, active: true, role_scope: 'guest', category: 'standard', stage: mission_code.startsWith('P1') ? 'task_round_1' : 'task_round_2', mission_code })),
+    ...PHASE_ONE_MISSION_SPECS.map(([mission_code, points, max_assignments], index) => ({ id: `official-${index}`, active: true, role_scope: 'guest', category: 'standard', stage: 'task_round_1', mission_code, points, max_assignments })),
     ...Array.from({ length: 5 }, (_, index) => ({ id: `upgrade-${index}`, active: true, role_scope: 'all', category: 'upgrade', stage: 'task_round_2' })),
     { id: 'group', active: true, role_scope: 'all', category: 'group', stage: 'group_game' },
     ...Array.from({ length: 4 }, (_, index) => ({ id: `hidden-${index}`, active: true, role_scope: 'all', category: 'hidden', stage: 'task_round_2' })),

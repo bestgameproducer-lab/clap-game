@@ -17,11 +17,12 @@ test('admin and guests share wedding-stage names and visible default prompts', a
   assert.match(admin, /宾客端默认提示/);
 });
 
-test('new guest content gets a transient notice without expanding tasks', async () => {
+test('new guest content waits for manual dismissal without expanding tasks', async () => {
   const guest = await readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8');
   assert.match(guest, /contentSnapshotRef/);
-  assert.match(guest, /window\.setTimeout\(\(\) => setContentNotice\(''\), 4200\)/);
-  assert.match(guest, /className="new-content-toast"/);
+  assert.match(guest, /className="new-content-dialog" role="dialog" aria-modal="true"/);
+  assert.match(guest, /setContentNotice\(null\)/);
+  assert.doesNotMatch(guest, /setTimeout\(\(\) => setContentNotice/);
   assert.match(guest, /expandedAssignments\[assignment\.id\] \?\? false/);
 });
 
