@@ -29,7 +29,7 @@ test('station fallback is read-only and reconnects explicitly', async () => {
   assert.match(source, /disabled=\{busy \|\| offline \|\| !taskId\}/);
   assert.match(source, /disabled=\{busy \|\| offline \|\| !clueId\}/);
   assert.match(source, /useLiveRefresh\(load/);
-  assert.match(source, /onClick=\{\(\) => void load\(\)\}/);
+  assert.match(source, /onClick=\{\(\) => void load\(true\)\}/);
   assert.match(source, /离线只读/);
   assert.match(source, /验证照片可能需要联网/);
 });

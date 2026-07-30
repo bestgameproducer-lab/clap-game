@@ -80,7 +80,8 @@ export default function GuestPage() {
   const [busy, setBusy] = useState(false);
   const [offline, setOffline] = useState(false);
   const [offlineReady, setOfflineReady] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  const [manualRefreshing, setManualRefreshing] = useState(false);
+  const [refreshNotice, setRefreshNotice] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [completionNotes, setCompletionNotes] = useState<Record<string, string>>({});
@@ -88,13 +89,14 @@ export default function GuestPage() {
   const [connectionTargetCode, setConnectionTargetCode] = useState('');
   const [expandedAssignments, setExpandedAssignments] = useState<Record<string, boolean>>({});
   const loadRequestRef = useRef(0);
+  const manualRefreshRef = useRef(false);
+  const refreshNoticeTimerRef = useRef<number | null>(null);
 
-  const load = useCallback(async (silent = false) => {
+  const load = useCallback(async () => {
     const requestId = ++loadRequestRef.current;
-    if (silent) setSyncing(true);
     try {
       const response = await fetch('/api/guest-me', { cache: 'no-store' });
-      if (requestId !== loadRequestRef.current) return;
+      if (requestId !== loadRequestRef.current) return false;
       if (response.ok) {
         const nextData = await response.json();
         setData(nextData); setOffline(false); setError('');
@@ -105,6 +107,7 @@ export default function GuestPage() {
           };
           window.sessionStorage.setItem(GUEST_CACHE_KEY, JSON.stringify(offlineSnapshot));
         } catch {}
+        return true;
       }
       else if (response.status === 401) {
         setData(null);
@@ -112,15 +115,16 @@ export default function GuestPage() {
       }
       else setError('暂时无法加载游戏，请稍后重试。');
     } catch {
-      if (requestId !== loadRequestRef.current) return;
+      if (requestId !== loadRequestRef.current) return false;
       setOffline(true); setError('网络连接不稳定，正在显示本机最近一次任务。');
       try {
         const cached = window.sessionStorage.getItem(GUEST_CACHE_KEY);
         if (cached) setData(JSON.parse(cached));
       } catch {}
     } finally {
-      if (requestId === loadRequestRef.current) { setChecking(false); setSyncing(false); }
+      if (requestId === loadRequestRef.current) setChecking(false);
     }
+    return false;
   }, []);
 
   useEffect(() => {
@@ -141,7 +145,28 @@ export default function GuestPage() {
     };
   }, [load]);
 
-  useLiveRefresh(() => load(true), undefined, Boolean(data));
+  useLiveRefresh(async () => { if (!manualRefreshRef.current) await load(); }, undefined, Boolean(data));
+
+  useEffect(() => () => {
+    if (refreshNoticeTimerRef.current !== null) window.clearTimeout(refreshNoticeTimerRef.current);
+  }, []);
+
+  async function refreshManually() {
+    if (manualRefreshRef.current) return;
+    manualRefreshRef.current = true;
+    setManualRefreshing(true);
+    setRefreshNotice('');
+    try {
+      const refreshed = await load();
+      if (!refreshed) return;
+      setRefreshNotice('状态已刷新');
+      if (refreshNoticeTimerRef.current !== null) window.clearTimeout(refreshNoticeTimerRef.current);
+      refreshNoticeTimerRef.current = window.setTimeout(() => setRefreshNotice(''), 1800);
+    } finally {
+      manualRefreshRef.current = false;
+      setManualRefreshing(false);
+    }
+  }
 
   useEffect(() => {
     if (!('serviceWorker' in window.navigator)) return;
@@ -458,12 +483,12 @@ export default function GuestPage() {
       <div className="eyebrow">丘比特的婚礼考验</div>
       <div className="hero-line"><div><span className="team-chip">{isHonorGuest ? data.guest.relationship || '家人' : data.guest.team}</span><h1>{data.guest.name}</h1></div><div className="score-orb"><strong>{data.guest.points}</strong><small>积分</small></div></div>
       <div className={`identity-strip ${identityVisible ? 'visible' : 'concealed'}`}>
-        <div className="identity-strip-heading"><small>{hasPublicIdentity ? '你的公开身份' : '你的秘密身份'}</small>{!hasPublicIdentity && <button type="button" aria-expanded={identityVisible} onClick={() => setShowSecrets((visible) => !visible)}>{identityVisible ? '隐藏身份' : '点击查看'}</button>}</div>
-        {identityVisible ? <><strong>{role.title}</strong><p>{role.note}</p></> : <><strong className="identity-mask" aria-hidden="true">••••••</strong><p>身份已遮盖，需要时由本人点击查看。</p></>}
+        <div className="identity-strip-heading"><small>{hasPublicIdentity ? '你的公开身份' : '你的秘密身份'}</small>{!hasPublicIdentity && <button type="button" className="identity-hold-button" aria-pressed={identityVisible} onPointerDown={(event) => { event.preventDefault(); try { event.currentTarget.setPointerCapture(event.pointerId); } catch {} setShowSecrets(true); }} onPointerUp={() => setShowSecrets(false)} onPointerCancel={() => setShowSecrets(false)} onLostPointerCapture={() => setShowSecrets(false)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setShowSecrets(true); } }} onKeyUp={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setShowSecrets(false); } }} onBlur={() => setShowSecrets(false)} onContextMenu={(event) => event.preventDefault()}>{identityVisible ? '松开隐藏' : '按住查看'}</button>}</div>
+        {identityVisible ? <><strong>{role.title}</strong><p>{role.note}</p></> : <><strong className="identity-mask" aria-hidden="true">••••••</strong><p>身份已遮盖，按住右侧按钮查看，松手自动隐藏。</p></>}
       </div>
       <div className="stage-card"><small>当前环节</small><strong>{stage.label}</strong><p>{data.game?.phase_note || stage.note}</p></div>
     </section>
-    {(offline || syncing) && <div className={`connection-banner ${offline ? 'offline' : ''}`} role="status">{offline ? '离线只读模式 · 已显示最近同步的任务，提交和投票暂不可用' : '正在同步最新状态…'}</div>}
+    {offline && <div className="connection-banner offline" role="status">离线只读模式 · 已显示最近同步的任务，提交和投票暂不可用</div>}
     {message && <div className="notice success" aria-live="polite">{message}</div>}{error && <div className="notice error" aria-live="polite">{error}</div>}
     {data.guest.is_hidden_spy && !data.game?.results_visible && identityVisible && <section className="reward-banner"><small>SECRET ROLE ACTIVATED</small><strong>你已成为丘比特的暗线恶作剧者</strong><p>不要向其他宾客展示本页。继续完成任务并隐藏真实阵营，身份只会在最终揭晓后公开。</p></section>}
     {rankedReward && <section className="reward-banner"><small>EARLY COMPLETION HONOR</small><strong>你是第 {rankedReward.completion_rank} 位完成首轮任务的宾客</strong><p>{rankedReward.reward_task_id && rankedReward.reward_clue_id ? `升级任务、${rankedReward.early_bonus_points ? '额外 1 分和' : ''}一条秘密线索已经发放。` : rankedReward.reward_task_id ? '升级任务已经发放，将在第二轮开放。' : '你的首轮任务已经记录。'}</p></section>}
@@ -477,7 +502,8 @@ export default function GuestPage() {
     {isActivePlayer && <section className="section-card"><div className="section-heading"><div><small>SPY CLUES</small><h2>已解锁线索</h2></div><span>{data.clues.length}</span></div>{data.clues.length === 0 ? <div className="empty-state">完成任务后，线索会在这里出现。</div> : data.clues.map((clue) => <div className="clue" key={clue.id}><strong>{clue.title}</strong><p>{clue.content}</p></div>)}</section>}
     {isActivePlayer && data.game?.voting_open && <section className="section-card"><div className="section-heading"><div><small>FINAL VOTE</small><h2>谁是恶作剧者？</h2></div><span>第 {data.game.voting_round} 轮</span></div><p className="muted">只能选择本队宾客。每人只有一次机会，确认后不能改票。</p><div className="vote-grid">{data.candidates.filter((candidate) => candidate.id !== data.guest.id).map((candidate) => <button disabled={busy || offline || Boolean(data.existingVote)} className={data.existingVote === candidate.id ? 'vote-choice selected' : 'vote-choice'} key={candidate.id} onClick={() => vote(candidate.id)}>{data.existingVote === candidate.id ? '✓ ' : ''}{candidate.name}</button>)}</div>{data.existingVote && <p className="vote-offline-note">你的本轮投票已安全保存。</p>}{offline && <p className="vote-offline-note">恢复网络后才能提交投票。</p>}</section>}
     {isActivePlayer && data.game?.results_visible && data.results && <section className="reveal-card"><small>THE FINAL REVEAL</small><h2>身份揭晓</h2>{data.results.votedTargetName ? <div className={`vote-verdict ${data.results.voteCorrect ? 'correct' : 'missed'}`}><span>你投给了 {data.results.votedTargetName}</span><strong>{data.results.voteCorrect ? `成功找到恶作剧者 · 获得 ${data.results.bonusPoints} 分` : '恶作剧者成功隐藏了自己'}</strong></div> : <div className="vote-verdict missed"><strong>你没有提交最终投票</strong></div>}{typeof data.results.spyPoints === 'number' && <div className="spy-score-result"><span>你的恶作剧积分</span><strong>{data.results.spyPoints} 分</strong><small>此积分独立计算，不影响公开团队排名。</small></div>}<div className="team-role-reveal">{data.results.teamMembers.map((member) => <div key={member.id}><span>{member.name}</span><strong>{member.is_hidden_spy ? '丘比特的暗线恶作剧者' : ROLE_LABELS[member.role]?.title ?? member.role}</strong></div>)}</div><p>感谢你成为这场婚礼故事的一部分。</p></section>}
-    <div className="footer-actions"><button className="secondary" disabled={syncing} onClick={() => void load()}>{syncing ? '同步中…' : '刷新状态'}</button><button className="text-button" disabled={busy} onClick={logout}>{busy ? '安全退出中…' : '退出此身份'}</button></div>
+    <div className="footer-actions"><button className={`secondary refresh-button ${manualRefreshing ? 'refreshing' : ''}`} disabled={manualRefreshing} onClick={() => void refreshManually()}><span className="refresh-icon" aria-hidden="true">↻</span><span>{manualRefreshing ? '刷新中…' : '刷新状态'}</span></button><button className="text-button" disabled={busy} onClick={logout}>{busy ? '安全退出中…' : '退出此身份'}</button></div>
+    {refreshNotice && <div className="notice success manual-refresh-notice" role="status">{refreshNotice}</div>}
     {offlineReady && <div className="offline-ready" role="status">弱网备用已准备 · 刷新后仍可打开本页</div>}
   </main>;
 }

@@ -30,6 +30,6 @@ test('host fallback is read-only and reconnects explicitly', async () => {
   assert.match(source, /disabled=\{busy \|\| offline\}/);
   assert.match(source, /disabled=\{busy \|\| offline \|\| !selected/);
   assert.match(source, /useLiveRefresh\(\(\) => load\(\)/);
-  assert.match(source, /onClick=\{\(\) => void load\(\)\}/);
+  assert.match(source, /onClick=\{\(\) => void load\(undefined, true\)\}/);
   assert.match(source, /离线只读/);
 });
