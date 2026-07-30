@@ -12,7 +12,7 @@ test('host fallback keeps private data in tab-scoped storage only', async () => 
   assert.match(hostSource, /window\.sessionStorage\.setItem\(HOST_CACHE_KEY/);
   assert.match(hostSource, /window\.sessionStorage\.getItem\(HOST_CACHE_KEY/);
   assert.doesNotMatch(hostSource, /localStorage/);
-  assert.match(hostSource, /HOST_CACHE_KEYS = \['wedding-host-private-cache-v1', HOST_CACHE_KEY\]/);
+  assert.match(hostSource, /HOST_CACHE_KEYS = \['wedding-host-private-cache-v1', 'wedding-host-private-cache-v2', HOST_CACHE_KEY\]/);
   assert.match(hostSource, /clearSessionStorageKeys=\{HOST_CACHE_KEYS\}/);
   assert.match(logoutSource, /window\.sessionStorage\.removeItem\(key\)/);
   assert.match(hostSource, /response\.status === 401[\s\S]*clearHostCache\(\)/);
@@ -25,11 +25,10 @@ test('host fallback keeps private data in tab-scoped storage only', async () => 
 test('host fallback is read-only and reconnects explicitly', async () => {
   const source = await readFile(new URL('../app/host/page.tsx', import.meta.url), 'utf8');
 
-  assert.match(source, /if \(!navigator\.onLine\)[\s\S]*return false/);
-  assert.match(source, /if \(!navigator\.onLine\)[\s\S]*联网后才能记录团队积分/);
-  assert.match(source, /disabled=\{busy \|\| offline\}/);
-  assert.match(source, /disabled=\{busy \|\| offline \|\| !selected/);
+  assert.match(source, /if \(!navigator\.onLine\)[\s\S]*联网后才能加分[\s\S]*return/);
+  assert.match(source, /disabled=\{busy \|\| offline \|\| Number\(teamForm\.amount\)/);
+  assert.match(source, /disabled=\{busy \|\| offline \|\| !selectedGuest/);
   assert.match(source, /useLiveRefresh\(\(\) => load\(\)/);
-  assert.match(source, /onClick=\{\(\) => void load\(undefined, true\)\}/);
+  assert.match(source, /onClick=\{\(\) => void load\(true\)\}/);
   assert.match(source, /离线只读/);
 });
