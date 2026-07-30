@@ -39,6 +39,7 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
     if (error.message.includes('invalid_hidden_spy_task')) throw new ApiError(400, '隐藏间谍卡必须是第二轮、仅限普通宾客的隐藏任务');
     if (error.message.includes('invalid_task_points')) throw new ApiError(400, '任务积分必须是 1、2 或 3 分');
     if (error.message.includes('clue_already_granted')) throw new ApiError(409, '这位宾客已经获得该线索');
+    if (error.message.includes('guest_not_secret_clue_eligible')) throw new ApiError(409, '这位宾客不参与秘密线索玩法，但仍应可以正常通过任务；请刷新后重试');
     if (error.message.includes('guest_card_already_drawn')) throw new ApiError(409, '宾客已经抽卡，不能直接修改组别或身份');
     if (error.message.includes('point_total_unchanged')) throw new ApiError(409, '积分没有发生变化');
     if (error.message.includes('assignment_already_approved')) throw new ApiError(409, '该任务已经通过，不能重复加分');
