@@ -373,7 +373,7 @@ export default function GuestPage() {
 
   // A background refresh can observe drawn_at before the guest has finished reading.
   // Keep the reveal on screen until the guest explicitly dismisses it.
-  if (!data.guest.drawn_at || revealedCard) {
+  if (data.guest.participation_mode === 'ACTIVE_PLAYER' && (!data.guest.drawn_at || revealedCard)) {
     const drawOpen = Boolean(data.game?.registration_open);
     const role = revealedCard ? STORY_ROLE_LABELS[revealedCard.storyRole] ?? ROLE_LABELS[revealedCard.role] ?? ROLE_LABELS.guest : null;
     return <main className="draw-shell"><section className="draw-stage">
