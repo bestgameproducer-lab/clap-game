@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StaffLogoutButton } from '../staff-logout-button';
 import { parseGuestRosterText } from '@/lib/guest-roster-import';
 import { recommendedTaskPoints } from '@/lib/task-points';
+import { useLiveRefresh } from '@/lib/use-live-refresh';
 
 const STAGES = [
   ['registration', '宾客报到'], ['waiting', '等待开场'], ['task_round_1', '第一轮任务'],
@@ -117,13 +118,17 @@ export default function AdminPage() {
   const [rosterImportConfirmed, setRosterImportConfirmed] = useState(false);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [allianceForms, setAllianceForms] = useState<Record<string, { title: string; leftFragment: string; rightFragment: string; active: boolean }>>({});
+  const loadRequestRef = useRef(0);
 
   async function load() {
+    const requestId = ++loadRequestRef.current;
     try {
       const response = await fetch('/api/admin-data', { cache: 'no-store' });
-      if (response.ok) setData(await response.json());
-      else if (response.status !== 401) setError((await responseBody(response)).error || '后台数据加载失败');
-    } catch { setError('网络连接不稳定，请稍后重试。'); }
+      const body = await responseBody(response);
+      if (requestId !== loadRequestRef.current) return;
+      if (response.ok) { setData(body); setError(''); }
+      else if (response.status !== 401) setError(body.error || '后台数据加载失败');
+    } catch { if (requestId === loadRequestRef.current) setError('网络连接不稳定，请稍后重试。'); }
   }
 
   function openPanel(panel: AdminPanel) {
@@ -132,6 +137,7 @@ export default function AdminPage() {
   }
 
   useEffect(() => { void load(); }, []);
+  useLiveRefresh(load, undefined, Boolean(data));
 
   useEffect(() => {
     if (!data?.guests.length) return;
@@ -144,25 +150,33 @@ export default function AdminPage() {
     if (!selectedAwardId && data.awards[0]) setSelectedAwardId(data.awards[0].id);
   }, [data, selectedGuestId, selectedTaskId, selectedClueId, selectedAwardId]);
 
+  const libraryTask = data?.tasks.find((item) => item.id === libraryTaskId);
+  const libraryClue = data?.clues.find((item) => item.id === libraryClueId);
+  const rosterGuestRecord = data?.guests.find((item) => item.id === rosterGuestId);
+  const selectedGuest = data?.guests.find((guest) => guest.id === selectedGuestId) ?? null;
+  const selectedAward = data?.awards.find((item) => item.id === selectedAwardId);
+  const libraryTaskSignature = JSON.stringify(libraryTask ?? null);
+  const libraryClueSignature = JSON.stringify(libraryClue ?? null);
+  const rosterGuestSignature = JSON.stringify(rosterGuestRecord ?? null);
+  const selectedGuestProfileSignature = selectedGuest ? `${selectedGuest.id}|${selectedGuest.team}|${selectedGuest.role}|${selectedGuest.story_role}` : '';
+  const selectedAwardSignature = JSON.stringify(selectedAward ?? null);
+  const allianceCluesSignature = JSON.stringify(data?.allianceClues ?? null);
+
   useEffect(() => {
     if (libraryTaskId === 'new') { setNewTask({ title: '', description: '', verificationMethod: DEFAULT_VERIFICATION_METHOD, points: '1', roleScope: 'all', category: 'standard', stage: 'task_round_1', active: true, grantsHiddenSpy: false }); return; }
-    const task = data?.tasks.find((item) => item.id === libraryTaskId);
-    if (task) setNewTask({ title: task.title, description: task.description, verificationMethod: task.verification_method, points: String(task.points), roleScope: task.role_scope, category: task.category, stage: task.stage, active: task.active, grantsHiddenSpy: task.grants_hidden_spy });
-  }, [data, libraryTaskId]);
+    if (libraryTask) setNewTask({ title: libraryTask.title, description: libraryTask.description, verificationMethod: libraryTask.verification_method, points: String(libraryTask.points), roleScope: libraryTask.role_scope, category: libraryTask.category, stage: libraryTask.stage, active: libraryTask.active, grantsHiddenSpy: libraryTask.grants_hidden_spy });
+  }, [libraryTaskId, libraryTaskSignature]);
 
   useEffect(() => {
     if (libraryClueId === 'new') { setNewClue({ title: '', content: '', active: true, spyGuestId: '', level: '1' }); return; }
-    const clue = data?.clues.find((item) => item.id === libraryClueId);
-    if (clue) setNewClue({ title: clue.title, content: clue.content, active: clue.active, spyGuestId: clue.spy_guest_id || '', level: String(clue.level) });
-  }, [data, libraryClueId]);
+    if (libraryClue) setNewClue({ title: libraryClue.title, content: libraryClue.content, active: libraryClue.active, spyGuestId: libraryClue.spy_guest_id || '', level: String(libraryClue.level) });
+  }, [libraryClueId, libraryClueSignature]);
 
   useEffect(() => {
     if (rosterGuestId === 'new') { setGuestForm({ name: '', loginName: '', tableLabel: '', isElder: false, ceremonyEligible: false, active: true, staffNotes: '' }); return; }
-    const guest = data?.guests.find((item) => item.id === rosterGuestId);
-    if (guest) setGuestForm({ name: guest.name, loginName: guest.login_name, tableLabel: guest.table_label, isElder: guest.is_elder, ceremonyEligible: guest.ceremony_eligible, active: guest.active, staffNotes: guest.staff_notes });
-  }, [data, rosterGuestId]);
+    if (rosterGuestRecord) setGuestForm({ name: rosterGuestRecord.name, loginName: rosterGuestRecord.login_name, tableLabel: rosterGuestRecord.table_label, isElder: rosterGuestRecord.is_elder, ceremonyEligible: rosterGuestRecord.ceremony_eligible, active: rosterGuestRecord.active, staffNotes: rosterGuestRecord.staff_notes });
+  }, [rosterGuestId, rosterGuestSignature]);
 
-  const selectedGuest = useMemo(() => data?.guests.find((guest) => guest.id === selectedGuestId) ?? null, [data, selectedGuestId]);
   const rosterImportPreview = useMemo(
     () => parseGuestRosterText(rosterImportText, data?.guests.map((guest) => guest.login_name) ?? []),
     [rosterImportText, data?.guests],
@@ -173,7 +187,7 @@ export default function AdminPage() {
     setTeam(selectedGuest.team);
     setRole(selectedGuest.role);
     setStoryRole(selectedGuest.story_role);
-  }, [selectedGuest]);
+  }, [selectedGuestProfileSignature]);
 
   useEffect(() => {
     if (!data?.allianceClues) return;
@@ -181,7 +195,7 @@ export default function AdminPage() {
       title: clue.title, leftFragment: clue.left_fragment,
       rightFragment: clue.right_fragment, active: clue.active,
     }])));
-  }, [data?.allianceClues]);
+  }, [allianceCluesSignature]);
 
   useEffect(() => {
     if (!data?.game) return;
@@ -190,10 +204,9 @@ export default function AdminPage() {
   }, [data?.game?.display_title, data?.game?.display_body, data?.game?.public_clue, data?.game?.phase_note]);
 
   useEffect(() => {
-    const award = data?.awards.find((item) => item.id === selectedAwardId);
-    if (!award) return;
-    setAwardForm({ title: award.title, winnerKind: award.winner_guest_id ? 'guest' : award.winner_team ? 'team' : 'none', winnerGuestId: award.winner_guest_id || '', winnerTeam: award.winner_team || '玫瑰组', reason: award.reason, sortOrder: String(award.sort_order), published: award.published });
-  }, [data, selectedAwardId]);
+    if (!selectedAward) return;
+    setAwardForm({ title: selectedAward.title, winnerKind: selectedAward.winner_guest_id ? 'guest' : selectedAward.winner_team ? 'team' : 'none', winnerGuestId: selectedAward.winner_guest_id || '', winnerTeam: selectedAward.winner_team || '玫瑰组', reason: selectedAward.reason, sortOrder: String(selectedAward.sort_order), published: selectedAward.published });
+  }, [selectedAwardId, selectedAwardSignature]);
 
   async function login(event: React.FormEvent) {
     event.preventDefault(); setError(''); setBusy(true);

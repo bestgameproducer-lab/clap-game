@@ -29,7 +29,7 @@ test('host fallback is read-only and reconnects explicitly', async () => {
   assert.match(source, /if \(!navigator\.onLine\)[\s\S]*联网后才能记录团队积分/);
   assert.match(source, /disabled=\{busy \|\| offline\}/);
   assert.match(source, /disabled=\{busy \|\| offline \|\| !selected/);
-  assert.match(source, /window\.addEventListener\('online', reconnect\)/);
+  assert.match(source, /useLiveRefresh\(\(\) => load\(\)/);
   assert.match(source, /onClick=\{\(\) => void load\(\)\}/);
   assert.match(source, /离线只读/);
 });

@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StaffLogoutButton } from '../staff-logout-button';
+import { useLiveRefresh } from '@/lib/use-live-refresh';
 
 const STAGES = [
   ['registration', '宾客报到'],
@@ -45,11 +46,14 @@ export default function HostPage() {
   const [message, setMessage] = useState('');
   const [offline, setOffline] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const loadRequestRef = useRef(0);
 
   async function load(preferredId?: string) {
+    const requestId = ++loadRequestRef.current;
     setSyncing(true);
     try {
       const response = await fetch('/api/host-data', { cache: 'no-store' });
+      if (requestId !== loadRequestRef.current) return;
       if (response.status === 401) { clearHostCache(); setData(null); setOffline(false); return; }
       const body = await responseBody(response);
       if (!response.ok) throw new Error(body.error || '主持人数据加载失败');
@@ -58,6 +62,7 @@ export default function HostPage() {
       setOffline(false); setError('');
       setSelectedId((current) => preferredId || current || body.segments?.[0]?.id || 'new');
     } catch (cause) {
+      if (requestId !== loadRequestRef.current) return;
       setOffline(true); setError(cause instanceof Error ? cause.message : '主持人数据加载失败');
       try {
         const cached = window.sessionStorage.getItem(HOST_CACHE_KEY);
@@ -69,21 +74,20 @@ export default function HostPage() {
       } catch {
         clearHostCache();
       }
-    } finally { setSyncing(false); }
+    } finally { if (requestId === loadRequestRef.current) setSyncing(false); }
   }
 
   useEffect(() => {
     void load();
-    const reconnect = () => void load();
-    window.addEventListener('online', reconnect);
-    return () => window.removeEventListener('online', reconnect);
   }, []);
+  useLiveRefresh(() => load(), undefined, Boolean(data));
 
   const selected = useMemo(() => data?.segments.find((segment) => segment.id === selectedId) || null, [data, selectedId]);
+  const selectedSignature = JSON.stringify(selected ?? null);
   useEffect(() => {
     if (!selected) { if (selectedId === 'new') setForm(EMPTY_FORM); return; }
     setForm({ title: selected.title, stage: selected.stage, publicPrompt: selected.public_prompt, hostNotes: selected.host_notes, correctAnswer: selected.correct_answer, publicClue: selected.public_clue, timerMinutes: String(selected.timer_minutes), sortOrder: String(selected.sort_order), ready: selected.ready });
-  }, [selected, selectedId]);
+  }, [selectedId, selectedSignature]);
 
   async function login(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setError('');

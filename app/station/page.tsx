@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { compressTaskEvidence } from '@/lib/client-image';
 import { StaffLogoutButton } from '../staff-logout-button';
+import { useLiveRefresh } from '@/lib/use-live-refresh';
 
 const STATUS_LABELS: Record<string, string> = { assigned: '进行中', submitted: '待核验', approved: '已完成', rejected: '已退回' };
 const CATEGORY_LABELS: Record<string, string> = { standard: '普通', ceremony: '仪式', group: '团队', upgrade: '升级', hidden: '隐藏' };
@@ -32,11 +33,14 @@ export default function StationPage() {
   const [syncing, setSyncing] = useState(false);
   const [evidenceBusyId, setEvidenceBusyId] = useState<string | null>(null);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  const loadRequestRef = useRef(0);
 
   async function load() {
+    const requestId = ++loadRequestRef.current;
     setSyncing(true);
     try {
       const response = await fetch('/api/station-data', { cache: 'no-store' });
+      if (requestId !== loadRequestRef.current) return;
       if (response.status === 401) { try { window.sessionStorage.removeItem(STATION_CACHE_KEY); } catch {} setData(null); setOffline(false); return; }
       const body = await responseBody(response);
       if (!response.ok) throw new Error(body.error || '任务站数据加载失败');
@@ -48,6 +52,7 @@ export default function StationPage() {
       setTaskId((current) => current || preferredTask?.id || '');
       setClueId((current) => current || body.clues?.[0]?.id || '');
     } catch (cause) {
+      if (requestId !== loadRequestRef.current) return;
       setOffline(true); setError(cause instanceof Error ? cause.message : '任务站数据加载失败');
       try {
         const cached = window.sessionStorage.getItem(STATION_CACHE_KEY);
@@ -60,15 +65,13 @@ export default function StationPage() {
           setClueId((current) => current || parsed.clues?.[0]?.id || '');
         }
       } catch { try { window.sessionStorage.removeItem(STATION_CACHE_KEY); } catch {} }
-    } finally { setSyncing(false); }
+    } finally { if (requestId === loadRequestRef.current) setSyncing(false); }
   }
 
   useEffect(() => {
     void load();
-    const reconnect = () => void load();
-    window.addEventListener('online', reconnect);
-    return () => window.removeEventListener('online', reconnect);
   }, []);
+  useLiveRefresh(load, undefined, Boolean(data));
 
   async function login(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setError('');

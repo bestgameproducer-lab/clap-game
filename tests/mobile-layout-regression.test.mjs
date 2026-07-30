@@ -13,10 +13,10 @@ test('secret draw card grows with long mobile content instead of clipping it', a
 
 test('narrow mission cards constrain text and native photo controls', async () => {
   const css = await readFile(new URL('../app/styles.css', import.meta.url), 'utf8');
-  assert.match(css, /\.mission-body \{ min-width:0; \}/);
-  assert.match(css, /\.mission-body h3 \{[^}]*overflow-wrap:anywhere/);
+  assert.match(css, /\.mission-body \{ min-width:0;[^}]*\}/);
+  assert.match(css, /\.mission-summary-copy>strong\{[^}]*overflow-wrap:anywhere/);
   assert.match(css, /\.evidence-controls input\[type="file"\] \{[^}]*min-width:0; max-width:100%;[^}]*overflow:hidden/);
-  assert.match(css, /\.mission-item\{grid-template-columns:30px minmax\(0,1fr\);gap:8px\}/);
+  assert.match(css, /\.mission-summary\{grid-template-columns:30px minmax\(0,1fr\) 24px;gap:8px\}/);
 });
 
 test('host resource summary stays horizontal instead of inheriting the circular badge', async () => {

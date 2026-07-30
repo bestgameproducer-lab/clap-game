@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLiveRefresh } from '@/lib/use-live-refresh';
 
 type ScoreboardData = {
   visible: boolean;
@@ -49,17 +50,21 @@ export default function ScoreboardPage() {
   const [offlineReady, setOfflineReady] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const loadRequestRef = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = ++loadRequestRef.current;
     try {
       const response = await fetch('/api/public-scoreboard', { cache: 'no-store' });
       const body = await response.json();
+      if (requestId !== loadRequestRef.current) return;
       if (!response.ok) throw new Error(body.error || '积分大屏加载失败');
       const cachedAt = Date.now();
       setData(body); setError(''); setOffline(false);
       setLastSyncedAt(cachedAt);
       try { window.sessionStorage.setItem(SCOREBOARD_CACHE_KEY, JSON.stringify({ data: body, cachedAt })); } catch {}
     } catch (cause) {
+      if (requestId !== loadRequestRef.current) return;
       setError(cause instanceof Error ? cause.message : '积分大屏加载失败');
       setOffline(true);
       setData((current) => {
@@ -74,13 +79,11 @@ export default function ScoreboardPage() {
   useEffect(() => {
     try { window.localStorage.removeItem('wedding-scoreboard-cache'); } catch {}
     void load();
-    const timer = window.setInterval(() => void load(), 10_000);
-    const reconnect = () => void load();
     const disconnect = () => setOffline(true);
-    window.addEventListener('online', reconnect);
     window.addEventListener('offline', disconnect);
-    return () => { window.clearInterval(timer); window.removeEventListener('online', reconnect); window.removeEventListener('offline', disconnect); };
+    return () => window.removeEventListener('offline', disconnect);
   }, [load]);
+  useLiveRefresh(load);
 
   useEffect(() => {
     if (!('serviceWorker' in window.navigator)) return;

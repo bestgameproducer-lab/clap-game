@@ -41,7 +41,7 @@ test('guest, station, admin, and CSV views share the same proof requirement', as
     readFile(new URL('../lib/data/export.ts', import.meta.url), 'utf8'),
   ]);
   assert.match(adminPage, /id="task-verification"/);
-  assert.match(adminPage, /verificationMethod: task\.verification_method/);
+  assert.match(adminPage, /verificationMethod: libraryTask\.verification_method/);
   assert.match(guestPage, /如何验证/);
   assert.match(stationPage, /核验要求/);
   assert.match(guestData, /task:tasks!assignments_task_id_fkey\(title,description,verification_method,points/);
