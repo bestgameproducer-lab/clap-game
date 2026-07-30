@@ -342,6 +342,14 @@ button.draw-button { width:min(350px,86vw); margin:0 auto; padding:15px 18px; ba
 .identity-strip small { color:#dfc5ba; font-size:10px; letter-spacing:.12em; }
 .identity-strip strong { margin:4px 0; font-family:Georgia,'Noto Serif SC',serif; font-size:20px; }
 .identity-strip p { margin:0; color:#e7d9d3; font-size:12px; }
+.identity-strip-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.identity-strip-heading button { width:auto; min-height:32px; margin:0; padding:6px 11px; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.12); color:#fff; font-size:11px; }
+.identity-strip.concealed { background:rgba(29,18,15,.16); }
+.identity-strip .identity-mask { color:#e6d1c8; letter-spacing:.18em; }
+.honor-participation-card>p { margin:0; color:#74675f; line-height:1.65; }
+.honor-boundary-note { display:grid; gap:3px; margin-top:14px; padding:13px 14px; border-radius:14px; background:#f5eee8; }
+.honor-boundary-note strong { color:#755548; font-size:13px; }
+.honor-boundary-note span { color:#85766d; font-size:12px; line-height:1.55; }
 .special-card-shell{width:min(560px,100%);min-height:100vh;min-height:var(--app-height,100dvh);display:grid;place-items:center;padding:22px 16px 44px;padding:max(22px,calc(env(safe-area-inset-top) + 8px)) max(16px,env(safe-area-inset-right)) max(44px,calc(env(safe-area-inset-bottom) + 24px)) max(16px,env(safe-area-inset-left))}
 .special-guest-card{width:100%;padding:42px 28px 28px;border:1px solid #d9c7b9;border-radius:30px;background:radial-gradient(circle at top right,rgba(244,211,199,.72),transparent 36%),#fffaf4;box-shadow:0 28px 80px rgba(71,46,30,.16);text-align:center;color:#493831}
 .special-guest-card.honor{border-color:#d6c29a;background:radial-gradient(circle at top right,rgba(241,217,159,.46),transparent 38%),#fffaf1}

@@ -59,7 +59,7 @@ test('hidden-spy identity is private until the established results boundary', as
     readFile(new URL('../lib/data/public.ts', import.meta.url), 'utf8'),
     readFile(new URL('../lib/data/station.ts', import.meta.url), 'utf8'),
   ]);
-  assert.match(guestSource, /select\('id,name,team,role,is_hidden_spy,points,drawn_at,participation_mode,[^']+'\)/);
+  assert.match(guestSource, /select\('id,name,team,role,is_hidden_spy,points,drawn_at,special_card_revealed_at,participation_mode,[^']+'\)/);
   const resultsGuard = publicSource.indexOf('if (game.results_visible)');
   const publicHiddenSpyQuery = publicSource.indexOf("select('id,name,team,role,is_hidden_spy')");
   assert.ok(resultsGuard >= 0 && publicHiddenSpyQuery > resultsGuard);

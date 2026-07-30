@@ -16,11 +16,14 @@ test('all 32 final guests remain app-login eligible while runtime rehearsal data
 });
 
 test('honor guests draw a dedicated family surprise instead of a random task', async () => {
-  const [migration, surpriseMigration, guestPage, guestData] = await Promise.all([
+  const [migration, surpriseMigration, dashboardMigration, guestPage, guestData, revealRoute, publicData] = await Promise.all([
     readFile(migrationUrl, 'utf8'),
     readFile(new URL('../supabase/migrations/202607290042_honor_surprise_copy.sql', import.meta.url), 'utf8'),
+    readFile(new URL('../supabase/migrations/202607290043_honor_guest_dashboard.sql', import.meta.url), 'utf8'),
     readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../lib/data/guest.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../app/api/reveal-special-card/route.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../lib/data/public.ts', import.meta.url), 'utf8'),
   ]);
   assert.match(migration, /'HONOR_GUEST'/);
   assert.match(migration, /'PRINCIPAL'/);
@@ -31,6 +34,21 @@ test('honor guests draw a dedicated family surprise instead of a random task', a
   assert.match(guestPage, /revealSpecialCard/);
   assert.match(guestPage, /抽取我的惊喜卡/);
   assert.match(guestPage, /specialCardRevealed \? 'revealed'/);
+  assert.match(guestPage, /我已读完 · 进入游戏主页/);
+  assert.match(guestPage, /isHonorGuest && <section className="section-card honor-participation-card"/);
+  assert.match(guestPage, /isActivePlayer && <section className="section-card"><div className="section-heading"><div><small>SECRET MISSIONS/);
+  assert.match(dashboardMigration, /add column if not exists special_card_revealed_at timestamptz/);
+  assert.match(dashboardMigration, /set eligible_for_personal_score=true\s+where active and participation_mode='HONOR_GUEST'/);
+  assert.match(dashboardMigration, /guest\.honor_card_revealed/);
+  assert.match(dashboardMigration, /old\.claimed_at is not null and new\.claimed_at is null/);
+  assert.match(dashboardMigration, /guest_clues_guest_eligibility_guard/);
+  assert.match(dashboardMigration, /votes_participant_eligibility_guard/);
+  assert.match(dashboardMigration, /participation_mode='ACTIVE_PLAYER' and drawn_at is not null/);
+  assert.match(revealRoute, /assertSameOrigin\(request\)/);
+  assert.match(revealRoute, /await requireGuest\(\)/);
+  assert.match(guestData, /reveal_honor_special_card/);
+  assert.match(publicData, /eligible_for_personal_score', true\)\.or\('drawn_at\.not\.is\.null,special_card_revealed_at\.not\.is\.null'/);
+  assert.match(publicData, /guest\.participation_mode === 'HONOR_GUEST' \? '荣誉宾客'/);
   assert.match(guestData, /participation_mode !== 'ACTIVE_PLAYER'/);
 });
 

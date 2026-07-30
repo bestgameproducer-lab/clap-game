@@ -49,3 +49,15 @@ test('sorts individual leaders and vote counts deterministically', () => {
   assert.equal(result.leaders[0].name, 'C');
   assert.deepEqual(result.voteCounts.map((item) => [item.name, item.votes]), [['C', 2], ['A', 1]]);
 });
+
+test('honor guests can rank personally without creating a placeholder team', () => {
+  const result = buildPublicScoreboard([
+    { id: 'family', name: 'Family', team: '荣誉宾客', points: 8, countsForTeam: false },
+    { id: 'player', name: 'Player', team: '玫瑰组', points: 2 },
+  ], [], []);
+
+  assert.equal(result.leaders[0].name, 'Family');
+  assert.equal(result.leaders[0].team, '荣誉宾客');
+  assert.equal(result.teams.some((team) => team.team === '荣誉宾客'), false);
+  assert.deepEqual(result.teams[0], { team: '玫瑰组', points: 0, guests: 1, completedTasks: 0 });
+});

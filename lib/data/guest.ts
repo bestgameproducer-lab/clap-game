@@ -53,10 +53,20 @@ export async function drawGuestCard(guestId: string) {
   };
 }
 
+export async function revealHonorSpecialCard(guestId: string) {
+  const { data, error } = await getSupabaseAdmin().rpc('reveal_honor_special_card', { p_guest_id: guestId });
+  if (error?.message.includes('guest_not_claimed')) throw new ApiError(401, '请先认领宾客身份');
+  if (error?.message.includes('guest_not_honor_eligible')) throw new ApiError(409, '此身份没有家庭惊喜卡');
+  if (error?.message.includes('guest_not_found')) throw new ApiError(404, '找不到宾客身份');
+  if (error) throw new Error(`Unable to reveal honor special card: ${error.message}`);
+  if (typeof data !== 'string') throw new Error('Unable to reveal honor special card: invalid response');
+  return data;
+}
+
 export async function getGuestView(guestId: string) {
   const db = getSupabaseAdmin();
   const [{ data: guest, error: guestError }, { data: game, error: gameError }] = await Promise.all([
-    db.from('guests').select('id,name,team,role,is_hidden_spy,points,drawn_at,participation_mode,relationship,story_role,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,special_card_title,special_card_body').eq('id', guestId).single(),
+    db.from('guests').select('id,name,team,role,is_hidden_spy,points,drawn_at,special_card_revealed_at,participation_mode,relationship,story_role,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,special_card_title,special_card_body').eq('id', guestId).single(),
     db.from('game_state').select('registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note,task_catalog_mode').eq('id', 1).single(),
   ]);
   if (guestError || !guest) throw new ApiError(401, '登录已失效');

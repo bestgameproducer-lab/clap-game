@@ -18,7 +18,7 @@ export async function getPublicScoreboard() {
   }
 
   const [guestResult, assignmentResult, voteResult, teamPointResult] = await Promise.all([
-    db.from('guests').select('id,name,team,points').not('drawn_at', 'is', null).order('name'),
+    db.from('guests').select('id,name,team,points,participation_mode').eq('eligible_for_personal_score', true).or('drawn_at.not.is.null,special_card_revealed_at.not.is.null').order('name'),
     db.from('assignments').select('guest_id,status').eq('status', 'approved'),
     db.from('votes').select('target_guest_id').eq('voting_round', game.voting_round),
     db.from('team_points_ledger').select('team,amount'),
@@ -26,7 +26,14 @@ export async function getPublicScoreboard() {
   const error = guestResult.error ?? assignmentResult.error ?? voteResult.error ?? teamPointResult.error;
   if (error) throw new Error(`Unable to load public scoreboard: ${error.message}`);
 
-  const scoreboard = buildPublicScoreboard(guestResult.data ?? [], assignmentResult.data ?? [], voteResult.data ?? [], teamPointResult.data ?? []);
+  const scoreboardGuests = (guestResult.data ?? []).map((guest) => ({
+    id: guest.id,
+    name: guest.name,
+    team: guest.participation_mode === 'HONOR_GUEST' ? '荣誉宾客' : guest.team,
+    points: guest.points,
+    countsForTeam: guest.participation_mode === 'ACTIVE_PLAYER',
+  }));
+  const scoreboard = buildPublicScoreboard(scoreboardGuests, assignmentResult.data ?? [], voteResult.data ?? [], teamPointResult.data ?? []);
   let revealedRoles: Array<{ id: string; name: string; team: string; role: string; is_hidden_spy: boolean }> = [];
   let awards: Array<{ id: string; title: string; winnerName: string; winnerTeam: string | null; reason: string }> = [];
   let spyScores: Array<{

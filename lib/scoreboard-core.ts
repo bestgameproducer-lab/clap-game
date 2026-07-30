@@ -1,4 +1,4 @@
-export type ScoreboardGuest = { id: string; name: string; team: string; points: number };
+export type ScoreboardGuest = { id: string; name: string; team: string; points: number; countsForTeam?: boolean };
 export type ScoreboardAssignment = { guest_id: string; status: string };
 export type ScoreboardVote = { target_guest_id: string };
 export type ScoreboardTeamPoint = { team: string; amount: number };
@@ -19,6 +19,7 @@ export function buildPublicScoreboard(
 
   const teams = new Map<string, { team: string; points: number; guests: number; completedTasks: number }>();
   for (const guest of guests) {
+    if (guest.countsForTeam === false) continue;
     const current = teams.get(guest.team) ?? { team: guest.team, points: 0, guests: 0, completedTasks: 0 };
     current.guests += 1;
     current.completedTasks += approvedByGuest.get(guest.id) ?? 0;
