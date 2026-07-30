@@ -20,7 +20,7 @@ test('the complete phase-one real mission catalogue replaces the superseded rehe
   assert.match(migration, /'P1-TRICKSTER-001'[\s\S]+,0,'spy','hidden','task_round_1'/);
 });
 
-test('phase-one tricksters receive ordinary tasks but no public personal score', async () => {
+test('phase-one tricksters receive an ordinary facade task while scoring remains server-private', async () => {
   const migration = await readFile(migrationUrl, 'utf8');
   assert.match(migration, /v_task_stage='task_round_1' and v_role='spy'/);
   assert.match(migration, /then 0 else v_task_points end/);
@@ -28,8 +28,10 @@ test('phase-one tricksters receive ordinary tasks but no public personal score',
   assert.match(migration, /Ranked upgrades and clue rewards intentionally start after phase one/);
   assert.match(migration, /v_game_stage<>'task_round_1'/);
   const guestPage = await readFile(guestPageUrl, 'utf8');
-  assert.match(guestPage, /revealedCard\?\.role === 'spy' \? '完成但不计个人分'/);
-  assert.match(guestPage, /完成记录 · 不计个人分/);
+  assert.doesNotMatch(guestPage, /完成但不计个人分|完成记录 · 不计个人分/);
+  assert.match(guestPage, /usesTricksterFacade/);
+  assert.match(guestPage, /assignment\.task\.category !== 'hidden'/);
+  assert.match(guestPage, /真正的间谍任务/);
 });
 
 test('heart and star matching are free and finalize the natural fifth player', async () => {
