@@ -37,7 +37,14 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
     if (error.message.includes('guest_card_not_drawn')) throw new ApiError(409, '宾客尚未抽取身份卡，暂时不能兑换隐藏任务');
     if (error.message.includes('active_hidden_spy_task_exists')) throw new ApiError(409, '任务库只能启用一张隐藏间谍卡');
     if (error.message.includes('invalid_hidden_spy_task')) throw new ApiError(400, '隐藏间谍卡必须是第二轮、仅限普通宾客的隐藏任务');
-    if (error.message.includes('invalid_task_points')) throw new ApiError(400, '任务积分必须是 1、2 或 3 分');
+    if (error.message.includes('invalid_task_points')) throw new ApiError(400, '任务积分必须是 0–12 分');
+    if (error.message.includes('hidden_role_conflict')) throw new ApiError(409, '丘比特帮手不能同时担任仪式、图案角色或恶作剧者');
+    if (error.message.includes('cupid_helper_already_assigned')) throw new ApiError(409, '全场已经指定了一位丘比特帮手');
+    if (error.message.includes('symbol_pairing_count_invalid')) throw new ApiError(409, '阶段结束前，爱心和星星都必须各有五位玩家完成抽卡');
+    if (error.message.includes('symbol_pairing_incomplete')) throw new ApiError(409, '阶段结束前，爱心和星星都需要先形成两组正式联盟，并处理全部待确认邀请');
+    if (error.message.includes('assignment_already_completed')) throw new ApiError(409, '已经完成并计分的任务不能直接改派；如需纠错请调整积分并保留审计记录');
+    if (error.message.includes('ceremony_assignment_not_found')) throw new ApiError(404, '找不到这项仪式任务');
+    if (error.message.includes('ring_variant_required')) throw new ApiError(409, '戒指守护者必须先指定负责新郎戒指或新娘戒指');
     if (error.message.includes('clue_already_granted')) throw new ApiError(409, '这位宾客已经获得该线索');
     if (error.message.includes('guest_not_secret_clue_eligible')) throw new ApiError(409, '这位宾客不参与秘密线索玩法，但仍应可以正常通过任务；请刷新后重试');
     if (error.message.includes('guest_card_already_drawn')) throw new ApiError(409, '宾客已经抽卡，不能直接修改组别或身份');
@@ -70,12 +77,12 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
 export async function getAdminDashboardData() {
   const db = getSupabaseAdmin();
   const results = await Promise.all([
-    db.from('guests').select('id,name,login_name,team,role,is_hidden_spy,points,claimed_at,drawn_at,team_locked,role_locked,table_label,is_elder,ceremony_eligible,active,staff_notes,participation_mode,relationship,story_role,uses_app,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,special_card_title,special_card_body,player_code,unlocked_role,created_at').order('active', { ascending: false }).order('team').order('name'),
-    db.from('assignments').select('id,guest_id,task_id,status,is_initial,completion_rank,early_bonus_points,reward_task_id,reward_clue_id,completion_note,verification_note,verified_by,verified_at,evidence_path,evidence_uploaded_at,submitted_at,approved_at,rejected_at,rejection_reason,created_at,task:tasks!assignments_task_id_fkey(id,title,description,verification_method,points,category,stage)'),
-    db.from('tasks').select('id,title,description,verification_method,points,role_scope,category,stage,active,grants_hidden_spy,is_demo,story_role_scope,mission_code,mechanic,score_policy,created_at').order('stage').order('title'),
+    db.from('guests').select('id,name,login_name,team,role,hidden_role,is_hidden_spy,points,claimed_at,drawn_at,team_locked,role_locked,table_label,is_elder,ceremony_eligible,active,staff_notes,participation_mode,relationship,story_role,uses_app,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,special_card_title,special_card_body,player_code,unlocked_role,created_at').order('active', { ascending: false }).order('team').order('name'),
+    db.from('assignments').select('id,guest_id,task_id,status,is_initial,completion_rank,early_bonus_points,reward_task_id,reward_clue_id,completion_note,verification_note,verified_by,verified_at,evidence_path,evidence_uploaded_at,submitted_at,approved_at,rejected_at,rejection_reason,cancelled_at,ceremony_status,ring_variant,replaced_by_assignment_id,replacement_for_assignment_id,created_at,guest:guests(id,name),task:tasks!assignments_task_id_fkey(id,title,description,verification_method,points,category,stage,mission_code)'),
+    db.from('tasks').select('id,title,description,verification_method,points,role_scope,category,stage,active,grants_hidden_spy,is_demo,story_role_scope,mission_code,mechanic,score_policy,assignment_mode,verification_type,max_assignments,created_at').order('stage').order('title'),
     db.from('assignments').select('id,status,completion_note,evidence_path,evidence_uploaded_at,submitted_at,guest:guests(id,name),task:tasks!assignments_task_id_fkey(id,title,verification_method,points)').eq('status', 'submitted'),
     db.from('votes').select('id,voter_guest_id,target_guest_id,voting_round,created_at,voter:guests!votes_voter_guest_id_fkey(id,name,team),target:guests!votes_target_guest_id_fkey(id,name,team)'),
-    db.from('game_state').select('id,registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note,display_title,display_body,public_clue,timer_ends_at,invitation_code_updated_at,task_catalog_mode,updated_at').eq('id', 1).single(),
+    db.from('game_state').select('id,registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note,display_title,display_body,public_clue,timer_ends_at,invitation_code_updated_at,task_catalog_mode,trickster_max_attempts,phase_one_completed_at,updated_at').eq('id', 1).single(),
     db.from('clues').select('id,title,content,active,spy_guest_id,level,created_at,spy:guests!clues_spy_guest_id_fkey(id,name,team)').order('level').order('created_at'),
     db.from('guest_clues').select('id,guest_id,clue_id,created_at,guest:guests(id,name),clue:clues(id,title)').order('created_at', { ascending: false }).limit(50),
     db.from('points_ledger').select('id,guest_id,amount,reason,actor,created_at,guest:guests(id,name)').order('created_at', { ascending: false }).limit(50),
@@ -91,6 +98,8 @@ export async function getAdminDashboardData() {
     db.from('heart_slots').select('heart_code,pair_key,side,guest_id,assigned_at,guest:guests(id,name)').order('heart_code'),
     db.from('player_relationships').select('id,relationship_type,status,player_a_confirmed,player_b_confirmed,activated_at,player_a:guests!player_relationships_player_a_id_fkey(id,name),player_b:guests!player_relationships_player_b_id_fkey(id,name)').order('created_at', { ascending: false }),
     db.from('alliance_clue_fragments').select('pair_key,title,left_fragment,right_fragment,active,updated_at').order('pair_key'),
+    db.from('symbol_pairing_assignments').select('guest_id,symbol,status,partner_guest_id,pending_relationship_id,finalized_at,updated_at,guest:guests!symbol_pairing_assignments_guest_id_fkey(id,name),partner:guests!symbol_pairing_assignments_partner_guest_id_fkey(id,name)').order('symbol').order('updated_at'),
+    db.from('cupid_helper_actions').select('id,helper_guest_id,trickster_guest_id,note,status,confirmed_by,confirmed_at,created_at,helper:guests!cupid_helper_actions_helper_guest_id_fkey(id,name),trickster:guests!cupid_helper_actions_trickster_guest_id_fkey(id,name)').order('created_at', { ascending: false }),
   ]);
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`Unable to load admin data: ${error.message}`);
@@ -117,6 +126,8 @@ export async function getAdminDashboardData() {
     heartSlots: results[18].data ?? [],
     playerRelationships: results[19].data ?? [],
     allianceClues: results[20].data ?? [],
+    symbolPairings: results[21].data ?? [],
+    helperActions: results[22].data ?? [],
   };
 }
 
@@ -224,6 +235,20 @@ export async function assignTaskToGuest(guestId: string, taskId: string, actor: 
   ensureNoDatabaseError(error, 'Unable to assign task');
 }
 
+export async function reassignTaskAssignment(assignmentId: string, taskId: string, actor: string, reason: string) {
+  const { error } = await getSupabaseAdmin().rpc('reassign_task_assignment', {
+    p_assignment_id: assignmentId, p_task_id: taskId, p_actor: actor, p_reason: reason,
+  });
+  ensureNoDatabaseError(error, 'Unable to reassign task');
+}
+
+export async function updateCeremonyAssignment(assignmentId: string, ceremonyStatus: string, ringVariant: string | null, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('update_ceremony_assignment', {
+    p_assignment_id: assignmentId, p_ceremony_status: ceremonyStatus, p_ring_variant: ringVariant, p_actor: actor,
+  });
+  ensureNoDatabaseError(error, 'Unable to update ceremony assignment');
+}
+
 export async function issueHiddenTaskCode(taskId: string, actor: string) {
   const code = createHiddenTaskCode();
   const { error } = await getSupabaseAdmin().rpc('issue_hidden_task_code', {
@@ -306,6 +331,20 @@ export async function configureGuestStoryRole(guestId: string, storyRole: string
     p_guest_id: guestId, p_story_role: storyRole, p_actor: actor,
   });
   ensureNoDatabaseError(error, 'Unable to configure guest story role');
+}
+
+export async function configureGuestHiddenRole(guestId: string, hiddenRole: string, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('configure_guest_hidden_role', {
+    p_guest_id: guestId, p_hidden_role: hiddenRole, p_actor: actor,
+  });
+  ensureNoDatabaseError(error, 'Unable to configure hidden role');
+}
+
+export async function undoPlayerRelationship(relationshipId: string, actor: string, reason: string) {
+  const { error } = await getSupabaseAdmin().rpc('undo_player_relationship', {
+    p_relationship_id: relationshipId, p_actor: actor, p_reason: reason,
+  });
+  ensureNoDatabaseError(error, 'Unable to undo player relationship');
 }
 
 export async function saveAllianceClue(input: { pairKey: string; title: string; leftFragment: string; rightFragment: string; active: boolean }, actor: string) {

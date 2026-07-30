@@ -3,10 +3,13 @@ export const MANUAL_GAME_STAGES = ['registration', 'waiting', 'task_round_1', 't
 export const TASK_STAGES = ['task_round_1', 'task_round_2', 'group_game'] as const;
 export const GAME_ROLES = ['guest', 'spy'] as const;
 export const PARTICIPATION_MODES = ['ACTIVE_PLAYER', 'HONOR_GUEST', 'PRINCIPAL'] as const;
-export const STORY_ROLES = ['NONE', 'OFFICIANT', 'RING_KEEPER', 'GROOM_CHEERLEADER', 'BRIDE_CHEERLEADER', 'APPLAUSE_STARTER', 'HEART_HOLDER'] as const;
+export const STORY_ROLES = ['NONE', 'OFFICIANT', 'RING_KEEPER', 'GROOM_CHEERLEADER', 'BRIDE_CHEERLEADER', 'APPLAUSE_STARTER', 'HEART_HOLDER', 'STAR_HOLDER'] as const;
+export const HIDDEN_ROLES = ['NONE', 'CUPID_HELPER'] as const;
 export const ROLE_SCOPES = ['all', ...GAME_ROLES] as const;
 export const TASK_CATEGORIES = ['standard', 'ceremony', 'group', 'upgrade', 'hidden'] as const;
-export const PLAYER_RELATIONSHIP_TYPES = ['CUPID_ALLIANCE', 'TRICKSTER_CONNECTION'] as const;
+export const PLAYER_RELATIONSHIP_TYPES = ['CUPID_ALLIANCE', 'STAR_ALLIANCE', 'TRICKSTER_CONNECTION'] as const;
+export const CEREMONY_STATUSES = ['LOCKED', 'AVAILABLE', 'BRIEFED', 'RING_RECEIVED', 'IN_PROGRESS', 'DELIVERED', 'COMPLETED'] as const;
+export const RING_VARIANTS = ['GROOM_RING', 'BRIDE_RING'] as const;
 
 const STAGE_ORDER: Record<string, number> = {
   registration: 0,

@@ -80,7 +80,10 @@ button.text-button { background: transparent; color: #76665e; padding: 8px; text
 .stage-card small,.stage-card strong { display: block; }
 .stage-card small { opacity: .7; }
 .stage-card strong { font-size: 18px; margin: 3px 0; }
-.stage-card p { margin: 0; color: #eadfd9; font-size: 13px; }
+.stage-card p { margin: 0; color: #fff7f2; font-size: 16px; font-weight:650; line-height:1.55; }
+.stage-default-prompt{margin-top:8px!important}
+.stage-live-note{display:grid;gap:3px;margin-top:12px;padding:11px 12px;border-radius:12px;background:#fff2cf;color:#553d2e}.stage-live-note b{font-size:10px;letter-spacing:.08em}.stage-live-note span{font-size:14px;font-weight:700;line-height:1.5}
+.identity-game-rule{display:grid;gap:3px;margin-top:13px;padding:11px 13px;border:1px solid rgba(255,255,255,.16);border-radius:13px;background:rgba(20,12,10,.22)}.identity-game-rule strong{font-size:11px;color:#ffd9c9}.identity-game-rule span{font-size:12px;line-height:1.5;color:#f3e5de}
 .section-card { background: rgba(255,255,255,.92); border: 1px solid rgba(95,75,60,.1); border-radius: 22px; padding: 20px; margin-top: 14px; box-shadow: 0 10px 30px rgba(74,53,39,.07); }
 .section-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .section-heading small { color: #a17b67; letter-spacing: .14em; font-weight: 800; font-size: 9px; }
@@ -354,6 +357,11 @@ button.draw-button { width:min(350px,86vw); margin:0 auto; padding:15px 18px; ba
 .identity-strip-heading button { width:auto; min-height:32px; margin:0; padding:6px 11px; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.12); color:#fff; font-size:11px; }
 .identity-strip.concealed { background:rgba(29,18,15,.16); }
 .identity-strip .identity-mask { color:#e6d1c8; letter-spacing:.18em; }
+.identity-strip.trickster-identity{border:2px solid #f2b49f;background:linear-gradient(135deg,rgba(102,28,22,.58),rgba(30,14,12,.38));box-shadow:0 0 0 4px rgba(242,180,159,.1)}
+.identity-secrecy-callout{display:grid;gap:4px;margin:15px 0 4px;padding:12px 13px;border:1px solid #e0b9a8;border-radius:13px;background:#fff2eb;text-align:left}.identity-secrecy-callout strong{color:#7a4437;font-size:13px}.identity-secrecy-callout span{color:#745d54;font-size:12px;line-height:1.55}.identity-secrecy-callout.critical{border:2px solid #a63d31;background:#5a211d}.identity-secrecy-callout.critical strong{color:#ffe3d9;font-size:15px}.identity-secrecy-callout.critical span{color:#fff3ee;font-weight:650}
+.reward-banner.trickster-warning{border:2px solid #a84438;background:linear-gradient(135deg,#5d211d,#321816);color:#fff0e9}.reward-banner.trickster-warning small{color:#ffbca9;font-size:10px}.reward-banner.trickster-warning strong{color:#fff}.reward-banner.trickster-warning p{color:#ffe0d5;font-size:13px;line-height:1.6}
+.new-content-toast{position:fixed;left:50%;bottom:max(18px,calc(env(safe-area-inset-bottom) + 12px));z-index:80;display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;align-items:center;width:min(430px,calc(100vw - 28px));padding:13px 15px;border:1px solid #d5b29f;border-radius:16px;background:rgba(66,42,34,.96);color:#fff;box-shadow:0 18px 55px rgba(45,28,22,.32);animation:new-content-in .22s ease-out}.new-content-toast>span{grid-row:1/3;padding:5px 7px;border-radius:8px;background:#d9987c;color:#2f1d18;font-size:9px;font-weight:900;letter-spacing:.1em}.new-content-toast strong{font-size:14px}.new-content-toast small{color:#ddc9c0;font-size:10px}@keyframes new-content-in{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+.stage-default-preview{margin:12px 0 16px;padding:14px 15px;border:1px solid #e2d4cb;border-radius:15px;background:#f8f2ed}.stage-default-preview small,.stage-default-preview strong{display:block}.stage-default-preview small{color:#a07362;font-size:9px;font-weight:900;letter-spacing:.12em}.stage-default-preview strong{margin:5px 0;color:#4f3d35;font-size:17px}.stage-default-preview p{margin:0;color:#74665e;font-size:13px;line-height:1.6}
 .honor-participation-card>p { margin:0; color:#74675f; line-height:1.65; }
 .honor-boundary-note { display:grid; gap:3px; margin-top:14px; padding:13px 14px; border-radius:14px; background:#f5eee8; }
 .honor-boundary-note strong { color:#755548; font-size:13px; }
