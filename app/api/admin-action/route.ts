@@ -5,8 +5,11 @@ import {
   approveAssignment,
   completeAssignmentAtStation,
   assignTaskToGuest,
+  reassignTaskAssignment,
+  updateCeremonyAssignment,
   configureGuestGameProfile,
   configureGuestStoryRole,
+  configureGuestHiddenRole,
   saveGameClue,
   saveGameTask,
   saveGuestRoster,
@@ -26,9 +29,10 @@ import {
   setRegistrationOpen,
   saveAward,
   saveAllianceClue,
+  undoPlayerRelationship,
 } from '@/lib/data/admin';
 import { ApiError, apiErrorResponse, noStoreJson } from '@/lib/errors';
-import { GAME_ROLES, MANUAL_GAME_STAGES, ROLE_SCOPES, STORY_ROLES, TASK_CATEGORIES, TASK_STAGES } from '@/lib/game-rules';
+import { CEREMONY_STATUSES, GAME_ROLES, HIDDEN_ROLES, MANUAL_GAME_STAGES, RING_VARIANTS, ROLE_SCOPES, STORY_ROLES, TASK_CATEGORIES, TASK_STAGES } from '@/lib/game-rules';
 import {
   assertSameOrigin,
   optionalString,
@@ -104,6 +108,20 @@ export async function POST(request: Request) {
       );
     } else if (type === 'assignTask') {
       await assignTaskToGuest(requiredUuid(body.guestId, '宾客 ID'), requiredUuid(body.taskId, '任务 ID'), actor);
+    } else if (type === 'reassignTask') {
+      await reassignTaskAssignment(
+        requiredUuid(body.assignmentId, '原任务 ID'),
+        requiredUuid(body.taskId, '新任务 ID'),
+        actor,
+        requiredString(body.reason, '改派原因', 500),
+      );
+    } else if (type === 'updateCeremonyAssignment') {
+      await updateCeremonyAssignment(
+        requiredUuid(body.assignmentId, '仪式任务 ID'),
+        requiredEnum(body.ceremonyStatus, '仪式任务状态', CEREMONY_STATUSES),
+        body.ringVariant ? requiredEnum(body.ringVariant, '戒指类型', RING_VARIANTS) : null,
+        actor,
+      );
     } else if (type === 'issueHiddenTaskCode') {
       result = { ok: true, code: await issueHiddenTaskCode(requiredUuid(body.taskId, '任务 ID'), actor) };
     } else if (type === 'redeemHiddenTaskCode') {
@@ -141,6 +159,18 @@ export async function POST(request: Request) {
         requiredEnum(body.storyRole, '剧情职务', STORY_ROLES),
         actor,
       );
+    } else if (type === 'configureHiddenRole') {
+      await configureGuestHiddenRole(
+        requiredUuid(body.guestId, '宾客 ID'),
+        requiredEnum(body.hiddenRole, '隐藏身份', HIDDEN_ROLES),
+        actor,
+      );
+    } else if (type === 'undoRelationship') {
+      await undoPlayerRelationship(
+        requiredUuid(body.relationshipId, '关系 ID'),
+        actor,
+        requiredString(body.reason, '撤销原因', 500),
+      );
     } else if (type === 'saveAllianceClue') {
       await saveAllianceClue({
         pairKey: requiredEnum(body.pairKey, '爱心配对', ['A', 'B'] as const),
@@ -168,7 +198,7 @@ export async function POST(request: Request) {
         title: requiredString(body.title, '任务标题', 120),
         description: requiredString(body.description, '任务说明', 1000),
         verificationMethod: requiredString(body.verificationMethod, '验证方式', 500),
-        points: requiredInteger(body.points, '任务积分', 1, 3),
+        points: requiredInteger(body.points, '任务积分', 0, 12),
         roleScope: requiredEnum(body.roleScope, '适用身份', ROLE_SCOPES),
         category: requiredEnum(body.category, '任务类型', TASK_CATEGORIES),
         stage: requiredEnum(body.stage, '任务阶段', TASK_STAGES),

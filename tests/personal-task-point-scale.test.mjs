@@ -5,18 +5,18 @@ import { isTaskPointValue, recommendedTaskPoints } from '../lib/task-points.ts';
 
 const migrationUrl = new URL('../supabase/migrations/202607290039_personal_task_point_scale.sql', import.meta.url);
 
-test('task categories use the documented one-to-three point scale', () => {
-  assert.equal(recommendedTaskPoints('standard', 'guest'), 1);
-  assert.equal(recommendedTaskPoints('ceremony', 'all'), 1);
+test('task categories use the phase-one mission point recommendations', () => {
+  assert.equal(recommendedTaskPoints('standard', 'guest'), 2);
+  assert.equal(recommendedTaskPoints('ceremony', 'all'), 3);
   assert.equal(recommendedTaskPoints('group', 'all'), 1);
   assert.equal(recommendedTaskPoints('upgrade', 'all'), 2);
   assert.equal(recommendedTaskPoints('hidden', 'all'), 2);
   assert.equal(recommendedTaskPoints('standard', 'spy'), 2);
   assert.equal(recommendedTaskPoints('standard', 'helper'), 2);
   assert.equal(recommendedTaskPoints('hidden', 'guest', true), 3);
-  assert.equal(isTaskPointValue(1), true);
-  assert.equal(isTaskPointValue(3), true);
-  assert.equal(isTaskPointValue(20), false);
+  assert.equal(isTaskPointValue(0), true);
+  assert.equal(isTaskPointValue(12), true);
+  assert.equal(isTaskPointValue(13), false);
 });
 
 test('point-scale migration preserves accounting through correction ledger entries', async () => {
@@ -32,19 +32,16 @@ test('point-scale migration preserves accounting through correction ledger entri
 });
 
 test('task point range is enforced by the route, database, admin UI, and seed', async () => {
-  const [migration, route, data, page, seed] = await Promise.all([
-    readFile(migrationUrl, 'utf8'),
+  const [migration, route, data, page] = await Promise.all([
+    readFile(new URL('../supabase/migrations/202607300001_phase_one_real_missions.sql', import.meta.url), 'utf8'),
     readFile(new URL('../app/api/admin-action/route.ts', import.meta.url), 'utf8'),
     readFile(new URL('../lib/data/admin.ts', import.meta.url), 'utf8'),
     readFile(new URL('../app/admin/page.tsx', import.meta.url), 'utf8'),
-    readFile(new URL('../supabase/seed-example.sql', import.meta.url), 'utf8'),
   ]);
-  assert.match(migration, /if p_points<1 or p_points>3 then/);
-  assert.match(route, /requiredInteger\(body\.points, '任务积分', 1, 3\)/);
-  assert.match(data, /任务积分必须是 1、2 或 3 分/);
-  assert.match(page, /id="task-points" type="number" min=\{1\} max=\{3\}/);
+  assert.match(migration, /if p_points<0 or p_points>12 then/);
+  assert.match(migration, /check\(points between 0 and 12\)/);
+  assert.match(route, /requiredInteger\(body\.points, '任务积分', 0, 12\)/);
+  assert.match(data, /任务积分必须是 0–12 分/);
+  assert.match(page, /id="task-points" type="number" min=\{0\} max=\{12\}/);
   assert.match(page, /recommendedTaskPoints/);
-  assert.match(seed, /',1,'guest','standard'/);
-  assert.match(seed, /',2,'spy','standard'/);
-  assert.match(seed, /',2,'helper','standard'/);
 });

@@ -7,12 +7,13 @@ function completeFixture() {
   const guests = WEDDING_TEAMS.flatMap((team, teamIndex) => Array.from({ length: 8 }, (_, index) => ({
     id: `${teamIndex}-${index}`, active: true, team,
     role: index === 0 ? 'spy' : 'guest', is_hidden_spy: false,
-    drawn_at: null, team_locked: true, role_locked: true, participation_mode: 'ACTIVE_PLAYER', story_role: 'NONE',
+    drawn_at: null, team_locked: true, role_locked: true, participation_mode: 'ACTIVE_PLAYER', story_role: 'NONE', hidden_role: 'NONE',
   })));
-  const storyRoles = ['OFFICIANT','RING_KEEPER','RING_KEEPER','GROOM_CHEERLEADER','BRIDE_CHEERLEADER','APPLAUSE_STARTER','HEART_HOLDER','HEART_HOLDER','HEART_HOLDER','HEART_HOLDER','HEART_HOLDER'];
-  const storyIndexes = [1,2,3,4,5,6,7,9,10,11,12];
+  const storyRoles = ['OFFICIANT','RING_KEEPER','RING_KEEPER','GROOM_CHEERLEADER','BRIDE_CHEERLEADER','APPLAUSE_STARTER','HEART_HOLDER','HEART_HOLDER','HEART_HOLDER','HEART_HOLDER','HEART_HOLDER','STAR_HOLDER','STAR_HOLDER','STAR_HOLDER','STAR_HOLDER','STAR_HOLDER'];
+  const storyIndexes = [1,2,3,4,5,6,7,9,10,11,12,13,14,15,17,18];
   storyRoles.forEach((role, index) => { guests[storyIndexes[index]].story_role = role; });
-  const officialCodes = ['P1-001','P1-002','P1-003','P1-004','P1-005','P1-006','P1-007','P1-008','P2-DECOY-001','P2-DECOY-002','P2-DECOY-003','P2-DECOY-004','P2-DECOY-005','P2-TRICKSTER-001'];
+  guests[19].hidden_role = 'CUPID_HELPER';
+  const officialCodes = ['P1-CER-001','P1-CER-002','P1-CER-003','P1-CER-004','P1-CER-005','P1-HEART-001','P1-STAR-001','P1-SOCIAL-001','P1-BONUS-001','P1-SPECIAL-001','P1-DECOY-001','P1-DECOY-002','P1-DECOY-003','P1-DECOY-004','P1-DECOY-005','P1-DECOY-006','P1-TRICKSTER-001'];
   const tasks = [
     ...officialCodes.map((mission_code, index) => ({ id: `official-${index}`, active: true, role_scope: 'guest', category: 'standard', stage: mission_code.startsWith('P1') ? 'task_round_1' : 'task_round_2', mission_code })),
     ...Array.from({ length: 5 }, (_, index) => ({ id: `upgrade-${index}`, active: true, role_scope: 'all', category: 'upgrade', stage: 'task_round_2' })),
@@ -49,7 +50,7 @@ test('preflight blocks role capacity conflicts before card drawing', () => {
 test('preflight blocks incomplete story-role casting and official missions', () => {
   const fixture = completeFixture();
   fixture.guests.find((guest) => guest.story_role === 'HEART_HOLDER').story_role = 'NONE';
-  fixture.tasks = fixture.tasks.filter((task) => task.mission_code !== 'P1-006');
+  fixture.tasks = fixture.tasks.filter((task) => task.mission_code !== 'P1-STAR-001');
   const result = buildWeddingPreflight(fixture);
   assert.equal(result.items.find((item) => item.id === 'story-cast')?.status, 'blocked');
   assert.equal(result.items.find((item) => item.id === 'official-missions')?.status, 'blocked');

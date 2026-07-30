@@ -8,12 +8,12 @@ import { useLiveRefresh } from '@/lib/use-live-refresh';
 const GUEST_CACHE_KEY = 'wedding-guest-session-cache-v1';
 
 type RegistrationGuest = { id: string; name: string; loginName: string; hasPassword: boolean };
-type SecretCard = { team: string; role: string; storyRole: string; task: { id: string; title: string; description: string; verificationMethod: string; points: number }; drawnAt: string };
+type SecretCard = { team: string; role: string; storyRole: string; hiddenRole: 'NONE' | 'CUPID_HELPER'; task: { id: string; title: string; description: string; verificationMethod: string; points: number }; drawnAt: string };
 type GuestData = {
-  guest: { id: string; name: string; team: string; role: string; is_hidden_spy: boolean; points: number; drawn_at: string | null; special_card_revealed_at: string | null; participation_mode: 'ACTIVE_PLAYER' | 'HONOR_GUEST' | 'PRINCIPAL'; relationship: string; story_role: string; eligible_for_mission: boolean; eligible_for_secret_role: boolean; eligible_for_personal_score: boolean; special_card_title: string; special_card_body: string; player_code: string; unlocked_role: string };
+  guest: { id: string; name: string; team: string; role: string; hidden_role: 'NONE' | 'CUPID_HELPER'; is_hidden_spy: boolean; points: number; drawn_at: string | null; special_card_revealed_at: string | null; participation_mode: 'ACTIVE_PLAYER' | 'HONOR_GUEST' | 'PRINCIPAL'; relationship: string; story_role: string; eligible_for_mission: boolean; eligible_for_secret_role: boolean; eligible_for_personal_score: boolean; special_card_title: string; special_card_body: string; player_code: string; unlocked_role: string };
   assignments: Array<{ id: string; status: string; is_initial: boolean; completion_rank: number | null; early_bonus_points: number; reward_task_id: string | null; reward_clue_id: string | null; completion_note: string; verification_note: string; verified_at: string | null; evidence_uploaded_at: string | null; evidence_url: string | null; rejection_reason: string | null; task: { title: string; description: string; verification_method: string; points: number; category: string; stage: string; mission_code: string | null; mechanic: string; score_policy: string } }>;
   clues: Array<{ id: string; title: string; content: string }>;
-  game: { registration_open: boolean; stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null; task_catalog_mode: 'demo' | 'live' } | null;
+  game: { registration_open: boolean; stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null; task_catalog_mode: 'demo' | 'live'; trickster_max_attempts: number; phase_one_completed_at: string | null } | null;
   candidates: Array<{ id: string; name: string; team: string }>;
   existingVote: string | null;
   results: null | {
@@ -27,9 +27,12 @@ type GuestData = {
   missionStory?: {
     playerCode: string;
     unlockedRole: string;
-    heart: null | { code: string; pairKey: string; side: 'LEFT' | 'RIGHT' | 'SOLO' };
-    relationships: Array<{ id: string; type: 'CUPID_ALLIANCE' | 'TRICKSTER_CONNECTION'; status: 'PENDING' | 'ACTIVE' | 'REVEALED'; partnerName: string; confirmedByMe: boolean; confirmedByPartner: boolean; activatedAt: string | null }>;
+    symbolPairing: null | { symbol: 'HEART' | 'STAR'; status: 'AVAILABLE' | 'PENDING' | 'PAIRED' | 'UNPAIRED_FINAL'; pendingRelationshipId: string | null; finalizedAt: string | null };
+    relationships: Array<{ id: string; type: 'CUPID_ALLIANCE' | 'STAR_ALLIANCE' | 'TRICKSTER_CONNECTION'; status: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'REVEALED'; partnerName: string; confirmedByMe: boolean; confirmedByPartner: boolean; activatedAt: string | null }>;
     tricksterAttemptsUsed: number;
+    tricksterMaxAttempts: number;
+    helper: null | { tricksters: Array<{ id: string; name: string; team: string }>; actions: Array<{ id: string; tricksterGuestId: string; tricksterName: string; note: string; status: string; createdAt: string }> };
+    mutualConfirmations: Array<{ id: string; assignmentId: string; direction: 'INCOMING' | 'OUTGOING'; otherGuestName: string; status: 'PENDING' | 'ACTIVE' | 'REJECTED'; createdAt: string }>;
     allianceClue: null | { title: string; fragment: string };
   };
 };
@@ -45,11 +48,11 @@ const STAGES: Record<string, { label: string; note: string }> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  assigned: '进行中', submitted: '等待审核', approved: '已完成', rejected: '请补充验证',
+  assigned: '进行中', submitted: '等待审核', approved: '已完成', rejected: '请补充验证', cancelled: '本阶段已结束',
 };
 
 const ROLE_LABELS: Record<string, { title: string; note: string }> = {
-  spy: { title: '丘比特的恶作剧者', note: '第一幕认真完成普通任务；第二幕开启后，再使用暗号寻找同伴。' },
+  spy: { title: '丘比特的恶作剧者', note: '第一阶段正常完成表面任务，并使用暗号悄悄寻找同伴。' },
   helper: { title: '丘比特的秘密信使', note: '暗中帮助队友，让线索自然流动。' },
   guest: { title: '婚礼守护者', note: '完成阶段任务，并留意身边的可疑行动。' },
 };
@@ -61,6 +64,7 @@ const STORY_ROLE_LABELS: Record<string, { title: string; note: string }> = {
   BRIDE_CHEERLEADER: { title: '新娘应援者', note: '等待主持人的合适节点，再送出为新娘准备的那句应援。' },
   APPLAUSE_STARTER: { title: '掌声发起者', note: '在仪式完成的自然节点率先鼓掌，带动周围宾客。' },
   HEART_HOLDER: { title: '爱心持有者', note: '保管好你的爱心编号，悄悄寻找真正匹配的另一半。' },
+  STAR_HOLDER: { title: '星星持有者', note: '悄悄寻找另一位星星玩家，和对方组成星光联盟。' },
 };
 
 export default function GuestPage() {
@@ -87,6 +91,9 @@ export default function GuestPage() {
   const [completionNotes, setCompletionNotes] = useState<Record<string, string>>({});
   const [evidenceBusyId, setEvidenceBusyId] = useState<string | null>(null);
   const [connectionTargetCode, setConnectionTargetCode] = useState('');
+  const [helperTargetId, setHelperTargetId] = useState('');
+  const [helperNote, setHelperNote] = useState('');
+  const [mutualTargetCodes, setMutualTargetCodes] = useState<Record<string, string>>({});
   const [expandedAssignments, setExpandedAssignments] = useState<Record<string, boolean>>({});
   const loadRequestRef = useRef(0);
   const manualRefreshRef = useRef(false);
@@ -340,7 +347,7 @@ export default function GuestPage() {
     } finally { setDrawing(false); }
   }
 
-  async function connectPlayer(relationshipType: 'CUPID_ALLIANCE' | 'TRICKSTER_CONNECTION') {
+  async function connectPlayer(relationshipType: 'CUPID_ALLIANCE' | 'STAR_ALLIANCE' | 'TRICKSTER_CONNECTION') {
     setBusy(true); setError(''); setMessage('');
     try {
       const response = await fetch('/api/guest-connection', {
@@ -352,11 +359,71 @@ export default function GuestPage() {
       const status = body.result?.status;
       setConnectionTargetCode('');
       setMessage(status === 'ACTIVE'
-        ? relationshipType === 'CUPID_ALLIANCE' ? '爱心完全匹配，丘比特联盟已经成立。' : '暗号双向确认成功，你已经找到一位同伴。'
+        ? relationshipType === 'CUPID_ALLIANCE' ? '双向确认成功，丘比特联盟已经成立。' : relationshipType === 'STAR_ALLIANCE' ? '双向确认成功，星光联盟已经成立。' : '暗号双向确认成功，你已经找到一位同伴。'
         : status === 'NO_MATCH' ? '暗号没有匹配。请保持自然，你还可以继续试探。'
         : '你的编号确认已提交，等待对方输入你的玩家编号。');
       await load();
     } catch (cause) { setError(cause instanceof Error ? cause.message : '编号确认失败'); }
+    finally { setBusy(false); }
+  }
+
+  async function rejectConnection(relationshipId: string) {
+    setBusy(true); setError(''); setMessage('');
+    try {
+      const response = await fetch('/api/reject-connection', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ relationshipId }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || '拒绝邀请失败');
+      setMessage('这项配对邀请已拒绝，你和对方都可以重新寻找伙伴。');
+      await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '拒绝邀请失败'); }
+    finally { setBusy(false); }
+  }
+
+  async function saveHelperAction() {
+    setBusy(true); setError(''); setMessage('');
+    try {
+      const response = await fetch('/api/helper-action', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tricksterGuestId: helperTargetId, note: helperNote }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || '帮助记录保存失败');
+      setHelperTargetId(''); setHelperNote(''); setMessage('保护行动已秘密记录。');
+      await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '帮助记录保存失败'); }
+    finally { setBusy(false); }
+  }
+
+  async function requestMutualConfirmation(assignmentId: string) {
+    setBusy(true); setError(''); setMessage('');
+    try {
+      const response = await fetch('/api/mutual-confirmation', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'REQUEST', assignmentId, targetCode: mutualTargetCodes[assignmentId] }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || '确认邀请发送失败');
+      setMutualTargetCodes((current) => ({ ...current, [assignmentId]: '' }));
+      setMessage('确认邀请已发送，请让对方打开自己的页面处理。');
+      await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '确认邀请发送失败'); }
+    finally { setBusy(false); }
+  }
+
+  async function respondMutualConfirmation(confirmationId: string, accept: boolean) {
+    setBusy(true); setError(''); setMessage('');
+    try {
+      const response = await fetch('/api/mutual-confirmation', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'RESPOND', confirmationId, accept }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || '确认处理失败');
+      setMessage(accept ? '双方确认完成，对方的任务状态已经更新。' : '这项确认邀请已拒绝。');
+      await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '确认处理失败'); }
     finally { setBusy(false); }
   }
 
@@ -440,7 +507,7 @@ export default function GuestPage() {
   // Keep the reveal on screen until the guest explicitly dismisses it.
   if (data.guest.participation_mode === 'ACTIVE_PLAYER' && (!data.guest.drawn_at || revealedCard)) {
     const drawOpen = Boolean(data.game?.registration_open);
-    const role = revealedCard ? STORY_ROLE_LABELS[revealedCard.storyRole] ?? ROLE_LABELS[revealedCard.role] ?? ROLE_LABELS.guest : null;
+    const role = revealedCard ? STORY_ROLE_LABELS[revealedCard.storyRole] ?? (revealedCard.hiddenRole === 'CUPID_HELPER' ? { title: '丘比特的帮手', note: '你知道所有恶作剧者身份。请暗中保护他们，并在主页记录真实发生的帮助。' } : ROLE_LABELS[revealedCard.role] ?? ROLE_LABELS.guest) : null;
     return <main className="draw-shell"><section className="draw-stage">
       <div className="eyebrow">YOUR SECRET AWAITS</div>
       <h1>{revealedCard ? '命运之卡已经揭晓' : `${data.guest.name}，准备好了吗？`}</h1>
@@ -470,14 +537,17 @@ export default function GuestPage() {
     ? { title: '家庭荣誉宾客', note: '参与现场互动并累积个人积分；不领取秘密任务、隐藏身份或秘密线索。' }
     : data.guest.story_role !== 'NONE' && STORY_ROLE_LABELS[data.guest.story_role]
     ? STORY_ROLE_LABELS[data.guest.story_role]
+    : data.guest.hidden_role === 'CUPID_HELPER'
+    ? { title: '丘比特的帮手', note: '你知道所有恶作剧者的身份。暗中保护他们，并为真实发生的帮助留下秘密记录。' }
     : data.guest.is_hidden_spy
     ? { title: '丘比特的暗线恶作剧者', note: '你的阵营已经改变。请继续伪装成普通宾客，直到最终揭晓。' }
     : ROLE_LABELS[data.guest.role] ?? ROLE_LABELS.guest;
-  const rankedReward = data.assignments.find((assignment) => assignment.is_initial && assignment.completion_rank);
+  const rankedReward = data.game?.stage === 'task_round_1' ? undefined : data.assignments.find((assignment) => assignment.is_initial && assignment.completion_rank);
   const missionStory = data.missionStory;
-  const heartRelationship = missionStory?.relationships.find((relationship) => relationship.type === 'CUPID_ALLIANCE');
+  const symbolRelationshipType = missionStory?.symbolPairing?.symbol === 'STAR' ? 'STAR_ALLIANCE' : 'CUPID_ALLIANCE';
+  const symbolRelationship = missionStory?.relationships.find((relationship) => relationship.type === symbolRelationshipType && relationship.status !== 'REJECTED');
   const tricksterRelationship = missionStory?.relationships.find((relationship) => relationship.type === 'TRICKSTER_CONNECTION');
-  const canUseTricksterSignal = data.guest.role === 'spy' && ['task_round_2', 'group_game'].includes(data.game?.stage ?? '');
+  const canUseTricksterSignal = data.guest.role === 'spy' && data.game?.stage === 'task_round_1';
   return <main className="dashboard-shell">
     <section className="mission-hero">
       <div className="eyebrow">丘比特的婚礼考验</div>
@@ -493,11 +563,14 @@ export default function GuestPage() {
     {data.guest.is_hidden_spy && !data.game?.results_visible && identityVisible && <section className="reward-banner"><small>SECRET ROLE ACTIVATED</small><strong>你已成为丘比特的暗线恶作剧者</strong><p>不要向其他宾客展示本页。继续完成任务并隐藏真实阵营，身份只会在最终揭晓后公开。</p></section>}
     {rankedReward && <section className="reward-banner"><small>EARLY COMPLETION HONOR</small><strong>你是第 {rankedReward.completion_rank} 位完成首轮任务的宾客</strong><p>{rankedReward.reward_task_id && rankedReward.reward_clue_id ? `升级任务、${rankedReward.early_bonus_points ? '额外 1 分和' : ''}一条秘密线索已经发放。` : rankedReward.reward_task_id ? '升级任务已经发放，将在第二轮开放。' : '你的首轮任务已经记录。'}</p></section>}
     {isHonorGuest && <section className="section-card honor-participation-card"><div className="section-heading"><div><small>FAMILY PARTICIPATION</small><h2>家人参与区</h2></div><span>♡</span></div><p>你可以和大家一起参加现场互动，获得的个人积分会显示在上方并进入个人积分榜。</p><div className="honor-boundary-note"><strong>轻松参与</strong><span>系统不会向你发放秘密任务、隐藏阵营或秘密线索。</span></div></section>}
-    {isActivePlayer && missionStory?.heart && <section className="section-card story-connection-card"><div className="section-heading"><div><small>HEART MATCH</small><h2>爱心配对</h2></div><span>{missionStory.heart.side === 'LEFT' ? '♡｜' : missionStory.heart.side === 'RIGHT' ? '｜♡' : '♡'}</span></div><div className="player-code-card"><small>我的玩家编号</small><strong>{missionStory.playerCode}</strong><button type="button" className="mini-button" onClick={() => void navigator.clipboard?.writeText(missionStory.playerCode)}>复制编号</button></div><p className="muted">爱心卡编号：{missionStory.heart.code}。只在你确认对方可能匹配时交换玩家编号。</p>{missionStory.unlockedRole === 'LONELY_CUPID' ? <div className="story-unlock lonely"><strong>孤单丘比特</strong><p>你不是没有找到另一半——你就是帮助别人相遇的丘比特。后续能力由主办方现场公布。</p></div> : heartRelationship?.status === 'ACTIVE' ? <div className="story-unlock"><strong>丘比特联盟已成立</strong><p>你与 {heartRelationship.partnerName} 已完成双向确认。</p></div> : <div className="connection-form"><label htmlFor="heart-partner-code">对方的玩家编号</label><div><input id="heart-partner-code" value={connectionTargetCode} onChange={(event) => setConnectionTargetCode(event.target.value.toUpperCase())} maxLength={7} placeholder="例如 P012"/><button disabled={busy || offline || !/^P[0-9]{3,6}$/.test(connectionTargetCode)} onClick={() => void connectPlayer('CUPID_ALLIANCE')}>确认爱心</button></div>{heartRelationship?.status === 'PENDING' && <p>{heartRelationship.confirmedByMe ? `已提交，等待 ${heartRelationship.partnerName} 输入你的编号。` : `${heartRelationship.partnerName} 已提交你的编号，请输入对方编号完成确认。`}</p>}</div>}{missionStory.allianceClue && <div className="split-clue"><small>{missionStory.allianceClue.title} · 你的半条线索</small><strong>{missionStory.allianceClue.fragment}</strong><p>另一半只显示在联盟同伴的手机上，请交流后拼成完整信息。</p></div>}</section>}
-    {isActivePlayer && canUseTricksterSignal && missionStory && <section className="section-card story-connection-card trickster"><div className="section-heading"><div><small>CUPID'S CALL</small><h2>丘比特的召集令</h2></div><span>{missionStory.tricksterAttemptsUsed}/3</span></div><div className="player-code-card dark"><small>我的玩家编号</small><strong>{missionStory.playerCode}</strong><button type="button" className="mini-button" onClick={() => void navigator.clipboard?.writeText(missionStory.playerCode)}>复制编号</button></div><div className="signal-script"><small>暗号问句</small><strong>你觉得丘比特今天心情怎么样？</strong><small>正确回答</small><strong>他好像想开个玩笑。</strong></div>{tricksterRelationship?.status === 'ACTIVE' ? <div className="story-unlock"><strong>已找到同伴</strong><p>你和 {tricksterRelationship.partnerName} 已完成双向确认。继续隐藏身份，等待后续指令。</p></div> : <div className="connection-form"><label htmlFor="trickster-partner-code">暗号匹配后，输入对方玩家编号</label><div><input id="trickster-partner-code" value={connectionTargetCode} onChange={(event) => setConnectionTargetCode(event.target.value.toUpperCase())} maxLength={7} placeholder="例如 P012"/><button disabled={busy || offline || missionStory.tricksterAttemptsUsed >= 3 || !/^P[0-9]{3,6}$/.test(connectionTargetCode)} onClick={() => void connectPlayer('TRICKSTER_CONNECTION')}>秘密确认</button></div>{tricksterRelationship?.status === 'PENDING' && <p>{tricksterRelationship.confirmedByMe ? `已提交，等待 ${tricksterRelationship.partnerName} 输入你的编号。` : `${tricksterRelationship.partnerName} 已通过暗号找到你，请输入对方编号。`}</p>}<p>每位恶作剧者最多试探三位宾客。不要连续询问，也不要直接暴露身份。</p></div>}</section>}
+    {isActivePlayer && missionStory?.symbolPairing && <section className="section-card story-connection-card"><div className="section-heading"><div><small>{missionStory.symbolPairing.symbol} MATCH</small><h2>{missionStory.symbolPairing.symbol === 'HEART' ? '爱心配对' : '星星配对'}</h2></div><span>{missionStory.symbolPairing.symbol === 'HEART' ? '♡' : '☆'}</span></div><div className="player-code-card"><small>我的玩家编号</small><strong>{missionStory.playerCode}</strong><button type="button" className="mini-button" onClick={() => void navigator.clipboard?.writeText(missionStory.playerCode)}>复制编号</button></div><p className="muted">所有同图案玩家开局完全平等。你可以与任意一名尚未配对的同图案玩家组成联盟。</p>{missionStory.symbolPairing.status === 'UNPAIRED_FINAL' ? <div className="story-unlock lonely"><strong>{missionStory.symbolPairing.symbol === 'HEART' ? '孤单丘比特' : '领航星'}</strong><p>{missionStory.symbolPairing.symbol === 'HEART' ? '你就是帮助别人相遇的丘比特。任务已完成，并获得与成功配对者相同的积分。' : '你不属于某一个固定组合，而是为所有人指引方向。任务已完成。'}</p></div> : symbolRelationship?.status === 'ACTIVE' ? <div className="story-unlock"><strong>{missionStory.symbolPairing.symbol === 'HEART' ? '丘比特联盟' : '星光联盟'}已成立</strong><p>你与 {symbolRelationship.partnerName} 已完成双向确认。</p></div> : <div className="connection-form"><label htmlFor="symbol-partner-code">对方的玩家编号</label><div><input id="symbol-partner-code" value={connectionTargetCode} onChange={(event) => setConnectionTargetCode(event.target.value.toUpperCase())} maxLength={7} placeholder="例如 P012"/><button disabled={busy || offline || data.game?.stage !== 'task_round_1' || !/^P[0-9]{3,6}$/.test(connectionTargetCode)} onClick={() => void connectPlayer(symbolRelationshipType)}>{missionStory.symbolPairing.symbol === 'HEART' ? '邀请爱心伙伴' : '邀请星星伙伴'}</button></div>{symbolRelationship?.status === 'PENDING' && <div className="pending-connection"><p>{symbolRelationship.confirmedByMe ? `已提交，等待 ${symbolRelationship.partnerName} 输入你的编号。` : `${symbolRelationship.partnerName} 邀请你配对；输入对方编号即可接受。`}</p><button type="button" className="text-button" disabled={busy || offline} onClick={() => void rejectConnection(symbolRelationship.id)}>拒绝这项邀请</button></div>}</div>}</section>}
+    {isActivePlayer && canUseTricksterSignal && missionStory && <section className="section-card story-connection-card trickster"><div className="section-heading"><div><small>CUPID'S CALL</small><h2>丘比特的召集令</h2></div><span>{missionStory.tricksterAttemptsUsed}/{missionStory.tricksterMaxAttempts}</span></div><div className="player-code-card dark"><small>我的玩家编号</small><strong>{missionStory.playerCode}</strong><button type="button" className="mini-button" onClick={() => void navigator.clipboard?.writeText(missionStory.playerCode)}>复制编号</button></div><div className="signal-script"><small>暗号问句</small><strong>你觉得丘比特今天心情怎么样？</strong><small>正确回答</small><strong>他好像想开个玩笑。</strong></div>{tricksterRelationship?.status === 'ACTIVE' ? <div className="story-unlock"><strong>已找到同伴</strong><p>你和 {tricksterRelationship.partnerName} 已完成双向确认。继续隐藏身份。</p></div> : <div className="connection-form"><label htmlFor="trickster-partner-code">暗号匹配后，输入对方玩家编号</label><div><input id="trickster-partner-code" value={connectionTargetCode} onChange={(event) => setConnectionTargetCode(event.target.value.toUpperCase())} maxLength={7} placeholder="例如 P012"/><button disabled={busy || offline || missionStory.tricksterAttemptsUsed >= missionStory.tricksterMaxAttempts || !/^P[0-9]{3,6}$/.test(connectionTargetCode)} onClick={() => void connectPlayer('TRICKSTER_CONNECTION')}>秘密确认</button></div>{tricksterRelationship?.status === 'PENDING' && <p>{tricksterRelationship.confirmedByMe ? `已提交，等待 ${tricksterRelationship.partnerName} 输入你的编号。` : `${tricksterRelationship.partnerName} 已通过暗号找到你，请输入对方编号。`}</p>}<p>本阶段最多试探 {missionStory.tricksterMaxAttempts} 位宾客。不要连续询问，也不要直接暴露身份。</p></div>}</section>}
+    {isActivePlayer && data.guest.hidden_role === 'CUPID_HELPER' && missionStory?.helper && <section className="section-card helper-secret-card"><div className="section-heading"><div><small>CUPID'S HELPER</small><h2>秘密保护记录</h2></div><span>{missionStory.helper.actions.length}</span></div><p className="muted">下列名单只对你可见。只有真实发生且被确认的帮助，才会进入最终计分。</p><div className="helper-spy-list">{missionStory.helper.tricksters.map((trickster) => <div key={trickster.id}><strong>{trickster.name}</strong><span>{trickster.team}</span></div>)}</div><div className="submission-form"><label htmlFor="helper-target">这次帮助了谁</label><select id="helper-target" value={helperTargetId} onChange={(event) => setHelperTargetId(event.target.value)}><option value="">请选择恶作剧者</option>{missionStory.helper.tricksters.map((trickster) => <option key={trickster.id} value={trickster.id}>{trickster.name}</option>)}</select><label htmlFor="helper-note">发生了什么</label><textarea id="helper-note" value={helperNote} onChange={(event) => setHelperNote(event.target.value)} maxLength={500} placeholder="简短记录你如何帮助对方隐藏身份"/><button disabled={busy || offline || !helperTargetId || !helperNote.trim()} onClick={() => void saveHelperAction()}>秘密保存帮助记录</button></div>{missionStory.helper.actions.map((action) => <div className="submission-note" key={action.id}><strong>{action.tricksterName}</strong><span>{action.note}</span></div>)}</section>}
+    {isActivePlayer && missionStory?.mutualConfirmations.some((confirmation) => confirmation.direction === 'INCOMING' && confirmation.status === 'PENDING') && <section className="section-card mutual-confirmation-card"><div className="section-heading"><div><small>FRIEND CONFIRMATION</small><h2>好友确认请求</h2></div><span>待处理</span></div>{missionStory.mutualConfirmations.filter((confirmation) => confirmation.direction === 'INCOMING' && confirmation.status === 'PENDING').map((confirmation) => <div className="approval-row" key={confirmation.id}><div className="approval-copy"><strong>{confirmation.otherGuestName}</strong><p>对方表示你们今天第一次见面，并已完成互相介绍。请按真实情况确认。</p></div><div className="approval-actions"><button disabled={busy || offline} onClick={() => void respondMutualConfirmation(confirmation.id, true)}>确实完成</button><button className="danger" disabled={busy || offline} onClick={() => void respondMutualConfirmation(confirmation.id, false)}>不符合</button></div></div>)}</section>}
+    {isActivePlayer && data.assignments.some((assignment) => assignment.task.mission_code === 'P1-SOCIAL-001' && ['assigned','rejected'].includes(assignment.status)) && <section className="section-card mutual-confirmation-card"><div className="section-heading"><div><small>MUTUAL PROOF</small><h2>请新朋友确认</h2></div><span>无需照片</span></div><p className="muted">如果不方便合影，可以输入对方的玩家编号。对方确认后，任务会自动完成；同一位宾客最多帮助两人验证。</p>{data.assignments.filter((assignment) => assignment.task.mission_code === 'P1-SOCIAL-001' && ['assigned','rejected'].includes(assignment.status)).map((assignment) => { const outgoing = missionStory?.mutualConfirmations.find((confirmation) => confirmation.assignmentId === assignment.id && confirmation.direction === 'OUTGOING' && confirmation.status === 'PENDING'); return <div className="connection-form" key={assignment.id}>{outgoing ? <p>已邀请 {outgoing.otherGuestName}，等待对方确认。</p> : <><label htmlFor={`mutual-code-${assignment.id}`}>新朋友的玩家编号</label><div><input id={`mutual-code-${assignment.id}`} value={mutualTargetCodes[assignment.id] ?? ''} onChange={(event) => setMutualTargetCodes((current) => ({ ...current, [assignment.id]: event.target.value.toUpperCase() }))} maxLength={7} placeholder="例如 P012"/><button disabled={busy || offline || !/^P[0-9]{3,6}$/.test(mutualTargetCodes[assignment.id] ?? '')} onClick={() => void requestMutualConfirmation(assignment.id)}>发送确认邀请</button></div></>}</div>; })}</section>}
     {isActivePlayer && <section className="section-card"><div className="section-heading"><div><small>SECRET MISSIONS</small><h2>我的秘密任务</h2></div><span>{data.assignments.length}</span></div>
       {data.game?.task_catalog_mode === 'demo' && <div className="demo-task-note"><strong>当前是演示任务</strong><p>用于测试领取、提交和审核流程，不代表婚礼当天的最终任务设计。</p></div>}
-      {data.assignments.length === 0 ? <div className="empty-state">本轮任务尚未开放，先享受婚礼吧。</div> : data.assignments.map((assignment, index) => <details className="mission-item" key={assignment.id} open={expandedAssignments[assignment.id] ?? index === 0} onToggle={(event) => { const open = event.currentTarget.open; setExpandedAssignments((current) => current[assignment.id] === open ? current : { ...current, [assignment.id]: open }); }}><summary className="mission-summary"><span className="mission-number">{String(index + 1).padStart(2, '0')}</span><span className="mission-summary-copy"><span className="mission-meta"><span>{assignment.task.score_policy === 'NO_PERSONAL' || (assignment.is_initial && data.guest.role === 'spy') ? '完成记录 · 不计个人分' : `${assignment.task.points} 分`}</span><span className={`status ${assignment.status}`}>{STATUS_LABELS[assignment.status] ?? assignment.status}</span></span><strong>{assignment.task.title}</strong></span><span className="mission-chevron" aria-hidden="true">⌄</span></summary><div className="mission-body"><p>{assignment.task.description}</p>{!isTaskActionOpenAtStage(assignment.task.stage, data.game?.stage) && (assignment.status === 'assigned' || assignment.status === 'rejected') && <div className="task-feedback">本环节已停止提交；如需补录，请到任务站联系工作人员。</div>}<div className="verification-note"><strong>如何验证</strong><span>{assignment.task.verification_method}</span></div>{assignment.evidence_url && <figure className="evidence-preview"><a href={assignment.evidence_url} target="_blank" rel="noreferrer"><img src={assignment.evidence_url} alt={`${assignment.task.title}的验证照片`} loading="lazy"/></a><figcaption>验证照片 · 仅你和工作人员可见</figcaption></figure>}{isTaskActionOpenAtStage(assignment.task.stage, data.game?.stage) && (assignment.status === 'assigned' || assignment.status === 'rejected') && assignment.task.mechanic === 'STANDARD' && <div className="evidence-controls"><label htmlFor={`evidence-${assignment.id}`}>{assignment.evidence_url ? '更换验证照片' : '添加验证照片（选填）'}</label><input id={`evidence-${assignment.id}`} type="file" accept="image/*" disabled={offline || evidenceBusyId === assignment.id} onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void uploadEvidence(assignment.id, file); }}/>{assignment.evidence_url && <button type="button" className="text-button" disabled={offline || evidenceBusyId === assignment.id} onClick={() => { if (window.confirm('删除这张验证照片？')) void removeEvidence(assignment.id); }}>删除照片</button>}{evidenceBusyId === assignment.id && <small>正在压缩并安全上传…</small>}</div>}{assignment.completion_note && <div className="submission-note"><strong>我的完成说明</strong><span>{assignment.completion_note}</span></div>}{assignment.status === 'approved' && assignment.verification_note && <div className="submission-note approved"><strong>任务站核验记录</strong><span>{assignment.verification_note}</span></div>}{assignment.status === 'rejected' && <div className="task-feedback">任务站留言：{assignment.rejection_reason || '请补充验证后再次提交。'}</div>}{isTaskActionOpenAtStage(assignment.task.stage, data.game?.stage) && (assignment.status === 'assigned' || assignment.status === 'rejected') && assignment.task.mechanic !== 'HEART_MATCH' && assignment.task.mechanic !== 'TRICKSTER_SIGNAL' && <div className="submission-form"><label htmlFor={`completion-note-${assignment.id}`}>完成说明（选填）</label><textarea id={`completion-note-${assignment.id}`} value={completionNotes[assignment.id] ?? assignment.completion_note ?? ''} onChange={(event) => setCompletionNotes({ ...completionNotes, [assignment.id]: event.target.value })} maxLength={500} placeholder="例如：已完成合影，照片会在任务站出示。"/><button disabled={busy || offline || evidenceBusyId === assignment.id} onClick={() => submit(assignment.id, completionNotes[assignment.id] ?? assignment.completion_note ?? '')}>{offline ? '联网后可提交' : assignment.status === 'rejected' ? '补充完成 · 再次提交' : '我已完成 · 提交验证'}</button></div>}</div></details>)}
+      {data.assignments.length === 0 ? <div className="empty-state">本轮任务尚未开放，先享受婚礼吧。</div> : data.assignments.map((assignment, index) => <details className="mission-item" key={assignment.id} open={expandedAssignments[assignment.id] ?? index === 0} onToggle={(event) => { const open = event.currentTarget.open; setExpandedAssignments((current) => current[assignment.id] === open ? current : { ...current, [assignment.id]: open }); }}><summary className="mission-summary"><span className="mission-number">{String(index + 1).padStart(2, '0')}</span><span className="mission-summary-copy"><span className="mission-meta"><span>{assignment.task.score_policy === 'NO_PERSONAL' || (assignment.is_initial && data.guest.role === 'spy') ? '完成记录 · 不计个人分' : `${assignment.task.points} 分`}</span><span className={`status ${assignment.status}`}>{STATUS_LABELS[assignment.status] ?? assignment.status}</span></span><strong>{assignment.task.title}</strong></span><span className="mission-chevron" aria-hidden="true">⌄</span></summary><div className="mission-body"><p>{assignment.task.description}</p>{!isTaskActionOpenAtStage(assignment.task.stage, data.game?.stage) && (assignment.status === 'assigned' || assignment.status === 'rejected') && <div className="task-feedback">本环节已停止提交；如需补录，请到任务站联系工作人员。</div>}<div className="verification-note"><strong>如何验证</strong><span>{assignment.task.verification_method}</span></div>{assignment.evidence_url && <figure className="evidence-preview"><a href={assignment.evidence_url} target="_blank" rel="noreferrer"><img src={assignment.evidence_url} alt={`${assignment.task.title}的验证照片`} loading="lazy"/></a><figcaption>验证照片 · 仅你和工作人员可见</figcaption></figure>}{isTaskActionOpenAtStage(assignment.task.stage, data.game?.stage) && (assignment.status === 'assigned' || assignment.status === 'rejected') && assignment.task.mechanic === 'STANDARD' && <div className="evidence-controls"><label htmlFor={`evidence-${assignment.id}`}>{assignment.evidence_url ? '更换验证照片' : '添加验证照片（选填）'}</label><input id={`evidence-${assignment.id}`} type="file" accept="image/*" disabled={offline || evidenceBusyId === assignment.id} onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void uploadEvidence(assignment.id, file); }}/>{assignment.evidence_url && <button type="button" className="text-button" disabled={offline || evidenceBusyId === assignment.id} onClick={() => { if (window.confirm('删除这张验证照片？')) void removeEvidence(assignment.id); }}>删除照片</button>}{evidenceBusyId === assignment.id && <small>正在压缩并安全上传…</small>}</div>}{assignment.completion_note && <div className="submission-note"><strong>我的完成说明</strong><span>{assignment.completion_note}</span></div>}{assignment.status === 'approved' && assignment.verification_note && <div className="submission-note approved"><strong>任务站核验记录</strong><span>{assignment.verification_note}</span></div>}{assignment.status === 'rejected' && <div className="task-feedback">任务站留言：{assignment.rejection_reason || '请补充验证后再次提交。'}</div>}{isTaskActionOpenAtStage(assignment.task.stage, data.game?.stage) && (assignment.status === 'assigned' || assignment.status === 'rejected') && !['HEART_MATCH','STAR_MATCH','TRICKSTER_SIGNAL','INSTANT_BONUS'].includes(assignment.task.mechanic) && <div className="submission-form"><label htmlFor={`completion-note-${assignment.id}`}>完成说明（选填）</label><textarea id={`completion-note-${assignment.id}`} value={completionNotes[assignment.id] ?? assignment.completion_note ?? ''} onChange={(event) => setCompletionNotes({ ...completionNotes, [assignment.id]: event.target.value })} maxLength={500} placeholder="例如：已完成合影，照片会在任务站出示。"/><button disabled={busy || offline || evidenceBusyId === assignment.id} onClick={() => submit(assignment.id, completionNotes[assignment.id] ?? assignment.completion_note ?? '')}>{offline ? '联网后可提交' : assignment.status === 'rejected' ? '补充完成 · 再次提交' : '我已完成 · 提交验证'}</button></div>}</div></details>)}
     </section>}
     {isActivePlayer && <section className="section-card"><div className="section-heading"><div><small>SPY CLUES</small><h2>已解锁线索</h2></div><span>{data.clues.length}</span></div>{data.clues.length === 0 ? <div className="empty-state">完成任务后，线索会在这里出现。</div> : data.clues.map((clue) => <div className="clue" key={clue.id}><strong>{clue.title}</strong><p>{clue.content}</p></div>)}</section>}
     {isActivePlayer && data.game?.voting_open && <section className="section-card"><div className="section-heading"><div><small>FINAL VOTE</small><h2>谁是恶作剧者？</h2></div><span>第 {data.game.voting_round} 轮</span></div><p className="muted">只能选择本队宾客。每人只有一次机会，确认后不能改票。</p><div className="vote-grid">{data.candidates.filter((candidate) => candidate.id !== data.guest.id).map((candidate) => <button disabled={busy || offline || Boolean(data.existingVote)} className={data.existingVote === candidate.id ? 'vote-choice selected' : 'vote-choice'} key={candidate.id} onClick={() => vote(candidate.id)}>{data.existingVote === candidate.id ? '✓ ' : ''}{candidate.name}</button>)}</div>{data.existingVote && <p className="vote-offline-note">你的本轮投票已安全保存。</p>}{offline && <p className="vote-offline-note">恢复网络后才能提交投票。</p>}</section>}
