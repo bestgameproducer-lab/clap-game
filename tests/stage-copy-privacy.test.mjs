@@ -2,17 +2,20 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-test('admin and guests share wedding-stage names and visible default prompts', async () => {
-  const [stages, guest, admin] = await Promise.all([
+test('admin, guests, and scoreboard share wedding-stage names and visible default prompts', async () => {
+  const [stages, guest, admin, scoreboard] = await Promise.all([
     readFile(new URL('../lib/game-stages.ts', import.meta.url), 'utf8'),
     readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app/admin/page.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../app/scoreboard/page.tsx', import.meta.url), 'utf8'),
   ]);
   for (const stage of ['registration', 'waiting', 'task_round_1', 'task_round_2', 'group_game', 'voting', 'results']) {
     assert.match(stages, new RegExp(`${stage}: \\{`));
   }
   assert.match(guest, /gameStageCopy\(data\.game\?\.stage\)/);
   assert.match(admin, /GAME_STAGE_OPTIONS, gameStageCopy/);
+  assert.match(scoreboard, /gameStageCopy\(data\.stage\)\.label/);
+  assert.doesNotMatch(scoreboard, /const STAGE_LABELS/);
   assert.match(guest, /stage-default-prompt/);
   assert.match(admin, /宾客端默认提示/);
 });

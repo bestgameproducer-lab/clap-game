@@ -47,8 +47,17 @@ export function isTaskWaitingForStage(taskStage: string | null | undefined, game
   return required > current;
 }
 
+export function isPhaseOneInteractionOpenAtStage(gameStage: string | null | undefined): boolean {
+  return ['registration', 'waiting', 'task_round_2', 'group_game'].includes(gameStage ?? '');
+}
+
+export function isTaskPausedDuringCeremony(taskStage: string | null | undefined, gameStage: string | null | undefined): boolean {
+  return taskStage === 'task_round_1' && gameStage === 'task_round_1';
+}
+
 export function isTaskActionOpenAtStage(taskStage: string | null | undefined, gameStage: string | null | undefined): boolean {
-  if (!TASK_STAGES.includes(taskStage as (typeof TASK_STAGES)[number])) return false;
-  if (!TASK_STAGES.includes(gameStage as (typeof TASK_STAGES)[number])) return false;
-  return isTaskVisibleAtStage(taskStage, gameStage);
+  if (taskStage === 'task_round_1') return isPhaseOneInteractionOpenAtStage(gameStage);
+  if (taskStage === 'task_round_2') return ['task_round_2', 'group_game'].includes(gameStage ?? '');
+  if (taskStage === 'group_game') return gameStage === 'group_game';
+  return false;
 }

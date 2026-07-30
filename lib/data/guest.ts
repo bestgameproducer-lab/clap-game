@@ -10,7 +10,7 @@ export async function submitGuestAssignment(assignmentId: string, guestId: strin
     p_assignment_id: assignmentId, p_guest_id: guestId, p_completion_note: completionNote,
   });
   if (error?.message.includes('assignment_not_assignable')) throw new ApiError(409, '任务状态不可提交');
-  if (error?.message.includes('assignment_stage_closed')) throw new ApiError(409, '当前环节不能提交这项任务，请联系任务站');
+  if (error?.message.includes('assignment_stage_closed')) throw new ApiError(409, '当前环节暂停或已关闭提交；仪式前、仪式结束后至最终投票前开放');
   if (error) throw new Error(`Unable to submit assignment: ${error.message}`);
 }
 
@@ -73,11 +73,11 @@ export async function requestGuestConnection(guestId: string, targetCode: string
   if (error?.message.includes('connection_guest_not_ready')) throw new ApiError(409, '请先完成抽卡');
   if (error?.message.includes('connection_target_not_found')) throw new ApiError(404, '没有找到这个玩家编号');
   if (error?.message.includes('connection_self_target')) throw new ApiError(400, '不能输入自己的玩家编号');
-  if (error?.message.includes('symbol_connection_stage_closed')) throw new ApiError(409, '图案配对只在第一阶段开放');
+  if (error?.message.includes('symbol_connection_stage_closed')) throw new ApiError(409, '当前环节暂停或已关闭配对；仪式前、仪式结束后至最终投票前开放');
   if (error?.message.includes('symbol_holder_required')) throw new ApiError(409, '只有持有相同图案的玩家可以配对');
   if (error?.message.includes('symbol_player_unavailable')) throw new ApiError(409, '你或对方已经完成正式配对');
   if (error?.message.includes('symbol_pending_conflict')) throw new ApiError(409, '你或对方已有一项待处理的配对邀请');
-  if (error?.message.includes('trickster_connection_stage_closed')) throw new ApiError(409, '丘比特的召集令尚未开放或已经结束');
+  if (error?.message.includes('trickster_connection_stage_closed')) throw new ApiError(409, '当前环节暂停或已关闭秘密确认；仪式前、仪式结束后至最终投票前开放');
   if (error?.message.includes('trickster_connection_forbidden')) throw new ApiError(403, '当前身份不能使用这项秘密确认');
   if (error?.message.includes('trickster_attempt_limit')) throw new ApiError(409, '本阶段的试探机会已经用完');
   if (error) throw new Error(`Unable to request player connection: ${error.message}`);
@@ -99,6 +99,7 @@ export async function recordCupidHelperAction(helperGuestId: string, tricksterGu
     p_helper_guest_id: helperGuestId, p_trickster_guest_id: tricksterGuestId, p_note: note,
   });
   if (error?.message.includes('helper_action_forbidden')) throw new ApiError(403, '当前身份不能记录保护行动');
+  if (error?.message.includes('helper_action_stage_closed')) throw new ApiError(409, '当前环节暂停或已关闭保存；仪式前、仪式结束后至最终投票前开放');
   if (error?.message.includes('trickster_not_found')) throw new ApiError(404, '找不到这位恶作剧者');
   if (error) throw new Error(`Unable to record helper action: ${error.message}`);
 }
@@ -111,6 +112,7 @@ export async function requestAssignmentMutualConfirmation(assignmentId: string, 
   if (error?.message.includes('mutual_confirmation_not_supported')) throw new ApiError(409, '这项任务不支持双方软件确认');
   if (error?.message.includes('mutual_confirmer_limit')) throw new ApiError(409, '对方已经帮助两位玩家确认同类任务，请换一位新朋友');
   if (error?.message.includes('mutual_confirmation_pending')) throw new ApiError(409, '已有一项确认邀请正在等待对方处理');
+  if (error?.message.includes('mutual_confirmation_stage_closed')) throw new ApiError(409, '当前环节暂停或已关闭确认；仪式前、仪式结束后至最终投票前开放');
   if (error) throw new Error(`Unable to request mutual confirmation: ${error.message}`);
 }
 
@@ -121,6 +123,7 @@ export async function respondAssignmentMutualConfirmation(confirmationId: string
   if (error?.message.includes('mutual_confirmation_not_found')) throw new ApiError(404, '找不到这项确认邀请');
   if (error?.message.includes('mutual_confirmation_forbidden')) throw new ApiError(403, '不能处理其他宾客的确认邀请');
   if (error?.message.includes('mutual_confirmation_already_handled')) throw new ApiError(409, '这项邀请已经处理');
+  if (error?.message.includes('mutual_confirmation_stage_closed')) throw new ApiError(409, '当前环节暂停或已关闭确认；仪式前、仪式结束后至最终投票前开放');
   if (error) throw new Error(`Unable to respond to mutual confirmation: ${error.message}`);
 }
 

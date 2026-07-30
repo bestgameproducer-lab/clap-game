@@ -1,14 +1,17 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { isTaskActionOpenAtStage } from '../lib/game-rules.ts';
+import { isPhaseOneInteractionOpenAtStage, isTaskActionOpenAtStage, isTaskPausedDuringCeremony } from '../lib/game-rules.ts';
 
 const migrationUrl = new URL('../supabase/migrations/202607290033_guest_action_stage_guards.sql', import.meta.url);
+const ceremonyMigrationUrl = new URL('../supabase/migrations/202607300006_align_submission_windows_with_ceremony.sql', import.meta.url);
 
-test('guest task actions are open only while their task stage is active', () => {
-  assert.equal(isTaskActionOpenAtStage('task_round_1', 'registration'), false);
-  assert.equal(isTaskActionOpenAtStage('task_round_1', 'task_round_1'), true);
+test('phase-one submissions open before and after the ceremony but pause during it', () => {
+  assert.equal(isTaskActionOpenAtStage('task_round_1', 'registration'), true);
+  assert.equal(isTaskActionOpenAtStage('task_round_1', 'waiting'), true);
+  assert.equal(isTaskActionOpenAtStage('task_round_1', 'task_round_1'), false);
   assert.equal(isTaskActionOpenAtStage('task_round_1', 'task_round_2'), true);
+  assert.equal(isTaskActionOpenAtStage('task_round_1', 'group_game'), true);
   assert.equal(isTaskActionOpenAtStage('task_round_2', 'task_round_1'), false);
   assert.equal(isTaskActionOpenAtStage('task_round_2', 'group_game'), true);
   assert.equal(isTaskActionOpenAtStage('group_game', 'group_game'), true);
@@ -17,6 +20,25 @@ test('guest task actions are open only while their task stage is active', () => 
   assert.equal(isTaskActionOpenAtStage(undefined, 'task_round_1'), false);
   assert.equal(isTaskActionOpenAtStage('unexpected', 'task_round_1'), false);
   assert.equal(isTaskActionOpenAtStage('task_round_1', 'unexpected'), false);
+  assert.equal(isPhaseOneInteractionOpenAtStage('registration'), true);
+  assert.equal(isPhaseOneInteractionOpenAtStage('waiting'), true);
+  assert.equal(isPhaseOneInteractionOpenAtStage('task_round_1'), false);
+  assert.equal(isPhaseOneInteractionOpenAtStage('task_round_2'), true);
+  assert.equal(isTaskPausedDuringCeremony('task_round_1', 'task_round_1'), true);
+  assert.equal(isTaskPausedDuringCeremony('task_round_2', 'task_round_1'), false);
+});
+
+test('database follows the real ceremony submission windows', async () => {
+  const migration = await readFile(ceremonyMigrationUrl, 'utf8');
+  assert.match(migration, /select p_stage in \('registration','waiting','task_round_2','group_game'\)/);
+  assert.match(migration, /v_task_stage='task_round_1' and phase_one_interactions_open\(v_game_stage\)/);
+  assert.equal((migration.match(/if not phase_one_interactions_open\(v_stage\)/g) ?? []).length, 5);
+  const setStage = migration.slice(migration.indexOf('create or replace function set_game_stage'), migration.indexOf('create or replace function set_game_flag'));
+  assert.doesNotMatch(setStage, /finalize_phase_one_content/);
+  const setFlag = migration.slice(migration.indexOf('create or replace function set_game_flag'));
+  assert.match(setFlag, /if v_state\.phase_one_completed_at is null then\s+perform finalize_phase_one_content\(p_actor\)/);
+  assert.match(migration, /a\.status in\('assigned','rejected'\)/);
+  assert.doesNotMatch(migration, /a\.status in\('assigned','submitted','rejected'\)/);
 });
 
 test('database gates new draws and task submissions with locked game state', async () => {
@@ -53,7 +75,8 @@ test('mobile guest page explains closed action windows', async () => {
   assert.match(page, /isTaskActionOpenAtStage/);
   assert.match(page, /isTaskWaitingForStage/);
   assert.match(page, /抽卡入口暂未开放/);
-  assert.match(page, /任务已领取。请先记住内容，等待主持人宣布本轮开始后再执行并提交/);
+  assert.match(page, /婚礼仪式进行中，照片上传和任务提交暂时暂停；仪式结束后会自动恢复/);
+  assert.match(page, /照片上传、任务提交和玩家确认暂时暂停/);
   assert.match(page, /本环节已停止提交/);
   assert.match(evidence, /task:tasks!assignments_task_id_fkey\(stage\)/);
   assert.match(evidence, /isTaskActionOpenAtStage\(task\?\.stage, game\?\.stage\)/);

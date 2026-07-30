@@ -20,7 +20,7 @@ async function requireEditableGuestAssignment(assignmentId: string, guestId: str
   if (!data) throw new ApiError(404, '找不到任务');
   if (!['assigned', 'rejected'].includes(data.status)) throw new ApiError(409, '任务已提交，若需更换照片请先联系任务站退回');
   const task = Array.isArray(data.task) ? data.task[0] : data.task;
-  if (!isTaskActionOpenAtStage(task?.stage, game?.stage)) throw new ApiError(409, '当前环节不能更改任务照片，请联系任务站');
+  if (!isTaskActionOpenAtStage(task?.stage, game?.stage)) throw new ApiError(409, '当前环节暂停或已关闭照片上传；仪式前、仪式结束后至最终投票前开放');
 }
 
 async function requireEditableStaffAssignment(assignmentId: string) {
