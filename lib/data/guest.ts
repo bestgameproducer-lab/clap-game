@@ -1,5 +1,6 @@
 import 'server-only';
 import { ApiError } from '../errors';
+import { buildGuestPointLedger, buildGuestTeamScores } from '../guest-score-core';
 import { isAssignmentVisibleAtStage } from '../game-rules';
 import { buildPublishedTeamResults } from '../result-core';
 import { getSupabaseAdmin } from '../supabase';
@@ -151,8 +152,22 @@ export async function getGuestView(guestId: string) {
   ]);
   if (guestError || !guest) throw new ApiError(401, '登录已失效');
   if (gameError || !game) throw new Error(`Unable to load game state: ${gameError?.message ?? 'missing row'}`);
+  const teamScoresVisible = ['group_game', 'voting', 'results'].includes(game.stage);
+  const [pointLedgerResult, teamPointResult] = await Promise.all([
+    db.from('points_ledger').select('id,assignment_id,amount,reason,created_at').eq('guest_id', guestId).order('created_at', { ascending: false }).order('id', { ascending: false }),
+    teamScoresVisible
+      ? db.from('team_points_ledger').select('team,amount')
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (pointLedgerResult.error || teamPointResult.error) {
+    throw new Error(`Unable to load guest scores: ${pointLedgerResult.error?.message ?? teamPointResult.error?.message}`);
+  }
   if (guest.participation_mode !== 'ACTIVE_PLAYER') {
-    return { guest, assignments: [], clues: [], game, candidates: [], existingVote: null, results: null };
+    return {
+      guest, assignments: [], clues: [], game, candidates: [], existingVote: null, results: null,
+      pointLedger: buildGuestPointLedger(pointLedgerResult.data ?? [], [], game.results_visible),
+      teamScores: teamScoresVisible ? buildGuestTeamScores(teamPointResult.data ?? []) : [],
+    };
   }
   const results = await Promise.all([
     db.from('assignments').select('id,status,is_initial,completion_rank,early_bonus_points,reward_task_id,reward_clue_id,completion_note,verification_note,verified_at,evidence_path,evidence_uploaded_at,rejection_reason,task:tasks!assignments_task_id_fkey(title,description,verification_method,points,category,stage,mission_code,mechanic,score_policy)').eq('guest_id', guestId).neq('status', 'cancelled').order('created_at', { ascending: false }).order('id', { ascending: false }),
@@ -240,6 +255,8 @@ export async function getGuestView(guestId: string) {
   return {
     guest,
     assignments: signedVisibleAssignments,
+    pointLedger: buildGuestPointLedger(pointLedgerResult.data ?? [], results[0].data ?? [], game.results_visible),
+    teamScores: teamScoresVisible ? buildGuestTeamScores(teamPointResult.data ?? []) : [],
     clues: (results[1].data ?? []).map((item: { id: string; clue: { title: string; content: string } | { title: string; content: string }[] | null }) => ({
       id: item.id,
       title: Array.isArray(item.clue) ? item.clue[0]?.title : item.clue?.title,
