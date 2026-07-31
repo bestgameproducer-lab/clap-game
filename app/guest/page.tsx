@@ -9,9 +9,11 @@ import { isPlayerCode, normalizePlayerCode } from '@/lib/player-code';
 import { useLiveRefresh } from '@/lib/use-live-refresh';
 
 const GUEST_CACHE_KEY = 'wedding-guest-session-cache-v1';
+const PENDING_CONNECTION_MESSAGE = '你的编号确认已提交，等待对方输入你的玩家编号。';
 
 type RegistrationGuest = { id: string; name: string; loginName: string; hasPassword: boolean };
 type SecretCard = { team: string; role: string; storyRole: string; task: { id: string; title: string; description: string; verificationMethod: string; points: number }; drawnAt: string };
+type ConnectionRelationshipType = 'CUPID_ALLIANCE' | 'STAR_ALLIANCE' | 'TRICKSTER_CONNECTION';
 type GuestData = {
   guest: { id: string; name: string; team: string; role: string; is_hidden_spy: boolean; points: number; drawn_at: string | null; special_card_revealed_at: string | null; participation_mode: 'ACTIVE_PLAYER' | 'HONOR_GUEST' | 'PRINCIPAL'; relationship: string; story_role: string; eligible_for_mission: boolean; eligible_for_secret_role: boolean; eligible_for_personal_score: boolean; special_card_title: string; special_card_body: string; player_code: string; unlocked_role: string };
   assignments: Array<{ id: string; status: string; is_initial: boolean; completion_rank: number | null; early_bonus_points: number; reward_task_id: string | null; reward_clue_id: string | null; completion_note: string; verification_note: string; verified_at: string | null; evidence_uploaded_at: string | null; evidence_url: string | null; rejection_reason: string | null; task: { title: string; description: string; verification_method: string; points: number; category: string; stage: string; mission_code: string | null; mechanic: string; score_policy: string } }>;
@@ -32,7 +34,7 @@ type GuestData = {
     playerCode: string;
     unlockedRole: string;
     symbolPairing: null | { symbol: 'HEART' | 'STAR'; status: 'AVAILABLE' | 'PENDING' | 'PAIRED' | 'UNPAIRED_FINAL'; fragmentSide: 'LEFT' | 'RIGHT' | null; pendingRelationshipId: string | null; finalizedAt: string | null };
-    relationships: Array<{ id: string; type: 'CUPID_ALLIANCE' | 'STAR_ALLIANCE' | 'TRICKSTER_CONNECTION'; status: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'REVEALED'; partnerName: string; confirmedByMe: boolean; confirmedByPartner: boolean; activatedAt: string | null }>;
+    relationships: Array<{ id: string; type: ConnectionRelationshipType; status: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'REVEALED'; partnerName: string; confirmedByMe: boolean; confirmedByPartner: boolean; activatedAt: string | null }>;
     tricksterAttemptsUsed: number;
     tricksterMaxAttempts: number;
     mutualConfirmations: Array<{ id: string; assignmentId: string; direction: 'INCOMING' | 'OUTGOING'; otherGuestName: string; status: 'PENDING' | 'ACTIVE' | 'REJECTED'; createdAt: string }>;
@@ -109,6 +111,7 @@ export default function GuestPage() {
   const [contentNotice, setContentNotice] = useState<{ title: string; detail: string } | null>(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [pendingConnectionType, setPendingConnectionType] = useState<ConnectionRelationshipType | null>(null);
   const [completionNotes, setCompletionNotes] = useState<Record<string, string>>({});
   const [evidenceBusyId, setEvidenceBusyId] = useState<string | null>(null);
   const [connectionTargetCode, setConnectionTargetCode] = useState('');
@@ -227,6 +230,19 @@ export default function GuestPage() {
   }, [secretReaderOpen, data?.guest.role, data?.game?.results_visible]);
 
   useLiveRefresh(async () => { if (!manualRefreshRef.current) await load(); }, undefined, Boolean(data));
+
+  useEffect(() => {
+    if (!data || !pendingConnectionType || message !== PENDING_CONNECTION_MESSAGE) return;
+    const stillWaiting = data.missionStory?.relationships.some((relationship) => (
+      relationship.type === pendingConnectionType
+      && relationship.status === 'PENDING'
+      && relationship.confirmedByMe
+    ));
+    if (!stillWaiting) {
+      setMessage('');
+      setPendingConnectionType(null);
+    }
+  }, [data, message, pendingConnectionType]);
 
   useEffect(() => () => {
     if (refreshNoticeTimerRef.current !== null) window.clearTimeout(refreshNoticeTimerRef.current);
@@ -436,7 +452,7 @@ export default function GuestPage() {
     } finally { setDrawing(false); }
   }
 
-  async function connectPlayer(relationshipType: 'CUPID_ALLIANCE' | 'STAR_ALLIANCE' | 'TRICKSTER_CONNECTION') {
+  async function connectPlayer(relationshipType: ConnectionRelationshipType) {
     setBusy(true); setError(''); setMessage('');
     try {
       const response = await fetch('/api/guest-connection', {
@@ -447,11 +463,12 @@ export default function GuestPage() {
       if (!response.ok) throw new Error(body.error || '编号确认失败');
       const status = body.result?.status;
       setConnectionTargetCode('');
+      await load();
+      setPendingConnectionType(status === 'PENDING' ? relationshipType : null);
       setMessage(status === 'ACTIVE'
         ? relationshipType === 'CUPID_ALLIANCE' ? '双向确认成功，丘比特联盟已经成立。' : relationshipType === 'STAR_ALLIANCE' ? '双向确认成功，星光联盟已经成立。' : '暗号双向确认成功，你已经找到一位同伴。'
         : status === 'NO_MATCH' ? '暗号没有匹配。请保持自然，你还可以继续试探。'
-        : '你的编号确认已提交，等待对方输入你的玩家编号。');
-      await load();
+        : PENDING_CONNECTION_MESSAGE);
     } catch (cause) { setError(cause instanceof Error ? cause.message : '编号确认失败'); }
     finally { setBusy(false); }
   }
