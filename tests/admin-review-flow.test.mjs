@@ -45,7 +45,7 @@ test('the live console keeps four primary tabs and collapses setup-only tools', 
   assert.match(admin, /\['home', 'review', 'live', 'finale'\]/);
   assert.match(admin, /婚礼设置与安全工具/);
   assert.match(admin, /高级操作：预设身份、派发任务、线索与人工积分/);
-  assert.match(admin, /高级操作：恶作剧者私密积分/);
+  assert.doesNotMatch(admin, /高级操作：恶作剧者私密积分/);
   assert.match(styles, /\.admin-panel-tabs\{[^}]*repeat\(4,minmax\(0,1fr\)\)/);
   assert.match(styles, /\.approval-row \{[^}]*grid-template-columns:minmax\(0,1fr\)/);
 });

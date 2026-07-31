@@ -86,7 +86,7 @@ test('admin mutation is authenticated, same-origin, and validates every destruct
   assert.match(adminRoute, /requireAdmin\(\)/);
   assert.match(adminRoute, /type === 'resetRehearsal'/);
   assert.match(adminRoute, /requiredBoolean\(body\.backupConfirmed, '备份确认'\)/);
-  assert.match(adminRoute, /body\.eventKey === undefined \? randomUUID\(\) : requiredUuid\(body\.eventKey, '幂等事件 ID'\)/);
+  assert.match(adminRoute, /eventKey: requiredUuid\(body\.eventKey, '幂等事件 ID'\)/);
   assert.match(adminRoute, /requiredString\(body\.reason, '清场原因', 300\)/);
 });
 
@@ -113,7 +113,7 @@ test('linked private evidence is removed after the transactional database reset'
 
 test('mobile admin UI presents preview, export acknowledgement, typed phrase, and final confirmation', () => {
   assert.match(adminPage, /彩排数据安全清场/);
-  assert.match(adminPage, /我已下载上方八类 CSV 备份/);
+  assert.match(adminPage, /我已下载上方七类 CSV 备份/);
   assert.match(adminPage, /resetForm\.confirmation !== 'RESET WEDDING'/);
   assert.match(adminPage, /window\.confirm\('最后确认：系统会先自动关闭注册、投票和公开大屏/);
   assert.match(adminPage, /resetControlsClosed/);

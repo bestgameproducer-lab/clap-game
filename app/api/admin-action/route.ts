@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { requireAdmin } from '@/lib/auth';
 import {
   adjustGuestPoints,
@@ -18,7 +17,6 @@ import {
   grantClueToGuest,
   issueHiddenTaskCode,
   redeemHiddenTaskCode,
-  recordSpyPointEvent,
   resetRehearsalData,
   rejectAssignment,
   resetGuestClaim,
@@ -136,13 +134,6 @@ export async function POST(request: Request) {
         requiredString(body.code, '隐藏任务码', 40),
         actor,
       );
-    } else if (type === 'recordSpyPointEvent') {
-      await recordSpyPointEvent({
-        guestId: requiredUuid(body.guestId, '间谍宾客 ID'),
-        reason: requiredEnum(body.reason, '间谍积分事件', ['team_wrong_answer', 'resource_wasted', 'ordinary_guest_suspected'] as const),
-        note: optionalString(body.note, '现场记录', 300),
-        eventKey: body.eventKey === undefined ? randomUUID() : requiredUuid(body.eventKey, '幂等事件 ID'),
-      }, actor);
     } else if (type === 'resetRehearsal') {
       result = { ok: true, ...(await resetRehearsalData({
         confirmation: requiredString(body.confirmation, '清场确认词', 30),

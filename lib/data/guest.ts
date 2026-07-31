@@ -201,22 +201,19 @@ export async function getGuestView(guestId: string) {
     votedTargetName: string | null;
     voteCorrect: boolean | null;
     bonusPoints: number;
-    spyPoints: number | null;
   } = null;
   if (game.results_visible) {
-    const [{ data: teamMembers, error: revealError }, { data: rewards, error: rewardError }, { data: spyRewards, error: spyRewardError }] = await Promise.all([
+    const [{ data: teamMembers, error: revealError }, { data: rewards, error: rewardError }] = await Promise.all([
       db.from('guests').select('id,name,role,is_hidden_spy').eq('team', guest.team).not('drawn_at', 'is', null).order('name'),
       db.from('result_rewards').select('amount').eq('guest_id', guestId),
-      db.from('spy_points_ledger').select('amount').eq('guest_id', guestId),
     ]);
-    if (revealError || rewardError || spyRewardError) throw new Error(`Unable to load published results: ${revealError?.message ?? rewardError?.message ?? spyRewardError?.message}`);
+    if (revealError || rewardError) throw new Error(`Unable to load published results: ${revealError?.message ?? rewardError?.message}`);
     const votedTargetId = results[3].data?.target_guest_id ?? null;
     const baseResults = buildPublishedTeamResults(teamMembers ?? [], votedTargetId, true);
     if (!baseResults) throw new Error('Unable to build published results');
     publishedResults = {
       ...baseResults,
       bonusPoints: (rewards ?? []).reduce((sum, reward) => sum + reward.amount, 0),
-      spyPoints: guest.role === 'spy' ? (spyRewards ?? []).reduce((sum, reward) => sum + reward.amount, 0) : null,
     };
   }
   const symbolPairing = results[4].data;
