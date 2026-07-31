@@ -27,11 +27,11 @@ const CATEGORY_LABELS: Record<string, string> = { standard: '普通任务', cere
 const DEFAULT_VERIFICATION_METHOD = '向任务站工作人员说明完成过程；如任务涉及照片或合影，请出示对应照片。';
 type AdminPanel = 'home' | 'live' | 'guests' | 'content' | 'review' | 'finale' | 'data';
 const ADMIN_PANELS: Array<{ id: AdminPanel; label: string; shortLabel: string }> = [
-  { id: 'home', label: '后台首页', shortLabel: '首页' },
-  { id: 'live', label: '现场总控', shortLabel: '总控' },
+  { id: 'home', label: '开场准备', shortLabel: '开场准备' },
+  { id: 'live', label: '现场流程', shortLabel: '现场流程' },
   { id: 'guests', label: '宾客管理', shortLabel: '宾客' },
   { id: 'content', label: '任务与内容', shortLabel: '内容' },
-  { id: 'review', label: '审核与积分', shortLabel: '审核' },
+  { id: 'review', label: '审核任务', shortLabel: '审核任务' },
   { id: 'finale', label: '投票与揭晓', shortLabel: '终局' },
   { id: 'data', label: '数据与清场', shortLabel: '清场' },
 ];
