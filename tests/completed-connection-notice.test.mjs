@@ -8,7 +8,18 @@ test('双向确认完成后清除等待对方的顶部提示', async () => {
   const source = await readFile(guestPageUrl, 'utf8');
 
   assert.match(source, /const PENDING_CONNECTION_MESSAGE = '你的编号确认已提交，等待对方输入你的玩家编号。';/);
-  assert.match(source, /relationship\.type === pendingConnectionType[\s\S]*relationship\.status === 'PENDING'[\s\S]*relationship\.confirmedByMe/);
-  assert.match(source, /if \(!stillWaiting\) \{\s*setMessage\(''\);\s*setPendingConnectionType\(null\);/);
-  assert.match(source, /await load\(\);\s*setPendingConnectionType\(status === 'PENDING' \? relationshipType : null\);\s*setMessage\(/);
+  assert.match(source, /relationship\.type === pendingNotice\.relationshipType[\s\S]*relationship\.status === 'PENDING'[\s\S]*relationship\.confirmedByMe/);
+  assert.match(source, /if \(message !== expectedMessage \|\| !stillWaiting\) \{\s*setMessage\(''\);\s*setPendingNotice\(null\);/);
+  assert.match(source, /await load\(\);\s*setPendingNotice\(status === 'PENDING' \? \{ kind: 'CONNECTION', relationshipType \} : null\);\s*setMessage\(/);
+});
+
+test('等待型顶部提示在对应任务完成或结算后清除', async () => {
+  const source = await readFile(guestPageUrl, 'utf8');
+
+  assert.match(source, /pendingNotice\.kind === 'ASSIGNMENT_REVIEW'[\s\S]*assignment\.status === 'submitted'/);
+  assert.match(source, /pendingNotice\.kind === 'MUTUAL_CONFIRMATION'[\s\S]*confirmation\.status === 'PENDING'/);
+  assert.match(source, /pendingNotice\.kind === 'VOTE_RESULT'[\s\S]*!data\.game\?\.results_visible/);
+  assert.match(source, /pendingNotice\.kind === 'PHASE_TWO_DILEMMA'[\s\S]*dilemma\?\.submitted && !data\.phaseTwo\.dilemma\.settled/);
+  assert.match(source, /pendingNotice\.kind === 'PHASE_TWO_COPY'[\s\S]*copyChoice && !data\.phaseTwo\.copyChoice\.settled/);
+  assert.match(source, /setPendingNotice\(payload\.action === 'dilemma' \? \{ kind: 'PHASE_TWO_DILEMMA' \} : \{ kind: 'PHASE_TWO_COPY' \}\);\s*setMessage\(success\);/);
 });
