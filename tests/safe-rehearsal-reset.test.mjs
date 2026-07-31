@@ -4,7 +4,8 @@ import test from 'node:test';
 
 const baseMigration = await readFile(new URL('../supabase/migrations/202607290028_safe_rehearsal_reset.sql', import.meta.url), 'utf8');
 const fixMigration = await readFile(new URL('../supabase/migrations/202607300002_fix_rehearsal_reset.sql', import.meta.url), 'utf8');
-const migration = `${baseMigration}\n${fixMigration}`;
+const safeUpdateMigration = await readFile(new URL('../supabase/migrations/202607300007_fix_reset_safe_update.sql', import.meta.url), 'utf8');
+const migration = `${baseMigration}\n${fixMigration}\n${safeUpdateMigration}`;
 const adminData = await readFile(new URL('../lib/data/admin.ts', import.meta.url), 'utf8');
 const adminRoute = await readFile(new URL('../app/api/admin-action/route.ts', import.meta.url), 'utf8');
 const adminPage = await readFile(new URL('../app/admin/page.tsx', import.meta.url), 'utf8');
@@ -49,6 +50,24 @@ test('runtime progress is cleared while reusable wedding configuration remains',
   assert.match(reset, /special_card_revealed_at=null/);
   assert.match(reset, /phase_one_completed_at=null/);
   assert.match(reset, /update team_resources set balance=10/);
+});
+
+test('production safe-update guard accepts every intentional whole-table cleanup', () => {
+  const reset = resetFunction();
+  for (const table of ['cupid_helper_actions', 'assignment_mutual_confirmations', 'symbol_pairing_assignments', 'player_relationships', 'trickster_signal_attempts', 'result_rewards', 'votes', 'guest_clues', 'points_ledger', 'team_points_ledger', 'spy_points_ledger', 'team_resource_ledger', 'assignments', 'guest_sessions', 'guest_login_throttles']) {
+    assert.match(reset, new RegExp(`delete from ${table} where true;`));
+  }
+  for (const table of ['heart_slots', 'team_resources', 'awards', 'guests']) {
+    assert.match(reset, new RegExp(`update ${table} set[\\s\\S]*?where true;`));
+  }
+  const triggerReset = safeUpdateMigration.slice(
+    safeUpdateMigration.indexOf('create or replace function reset_final_mission_story_runtime'),
+    safeUpdateMigration.indexOf('create or replace function reset_rehearsal_data'),
+  );
+  assert.match(triggerReset, /delete from player_relationships where true;/);
+  assert.match(triggerReset, /delete from trickster_signal_attempts where true;/);
+  assert.match(triggerReset, /update heart_slots set guest_id=null,assigned_at=null where true;/);
+  assert.match(triggerReset, /update guests set unlocked_role='NONE' where true;/);
 });
 
 test('reset preview excludes credentials and session material', () => {
