@@ -103,6 +103,7 @@ export default function GuestPage() {
   const [data, setData] = useState<GuestData | null>(null);
   const [scoreLedgerOpen, setScoreLedgerOpen] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [deviceAccessChecking, setDeviceAccessChecking] = useState(true);
   const [invitationCode, setInvitationCode] = useState('');
   const [guests, setGuests] = useState<RegistrationGuest[] | null>(null);
   const [registrationOpen, setRegistrationOpen] = useState(true);
@@ -209,9 +210,25 @@ export default function GuestPage() {
     return false;
   }, []);
 
+  const restoreInvitationAccess = useCallback(async () => {
+    try {
+      const response = await fetch('/api/registration/guests', { cache: 'no-store' });
+      if (!response.ok) return;
+      const body = await response.json();
+      setGuests(body.guests);
+      setRegistrationOpen(body.registrationOpen !== false);
+      setSearch('');
+    } catch {
+      // Device access is only a convenience; the invitation form remains available on failure.
+    } finally {
+      setDeviceAccessChecking(false);
+    }
+  }, []);
+
   useEffect(() => {
     setOffline(!window.navigator.onLine);
     void load();
+    void restoreInvitationAccess();
     const handleOnline = () => setOffline(false);
     const handleOffline = () => setOffline(true);
     const handleVisibility = () => {
@@ -231,7 +248,7 @@ export default function GuestPage() {
       window.removeEventListener('blur', handleWindowBlur);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [load]);
+  }, [load, restoreInvitationAccess]);
 
   useEffect(() => {
     if (!secretReaderOpen) return;
@@ -350,7 +367,7 @@ export default function GuestPage() {
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || '邀请码验证失败');
-      setGuests(body.guests); setRegistrationOpen(body.registrationOpen !== false); setSearch('');
+      setInvitationCode(''); setGuests(body.guests); setRegistrationOpen(body.registrationOpen !== false); setSearch('');
     } catch (cause) { setError(cause instanceof Error ? cause.message : '邀请码验证失败'); }
     finally { setBusy(false); }
   }
@@ -364,10 +381,15 @@ export default function GuestPage() {
     try {
       const response = await fetch('/api/registration/claim', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invitationCode, loginName: selectedGuest.loginName, claimCode }),
+        body: JSON.stringify({ loginName: selectedGuest.loginName, claimCode }),
       });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error || '身份认领失败');
+      if (!response.ok) {
+        if (response.status === 401 && String(body.error ?? '').includes('邀请码')) {
+          setGuests(null); setSelectedGuest(null);
+        }
+        throw new Error(body.error || '身份认领失败');
+      }
       await load();
     } catch (cause) { setError(cause instanceof Error ? cause.message : '身份认领失败'); }
     finally { setBusy(false); }
@@ -456,7 +478,7 @@ export default function GuestPage() {
     }
     try { window.sessionStorage.removeItem(GUEST_CACHE_KEY); } catch {}
     contentSnapshotRef.current = null; setContentNotice(null);
-    setData(null); setInvitationCode(''); setGuests(null); setSelectedGuest(null); setClaimCode(''); setClaimCodeConfirm(''); setSearch(''); setShowSecrets(false); setSecretReaderOpen(false); setRevealedCard(null); setSpecialCardRevealed(false);
+    setData(null); setInvitationCode(''); setSelectedGuest(null); setClaimCode(''); setClaimCodeConfirm(''); setSearch(''); setShowSecrets(false); setSecretReaderOpen(false); setRevealedCard(null); setSpecialCardRevealed(false);
     setBusy(false);
   }
 
@@ -569,7 +591,7 @@ export default function GuestPage() {
     return term ? guests.filter((guest) => `${guest.name} ${guest.loginName}`.toLowerCase().includes(term)) : guests;
   }, [guests, search]);
 
-  if (checking) return <main className="welcome-shell"><section className="welcome-card"><div className="heart-mark">♡</div><h1>正在打开婚礼任务</h1><p>丘比特正在确认你的身份…</p></section></main>;
+  if (checking || deviceAccessChecking) return <main className="welcome-shell"><section className="welcome-card"><div className="heart-mark">♡</div><h1>正在打开婚礼任务</h1><p>丘比特正在确认你的身份…</p></section></main>;
 
   if (!data) return <main className="welcome-shell">
     <section className={`welcome-card ${guests ? 'compact-registration' : ''}`}>
