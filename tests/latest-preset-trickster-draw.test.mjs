@@ -14,6 +14,8 @@ const latestDraw = await readFile(
 test('the forward patch targets the latest draw regression without rewriting runtime data', () => {
   assert.match(latestDraw, /or v_guest\.role_locked then\s+v_role:='guest'/);
   assert.match(migration, /pg_get_functiondef\('public\.draw_guest_card\(uuid\)'::regprocedure\)/);
+  assert.match(migration, /regexp_replace/);
+  assert.match(migration, /lower\\\(v_guest\\\.login_name\\\)='yirui zhang'/);
   assert.match(migration, /v_guest\.role_locked and v_guest\.role='guest'/);
   assert.match(migration, /elsif v_guest\.role_locked then\s+v_role:=v_guest\.role/);
   assert.doesNotMatch(migration, /update guests|delete from|truncate|drop table/i);
@@ -24,6 +26,7 @@ test('a reserved preset trickster removes the random trickster slot for teammate
   assert.match(migration, /v_reserved_spies integer/);
   assert.match(migration, /g\.drawn_at is null and g\.team=v_guest\.team and g\.role_locked and g\.role='spy'/);
   assert.match(migration, /greatest\(0,1-v_drawn_spies-v_reserved_spies\)/);
+  assert.match(migration, /latest_draw_preset_patch_verification_failed/);
 });
 
 test('preset configuration and card draw share the same transaction lock', () => {
