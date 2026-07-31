@@ -11,7 +11,7 @@ test('后台主入口按婚礼操作顺序命名', async () => {
   const preparation = panels.indexOf("shortLabel: '开场准备'");
   const live = panels.indexOf("shortLabel: '现场流程'");
   const review = panels.indexOf("shortLabel: '审核任务'");
-  const finale = panels.indexOf("shortLabel: '终局'");
+  const finale = panels.indexOf("shortLabel: '终局结算'");
   assert.ok(preparation >= 0 && live > preparation && review > live && finale > review);
 });
 
