@@ -121,6 +121,17 @@ button.text-button { background: transparent; color: #76665e; padding: 8px; text
 .submission-form label { font-size:11px; }
 .submission-form textarea { min-height:72px; margin-bottom:8px; }
 .submission-form button { margin-top:0; }
+.phase-two-action,.phase-two-choice-state { display:grid;gap:10px;margin-top:12px;padding:14px;border:1px solid #eadbd1;border-radius:16px;background:#fffaf6; }
+.phase-two-action>strong,.phase-two-choice-state>strong { color:#6f3b32; }
+.phase-two-action p,.phase-two-choice-state span,.phase-two-choice-state small { margin:0;color:#74675f;font-size:12px;line-height:1.55; }
+.phase-two-action label { font-size:12px;font-weight:700;color:#6f3b32; }
+.phase-two-action select { margin:0; }
+.phase-two-action>button { margin:0; }
+.phase-two-choice-buttons { display:grid;grid-template-columns:1fr 1fr;gap:8px; }
+.phase-two-choice-buttons button { margin:0;background:#f0e5de;color:#6f574c;box-shadow:none; }
+.phase-two-choice-buttons button.selected { background:#7c4137;color:#fff;box-shadow:0 8px 18px rgba(91,49,41,.18); }
+.phase-two-choice-state.settled { border-color:#d6e5d5;background:#f4faf3; }
+.phase-two-choice-state.settled strong { color:#466844; }
 .evidence-preview { margin:10px 0 0; padding:8px; border:1px solid #eadbd2; border-radius:14px; background:#fffaf6; }
 .evidence-preview a { display:block; }
 .evidence-preview img { display:block; width:100%; max-height:260px; object-fit:cover; border-radius:10px; background:#eee5df; }
