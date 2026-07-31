@@ -67,8 +67,8 @@ export function buildWeddingPreflight(input: {
     .map((role) => [role, activeGuests.filter((guest) => guest.story_role === role).length]));
   const storyCastReady = storyCounts.OFFICIANT === 1 && storyCounts.RING_KEEPER === 2
     && storyCounts.GROOM_CHEERLEADER === 1 && storyCounts.BRIDE_CHEERLEADER === 1
-    && storyCounts.HEART_HOLDER === 5
-    && storyCounts.STAR_HOLDER === 5
+    && storyCounts.HEART_HOLDER <= 5
+    && storyCounts.STAR_HOLDER <= 5
     && activeGuests.every((guest) => guest.story_role === 'NONE' || guest.role !== 'spy');
   const hostSegments = input.hostSegments.filter((segment) => segment.active);
   const unreadyHostSegments = hostSegments.filter((segment) => !segment.ready).length;
@@ -80,7 +80,7 @@ export function buildWeddingPreflight(input: {
     item('guest-roster', '32 位宾客名单与三组结构', `${invitedGuests.length} 位可登录 · 家人组 ${familyGuests.length} 人 · 第二阶段 ${competitiveGuests.length} 人`, invitedGuests.length === 32 && familyGuests.length === 10 && competitiveGuests.length === 20),
     item('draw-capacity', '竞技组容量没有冲突', teamSummary.map((team) => `${team.team} ${team.total}/10`).join(' · '), capacityValid),
     item('official-missions', '第一阶段任务、分值与人数正确', `${officialMissionCount}/${officialMissionCodes.length} 项符合定稿${unexpectedPhaseOneTasks.length ? ` · 另有 ${unexpectedPhaseOneTasks.length} 项非定稿任务仍启用` : ''}`, officialMissionCount === officialMissionCodes.length && unexpectedPhaseOneTasks.length === 0),
-    item('story-cast', '第一阶段特殊职务人数正确', `誓词 ${storyCounts.OFFICIANT} · 戒指 ${storyCounts.RING_KEEPER} · 应援 ${storyCounts.GROOM_CHEERLEADER + storyCounts.BRIDE_CHEERLEADER} · 爱心 ${storyCounts.HEART_HOLDER} · 星星 ${storyCounts.STAR_HOLDER}`, storyCastReady),
+    item('story-cast', '固定职务与随机图案池正确', `誓词 ${storyCounts.OFFICIANT} · 戒指 ${storyCounts.RING_KEEPER} · 应援 ${storyCounts.GROOM_CHEERLEADER + storyCounts.BRIDE_CHEERLEADER} · 已预设爱心 ${storyCounts.HEART_HOLDER}/5 · 已预设星星 ${storyCounts.STAR_HOLDER}/5`, storyCastReady),
     item('upgrade-pool', '升级任务池充足', `${activeTasks.filter((task) => task.category === 'upgrade').length} 项启用（建议至少 5 项）`, activeTasks.filter((task) => task.category === 'upgrade').length >= 5),
     item('group-pool', '团队任务池已配置', `${activeTasks.filter((task) => task.category === 'group').length} 项启用`, activeTasks.some((task) => task.category === 'group')),
     item('hidden-cards', '四张隐藏任务实体卡', `${activeHidden.filter((task) => codedHiddenIds.has(task.id)).length}/${activeHidden.length} 项已有一次性代码`, activeHidden.length >= 4 && activeHidden.every((task) => codedHiddenIds.has(task.id))),

@@ -7,6 +7,7 @@ const phaseTwo = await readFile(new URL('../supabase/migrations/202607310004_pha
 const passwordMigration = await readFile(new URL('../supabase/migrations/202607310005_admin_password_rotation.sql', import.meta.url), 'utf8');
 const fixedDrawMigration = await readFile(new URL('../supabase/migrations/202607310006_align_unfinished_fixed_draws.sql', import.meta.url), 'utf8');
 const teamClueMigration = await readFile(new URL('../supabase/migrations/202607310007_phase_two_team_rank_clues.sql', import.meta.url), 'utf8');
+const liveDrawMigration = await readFile(new URL('../supabase/migrations/202607310008_fix_live_random_card_draw.sql', import.meta.url), 'utf8');
 const adminData = await readFile(new URL('../lib/data/admin.ts', import.meta.url), 'utf8');
 const adminRoute = await readFile(new URL('../app/api/admin-action/route.ts', import.meta.url), 'utf8');
 const loginRoute = await readFile(new URL('../app/api/admin-login/route.ts', import.meta.url), 'utf8');
@@ -72,4 +73,17 @@ test('opening final voting awards ranked team clues atomically and idempotently'
   assert.match(adminData, /phase_two_team_scores_missing/);
   assert.match(adminData, /phase_two_team_clues_missing/);
   assert.doesNotMatch(teamClueMigration, /truncate|delete from/);
+});
+
+test('live draw safely creates tricksters and fills random heart/star/photo slots', () => {
+  assert.match(liveDrawMigration, /on conflict on constraint assignments_guest_id_task_id_key do nothing/);
+  assert.doesNotMatch(liveDrawMigration, /on conflict\(guest_id,task_id\) do nothing/);
+  assert.match(liveDrawMigration, /t\.mission_code='P1-HEART-001'/);
+  assert.match(liveDrawMigration, /t\.mission_code='P1-STAR-001'/);
+  assert.match(liveDrawMigration, /reserved\.story_role='HEART_HOLDER'/);
+  assert.match(liveDrawMigration, /reserved\.story_role='STAR_HOLDER'/);
+  assert.match(liveDrawMigration, /when 'P1-HEART-001' then 'HEART_HOLDER'/);
+  assert.match(liveDrawMigration, /when 'P1-STAR-001' then 'STAR_HOLDER'/);
+  assert.match(liveDrawMigration, /assigned_guest\.role='guest'/);
+  assert.doesNotMatch(liveDrawMigration, /delete from|truncate/);
 });

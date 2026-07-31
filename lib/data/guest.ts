@@ -58,7 +58,9 @@ export async function drawGuestCard(guestId: string) {
   if (error?.message.includes('draw_capacity_full')) throw new ApiError(409, '抽卡名额已经全部派发');
   if (error?.message.includes('draw_preset_capacity_full')) throw new ApiError(409, '主办方预设的组别已经满员，请联系主办方调整');
   if (error?.message.includes('draw_preset_role_capacity_full')) throw new ApiError(409, '主办方预设的身份名额冲突，请联系主办方调整');
+  if (error?.message.includes('draw_role_capacity_full')) throw new ApiError(409, '当前组别的身份名额暂时冲突，请联系主办方检查抽卡配置');
   if (error?.message.includes('draw_task_missing')) throw new ApiError(409, '任务池尚未配置完成，请联系主办方');
+  if (error?.message.includes('draw_assignment_missing')) throw new ApiError(409, '抽卡记录不完整，请联系主办方处理');
   if (error) throw new Error(`Unable to draw guest card: ${error.message}`);
   const card = Array.isArray(data) ? data[0] : data;
   if (!card) throw new Error('Unable to draw guest card: empty response');
