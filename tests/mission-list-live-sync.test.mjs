@@ -15,6 +15,9 @@ test('guest missions are newest-first and independently collapsible', async () =
   assert.match(guestPage, /expandedAssignments\[assignment\.id\] \?\? false/);
   assert.match(guestPage, /onToggle=/);
   assert.match(styles, /\.mission-summary/);
+  assert.match(guestPage, /<span className="mission-chevron" aria-hidden="true"><span\/><\/span>/);
+  assert.match(styles, /\.mission-chevron>span/);
+  assert.match(styles, /\.mission-meta \.status\.assigned::before/);
   assert.match(styles, /\.mission-item\[open\] \.mission-chevron/);
 });
 
