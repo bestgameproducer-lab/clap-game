@@ -9,11 +9,17 @@ import { recommendedTaskPoints } from '@/lib/task-points';
 import { useLiveRefresh } from '@/lib/use-live-refresh';
 
 const STAGES = GAME_STAGE_OPTIONS;
-const TEAMS = ['玫瑰组', '月桂组', '星辰组', '琥珀组'] as const;
+const TEAMS = ['海岛组', '沙漠组'] as const;
 
 const ROLE_LABELS: Record<string, string> = { guest: '祝福见证者', spy: '恶作剧者（间谍）' };
 const PARTICIPATION_LABELS: Record<string, string> = { ACTIVE_PLAYER: '任务玩家', HONOR_GUEST: '荣誉宾客', PRINCIPAL: '新人专属' };
 const STORY_ROLE_LABELS: Record<string, string> = { NONE: '', OFFICIANT: '誓词引导人', RING_KEEPER: '戒指守护者', GROOM_CHEERLEADER: '新郎应援者', BRIDE_CHEERLEADER: '新娘应援者', APPLAUSE_STARTER: '掌声发起者', HEART_HOLDER: '爱心持有者', STAR_HOLDER: '星星持有者' };
+const PHASE_TWO_MISSION_LABELS: Record<string, string> = {
+  TOAST_GROOM_FATHER: '向新郎爸爸敬酒并合影', TOAST_BRIDE_MOTHER: '向新娘妈妈敬酒并合影',
+  INTERACT_WITH_GROOM: '与新郎互动或合影', INTERACT_WITH_BRIDE: '与新娘互动或合影',
+  DINNER_SPEECH: '晚宴致辞', HEART_DILEMMA: '爱心联盟秘密选择', STAR_DILEMMA: '星光联盟秘密选择',
+  COPY_SCORE: '孤单丘比特 · 命运复制', TEAM_CAPTAIN: '领航星队长', TRICKSTER: '丘比特的恶作剧者',
+};
 const CEREMONY_STATUS_LABELS: Record<string, string> = { LOCKED: '尚未开放', AVAILABLE: '等待沟通', BRIEFED: '流程已沟通', RING_RECEIVED: '已领取戒指', IN_PROGRESS: '进行中', DELIVERED: '已送达', COMPLETED: '已完成' };
 const CATEGORY_LABELS: Record<string, string> = { standard: '普通任务', ceremony: '仪式任务', group: '团队任务', upgrade: '升级任务', hidden: '隐藏任务' };
 const SPY_POINT_LABELS: Record<string, string> = { team_wrong_answer: '误导队伍答错', resource_wasted: '诱导浪费资源', ordinary_guest_suspected: '让普通宾客被怀疑', escaped_vote: '未成为本队最高票', team_first: '所在队伍第一', all_spy_tasks_complete: '完成全部间谍任务' };
@@ -52,7 +58,7 @@ const ACTION_LABELS: Record<string, string> = {
   'admin_session.create': '工作人员登录', 'admin_session.revoke': '工作人员安全退出',
 };
 
-type Guest = { id: string; name: string; login_name: string; team: string; role: string; is_hidden_spy: boolean; points: number; claimed_at: string | null; drawn_at: string | null; team_locked: boolean; role_locked: boolean; table_label: string; is_elder: boolean; ceremony_eligible: boolean; active: boolean; staff_notes: string; participation_mode: 'ACTIVE_PLAYER' | 'HONOR_GUEST' | 'PRINCIPAL'; relationship: string; story_role: string; uses_app: boolean; eligible_for_mission: boolean; eligible_for_secret_role: boolean; eligible_for_personal_score: boolean; special_card_title: string; special_card_body: string; player_code: string; unlocked_role: string };
+type Guest = { id: string; name: string; login_name: string; team: string; role: string; is_hidden_spy: boolean; points: number; claimed_at: string | null; drawn_at: string | null; team_locked: boolean; role_locked: boolean; table_label: string; is_elder: boolean; ceremony_eligible: boolean; active: boolean; staff_notes: string; participation_mode: 'ACTIVE_PLAYER' | 'HONOR_GUEST' | 'PRINCIPAL'; relationship: string; story_role: string; uses_app: boolean; eligible_for_mission: boolean; eligible_for_secret_role: boolean; eligible_for_personal_score: boolean; phase_two_eligible: boolean; special_card_title: string; special_card_body: string; player_code: string; unlocked_role: string };
 type Task = { id: string; title: string; description: string; verification_method: string; points: number; role_scope: string; category: string; stage: string; active: boolean; grants_hidden_spy: boolean; is_demo: boolean; story_role_scope: string; mission_code: string | null; mechanic: string; score_policy: string; assignment_mode: string; verification_type: string; max_assignments: number | null };
 type Clue = { id: string; title: string; content: string; active: boolean; spy_guest_id: string | null; level: number; spy?: { id: string; name: string; team: string } };
 type HiddenTaskCode = { id: string; task_id: string; issued_by: string; issued_at: string; claimed_by: string | null; claimed_at: string | null; assignment_id: string | null; task?: { id: string; title: string; active: boolean }; guest?: { id: string; name: string } };
@@ -73,6 +79,7 @@ type AdminData = {
   playerRelationships: Array<{ id: string; relationship_type: string; status: string; player_a_confirmed: boolean; player_b_confirmed: boolean; activated_at: string | null; player_a?: { id: string; name: string }; player_b?: { id: string; name: string } }>;
   allianceClues: Array<{ pair_key: 'A' | 'B'; title: string; left_fragment: string; right_fragment: string; active: boolean; updated_at: string }>;
   symbolPairings: Array<{ guest_id: string; symbol: 'HEART' | 'STAR'; status: 'AVAILABLE' | 'PENDING' | 'PAIRED' | 'UNPAIRED_FINAL'; partner_guest_id: string | null; pending_relationship_id: string | null; finalized_at: string | null; guest?: { id: string; name: string }; partner?: { id: string; name: string } }>;
+  phaseTwoProfiles: Array<{ guest_id: string; team: string; primary_mission: string | null; extra_vote: boolean; super_lucky: boolean; is_captain: boolean; interaction_theme: string; unlocked_at: string | null }>;
   spyPointLedger: Array<{ id: number; guest_id: string; amount: number; reason: string; note: string; actor: string; voting_round: number | null; created_at: string; guest?: { id: string; name: string; team: string } }>;
   preflight: { ready: boolean; blockedCount: number; items: Array<{ id: string; label: string; detail: string; status: 'ready' | 'warning' | 'blocked' }> };
   rehearsalResetPreview: { claimed_guests: number; drawn_guests: number; assignments: number; evidence_files: number; votes: number; guest_clues: number; personal_ledger_entries: number; team_ledger_entries: number; spy_ledger_entries: number; resource_ledger_entries: number; registration_open: boolean; voting_open: boolean; scoreboard_visible: boolean };
@@ -100,14 +107,15 @@ export default function AdminPage() {
   const [team, setTeam] = useState('');
   const [role, setRole] = useState('guest');
   const [storyRole, setStoryRole] = useState('NONE');
+  const [phaseTwoForm, setPhaseTwoForm] = useState({ primaryMission: '', extraVote: false, superLucky: false, isCaptain: false, interactionTheme: '' });
   const [pointAmount, setPointAmount] = useState('');
   const [pointReason, setPointReason] = useState('');
   const [newTask, setNewTask] = useState({ title: '', description: '', verificationMethod: DEFAULT_VERIFICATION_METHOD, points: '1', roleScope: 'all', category: 'standard', stage: 'task_round_1', active: true, grantsHiddenSpy: false });
   const [newClue, setNewClue] = useState({ title: '', content: '', active: true, spyGuestId: '', level: '1' });
-  const [teamScore, setTeamScore] = useState({ team: '玫瑰组', amount: '5', reason: '团队游戏第一名' });
+  const [teamScore, setTeamScore] = useState({ team: '海岛组', amount: '5', reason: '团队游戏第一名' });
   const [liveDisplay, setLiveDisplay] = useState({ title: '', body: '', publicClue: '', timerMinutes: '0' });
   const [selectedAwardId, setSelectedAwardId] = useState('');
-  const [awardForm, setAwardForm] = useState({ title: '', winnerKind: 'none', winnerGuestId: '', winnerTeam: '玫瑰组', reason: '', sortOrder: '100', published: false });
+  const [awardForm, setAwardForm] = useState({ title: '', winnerKind: 'none', winnerGuestId: '', winnerTeam: '海岛组', reason: '', sortOrder: '100', published: false });
   const [guestForm, setGuestForm] = useState({ name: '', loginName: '', tableLabel: '', isElder: false, ceremonyEligible: false, active: true, staffNotes: '' });
   const [generatedHiddenCode, setGeneratedHiddenCode] = useState<{ taskId: string; taskTitle: string; code: string } | null>(null);
   const [spyScoreForm, setSpyScoreForm] = useState({ guestId: '', reason: 'team_wrong_answer', note: '' });
@@ -160,7 +168,8 @@ export default function AdminPage() {
   const libraryTaskSignature = JSON.stringify(libraryTask ?? null);
   const libraryClueSignature = JSON.stringify(libraryClue ?? null);
   const rosterGuestSignature = JSON.stringify(rosterGuestRecord ?? null);
-  const selectedGuestProfileSignature = selectedGuest ? `${selectedGuest.id}|${selectedGuest.team}|${selectedGuest.role}|${selectedGuest.story_role}` : '';
+  const selectedPhaseTwoProfile = data?.phaseTwoProfiles.find((profile) => profile.guest_id === selectedGuestId);
+  const selectedGuestProfileSignature = selectedGuest ? `${selectedGuest.id}|${selectedGuest.team}|${selectedGuest.role}|${selectedGuest.story_role}|${JSON.stringify(selectedPhaseTwoProfile ?? null)}` : '';
   const selectedAwardSignature = JSON.stringify(selectedAward ?? null);
   const allianceCluesSignature = JSON.stringify(data?.allianceClues ?? null);
 
@@ -189,6 +198,13 @@ export default function AdminPage() {
     setTeam(selectedGuest.team);
     setRole(selectedGuest.role);
     setStoryRole(selectedGuest.story_role);
+    setPhaseTwoForm({
+      primaryMission: selectedPhaseTwoProfile?.primary_mission ?? '',
+      extraVote: selectedPhaseTwoProfile?.extra_vote ?? false,
+      superLucky: selectedPhaseTwoProfile?.super_lucky ?? false,
+      isCaptain: selectedPhaseTwoProfile?.is_captain ?? false,
+      interactionTheme: selectedPhaseTwoProfile?.interaction_theme ?? '',
+    });
     setSelectedAssignmentId('');
   }, [selectedGuestProfileSignature]);
 
@@ -208,7 +224,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!selectedAward) return;
-    setAwardForm({ title: selectedAward.title, winnerKind: selectedAward.winner_guest_id ? 'guest' : selectedAward.winner_team ? 'team' : 'none', winnerGuestId: selectedAward.winner_guest_id || '', winnerTeam: selectedAward.winner_team || '玫瑰组', reason: selectedAward.reason, sortOrder: String(selectedAward.sort_order), published: selectedAward.published });
+    setAwardForm({ title: selectedAward.title, winnerKind: selectedAward.winner_guest_id ? 'guest' : selectedAward.winner_team ? 'team' : 'none', winnerGuestId: selectedAward.winner_guest_id || '', winnerTeam: selectedAward.winner_team || '海岛组', reason: selectedAward.reason, sortOrder: String(selectedAward.sort_order), published: selectedAward.published });
   }, [selectedAwardId, selectedAwardSignature]);
 
   async function login(event: React.FormEvent) {
@@ -434,8 +450,9 @@ export default function AdminPage() {
     <details className="admin-advanced-tools"><summary>高级操作：预设身份、派发任务、线索与人工积分</summary><section className="section-card"><div className="section-heading"><div><small>QUICK OPERATIONS</small><h2>宾客操作台</h2></div></div>
       <label htmlFor="operation-guest">选择宾客</label><select id="operation-guest" value={selectedGuestId} onChange={(event) => setSelectedGuestId(event.target.value)}>{activeGuests.map((guest) => <option key={guest.id} value={guest.id}>{guest.name} · {guest.team} · {guest.points} 分</option>)}</select>
       {selectedGuest && <div className="operation-grid">
-        <form onSubmit={(event) => { event.preventDefault(); void action({ type: 'configureGuest', guestId: selectedGuest.id, team, role }, '组别和身份已锁定，抽卡时会按此发放'); }}><h3>预设组别与阵营</h3><p className="muted">正式版本只保留婚礼守护者与丘比特的恶作剧者两个基础阵营。</p><label htmlFor="guest-team">组别</label><select id="guest-team" value={team} onChange={(event) => setTeam(event.target.value)}><option value="玫瑰组">玫瑰组</option><option value="月桂组">月桂组</option><option value="星辰组">星辰组</option><option value="琥珀组">琥珀组</option></select><label htmlFor="guest-role">基础阵营</label><select id="guest-role" value={role} onChange={(event) => setRole(event.target.value)}><option value="guest">婚礼守护者</option><option value="spy">丘比特的恶作剧者</option></select><button disabled={busy || Boolean(selectedGuest.drawn_at)}>{selectedGuest.team_locked && selectedGuest.role_locked ? '更新锁定预设' : '锁定此预设'}</button></form>
+        <form onSubmit={(event) => { event.preventDefault(); void action({ type: 'configureGuest', guestId: selectedGuest.id, team, role }, '组别和身份已锁定，抽卡时会按此发放'); }}><h3>预设组别与阵营</h3><p className="muted">竞技玩家只分为海岛组和沙漠组；家人组由正式名单配置，不在这里改动。</p><label htmlFor="guest-team">组别</label><select id="guest-team" value={selectedGuest.phase_two_eligible ? team : ''} disabled={!selectedGuest.phase_two_eligible} onChange={(event) => setTeam(event.target.value)}><option value="">家人组不可在此调整</option>{TEAMS.map((value) => <option key={value} value={value}>{value}</option>)}</select><label htmlFor="guest-role">基础阵营</label><select id="guest-role" value={role} disabled={!selectedGuest.phase_two_eligible} onChange={(event) => setRole(event.target.value)}><option value="guest">婚礼守护者</option><option value="spy">丘比特的恶作剧者</option></select><button disabled={busy || Boolean(selectedGuest.drawn_at) || !selectedGuest.phase_two_eligible}>{selectedGuest.phase_two_eligible ? selectedGuest.team_locked && selectedGuest.role_locked ? '更新锁定预设' : '锁定此预设' : '家人组由正式名单锁定'}</button></form>
         <form onSubmit={(event) => { event.preventDefault(); void action({ type: 'configureStoryRole', guestId: selectedGuest.id, storyRole }, '剧情职务已保存，抽卡时会领取对应任务'); }}><h3>指定剧情职务</h3><p className="muted">剧情职务不是阵营。固定仪式、爱心和星星职务不会进入恶作剧者池；爱心与星星各五人。</p><label htmlFor="guest-story-role">剧情职务</label><select id="guest-story-role" value={storyRole} onChange={(event) => setStoryRole(event.target.value)}>{Object.entries(STORY_ROLE_LABELS).map(([value, label]) => <option key={value} value={value}>{value === 'NONE' ? '无固定职务' : label}</option>)}</select><div className="control-state">玩家编号：{selectedGuest.player_code} · 后天角色：{selectedGuest.unlocked_role === 'NONE' ? '尚未解锁' : selectedGuest.unlocked_role}</div><button disabled={busy || Boolean(selectedGuest.drawn_at) || selectedGuest.participation_mode !== 'ACTIVE_PLAYER'}>保存剧情职务</button></form>
+        {selectedGuest.phase_two_eligible && <form onSubmit={(event) => { event.preventDefault(); void action({ type: 'configurePhaseTwoProfile', guestId: selectedGuest.id, ...phaseTwoForm }, '第二阶段任务与能力已保存'); }}><h3>第二阶段配置</h3><p className="muted">主任务只选一项；双重裁决、超级幸运星和队长是可叠加能力。解锁前系统会再次校验两队人数与冲突。</p><label htmlFor="phase-two-mission">主任务</label><select id="phase-two-mission" value={phaseTwoForm.primaryMission} onChange={(event) => setPhaseTwoForm({ ...phaseTwoForm, primaryMission: event.target.value })}><option value="">尚未指定</option>{Object.entries(PHASE_TWO_MISSION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><label htmlFor="phase-two-theme">互动/合影主题（仅新人互动任务）</label><input id="phase-two-theme" value={phaseTwoForm.interactionTheme} onChange={(event) => setPhaseTwoForm({ ...phaseTwoForm, interactionTheme: event.target.value })} maxLength={120} placeholder="例如：电影海报照"/><label className="ready-check"><input type="checkbox" checked={phaseTwoForm.extraVote} onChange={(event) => setPhaseTwoForm({ ...phaseTwoForm, extraVote: event.target.checked })}/><span><strong>双重裁决</strong><small>最终投票按 2 票计，且只能投同一目标。</small></span></label><label className="ready-check"><input type="checkbox" checked={phaseTwoForm.superLucky} onChange={(event) => setPhaseTwoForm({ ...phaseTwoForm, superLucky: event.target.checked })}/><span><strong>超级幸运星</strong><small>第二阶段符合条件的个人积分翻倍。</small></span></label><label className="ready-check"><input type="checkbox" checked={phaseTwoForm.isCaptain} onChange={(event) => setPhaseTwoForm({ ...phaseTwoForm, isCaptain: event.target.checked })}/><span><strong>本队队长</strong><small>每队最终需要一位队长。</small></span></label><button disabled={busy || Boolean(selectedPhaseTwoProfile?.unlocked_at)}>保存第二阶段配置</button></form>}
         <form onSubmit={(event) => { event.preventDefault(); void action(selectedAssignmentId ? { type: 'reassignTask', assignmentId: selectedAssignmentId, taskId: selectedTaskId, reason: '管理员在宾客操作台重新分配任务' } : { type: 'assignTask', guestId: selectedGuest.id, taskId: selectedTaskId }, selectedAssignmentId ? '原任务已取消，新任务已经派发' : '任务已派发'); }}><h3>派发或重新分配任务</h3><p className="muted">改派会保留旧任务的审计记录并将其标记为已取消；已经完成计分的任务不能直接改派。</p><label htmlFor="replace-assignment">要替换的任务</label><select id="replace-assignment" value={selectedAssignmentId} onChange={(event) => setSelectedAssignmentId(event.target.value)}><option value="">不替换，新增一项任务</option>{reassignableAssignments.map((assignment) => <option key={assignment.id} value={assignment.id}>{assignment.task?.title} · {assignment.status}</option>)}</select><label htmlFor="assign-task">新任务</label><select id="assign-task" value={selectedTaskId} onChange={(event) => setSelectedTaskId(event.target.value)}>{activeCatalogTasks.map((task) => <option key={task.id} value={task.id}>{task.grants_hidden_spy ? '◆ 隐藏间谍 · ' : ''}{task.title} · {task.points} 分</option>)}</select><button disabled={busy || !selectedTaskId || !selectedGuest.eligible_for_mission}>{selectedAssignmentId ? `重新分配给 ${selectedGuest.name}` : `派发给 ${selectedGuest.name}`}</button></form>
         <form onSubmit={(event) => { event.preventDefault(); void action({ type: 'grantClue', guestId: selectedGuest.id, clueId: selectedClueId }, '线索已发放'); }}><h3>发放线索</h3><p className="muted">{selectedGuest.eligible_for_secret_role ? '线索只会显示在这位宾客的私人任务页。' : '这位宾客不参与隐藏身份与线索玩法。'}</p><label htmlFor="grant-clue">线索</label><select id="grant-clue" value={selectedClueId} onChange={(event) => setSelectedClueId(event.target.value)}>{data.clues.filter((clue) => clue.active).map((clue) => <option key={clue.id} value={clue.id}>{clue.title}</option>)}</select><button disabled={busy || !selectedClueId || !selectedGuest.eligible_for_secret_role}>发放给 {selectedGuest.name}</button></form>
         <form onSubmit={(event) => { event.preventDefault(); const amount = Number(pointAmount); void action({ type: 'adjustPoints', guestId: selectedGuest.id, amount, reason: pointReason }, '积分已调整').then((ok) => { if (ok) { setPointAmount(''); setPointReason(''); } }); }}><h3>人工调整积分</h3><p className="muted">可输入正数或负数；积分不会降到零以下，必须填写原因。</p><label htmlFor="point-amount">分数变化</label><input id="point-amount" type="number" min={-1000} max={1000} value={pointAmount} onChange={(event) => setPointAmount(event.target.value)} placeholder="例如 10 或 -5" required/><label htmlFor="point-reason">调整原因</label><input id="point-reason" value={pointReason} onChange={(event) => setPointReason(event.target.value)} maxLength={200} placeholder="例如：完成现场隐藏任务" required/><button disabled={busy || !pointAmount || !pointReason.trim()}>保存积分调整</button></form>

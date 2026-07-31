@@ -76,7 +76,7 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
 export async function getAdminDashboardData() {
   const db = getSupabaseAdmin();
   const results = await Promise.all([
-    db.from('guests').select('id,name,login_name,team,role,is_hidden_spy,points,claimed_at,drawn_at,team_locked,role_locked,table_label,is_elder,ceremony_eligible,active,staff_notes,participation_mode,relationship,story_role,uses_app,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,special_card_title,special_card_body,player_code,unlocked_role,created_at').order('active', { ascending: false }).order('team').order('name'),
+    db.from('guests').select('id,name,login_name,team,role,is_hidden_spy,points,claimed_at,drawn_at,team_locked,role_locked,table_label,is_elder,ceremony_eligible,active,staff_notes,participation_mode,relationship,story_role,uses_app,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,phase_two_eligible,special_card_title,special_card_body,player_code,unlocked_role,created_at').order('active', { ascending: false }).order('team').order('name'),
     db.from('assignments').select('id,guest_id,task_id,status,is_initial,completion_rank,early_bonus_points,reward_task_id,reward_clue_id,completion_note,verification_note,verified_by,verified_at,evidence_path,evidence_uploaded_at,submitted_at,approved_at,rejected_at,rejection_reason,cancelled_at,ceremony_status,ring_variant,replaced_by_assignment_id,replacement_for_assignment_id,created_at,guest:guests(id,name),task:tasks!assignments_task_id_fkey(id,title,description,verification_method,points,category,stage,mission_code)'),
     db.from('tasks').select('id,title,description,verification_method,points,role_scope,category,stage,active,grants_hidden_spy,is_demo,story_role_scope,mission_code,mechanic,score_policy,assignment_mode,verification_type,max_assignments,created_at').order('stage').order('title'),
     db.from('assignments').select('id,status,completion_note,evidence_path,evidence_uploaded_at,submitted_at,guest:guests(id,name),task:tasks!assignments_task_id_fkey(id,title,verification_method,points)').eq('status', 'submitted'),
@@ -98,6 +98,7 @@ export async function getAdminDashboardData() {
     db.from('player_relationships').select('id,relationship_type,status,player_a_confirmed,player_b_confirmed,activated_at,player_a:guests!player_relationships_player_a_id_fkey(id,name),player_b:guests!player_relationships_player_b_id_fkey(id,name)').order('created_at', { ascending: false }),
     db.from('alliance_clue_fragments').select('pair_key,title,left_fragment,right_fragment,active,updated_at').order('pair_key'),
     db.from('symbol_pairing_assignments').select('guest_id,symbol,status,partner_guest_id,pending_relationship_id,finalized_at,updated_at,guest:guests!symbol_pairing_assignments_guest_id_fkey(id,name),partner:guests!symbol_pairing_assignments_partner_guest_id_fkey(id,name)').order('symbol').order('updated_at'),
+    db.from('phase_two_profiles').select('guest_id,team,primary_mission,extra_vote,super_lucky,is_captain,interaction_theme,unlocked_at,updated_at').order('team').order('updated_at'),
   ]);
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`Unable to load admin data: ${error.message}`);
@@ -125,6 +126,7 @@ export async function getAdminDashboardData() {
     playerRelationships: results[19].data ?? [],
     allianceClues: results[20].data ?? [],
     symbolPairings: results[21].data ?? [],
+    phaseTwoProfiles: results[22].data ?? [],
   };
 }
 
@@ -321,6 +323,26 @@ export async function configureGuestGameProfile(guestId: string, team: string, r
     p_guest_id: guestId, p_team: team, p_role: role, p_actor: actor,
   });
   ensureNoDatabaseError(error, 'Unable to configure guest profile');
+}
+
+export async function configurePhaseTwoProfile(input: {
+  guestId: string;
+  primaryMission: string | null;
+  extraVote: boolean;
+  superLucky: boolean;
+  isCaptain: boolean;
+  interactionTheme: string;
+}, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('configure_phase_two_profile', {
+    p_guest_id: input.guestId,
+    p_primary_mission: input.primaryMission,
+    p_extra_vote: input.extraVote,
+    p_super_lucky: input.superLucky,
+    p_is_captain: input.isCaptain,
+    p_interaction_theme: input.interactionTheme,
+    p_actor: actor,
+  });
+  ensureNoDatabaseError(error, 'Unable to configure phase two profile');
 }
 
 export async function configureGuestStoryRole(guestId: string, storyRole: string, actor: string) {

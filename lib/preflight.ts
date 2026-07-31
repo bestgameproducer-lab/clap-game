@@ -1,9 +1,9 @@
-export const WEDDING_TEAMS = ['玫瑰组', '月桂组', '星辰组', '琥珀组'] as const;
+export const WEDDING_TEAMS = ['海岛组', '沙漠组'] as const;
 
 type PreflightGuest = {
   id: string; active: boolean; team: string; role: string; is_hidden_spy: boolean;
   drawn_at: string | null; team_locked: boolean; role_locked: boolean; participation_mode: string;
-  story_role?: string;
+  story_role?: string; phase_two_eligible?: boolean;
 };
 type PreflightTask = { id: string; active: boolean; role_scope: string; category: string; stage: string; mission_code?: string | null; points?: number; max_assignments?: number | null };
 type PreflightClue = { active: boolean; spy_guest_id: string | null };
@@ -41,7 +41,9 @@ export function buildWeddingPreflight(input: {
 }) {
   const invitedGuests = input.guests.filter((guest) => guest.active);
   const activeGuests = invitedGuests.filter((guest) => guest.participation_mode === 'ACTIVE_PLAYER');
-  const committedGuests = activeGuests.filter((guest) => guest.drawn_at || guest.team_locked);
+  const competitiveGuests = activeGuests.filter((guest) => guest.phase_two_eligible);
+  const committedGuests = competitiveGuests.filter((guest) => guest.drawn_at || guest.team_locked);
+  const familyGuests = invitedGuests.filter((guest) => guest.team === '家人组');
   const activeTasks = input.tasks.filter((task) => task.active);
   const activeHidden = activeTasks.filter((task) => task.category === 'hidden');
   const codedHiddenIds = new Set(input.hiddenTaskCodes.map((code) => code.task_id));
@@ -57,7 +59,7 @@ export function buildWeddingPreflight(input: {
     };
   });
   const capacityValid = committedGuests.every((guest) => WEDDING_TEAMS.includes(guest.team as typeof WEDDING_TEAMS[number]))
-    && teamSummary.every((team) => team.total <= 8 && team.spies <= 1 && team.guests <= 7);
+    && teamSummary.every((team) => team.total <= 10 && team.spies <= 1 && team.guests <= 9);
   const officialMissionCodes = PHASE_ONE_MISSION_SPECS.map(([code]) => code);
   const officialMissionCount = PHASE_ONE_MISSION_SPECS.filter(([code, points, maxAssignments]) => activeTasks.some((task) =>
     task.mission_code === code && task.points === points && (task.max_assignments ?? null) === maxAssignments)).length;
@@ -77,8 +79,8 @@ export function buildWeddingPreflight(input: {
   const items: PreflightItem[] = [
     item('game-state', '核心流程状态可用', input.hasGameState ? '数据库流程状态已读取' : '无法读取 game_state', input.hasGameState),
     item('invitation-code', '正式邀请码已设置', input.invitationCodeRotated ? '已由主办方安全更新' : '仍是公开示例码或尚未在后台确认', input.invitationCodeRotated),
-    item('guest-roster', '32 位宾客名单', `${invitedGuests.length} 位可登录 · ${activeGuests.length} 位任务玩家`, invitedGuests.length === 32),
-    item('draw-capacity', '抽卡容量没有冲突', teamSummary.map((team) => `${team.team} ${team.total}/8`).join(' · '), capacityValid),
+    item('guest-roster', '32 位宾客名单与三组结构', `${invitedGuests.length} 位可登录 · 家人组 ${familyGuests.length} 人 · 第二阶段 ${competitiveGuests.length} 人`, invitedGuests.length === 32 && familyGuests.length === 10 && competitiveGuests.length === 20),
+    item('draw-capacity', '竞技组容量没有冲突', teamSummary.map((team) => `${team.team} ${team.total}/10`).join(' · '), capacityValid),
     item('official-missions', '第一阶段任务、分值与人数正确', `${officialMissionCount}/${officialMissionCodes.length} 项符合定稿${unexpectedPhaseOneTasks.length ? ` · 另有 ${unexpectedPhaseOneTasks.length} 项非定稿任务仍启用` : ''}`, officialMissionCount === officialMissionCodes.length && unexpectedPhaseOneTasks.length === 0),
     item('story-cast', '第一阶段特殊职务人数正确', `誓词 ${storyCounts.OFFICIANT} · 戒指 ${storyCounts.RING_KEEPER} · 应援 ${storyCounts.GROOM_CHEERLEADER + storyCounts.BRIDE_CHEERLEADER} · 掌声 ${storyCounts.APPLAUSE_STARTER} · 爱心 ${storyCounts.HEART_HOLDER} · 星星 ${storyCounts.STAR_HOLDER}`, storyCastReady),
     item('upgrade-pool', '升级任务池充足', `${activeTasks.filter((task) => task.category === 'upgrade').length} 项启用（建议至少 5 项）`, activeTasks.filter((task) => task.category === 'upgrade').length >= 5),
@@ -87,7 +89,7 @@ export function buildWeddingPreflight(input: {
     item('generic-clues', '通用线索备用池', `${activeClues.filter((clue) => !clue.spy_guest_id).length} 条（建议至少 3 条）`, activeClues.filter((clue) => !clue.spy_guest_id).length >= 3),
     item('spy-clues', '每位初始间谍有专属线索', spies.length ? `${spies.filter((spy) => activeClues.some((clue) => clue.spy_guest_id === spy.id)).length}/${spies.length} 位覆盖` : '尚未预设初始间谍', spies.length > 0 && spies.every((spy) => activeClues.some((clue) => clue.spy_guest_id === spy.id))),
     item('host-content', '主持人题目与答案已复核', `${hostSegments.length - unreadyHostSegments}/${hostSegments.length} 个启用环节可发布`, hostSegments.length >= 7 && unreadyHostSegments === 0),
-    item('resource-wallets', '竞拍金币钱包已初始化', missingWallets.length ? `缺少：${missingWallets.join('、')}` : '四队钱包均已建立', missingWallets.length === 0),
+    item('resource-wallets', '竞拍金币钱包已初始化', missingWallets.length ? `缺少：${missingWallets.join('、')}` : '两队钱包均已建立', missingWallets.length === 0),
   ];
   return {
     items,

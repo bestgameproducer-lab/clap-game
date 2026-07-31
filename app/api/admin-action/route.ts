@@ -10,6 +10,7 @@ import {
   updateCeremonyAssignment,
   configureGuestGameProfile,
   configureGuestStoryRole,
+  configurePhaseTwoProfile,
   saveGameClue,
   saveGameTask,
   saveGuestRoster,
@@ -32,7 +33,7 @@ import {
   undoPlayerRelationship,
 } from '@/lib/data/admin';
 import { ApiError, apiErrorResponse, noStoreJson } from '@/lib/errors';
-import { CEREMONY_STATUSES, GAME_ROLES, MANUAL_GAME_STAGES, RING_VARIANTS, ROLE_SCOPES, STORY_ROLES, TASK_CATEGORIES, TASK_STAGES } from '@/lib/game-rules';
+import { CEREMONY_STATUSES, GAME_ROLES, MANUAL_GAME_STAGES, PHASE_TWO_PRIMARY_MISSIONS, RING_VARIANTS, ROLE_SCOPES, STORY_ROLES, TASK_CATEGORIES, TASK_STAGES } from '@/lib/game-rules';
 import {
   assertSameOrigin,
   optionalString,
@@ -159,6 +160,15 @@ export async function POST(request: Request) {
         requiredEnum(body.storyRole, '剧情职务', STORY_ROLES),
         actor,
       );
+    } else if (type === 'configurePhaseTwoProfile') {
+      await configurePhaseTwoProfile({
+        guestId: requiredUuid(body.guestId, '宾客 ID'),
+        primaryMission: body.primaryMission ? requiredEnum(body.primaryMission, '第二阶段主任务', PHASE_TWO_PRIMARY_MISSIONS) : null,
+        extraVote: requiredBoolean(body.extraVote, '额外投票权'),
+        superLucky: requiredBoolean(body.superLucky, '超级幸运星'),
+        isCaptain: requiredBoolean(body.isCaptain, '队长身份'),
+        interactionTheme: optionalString(body.interactionTheme, '合影主题', 120),
+      }, actor);
     } else if (type === 'undoRelationship') {
       await undoPlayerRelationship(
         requiredUuid(body.relationshipId, '关系 ID'),
