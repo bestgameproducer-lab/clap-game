@@ -10,10 +10,22 @@ import { useLiveRefresh } from '@/lib/use-live-refresh';
 
 const GUEST_CACHE_KEY = 'wedding-guest-session-cache-v1';
 const PENDING_CONNECTION_MESSAGE = '你的编号确认已提交，等待对方输入你的玩家编号。';
+const PENDING_ASSIGNMENT_MESSAGE = '任务已送到丘比特任务站，等待主办方确认。';
+const PENDING_VOTE_MESSAGE = '投票已提交并锁定。结果公布后会自动结算侦探积分。';
+const PENDING_MUTUAL_CONFIRMATION_MESSAGE = '确认邀请已发送，请让对方打开自己的页面处理。';
+const PENDING_DILEMMA_MESSAGE = '秘密选择已密封提交';
+const PENDING_COPY_MESSAGE = '命运复制目标已锁定';
 
 type RegistrationGuest = { id: string; name: string; loginName: string; hasPassword: boolean };
 type SecretCard = { team: string; role: string; storyRole: string; task: { id: string; title: string; description: string; verificationMethod: string; points: number }; drawnAt: string };
 type ConnectionRelationshipType = 'CUPID_ALLIANCE' | 'STAR_ALLIANCE' | 'TRICKSTER_CONNECTION';
+type PendingNotice =
+  | { kind: 'CONNECTION'; relationshipType: ConnectionRelationshipType }
+  | { kind: 'ASSIGNMENT_REVIEW'; assignmentId: string }
+  | { kind: 'MUTUAL_CONFIRMATION'; assignmentId: string }
+  | { kind: 'VOTE_RESULT'; votingRound: number }
+  | { kind: 'PHASE_TWO_DILEMMA' }
+  | { kind: 'PHASE_TWO_COPY' };
 type GuestData = {
   guest: { id: string; name: string; team: string; role: string; is_hidden_spy: boolean; points: number; drawn_at: string | null; special_card_revealed_at: string | null; participation_mode: 'ACTIVE_PLAYER' | 'HONOR_GUEST' | 'PRINCIPAL'; relationship: string; story_role: string; eligible_for_mission: boolean; eligible_for_secret_role: boolean; eligible_for_personal_score: boolean; special_card_title: string; special_card_body: string; player_code: string; unlocked_role: string };
   assignments: Array<{ id: string; status: string; is_initial: boolean; completion_rank: number | null; early_bonus_points: number; reward_task_id: string | null; reward_clue_id: string | null; completion_note: string; verification_note: string; verified_at: string | null; evidence_uploaded_at: string | null; evidence_url: string | null; rejection_reason: string | null; task: { title: string; description: string; verification_method: string; points: number; category: string; stage: string; mission_code: string | null; mechanic: string; score_policy: string } }>;
@@ -111,7 +123,7 @@ export default function GuestPage() {
   const [contentNotice, setContentNotice] = useState<{ title: string; detail: string } | null>(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [pendingConnectionType, setPendingConnectionType] = useState<ConnectionRelationshipType | null>(null);
+  const [pendingNotice, setPendingNotice] = useState<PendingNotice | null>(null);
   const [completionNotes, setCompletionNotes] = useState<Record<string, string>>({});
   const [evidenceBusyId, setEvidenceBusyId] = useState<string | null>(null);
   const [connectionTargetCode, setConnectionTargetCode] = useState('');
@@ -232,17 +244,37 @@ export default function GuestPage() {
   useLiveRefresh(async () => { if (!manualRefreshRef.current) await load(); }, undefined, Boolean(data));
 
   useEffect(() => {
-    if (!data || !pendingConnectionType || message !== PENDING_CONNECTION_MESSAGE) return;
-    const stillWaiting = data.missionStory?.relationships.some((relationship) => (
-      relationship.type === pendingConnectionType
-      && relationship.status === 'PENDING'
-      && relationship.confirmedByMe
-    ));
-    if (!stillWaiting) {
-      setMessage('');
-      setPendingConnectionType(null);
+    if (!data || !pendingNotice) return;
+    let expectedMessage = '';
+    let stillWaiting = false;
+    if (pendingNotice.kind === 'CONNECTION') {
+      expectedMessage = PENDING_CONNECTION_MESSAGE;
+      stillWaiting = Boolean(data.missionStory?.relationships.some((relationship) => (
+        relationship.type === pendingNotice.relationshipType
+        && relationship.status === 'PENDING'
+        && relationship.confirmedByMe
+      )));
+    } else if (pendingNotice.kind === 'ASSIGNMENT_REVIEW') {
+      expectedMessage = PENDING_ASSIGNMENT_MESSAGE;
+      stillWaiting = data.assignments.some((assignment) => assignment.id === pendingNotice.assignmentId && assignment.status === 'submitted');
+    } else if (pendingNotice.kind === 'MUTUAL_CONFIRMATION') {
+      expectedMessage = PENDING_MUTUAL_CONFIRMATION_MESSAGE;
+      stillWaiting = Boolean(data.missionStory?.mutualConfirmations.some((confirmation) => confirmation.assignmentId === pendingNotice.assignmentId && confirmation.direction === 'OUTGOING' && confirmation.status === 'PENDING'));
+    } else if (pendingNotice.kind === 'VOTE_RESULT') {
+      expectedMessage = PENDING_VOTE_MESSAGE;
+      stillWaiting = Boolean(data.existingVote && !data.game?.results_visible && data.game?.voting_round === pendingNotice.votingRound);
+    } else if (pendingNotice.kind === 'PHASE_TWO_DILEMMA') {
+      expectedMessage = PENDING_DILEMMA_MESSAGE;
+      stillWaiting = Boolean(data.phaseTwo?.dilemma?.submitted && !data.phaseTwo.dilemma.settled);
+    } else if (pendingNotice.kind === 'PHASE_TWO_COPY') {
+      expectedMessage = PENDING_COPY_MESSAGE;
+      stillWaiting = Boolean(data.phaseTwo?.copyChoice && !data.phaseTwo.copyChoice.settled);
     }
-  }, [data, message, pendingConnectionType]);
+    if (message !== expectedMessage || !stillWaiting) {
+      setMessage('');
+      setPendingNotice(null);
+    }
+  }, [data, message, pendingNotice]);
 
   useEffect(() => () => {
     if (refreshNoticeTimerRef.current !== null) window.clearTimeout(refreshNoticeTimerRef.current);
@@ -342,7 +374,9 @@ export default function GuestPage() {
       });
       const body = await response.json();
       if (!response.ok) { setError(body.error || '提交失败'); return; }
-      setMessage('任务已送到丘比特任务站，等待主办方确认。'); await load();
+      await load();
+      setPendingNotice({ kind: 'ASSIGNMENT_REVIEW', assignmentId });
+      setMessage(PENDING_ASSIGNMENT_MESSAGE);
     } catch { setOffline(true); setError('当前处于离线状态，任务尚未提交，请联网后重试。'); }
     finally { setBusy(false); }
   }
@@ -397,7 +431,10 @@ export default function GuestPage() {
       });
       const body = await response.json();
       if (!response.ok) { setError(body.error || '投票失败'); return; }
-      setMessage('投票已提交并锁定。结果公布后会自动结算侦探积分。'); await load();
+      const votingRound = data?.game?.voting_round ?? 0;
+      await load();
+      setPendingNotice({ kind: 'VOTE_RESULT', votingRound });
+      setMessage(PENDING_VOTE_MESSAGE);
     } catch { setOffline(true); setError('当前处于离线状态，投票尚未保存，请联网后重试。'); }
     finally { setBusy(false); }
   }
@@ -464,7 +501,7 @@ export default function GuestPage() {
       const status = body.result?.status;
       setConnectionTargetCode('');
       await load();
-      setPendingConnectionType(status === 'PENDING' ? relationshipType : null);
+      setPendingNotice(status === 'PENDING' ? { kind: 'CONNECTION', relationshipType } : null);
       setMessage(status === 'ACTIVE'
         ? relationshipType === 'CUPID_ALLIANCE' ? '双向确认成功，丘比特联盟已经成立。' : relationshipType === 'STAR_ALLIANCE' ? '双向确认成功，星光联盟已经成立。' : '暗号双向确认成功，你已经找到一位同伴。'
         : status === 'NO_MATCH' ? '暗号没有匹配。请保持自然，你还可以继续试探。'
@@ -497,8 +534,9 @@ export default function GuestPage() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || '确认邀请发送失败');
       setMutualTargetCodes((current) => ({ ...current, [assignmentId]: '' }));
-      setMessage('确认邀请已发送，请让对方打开自己的页面处理。');
       await load();
+      setPendingNotice({ kind: 'MUTUAL_CONFIRMATION', assignmentId });
+      setMessage(PENDING_MUTUAL_CONFIRMATION_MESSAGE);
     } catch (cause) { setError(cause instanceof Error ? cause.message : '确认邀请发送失败'); }
     finally { setBusy(false); }
   }
@@ -689,9 +727,10 @@ export default function GuestPage() {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || '第二阶段选择提交失败');
-      setMessage(success);
       setPhaseTwoDilemmaChoice('');
       await load();
+      setPendingNotice(payload.action === 'dilemma' ? { kind: 'PHASE_TWO_DILEMMA' } : { kind: 'PHASE_TWO_COPY' });
+      setMessage(success);
     } catch (cause) { setError(cause instanceof Error ? cause.message : '第二阶段选择提交失败'); }
     finally { setBusy(false); }
   }
@@ -702,7 +741,7 @@ export default function GuestPage() {
     const actionOpen = isTaskActionOpenAtStage(assignment.task.stage, data.game?.stage);
     if (assignment.task.mission_code === 'P2-LONELY-001') {
       if (phaseTwo.copyChoice) return <div className="phase-two-choice-state"><strong>命运已经选定</strong><span>{phaseTwo.copyChoice.targetName} · {phaseTwo.copyChoice.targetTeam}</span><small>{phaseTwo.copyChoice.settled ? `最终复制 ${phaseTwo.copyChoice.settledPoints ?? 0} 分` : '最终揭晓时自动复制该玩家的第二阶段个人积分。选择不可修改。'}</small></div>;
-      return <div className="phase-two-action"><label htmlFor={`copy-target-${assignment.id}`}>选择要复制命运的玩家</label><select id={`copy-target-${assignment.id}`} value={phaseTwoCopyTarget} disabled={busy || offline || !actionOpen} onChange={(event) => setPhaseTwoCopyTarget(event.target.value)}><option value="">请选择一位竞技玩家</option>{phaseTwo.copyCandidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name} · {candidate.team}</option>)}</select><p>提交后不能修改；最终只复制对方第二阶段获得的个人积分。</p><button disabled={busy || offline || !actionOpen || !phaseTwoCopyTarget} onClick={() => void submitPhaseTwoAction({ action: 'copy', targetGuestId: phaseTwoCopyTarget }, '命运复制目标已锁定')}>确认并锁定目标</button></div>;
+      return <div className="phase-two-action"><label htmlFor={`copy-target-${assignment.id}`}>选择要复制命运的玩家</label><select id={`copy-target-${assignment.id}`} value={phaseTwoCopyTarget} disabled={busy || offline || !actionOpen} onChange={(event) => setPhaseTwoCopyTarget(event.target.value)}><option value="">请选择一位竞技玩家</option>{phaseTwo.copyCandidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name} · {candidate.team}</option>)}</select><p>提交后不能修改；最终只复制对方第二阶段获得的个人积分。</p><button disabled={busy || offline || !actionOpen || !phaseTwoCopyTarget} onClick={() => void submitPhaseTwoAction({ action: 'copy', targetGuestId: phaseTwoCopyTarget }, PENDING_COPY_MESSAGE)}>确认并锁定目标</button></div>;
     }
     const dilemma = phaseTwo.dilemma;
     const isHeart = assignment.task.mission_code === 'P2-HEART-001';
@@ -712,7 +751,7 @@ export default function GuestPage() {
     const labels: Record<string, string> = { LOVE: '爱', HATE: '恨', TOGETHER: '同行', TAKE_ALL: '独占' };
     if (dilemma?.settled) return <div className="phase-two-choice-state settled"><strong>双方选择已经揭晓</strong><span>你选择「{labels[dilemma.myChoice ?? '']}」· 获得 {dilemma.myPoints ?? 0} 分</span><span>伙伴选择「{labels[dilemma.partnerChoice ?? '']}」· 获得 {dilemma.partnerPoints ?? 0} 分</span></div>;
     if (dilemma?.submitted) return <div className="phase-two-choice-state"><strong>你的选择已密封保存</strong><span>等待伙伴提交后，系统才会同时揭晓结果。</span><small>任何人都不能提前查看或修改选择。</small></div>;
-    return <div className="phase-two-action"><strong>{isHeart ? '爱与恨的秘密选择' : '星光秘密选择'}</strong><p>先选一项，再确认提交。提交后不能修改；伙伴提交前不会看到你的选择。</p>{!isHeart && <section className="phase-two-payoff" aria-label="星光抉择积分规则"><strong>积分规则 · 先看清再选择</strong><div><span>双方都选「同行」</span><b>各得 3 分</b></div><div><span>你选「同行」，伙伴选「独占」</span><b>你 0 分 · 伙伴 5 分</b></div><div><span>你选「独占」，伙伴选「同行」</span><b>你 5 分 · 伙伴 0 分</b></div><div><span>双方都选「独占」</span><b>各得 1 分</b></div><p>「同行」更稳；「独占」可能拿到 5 分，但如果双方都想独占，就只能各得 1 分。</p></section>}<div className="phase-two-choice-buttons">{choices.map((choice) => <button type="button" className={phaseTwoDilemmaChoice === choice.value ? 'selected' : ''} disabled={busy || offline || !actionOpen} key={choice.value} onClick={() => setPhaseTwoDilemmaChoice(choice.value)}>{choice.label}</button>)}</div><button disabled={busy || offline || !actionOpen || !phaseTwoDilemmaChoice} onClick={() => void submitPhaseTwoAction({ action: 'dilemma', choice: phaseTwoDilemmaChoice }, '秘密选择已密封提交')}>确认提交 · 不可修改</button></div>;
+    return <div className="phase-two-action"><strong>{isHeart ? '爱与恨的秘密选择' : '星光秘密选择'}</strong><p>先选一项，再确认提交。提交后不能修改；伙伴提交前不会看到你的选择。</p>{!isHeart && <section className="phase-two-payoff" aria-label="星光抉择积分规则"><strong>积分规则 · 先看清再选择</strong><div><span>双方都选「同行」</span><b>各得 3 分</b></div><div><span>你选「同行」，伙伴选「独占」</span><b>你 0 分 · 伙伴 5 分</b></div><div><span>你选「独占」，伙伴选「同行」</span><b>你 5 分 · 伙伴 0 分</b></div><div><span>双方都选「独占」</span><b>各得 1 分</b></div><p>「同行」更稳；「独占」可能拿到 5 分，但如果双方都想独占，就只能各得 1 分。</p></section>}<div className="phase-two-choice-buttons">{choices.map((choice) => <button type="button" className={phaseTwoDilemmaChoice === choice.value ? 'selected' : ''} disabled={busy || offline || !actionOpen} key={choice.value} onClick={() => setPhaseTwoDilemmaChoice(choice.value)}>{choice.label}</button>)}</div><button disabled={busy || offline || !actionOpen || !phaseTwoDilemmaChoice} onClick={() => void submitPhaseTwoAction({ action: 'dilemma', choice: phaseTwoDilemmaChoice }, PENDING_DILEMMA_MESSAGE)}>确认提交 · 不可修改</button></div>;
   }
 
   if (usesTricksterFacade && secretReaderOpen) return <main className="trickster-private-shell">
