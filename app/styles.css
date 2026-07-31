@@ -133,6 +133,12 @@ button.text-button { background: transparent; color: #76665e; padding: 8px; text
 .phase-two-choice-buttons { display:grid;grid-template-columns:1fr 1fr;gap:8px; }
 .phase-two-choice-buttons button { margin:0;background:#f0e5de;color:#6f574c;box-shadow:none; }
 .phase-two-choice-buttons button.selected { background:#7c4137;color:#fff;box-shadow:0 8px 18px rgba(91,49,41,.18); }
+.phase-two-payoff { display:grid;gap:7px;padding:12px;border-radius:13px;background:#f4e9df;border:1px solid #dfc9bb; }
+.phase-two-payoff>strong { color:#6f3b32;font-size:13px; }
+.phase-two-payoff>div { display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:7px;border-top:1px solid rgba(124,65,55,.13);font-size:12px;line-height:1.45; }
+.phase-two-payoff>div span { color:#665850; }
+.phase-two-payoff>div b { flex:0 0 auto;color:#7c4137;text-align:right; }
+.phase-two-action .phase-two-payoff>p { color:#6f3b32;font-weight:650; }
 .phase-two-choice-state.settled { border-color:#d6e5d5;background:#f4faf3; }
 .phase-two-choice-state.settled strong { color:#466844; }
 .evidence-preview { margin:10px 0 0; padding:8px; border:1px solid #eadbd2; border-radius:14px; background:#fffaf6; }
