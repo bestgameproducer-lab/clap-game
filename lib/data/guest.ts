@@ -26,6 +26,30 @@ export async function castGuestVote(voterGuestId: string, targetGuestId: string)
   if (error) throw new Error(`Unable to save vote: ${error.message}`);
 }
 
+export async function submitPhaseTwoDilemma(guestId: string, choice: string) {
+  const { error } = await getSupabaseAdmin().rpc('submit_phase_two_dilemma', {
+    p_guest_id: guestId, p_choice: choice,
+  });
+  if (error?.message.includes('phase_two_action_closed')) throw new ApiError(409, '当前环节尚未开放或已经关闭秘密选择');
+  if (error?.message.includes('phase_two_dilemma_forbidden')) throw new ApiError(403, '你没有这项秘密选择任务');
+  if (error?.message.includes('phase_two_alliance_missing')) throw new ApiError(409, '联盟关系尚未完成，暂时不能选择');
+  if (error?.message.includes('phase_two_choice_locked')) throw new ApiError(409, '选择已经提交，不能修改');
+  if (error?.message.includes('invalid_phase_two_choice')) throw new ApiError(400, '秘密选择不符合当前任务');
+  if (error) throw new Error(`Unable to submit phase two dilemma: ${error.message}`);
+}
+
+export async function submitPhaseTwoCopyChoice(guestId: string, targetGuestId: string) {
+  const { error } = await getSupabaseAdmin().rpc('submit_phase_two_copy_choice', {
+    p_guest_id: guestId, p_target_guest_id: targetGuestId,
+  });
+  if (error?.message.includes('phase_two_action_closed')) throw new ApiError(409, '当前环节尚未开放或已经关闭命运复制');
+  if (error?.message.includes('phase_two_copy_forbidden')) throw new ApiError(403, '你没有命运复制任务');
+  if (error?.message.includes('phase_two_copy_self')) throw new ApiError(400, '不能选择自己');
+  if (error?.message.includes('phase_two_copy_target_invalid')) throw new ApiError(400, '这个玩家不能作为复制目标');
+  if (error?.message.includes('phase_two_choice_locked')) throw new ApiError(409, '复制目标已经提交，不能修改');
+  if (error) throw new Error(`Unable to submit phase two copy choice: ${error.message}`);
+}
+
 export async function drawGuestCard(guestId: string) {
   const { data, error } = await getSupabaseAdmin().rpc('draw_guest_card', { p_guest_id: guestId });
   if (error?.message.includes('guest_not_claimed')) throw new ApiError(401, '请先认领宾客身份');
@@ -137,6 +161,9 @@ export async function getGuestView(guestId: string) {
     db.from('trickster_signal_attempts').select('id', { count: 'exact', head: true }).eq('guest_id', guestId),
     db.from('alliance_clue_fragments').select('pair_key,title,left_fragment,right_fragment,active').eq('active', true),
     db.from('assignment_mutual_confirmations').select('id,assignment_id,owner_guest_id,confirmer_guest_id,status,created_at,owner:guests!assignment_mutual_confirmations_owner_guest_id_fkey(id,name),confirmer:guests!assignment_mutual_confirmations_confirmer_guest_id_fkey(id,name)').or(`owner_guest_id.eq.${guestId},confirmer_guest_id.eq.${guestId}`).order('created_at', { ascending: false }),
+    db.from('phase_two_profiles').select('primary_mission,extra_vote,super_lucky,is_captain,unlocked_at,phase_one_points_snapshot,lucky_bonus_settled_at,captain_bonus_settled_at').eq('guest_id', guestId).maybeSingle(),
+    db.from('phase_two_dilemmas').select('alliance_type,player_a_id,player_b_id,player_a_choice,player_b_choice,player_a_points,player_b_points,settled_at').or(`player_a_id.eq.${guestId},player_b_id.eq.${guestId}`).maybeSingle(),
+    db.from('phase_two_copy_choices').select('target_guest_id,settled_points,settled_at,target:guests!phase_two_copy_choices_target_guest_id_fkey(id,name,team)').eq('guest_id', guestId).maybeSingle(),
   ]);
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`Unable to load guest data: ${error.message}`);
@@ -175,6 +202,23 @@ export async function getGuestView(guestId: string) {
     };
   }
   const symbolPairing = results[4].data;
+  const phaseTwoProfile = results[9].data;
+  const dilemma = results[10].data;
+  const copyChoice = results[11].data;
+  let copyCandidates: Array<{ id: string; name: string; team: string }> = [];
+  if (phaseTwoProfile?.primary_mission === 'COPY_SCORE' && phaseTwoProfile.unlocked_at) {
+    const { data: candidateProfiles, error: candidateError } = await db
+      .from('phase_two_profiles')
+      .select('guest_id,primary_mission,guest:guests!phase_two_profiles_guest_id_fkey(id,name,team)')
+      .not('unlocked_at', 'is', null)
+      .neq('guest_id', guestId)
+      .neq('primary_mission', 'COPY_SCORE');
+    if (candidateError) throw new Error(`Unable to load copy candidates: ${candidateError.message}`);
+    copyCandidates = (candidateProfiles ?? []).flatMap((candidate) => {
+      const target = Array.isArray(candidate.guest) ? candidate.guest[0] : candidate.guest;
+      return target ? [{ id: target.id, name: target.name, team: target.team }] : [];
+    }).sort((a, b) => a.team.localeCompare(b.team) || a.name.localeCompare(b.name));
+  }
   const relationships = (results[5].data ?? []).map((relationship) => {
     const isPlayerA = relationship.player_a_id === guestId;
     const partner = isPlayerA
@@ -230,5 +274,36 @@ export async function getGuestView(guestId: string) {
       }),
       allianceClue: null,
     },
+    phaseTwo: phaseTwoProfile ? {
+      mission: phaseTwoProfile.primary_mission,
+      extraVote: phaseTwoProfile.extra_vote,
+      superLucky: phaseTwoProfile.super_lucky,
+      isCaptain: phaseTwoProfile.is_captain,
+      unlockedAt: phaseTwoProfile.unlocked_at,
+      phaseOnePointsSnapshot: phaseTwoProfile.primary_mission === 'SUPER_LUCKY' ? phaseTwoProfile.phase_one_points_snapshot : null,
+      luckySettled: Boolean(phaseTwoProfile.lucky_bonus_settled_at),
+      captainSettled: Boolean(phaseTwoProfile.captain_bonus_settled_at),
+      dilemma: dilemma ? (() => {
+        const isA = dilemma.player_a_id === guestId;
+        const settled = Boolean(dilemma.settled_at);
+        return {
+          allianceType: dilemma.alliance_type,
+          submitted: Boolean(isA ? dilemma.player_a_choice : dilemma.player_b_choice),
+          settled,
+          myChoice: isA ? dilemma.player_a_choice : dilemma.player_b_choice,
+          partnerChoice: settled ? (isA ? dilemma.player_b_choice : dilemma.player_a_choice) : null,
+          myPoints: settled ? (isA ? dilemma.player_a_points : dilemma.player_b_points) : null,
+          partnerPoints: settled ? (isA ? dilemma.player_b_points : dilemma.player_a_points) : null,
+        };
+      })() : null,
+      copyChoice: copyChoice ? {
+        targetGuestId: copyChoice.target_guest_id,
+        targetName: (Array.isArray(copyChoice.target) ? copyChoice.target[0] : copyChoice.target)?.name ?? '已选择玩家',
+        targetTeam: (Array.isArray(copyChoice.target) ? copyChoice.target[0] : copyChoice.target)?.team ?? '',
+        settledPoints: copyChoice.settled_points,
+        settled: Boolean(copyChoice.settled_at),
+      } : null,
+      copyCandidates,
+    } : null,
   };
 }
