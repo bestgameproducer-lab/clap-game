@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const migrationUrl = new URL('../supabase/migrations/202607310023_ceremony_end_stage.sql', import.meta.url);
+const finalizationFixUrl = new URL('../supabase/migrations/202607310024_fix_ceremony_end_finalization.sql', import.meta.url);
 const guestPageUrl = new URL('../app/guest/page.tsx', import.meta.url);
 const adminPageUrl = new URL('../app/admin/page.tsx', import.meta.url);
 
@@ -13,6 +14,13 @@ test('ceremony end resumes phase one without unlocking act two', async () => {
   assert.match(migration, /if p_stage='task_round_2'[\s\S]+perform finalize_phase_one_content\(p_actor\);[\s\S]+unlock_phase_two_missions\(p_actor\)/);
   assert.doesNotMatch(migration.slice(0, migration.indexOf("if p_stage='task_round_2'")), /unlock_phase_two_missions/);
   assert.doesNotMatch(migration, /delete from|truncate table|drop table/);
+});
+
+test('ceremony end is accepted by the phase-one finalizer before act two', async () => {
+  const migration = await readFile(finalizationFixUrl, 'utf8');
+  assert.match(migration, /'task_round_1','ceremony_end','task_round_2'/);
+  assert.match(migration, /phase_one_finalize_stage_patch_verification_failed/);
+  assert.doesNotMatch(migration, /update guests|update assignments|delete from|truncate/);
 });
 
 test('admin exposes ceremony end and a separate act-two transition', async () => {

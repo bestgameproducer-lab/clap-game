@@ -6,6 +6,13 @@ import { buildPublishedTeamResults } from '../result-core';
 import { getSupabaseAdmin } from '../supabase';
 import { signEvidencePaths } from './evidence';
 
+async function consumePlayerCodeAttempt(guestId: string) {
+  const { data, error } = await getSupabaseAdmin().rpc('consume_player_code_attempt', { p_guest_id: guestId });
+  if (error) throw new Error(`Unable to rate limit player code: ${error.message}`);
+  const retryAfter = Number(data ?? 0);
+  if (retryAfter > 0) throw new ApiError(429, '玩家编号尝试次数过多，请十分钟后再试，或联系现场工作人员');
+}
+
 export async function submitGuestAssignment(assignmentId: string, guestId: string, completionNote: string) {
   const { error } = await getSupabaseAdmin().rpc('submit_assignment', {
     p_assignment_id: assignmentId, p_guest_id: guestId, p_completion_note: completionNote,
@@ -91,16 +98,15 @@ export async function revealHonorSpecialCard(guestId: string) {
 }
 
 export async function requestGuestConnection(guestId: string, targetCode: string, relationshipType: string) {
+  await consumePlayerCodeAttempt(guestId);
   const { data, error } = await getSupabaseAdmin().rpc('request_player_connection', {
     p_guest_id: guestId,
     p_target_code: targetCode,
     p_relationship_type: relationshipType,
   });
   if (error?.message.includes('connection_guest_not_ready')) throw new ApiError(409, '请先完成抽卡');
-  if (error?.message.includes('connection_target_not_found')) throw new ApiError(404, '没有找到这个玩家编号');
-  if (error?.message.includes('connection_self_target')) throw new ApiError(400, '不能输入自己的玩家编号');
+  if (error?.message.includes('connection_target_not_found') || error?.message.includes('connection_self_target') || error?.message.includes('symbol_holder_required')) throw new ApiError(400, '编号无效或不适合这项任务，请向对方重新确认');
   if (error?.message.includes('symbol_connection_stage_closed')) throw new ApiError(409, '当前环节暂停或已关闭配对；仪式前、仪式结束后至最终投票前开放');
-  if (error?.message.includes('symbol_holder_required')) throw new ApiError(409, '只有持有相同图案的玩家可以配对');
   if (error?.message.includes('star_fragment_side_mismatch')) throw new ApiError(409, '你们持有的是同一半星星，请寻找另一半星星');
   if (error?.message.includes('heart_fragment_side_mismatch')) throw new ApiError(409, '你们持有的是同一半爱心，请寻找另一半爱心');
   if (error?.message.includes('symbol_player_unavailable')) throw new ApiError(409, '你或对方已经完成正式配对');
@@ -123,11 +129,13 @@ export async function rejectGuestConnection(guestId: string, relationshipId: str
 }
 
 export async function requestAssignmentMutualConfirmation(assignmentId: string, guestId: string, targetCode: string) {
+  await consumePlayerCodeAttempt(guestId);
   const { error } = await getSupabaseAdmin().rpc('request_assignment_mutual_confirmation', {
     p_assignment_id: assignmentId, p_owner_guest_id: guestId, p_target_code: targetCode,
   });
   if (error?.message.includes('mutual_assignment_not_found')) throw new ApiError(404, '找不到可以双方确认的任务');
   if (error?.message.includes('mutual_confirmation_not_supported')) throw new ApiError(409, '这项任务不支持双方软件确认');
+  if (error?.message.includes('connection_target_not_found') || error?.message.includes('connection_self_target')) throw new ApiError(400, '编号无效或不适合这项任务，请向对方重新确认');
   if (error?.message.includes('mutual_confirmer_limit')) throw new ApiError(409, '对方已经帮助两位玩家确认同类任务，请换一位新朋友');
   if (error?.message.includes('mutual_confirmation_pending')) throw new ApiError(409, '已有一项确认邀请正在等待对方处理');
   if (error?.message.includes('mutual_confirmation_stage_closed')) throw new ApiError(409, '当前环节暂停或已关闭确认；仪式前、仪式结束后至最终投票前开放');
