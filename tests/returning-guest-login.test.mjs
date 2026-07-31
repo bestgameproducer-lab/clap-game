@@ -34,6 +34,8 @@ test('registration API exposes only the RPC-permitted roster and mobile copy exp
   assert.match(data, /const permittedIds = \(permittedGuests \?\? \[\]\)\.map/);
   assert.match(data, /\.in\('id', permittedIds\)/);
   assert.match(data, /registrationOpen: game\.registration_open/);
-  assert.match(route, /return noStoreJson\(result\)/);
+  assert.match(route, /const response = noStoreJson\(result\);/);
+  assert.match(route, /response\.cookies\.set\(INVITATION_DEVICE_COOKIE/);
+  assert.match(route, /return response;/);
   assert.match(page, /新宾客注册已结束；已设置密码的宾客仍可登录/);
 });
