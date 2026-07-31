@@ -194,17 +194,18 @@ export default function GuestPage() {
 
   useEffect(() => {
     if (!secretReaderOpen) return;
+    const usesFullPagePrivateView = data?.guest.role === 'spy' && !data.game?.results_visible;
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setSecretReaderOpen(false);
     };
-    document.body.style.overflow = 'hidden';
+    if (!usesFullPagePrivateView) document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', closeOnEscape);
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', closeOnEscape);
     };
-  }, [secretReaderOpen]);
+  }, [secretReaderOpen, data?.guest.role, data?.game?.results_visible]);
 
   useLiveRefresh(async () => { if (!manualRefreshRef.current) await load(); }, undefined, Boolean(data));
 
@@ -587,7 +588,7 @@ export default function GuestPage() {
         <div className={`secret-card-front ${isTricksterCard ? 'trickster-card-front' : ''}`}><small>你被选中成为</small><h2>{role?.title}</h2><p>{role?.note}</p>
           {revealedCard && <div className={`identity-secrecy-callout ${isTricksterCard ? 'critical' : ''}`}><strong>{isTricksterCard ? '这是必须隐藏的身份' : '你的身份必须保密'}</strong><span>{isTricksterCard ? '请伪装成普通宾客：不要口头承认、不要展示本页、不要直接询问他人身份，只能使用规定暗号试探。' : '在最终揭晓前，不要说出身份、阵营或任务，也不要把手机页面展示给其他宾客。'}</span></div>}
           <div className="card-team"><span>你的组别</span><strong>{revealedCard?.team}</strong></div>
-          <div className="card-task"><span>{data.game?.task_catalog_mode === 'demo' ? '演示任务 · 之后会替换' : '第一项秘密任务'} · {revealedCard?.task.points} 分</span><strong>{revealedCard?.task.title}</strong><p>{revealedCard?.task.description}</p></div>
+          <div className="card-task"><span>{isTricksterCard ? '你的伪装任务' : data.game?.task_catalog_mode === 'demo' ? '演示任务 · 之后会替换' : '第一项秘密任务'} · {revealedCard?.task.points} 分</span><strong>{revealedCard?.task.title}</strong><p>{revealedCard?.task.description}</p>{isTricksterCard && <aside className="trickster-facade-explainer"><strong>这不是你的真正任务</strong><span>请像普通宾客一样完成这项伪装任务。进入主页后点击“展开查看”，即可切换到完整的恶作剧者秘密界面。</span></aside>}</div>
         </div>
       </div></CardScene>
       {!revealedCard && <button className="draw-button" disabled={drawing || !drawOpen} onClick={drawCard}>{drawing ? '丘比特正在洗牌…' : drawOpen ? '抽取我的秘密卡' : '抽卡入口暂未开放'}</button>}
@@ -624,6 +625,20 @@ export default function GuestPage() {
   const trueTricksterAssignments = usesTricksterFacade ? data.assignments.filter((assignment) => assignment.task.category === 'hidden') : [];
   const dashboardAssignments = usesTricksterFacade ? data.assignments.filter((assignment) => assignment.task.category !== 'hidden') : data.assignments;
   const readerAssignments = usesTricksterFacade ? trueTricksterAssignments : data.assignments;
+
+  if (usesTricksterFacade && secretReaderOpen) return <main className="trickster-private-shell">
+    <section className="trickster-private-view" aria-labelledby="trickster-private-title">
+      <header className="trickster-private-header"><div><small>PRIVATE TRICKSTER VIEW</small><strong id="trickster-private-title">恶作剧者秘密界面</strong><span>这里显示你的真实身份、真正任务与秘密行动。</span></div><button type="button" onClick={() => setSecretReaderOpen(false)}>再次点击 · 隐藏内容</button></header>
+      <div className="secret-reader-content">
+        <section className="secret-reader-identity"><small>你的真实身份</small><h2>{role.title}</h2><p>{role.note}</p></section>
+        <section className="secret-reader-rule critical"><strong>必须隐藏身份</strong><p>不要承认身份、不要展示本页、不要直接询问别人是不是同伴；请继续伪装成普通宾客，只使用规定暗号行动。</p></section>
+        <section className="secret-reader-missions"><div className="secret-reader-section-heading"><small>TRUE MISSIONS</small><strong>你的真正任务</strong><span>{readerAssignments.length}</span></div>{readerAssignments.length === 0 ? <p className="secret-reader-empty">真正任务尚未开放，请稍后再次查看。</p> : readerAssignments.map((assignment, index) => <article key={assignment.id}><div><small>真正任务 {String(index + 1).padStart(2, '0')}</small><span className={`status ${assignment.status}`}>{STATUS_LABELS[assignment.status] ?? assignment.status}</span></div><h3>{assignment.task.title}</h3><p>{assignment.task.description}</p><aside><strong>如何验证</strong><span>{assignment.task.verification_method}</span></aside></article>)}</section>
+        {missionStory && <section className="story-connection-card trickster secret-reader-command"><div className="section-heading"><div><small>CUPID'S CALL</small><h2>丘比特的召集令</h2></div><span>{missionStory.tricksterAttemptsUsed}/{missionStory.tricksterMaxAttempts}</span></div><div className="signal-script"><small>暗号问句</small><strong>你觉得丘比特今天心情怎么样？</strong><small>正确回答</small><strong>他好像想开个玩笑。</strong></div>{!canUseTricksterSignal ? <p className="trickster-waiting-note">{data.game?.stage === 'task_round_1' ? '婚礼仪式进行中，秘密确认暂时暂停；仪式结束后会重新开放。' : '秘密确认入口当前已经关闭。'}</p> : tricksterRelationship?.status === 'ACTIVE' ? <div className="story-unlock"><strong>已找到同伴</strong><p>你和 {tricksterRelationship.partnerName} 已完成双向确认。继续隐藏身份。</p></div> : <div className="connection-form"><label htmlFor="trickster-partner-code">暗号匹配后，输入对方玩家编号</label><div><input id="trickster-partner-code" value={connectionTargetCode} onChange={(event) => setConnectionTargetCode(event.target.value.toUpperCase())} maxLength={7} placeholder="例如 P012"/><button disabled={busy || offline || missionStory.tricksterAttemptsUsed >= missionStory.tricksterMaxAttempts || !/^P[0-9]{3,6}$/.test(connectionTargetCode)} onClick={() => void connectPlayer('TRICKSTER_CONNECTION')}>秘密确认</button></div>{tricksterRelationship?.status === 'PENDING' && <p>{tricksterRelationship.confirmedByMe ? `已提交，等待 ${tricksterRelationship.partnerName} 输入你的编号。` : `${tricksterRelationship.partnerName} 已通过暗号找到你，请输入对方编号。`}</p>}<p>本阶段最多试探 {missionStory.tricksterMaxAttempts} 位宾客。不要连续询问，也不要直接暴露身份。</p></div>}</section>}
+      </div>
+      <footer className="trickster-private-footer"><button type="button" onClick={() => setSecretReaderOpen(false)}>再次点击 · 隐藏内容</button><small>切换应用、锁屏或离开页面时会自动恢复伪装界面。</small></footer>
+    </section>
+  </main>;
+
   return <main className="dashboard-shell">
     <section className="mission-hero">
       <div className="eyebrow">丘比特的婚礼考验</div>
@@ -661,7 +676,7 @@ export default function GuestPage() {
     <div className="footer-actions"><button className={`secondary refresh-button ${manualRefreshing ? 'refreshing' : ''}`} disabled={manualRefreshing} onClick={() => void refreshManually()}><span className="refresh-icon" aria-hidden="true">↻</span><span>{manualRefreshing ? '刷新中…' : '刷新状态'}</span></button><button className="text-button" disabled={busy} onClick={logout}>{busy ? '安全退出中…' : '退出此身份'}</button></div>
     {refreshNotice && <div className="notice success manual-refresh-notice" role="status">{refreshNotice}</div>}
     {offlineReady && <div className="offline-ready" role="status">弱网备用已准备 · 刷新后仍可打开本页</div>}
-    {secretReaderOpen && !hasPublicIdentity && <div className="secret-reader-backdrop">
+    {secretReaderOpen && !hasPublicIdentity && !usesTricksterFacade && <div className="secret-reader-backdrop">
       <section className={`secret-reader-dialog ${isTrickster ? 'trickster' : ''}`} role="dialog" aria-modal="true" aria-labelledby="secret-reader-title">
         <header className="secret-reader-header"><div><small>PRIVATE VIEW</small><strong id="secret-reader-title">身份与秘密任务</strong></div><button type="button" aria-label="隐藏并关闭秘密内容" onClick={() => setSecretReaderOpen(false)}>×</button></header>
         <div className="secret-reader-content">
