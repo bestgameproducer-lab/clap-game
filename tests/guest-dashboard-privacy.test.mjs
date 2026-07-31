@@ -39,11 +39,14 @@ test('long private content opens in a scrollable reader with an explicit privacy
   assert.match(css, /\.secret-reader-footer\{[^}]*border-top/);
 });
 
-test('public story roles and published identities bypass the privacy mask', async () => {
+test('only ceremony story roles and published identities bypass the privacy mask', async () => {
   const page = await readFile(pageUrl, 'utf8');
 
-  assert.match(page, /isHonorGuest \|\| data\.guest\.story_role !== 'NONE' \|\| Boolean\(data\.game\?\.results_visible\)/);
+  assert.match(page, /const PUBLIC_STORY_ROLES = new Set\(\['OFFICIANT', 'RING_KEEPER', 'GROOM_CHEERLEADER', 'BRIDE_CHEERLEADER', 'APPLAUSE_STARTER'\]\)/);
+  assert.match(page, /isHonorGuest \|\| PUBLIC_STORY_ROLES\.has\(data\.guest\.story_role\) \|\| Boolean\(data\.game\?\.results_visible\)/);
+  assert.doesNotMatch(page.slice(page.indexOf('const PUBLIC_STORY_ROLES'), page.indexOf('function CardScene')), /HEART_HOLDER|STAR_HOLDER/);
   assert.match(page, /STORY_ROLE_LABELS\[data\.guest\.story_role\]/);
   assert.match(page, /OFFICIANT: \{ title: '誓词引导人'/);
   assert.match(page, /RING_KEEPER: \{ title: '戒指守护者'/);
+  assert.match(page, /STAR_HOLDER: \{ title: '星光寻觅者'/);
 });

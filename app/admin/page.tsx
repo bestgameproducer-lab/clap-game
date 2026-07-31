@@ -13,7 +13,7 @@ const TEAMS = ['海岛组', '沙漠组'] as const;
 
 const ROLE_LABELS: Record<string, string> = { guest: '祝福见证者', spy: '恶作剧者（间谍）' };
 const PARTICIPATION_LABELS: Record<string, string> = { ACTIVE_PLAYER: '任务玩家', HONOR_GUEST: '荣誉宾客', PRINCIPAL: '新人专属' };
-const STORY_ROLE_LABELS: Record<string, string> = { NONE: '', OFFICIANT: '誓词引导人', RING_KEEPER: '戒指守护者', GROOM_CHEERLEADER: '新郎应援者', BRIDE_CHEERLEADER: '新娘应援者', APPLAUSE_STARTER: '掌声发起者', HEART_HOLDER: '爱心持有者', STAR_HOLDER: '星星持有者' };
+const STORY_ROLE_LABELS: Record<string, string> = { NONE: '', OFFICIANT: '誓词引导人', RING_KEEPER: '戒指守护者', GROOM_CHEERLEADER: '新郎应援者', BRIDE_CHEERLEADER: '新娘应援者', APPLAUSE_STARTER: '掌声发起者', HEART_HOLDER: '爱心持有者', STAR_HOLDER: '星光寻觅者' };
 const PHASE_TWO_MISSION_LABELS: Record<string, string> = {
   TOAST_GROOM_FATHER: '向新郎爸爸敬酒并合影', TOAST_BRIDE_MOTHER: '向新娘妈妈敬酒并合影',
   INTERACT_WITH_GROOM: '与新郎互动或合影', INTERACT_WITH_BRIDE: '与新娘互动或合影',

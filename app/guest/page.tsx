@@ -67,8 +67,10 @@ const STORY_ROLE_LABELS: Record<string, { title: string; note: string }> = {
   BRIDE_CHEERLEADER: { title: '新娘应援者', note: '等待主持人的合适节点，再送出为新娘准备的那句应援。' },
   APPLAUSE_STARTER: { title: '掌声发起者', note: '在仪式完成的自然节点率先鼓掌，带动周围宾客。' },
   HEART_HOLDER: { title: '爱心持有者', note: '保管好你的爱心编号，悄悄寻找真正匹配的另一半。' },
-  STAR_HOLDER: { title: '星星持有者', note: '悄悄寻找另一位星星玩家，和对方组成星光联盟。' },
+  STAR_HOLDER: { title: '星光寻觅者', note: '藏好你的半颗星光，悄悄寻找持有另一半星星的伙伴。' },
 };
+
+const PUBLIC_STORY_ROLES = new Set(['OFFICIANT', 'RING_KEEPER', 'GROOM_CHEERLEADER', 'BRIDE_CHEERLEADER', 'APPLAUSE_STARTER']);
 
 function CardScene({ className, label, disabled = false, onActivate, children }: {
   className: string;
@@ -599,7 +601,7 @@ export default function GuestPage() {
   const isActivePlayer = data.guest.participation_mode === 'ACTIVE_PLAYER';
   const isHonorGuest = data.guest.participation_mode === 'HONOR_GUEST';
   const isTrickster = data.guest.role === 'spy' || data.guest.is_hidden_spy;
-  const hasPublicIdentity = isHonorGuest || data.guest.story_role !== 'NONE' || Boolean(data.game?.results_visible);
+  const hasPublicIdentity = isHonorGuest || PUBLIC_STORY_ROLES.has(data.guest.story_role) || Boolean(data.game?.results_visible);
   const identityVisible = hasPublicIdentity || showSecrets;
   const role = isHonorGuest
     ? { title: '家庭荣誉宾客', note: '参与现场互动并累积个人积分；不领取秘密任务、隐藏身份或秘密线索。' }
