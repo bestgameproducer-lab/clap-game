@@ -8,6 +8,7 @@ const passwordMigration = await readFile(new URL('../supabase/migrations/2026073
 const fixedDrawMigration = await readFile(new URL('../supabase/migrations/202607310006_align_unfinished_fixed_draws.sql', import.meta.url), 'utf8');
 const teamClueMigration = await readFile(new URL('../supabase/migrations/202607310007_phase_two_team_rank_clues.sql', import.meta.url), 'utf8');
 const liveDrawMigration = await readFile(new URL('../supabase/migrations/202607310008_fix_live_random_card_draw.sql', import.meta.url), 'utf8');
+const passwordPathFix = await readFile(new URL('../supabase/migrations/202607310010_fix_admin_password_pgcrypto_path.sql', import.meta.url), 'utf8');
 const adminData = await readFile(new URL('../lib/data/admin.ts', import.meta.url), 'utf8');
 const adminRoute = await readFile(new URL('../app/api/admin-action/route.ts', import.meta.url), 'utf8');
 const loginRoute = await readFile(new URL('../app/api/admin-login/route.ts', import.meta.url), 'utf8');
@@ -51,6 +52,10 @@ test('administrator password rotation is bcrypt-only, audited, and revokes sessi
   assert.match(loginRoute, /verifyAdminPasswordOverride/);
   assert.match(adminRoute, /type === 'rotateAdminPassword'/);
   assert.match(adminPage, /更换管理员密码并退出所有设备/);
+  assert.match(passwordPathFix, /verify_admin_password_override[\s\S]+search_path=public,extensions/);
+  assert.match(passwordPathFix, /rotate_admin_password[\s\S]+search_path=public,extensions/);
+  assert.match(passwordPathFix, /existing_hashes_preserved',true/);
+  assert.doesNotMatch(passwordPathFix, /delete from admin_credential_override|truncate|drop table/);
 });
 
 test('unfinished fixed draws align forward-only without rewriting score history', () => {
