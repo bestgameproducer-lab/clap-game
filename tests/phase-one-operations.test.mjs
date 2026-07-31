@@ -17,7 +17,7 @@ test('social missions support bounded mutual confirmation with atomic completion
   assert.match(migration, /perform approve_assignment\(v_confirmation\.assignment_id,'system:mutual-confirmation'/);
   assert.match(route, /assertSameOrigin\(request\)/);
   assert.match(route, /const guestId = await requireGuest\(\)/);
-  assert.match(guestData, /guest\.hidden_role === 'CUPID_HELPER'/);
+  assert.doesNotMatch(guestData, /CUPID_HELPER|cupid_helper_actions/);
   assert.match(guestPage, /renderMutualConfirmation\(assignment\)/);
   assert.match(guestPage, /className="inline-mutual-confirmation"/);
   assert.match(guestPage, /输入玩家编号/);

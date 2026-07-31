@@ -89,7 +89,7 @@ NEXT_PUBLIC_WEDDING_TITLE=婚礼页面标题
 - 所有人都必须看到“不要告诉别人身份、阵营或任务”的明确提示。
 - 恶作剧者未主动展开时，主界面必须和普通玩家完全一样：显示一项普通伪装任务，不出现“不计入个人得分”等穿帮文字。
 - 恶作剧者按住身份仍应看到真实身份；点击“展开查看”才进入真实身份和真实秘密任务，再点一次隐藏。
-- 丘比特帮手和预设恶作剧者也必须能正常抽卡，预设不能破坏容量或任务分配。
+- 丘比特帮手玩法已于 `202607300008_remove_cupid_helper_feature.sql` 整体移除；预设恶作剧者仍必须正常抽卡，预设不能破坏容量或任务分配。
 
 ### 任务与同步
 
@@ -142,12 +142,13 @@ NEXT_PUBLIC_WEDDING_TITLE=婚礼页面标题
 
 ## 6. 任务系统的代码真相
 
-第一阶段真实任务、固定角色、爱心/星星配对、恶作剧者暗号、丘比特帮手和二阶段解锁逻辑主要位于：
+第一阶段真实任务、固定角色、爱心/星星配对、恶作剧者暗号和二阶段解锁逻辑主要位于：
 
 - `supabase/migrations/202607300001_phase_one_real_missions.sql`
 - `supabase/migrations/202607300003_fix_phase_one_draw_reservations.sql`
 - `supabase/migrations/202607300005_fix_preset_spy_draw.sql`
 - `supabase/migrations/202607300006_align_submission_windows_with_ceremony.sql`
+- `supabase/migrations/202607300008_remove_cupid_helper_feature.sql`
 
 个人任务采用小分值尺度，正常为 1–3 分；固定仪式任务可有独立分值。恶作剧者秘密计分使用独立私密账本，揭晓前不能进入个人榜或团队榜。
 
@@ -215,4 +216,3 @@ Vercel 项目：zmdward/clap-game-hlj6
 - 基线测试、类型检查和构建通过。
 - 能在已登录的云控制台中只读核对部署与数据库，但不会误清空或泄露秘密。
 - 后续改动从新的 `codex/` 分支开始，并能通过 PR 进入 `main` 自动部署。
-
