@@ -14,7 +14,8 @@ begin
       if not found then raise exception using errcode='P0001',message='fixed_draw_assignment_missing'; end if;
       if (select mission_code from tasks where id=v_assignment.task_id)<>v_expected_code then
         if v_assignment.status<>'assigned' or v_assignment.evidence_path is not null
-            or v_assignment.completion_note is not null
+            or v_assignment.submitted_at is not null or v_assignment.verified_at is not null
+            or v_assignment.approved_at is not null
             or exists(select 1 from points_ledger where assignment_id=v_assignment.id) then
           raise exception using errcode='P0001',message='fixed_draw_runtime_conflict';
         end if;

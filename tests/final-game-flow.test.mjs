@@ -53,6 +53,7 @@ test('administrator password rotation is bcrypt-only, audited, and revokes sessi
 test('unfinished fixed draws align forward-only without rewriting score history', () => {
   assert.match(fixedDrawMigration, /v_assignment\.status<>'assigned'/);
   assert.match(fixedDrawMigration, /v_assignment\.evidence_path is not null/);
+  assert.match(fixedDrawMigration, /v_assignment\.submitted_at is not null/);
   assert.match(fixedDrawMigration, /exists\(select 1 from points_ledger where assignment_id=v_assignment\.id\)/);
   assert.match(fixedDrawMigration, /fixed_draw_runtime_conflict/);
   assert.match(fixedDrawMigration, /complete_system_mission\(v_guest_id,'INSTANT_BONUS'/);
