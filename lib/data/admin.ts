@@ -68,6 +68,9 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
     if (error.message.includes('use_voting_controls')) throw new ApiError(409, '投票和身份揭晓必须使用专用按钮，不能从环节下拉框直接跳转');
     if (error.message.includes('voting_stage_not_ready')) throw new ApiError(409, '请先切换到团队挑战环节，再开启最终投票');
     if (error.message.includes('no_drawn_guests')) throw new ApiError(409, '尚无宾客完成抽卡，不能开启最终投票');
+    if (error.message.includes('phase_two_team_scores_missing')) throw new ApiError(409, '请先在团队游戏计分中记录海岛组或沙漠组的成绩，再开启最终投票');
+    if (error.message.includes('phase_two_team_spy_missing')) throw new ApiError(409, '每个竞技组必须先完成抽卡并产生一名恶作剧者，才能发放排名线索');
+    if (error.message.includes('phase_two_team_clues_missing')) throw new ApiError(409, '启用的本队恶作剧者线索不足，请先在任务与线索设置中补齐');
     if (error.message.includes('registration_during_finale')) throw new ApiError(409, '最终投票或身份揭晓期间不能重新开放注册；请先切回常规婚礼环节');
     throw new Error(`${fallback}: ${error.message}`);
   }
