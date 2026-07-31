@@ -20,3 +20,11 @@ test('guest UI clearly labels the functional demo task catalogue', async () => {
   assert.match(page, /演示任务 · 之后会替换/);
   assert.match(page, /用于测试领取、提交和审核流程，不代表婚礼当天的最终任务设计/);
 });
+
+test('a revealed trickster card distinguishes the facade task from the true mission', async () => {
+  const page = await readFile(pageUrl, 'utf8');
+
+  assert.match(page, /isTricksterCard \? '你的伪装任务'/);
+  assert.match(page, /这不是你的真正任务/);
+  assert.match(page, /进入主页后点击“展开查看”/);
+});
