@@ -5,7 +5,7 @@ import { StaffLogoutButton } from '../staff-logout-button';
 import { createEventKey } from '@/lib/event-key';
 import { useLiveRefresh } from '@/lib/use-live-refresh';
 
-const TEAMS = ['玫瑰组', '月桂组', '星辰组', '琥珀组'] as const;
+const TEAMS = ['海岛组', '沙漠组'] as const;
 const HOST_CACHE_KEY = 'wedding-host-score-cache-v1';
 const HOST_CACHE_KEYS = ['wedding-host-private-cache-v1', 'wedding-host-private-cache-v2', HOST_CACHE_KEY];
 
@@ -31,7 +31,7 @@ export default function HostPage() {
   const [password, setPassword] = useState('');
   const [data, setData] = useState<HostData | null>(null);
   const [mode, setMode] = useState<'team' | 'guest'>('team');
-  const [teamForm, setTeamForm] = useState({ team: '玫瑰组', amount: '1', reason: '主持人现场奖励' });
+  const [teamForm, setTeamForm] = useState({ team: '海岛组', amount: '1', reason: '主持人现场奖励' });
   const [guestForm, setGuestForm] = useState({ guestId: '', amount: '1', reason: '主持人现场奖励' });
   const [guestSearch, setGuestSearch] = useState('');
   const [busy, setBusy] = useState(false);
