@@ -50,7 +50,7 @@ test('admin route and controls cannot directly select finale stages', async () =
     readFile(new URL('../lib/data/admin.ts', import.meta.url), 'utf8'),
   ]);
 
-  assert.match(rules, /MANUAL_GAME_STAGES = \['registration', 'waiting', 'task_round_1', 'task_round_2', 'group_game'\]/);
+  assert.match(rules, /MANUAL_GAME_STAGES = \['registration', 'waiting', 'task_round_1', 'ceremony_end', 'task_round_2', 'group_game'\]/);
   assert.match(route, /requiredEnum\(body\.stage, '游戏阶段', MANUAL_GAME_STAGES\)/);
   assert.match(page, /disabled=\{\['voting', 'results'\]\.includes\(value\)\}/);
   assert.match(page, /系统会关闭当前投票、隐藏揭晓，并清空大屏/);

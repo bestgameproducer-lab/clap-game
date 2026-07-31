@@ -102,6 +102,7 @@ export async function requestGuestConnection(guestId: string, targetCode: string
   if (error?.message.includes('symbol_connection_stage_closed')) throw new ApiError(409, '当前环节暂停或已关闭配对；仪式前、仪式结束后至最终投票前开放');
   if (error?.message.includes('symbol_holder_required')) throw new ApiError(409, '只有持有相同图案的玩家可以配对');
   if (error?.message.includes('star_fragment_side_mismatch')) throw new ApiError(409, '你们持有的是同一半星星，请寻找另一半星星');
+  if (error?.message.includes('heart_fragment_side_mismatch')) throw new ApiError(409, '你们持有的是同一半爱心，请寻找另一半爱心');
   if (error?.message.includes('symbol_player_unavailable')) throw new ApiError(409, '你或对方已经完成正式配对');
   if (error?.message.includes('symbol_pending_conflict')) throw new ApiError(409, '你或对方已有一项待处理的配对邀请');
   if (error?.message.includes('trickster_connection_stage_closed')) throw new ApiError(409, '当前环节暂停或已关闭秘密确认；仪式前、仪式结束后至最终投票前开放');
