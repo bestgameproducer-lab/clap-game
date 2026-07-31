@@ -100,6 +100,7 @@ export async function requestGuestConnection(guestId: string, targetCode: string
   if (error?.message.includes('connection_self_target')) throw new ApiError(400, '不能输入自己的玩家编号');
   if (error?.message.includes('symbol_connection_stage_closed')) throw new ApiError(409, '当前环节暂停或已关闭配对；仪式前、仪式结束后至最终投票前开放');
   if (error?.message.includes('symbol_holder_required')) throw new ApiError(409, '只有持有相同图案的玩家可以配对');
+  if (error?.message.includes('star_fragment_side_mismatch')) throw new ApiError(409, '你们持有的是同一半星星，请寻找另一半星星');
   if (error?.message.includes('symbol_player_unavailable')) throw new ApiError(409, '你或对方已经完成正式配对');
   if (error?.message.includes('symbol_pending_conflict')) throw new ApiError(409, '你或对方已有一项待处理的配对邀请');
   if (error?.message.includes('trickster_connection_stage_closed')) throw new ApiError(409, '当前环节暂停或已关闭秘密确认；仪式前、仪式结束后至最终投票前开放');
@@ -158,7 +159,7 @@ export async function getGuestView(guestId: string) {
     db.from('guest_clues').select('id,clue:clues(title,content)').eq('guest_id', guestId),
     db.from('guests').select('id,name,team').eq('team', guest.team).not('drawn_at', 'is', null).order('name'),
     db.from('votes').select('target_guest_id').eq('voter_guest_id', guestId).eq('voting_round', game.voting_round).maybeSingle(),
-    db.from('symbol_pairing_assignments').select('symbol,status,partner_guest_id,pending_relationship_id,finalized_at').eq('guest_id', guestId).maybeSingle(),
+    db.from('symbol_pairing_assignments').select('symbol,status,fragment_side,partner_guest_id,pending_relationship_id,finalized_at').eq('guest_id', guestId).maybeSingle(),
     db.from('player_relationships').select('id,relationship_type,player_a_id,player_b_id,player_a_confirmed,player_b_confirmed,status,activated_at,player_a:guests!player_relationships_player_a_id_fkey(id,name),player_b:guests!player_relationships_player_b_id_fkey(id,name)').or(`player_a_id.eq.${guestId},player_b_id.eq.${guestId}`).order('created_at'),
     db.from('trickster_signal_attempts').select('id', { count: 'exact', head: true }).eq('guest_id', guestId),
     db.from('alliance_clue_fragments').select('pair_key,title,left_fragment,right_fragment,active').eq('active', true),
@@ -254,6 +255,7 @@ export async function getGuestView(guestId: string) {
       symbolPairing: symbolPairing ? {
         symbol: symbolPairing.symbol,
         status: symbolPairing.status,
+        fragmentSide: symbolPairing.fragment_side,
         pendingRelationshipId: symbolPairing.pending_relationship_id,
         finalizedAt: symbolPairing.finalized_at,
       } : null,
