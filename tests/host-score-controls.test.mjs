@@ -37,8 +37,8 @@ test('team and personal scores stay in separate audited ledgers', () => {
   assert.match(migration, /eligible_for_personal_score/);
 });
 
-test('host data is a minimal explicit scoring DTO', () => {
-  assert.match(data, /select\('id,name,team,points,participation_mode,special_card_title'\)/);
+test('host data is an explicit private operations DTO', () => {
+  assert.match(data, /select\('id,name,team,role,is_hidden_spy,points,participation_mode,special_card_title,eligible_for_personal_score,drawn_at'\)/);
   assert.match(data, /select\('id,team,amount,reason,created_at'\)/);
   assert.match(data, /select\('id,guest_id,amount,reason,created_at,guest:guests\(id,name\)'\)/);
   const scoreDto = data.slice(data.indexOf('export async function getHostDashboardData'), data.indexOf('export async function adjustHostTeamPoints'));

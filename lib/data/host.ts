@@ -39,7 +39,7 @@ function ensureHostDatabaseError(error: { message: string } | null, fallback: st
 export async function getHostDashboardData() {
   const db = getSupabaseAdmin();
   const [guests, teamPoints, personalPoints] = await Promise.all([
-    db.from('guests').select('id,name,team,points,participation_mode,special_card_title').eq('active', true).eq('uses_app', true).eq('eligible_for_personal_score', true).order('name'),
+    db.from('guests').select('id,name,team,role,is_hidden_spy,points,participation_mode,special_card_title,eligible_for_personal_score,drawn_at').eq('active', true).eq('uses_app', true).order('team').order('name'),
     db.from('team_points_ledger').select('id,team,amount,reason,created_at').order('created_at', { ascending: false }),
     db.from('points_ledger').select('id,guest_id,amount,reason,created_at,guest:guests(id,name)').is('assignment_id', null).order('created_at', { ascending: false }).limit(50),
   ]);

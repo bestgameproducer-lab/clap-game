@@ -33,12 +33,14 @@ import {
   undoPlayerRelationship,
 } from '@/lib/data/admin';
 import { ApiError, apiErrorResponse, noStoreJson } from '@/lib/errors';
+import { rotateAdminPassword } from '@/lib/data/admin-login';
 import { CEREMONY_STATUSES, GAME_ROLES, MANUAL_GAME_STAGES, PHASE_TWO_PRIMARY_MISSIONS, RING_VARIANTS, ROLE_SCOPES, STORY_ROLES, TASK_CATEGORIES, TASK_STAGES } from '@/lib/game-rules';
 import {
   assertSameOrigin,
   optionalString,
   readJsonObject,
   requiredBoolean,
+  requiredAdminPassword,
   requiredEnum,
   requiredInteger,
   requiredInvitationCode,
@@ -64,6 +66,9 @@ export async function POST(request: Request) {
       await setRegistrationOpen(requiredBoolean(body.value, '注册状态'), actor);
     } else if (type === 'rotateInvitationCode') {
       await setInvitationCode(requiredInvitationCode(body.code), actor);
+    } else if (type === 'rotateAdminPassword') {
+      await rotateAdminPassword(requiredAdminPassword(body.password), actor);
+      result = { ok: true, reauthenticate: true };
     } else if (type === 'setStage') {
       await setGameStage(requiredEnum(body.stage, '游戏阶段', MANUAL_GAME_STAGES), actor);
     } else if (type === 'setGuestPhaseNote') {
@@ -232,6 +237,10 @@ export async function POST(request: Request) {
     } else {
       throw new ApiError(400, '未知操作');
     }
-    return noStoreJson(result);
+    const response = noStoreJson(result);
+    if (result.reauthenticate) response.cookies.set('admin_session', '', {
+      httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 0, path: '/',
+    });
+    return response;
   } catch (error) { return apiErrorResponse(error); }
 }

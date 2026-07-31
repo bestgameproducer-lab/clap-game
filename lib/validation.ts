@@ -73,6 +73,15 @@ export function requiredInvitationCode(value: unknown): string {
   return result;
 }
 
+export function requiredAdminPassword(value: unknown): string {
+  const password = requiredString(value, '新管理员密码', 128);
+  if (password.length < 12) throw new ApiError(400, '管理员密码须为 12–128 位');
+  if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+    throw new ApiError(400, '管理员密码必须同时包含字母和数字');
+  }
+  return password;
+}
+
 export function requiredGuestRosterImportRows(value: unknown): GuestRosterImportRow[] {
   if (!Array.isArray(value) || value.length < 1 || value.length > 100) {
     throw new ApiError(400, '批量名单需包含 1–100 位宾客');
