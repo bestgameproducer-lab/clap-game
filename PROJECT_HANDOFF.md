@@ -58,12 +58,12 @@ NEXT_PUBLIC_WEDDING_TITLE=婚礼页面标题
 截至本文件更新时间：
 
 - PR #33 的完整一、二幕流程已合并到 `main`，合并提交为 `e2a2390e866d51a9d15fd4915951fbaeb1a0903f`。
-- 生产已应用 `202607310003` 至 `202607310006`；`202607310007_phase_two_team_rank_clues.sql` 随本次交接更新发布后应成为最新迁移，接手时必须在迁移审计中只读确认。
+- 生产已应用 `202607310003` 至 `202607310007`；`202607310008_fix_live_random_card_draw.sql` 修复随机恶作剧者抽卡和爱心/星星随机池，发布后应成为最新迁移，接手时必须在迁移审计中只读确认。
 - 2026-07-30 已实际执行并验证一次完整彩排清场；之后为校正正式固定卡，系统仅对尚未提交、未审核、无证据、无积分流水的旧抽卡记录做了前向对齐，没有清空或重新 seed。
 - 生产当前保留 32 人正式名单、任务与线索配置、主持题库、隐藏卡配置和审计记录；已有的正式运行记录必须继续保留。
 - 注册关闭、投票关闭、公开大屏关闭。重新开放任何入口前先完成现场就绪检查。
 - 主持人私密页现可查看全员分组、当前个人分与恶作剧者；管理员首页可轮换管理员密码并立即撤销全部管理员会话。
-- 最近完整验证：229 项测试通过，`npm run typecheck` 通过，`npm run build` 通过。
+- 最近完整验证：230 项测试通过，`npm run typecheck` 通过，`npm run build` 通过。
 
 清场不是延时任务。正常情况下按钮应在几秒内返回成功；出现红色错误就是真实失败，应立即查看 Vercel `/api/admin-action` 日志，不要告诉用户继续等待。
 
@@ -157,6 +157,7 @@ NEXT_PUBLIC_WEDDING_TITLE=婚礼页面标题
 - `supabase/migrations/202607310005_admin_password_rotation.sql`
 - `supabase/migrations/202607310006_align_unfinished_fixed_draws.sql`
 - `supabase/migrations/202607310007_phase_two_team_rank_clues.sql`
+- `supabase/migrations/202607310008_fix_live_random_card_draw.sql`
 
 个人任务采用小分值尺度，正常为 1–3 分；固定仪式任务可有独立分值。恶作剧者秘密计分使用独立私密账本，揭晓前不能进入个人榜或团队榜。
 
@@ -185,7 +186,7 @@ NEXT_PUBLIC_WEDDING_TITLE=婚礼页面标题
 5. `lib/game-stages.ts` — 环节名称与默认提示
 6. `supabase/migrations/202607290041_final_roster_participation.sql` — 32 人正式名单
 7. `supabase/migrations/202607300001_phase_one_real_missions.sql` — 第一阶段真实任务机制
-8. 最新迁移 `202607300002` 至 `202607300009`、`202607310001` 至 `202607310007` — 正式一、二幕与最近回归修复
+8. 最新迁移 `202607300002` 至 `202607300009`、`202607310001` 至 `202607310008` — 正式一、二幕与最近回归修复
 9. `tests/` — 隐私、计分、抽卡、同步、清场和手机 UI 的可执行验收规则
 
 ## 9. 新电脑可直接粘贴给 Codex 的 Prompt
@@ -201,8 +202,8 @@ Supabase 项目 ID：bkrtgrufcctgxyfxdgqy
 Vercel 项目：zmdward/clap-game-hlj6
 
 请先完成以下接手动作：
-1. 克隆仓库，切到并拉取最新 main；确认包含 PROJECT_HANDOFF.md、supabase/migrations/202607300007_fix_reset_safe_update.sql 与最新的 202607310007 迁移。
-2. 完整阅读 AGENTS.md、PROJECT_HANDOFF.md、docs/wedding-day-runbook.md、docs/acceptance-checklist.md、lib/game-stages.ts，以及 202607290041、202607300001–202607300009、202607310001–202607310007 的迁移。
+1. 克隆仓库，切到并拉取最新 main；确认包含 PROJECT_HANDOFF.md、supabase/migrations/202607300007_fix_reset_safe_update.sql 与最新的 202607310008 迁移。
+2. 完整阅读 AGENTS.md、PROJECT_HANDOFF.md、docs/wedding-day-runbook.md、docs/acceptance-checklist.md、lib/game-stages.ts，以及 202607290041、202607300001–202607300009、202607310001–202607310008 的迁移。
 3. 运行 npm install、npm run typecheck、npm test、npm run build，报告基线结果。
 4. 用只读方式核对 Git、Vercel 部署和 Supabase 当前状态；不要重置、覆盖或重新 seed 生产数据库。
 5. 开发前创建 codex/ 分支。任何数据库变化都新增 forward-only migration，不修改已经上线的迁移。

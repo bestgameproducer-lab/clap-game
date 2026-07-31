@@ -22,8 +22,8 @@ function completeFixture() {
     drawn_at: null, team_locked: false, role_locked: false, participation_mode: 'PRINCIPAL', story_role: 'NONE', phase_two_eligible: false,
   }));
   const guests = [...competitiveGuests, ...taskFamily, ...honorFamily, ...principals];
-  const storyRoles = ['OFFICIANT','RING_KEEPER','RING_KEEPER','GROOM_CHEERLEADER','BRIDE_CHEERLEADER','APPLAUSE_STARTER','HEART_HOLDER','HEART_HOLDER','HEART_HOLDER','HEART_HOLDER','HEART_HOLDER','STAR_HOLDER','STAR_HOLDER','STAR_HOLDER','STAR_HOLDER','STAR_HOLDER'];
-  const storyIndexes = [1,20,21,2,3,4,5,6,7,8,9,11,12,13,14,15];
+  const storyRoles = ['OFFICIANT','RING_KEEPER','RING_KEEPER','GROOM_CHEERLEADER','BRIDE_CHEERLEADER'];
+  const storyIndexes = [1,20,21,2,3];
   storyRoles.forEach((role, index) => { guests[storyIndexes[index]].story_role = role; });
   const tasks = [
     ...PHASE_ONE_MISSION_SPECS.map(([mission_code, points, max_assignments], index) => ({ id: `official-${index}`, active: true, role_scope: 'guest', category: 'standard', stage: 'task_round_1', mission_code, points, max_assignments })),
@@ -58,9 +58,9 @@ test('preflight blocks role capacity conflicts before card drawing', () => {
   assert.equal(result.ready, false);
 });
 
-test('preflight blocks incomplete story-role casting and official missions', () => {
+test('preflight allows random heart and star casting but blocks incomplete fixed roles and missions', () => {
   const fixture = completeFixture();
-  fixture.guests.find((guest) => guest.story_role === 'HEART_HOLDER').story_role = 'NONE';
+  fixture.guests.find((guest) => guest.story_role === 'GROOM_CHEERLEADER').story_role = 'NONE';
   fixture.tasks = fixture.tasks.filter((task) => task.mission_code !== 'P1-STAR-001');
   const result = buildWeddingPreflight(fixture);
   assert.equal(result.items.find((item) => item.id === 'story-cast')?.status, 'blocked');
