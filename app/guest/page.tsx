@@ -135,7 +135,7 @@ export default function GuestPage() {
   const loadRequestRef = useRef(0);
   const manualRefreshRef = useRef(false);
   const refreshNoticeTimerRef = useRef<number | null>(null);
-  const contentSnapshotRef = useRef<null | { guestId: string; stage: string; phaseNote: string; assignmentIds: string[]; clueIds: string[]; confirmationIds: string[] }>(null);
+  const contentSnapshotRef = useRef<null | { guestId: string; stage: string; phaseNote: string; assignmentIds: string[]; assignmentStatuses: Record<string, string>; clueIds: string[]; confirmationIds: string[] }>(null);
 
   const load = useCallback(async () => {
     const requestId = ++loadRequestRef.current;
@@ -149,6 +149,7 @@ export default function GuestPage() {
           stage: nextData.game?.stage ?? 'registration',
           phaseNote: nextData.game?.phase_note ?? '',
           assignmentIds: nextData.assignments.map((assignment: GuestData['assignments'][number]) => assignment.id),
+          assignmentStatuses: Object.fromEntries(nextData.assignments.map((assignment: GuestData['assignments'][number]) => [assignment.id, assignment.status])),
           clueIds: nextData.clues.map((clue: GuestData['clues'][number]) => clue.id),
           confirmationIds: (nextData.missionStory?.mutualConfirmations ?? [])
             .filter((confirmation: { direction: string; status: string }) => confirmation.direction === 'INCOMING' && confirmation.status === 'PENDING')
@@ -158,11 +159,17 @@ export default function GuestPage() {
         let nextNotice: { title: string; detail: string } | null = null;
         if (previousSnapshot && previousSnapshot.guestId === nextSnapshot.guestId) {
           const newAssignment = nextData.assignments.find((assignment: GuestData['assignments'][number]) => ['assigned', 'rejected'].includes(assignment.status) && !previousSnapshot.assignmentIds.includes(assignment.id) && !(nextData.guest.role === 'spy' && assignment.task.category === 'hidden'));
+          const updatedAssignment = nextData.assignments.find((assignment: GuestData['assignments'][number]) => previousSnapshot.assignmentStatuses[assignment.id] && previousSnapshot.assignmentStatuses[assignment.id] !== assignment.status && ['approved', 'rejected'].includes(assignment.status));
           const newClue = nextData.clues.find((clue: GuestData['clues'][number]) => !previousSnapshot.clueIds.includes(clue.id));
           const newConfirmation = (nextData.missionStory?.mutualConfirmations ?? []).find((confirmation: { id: string; direction: string; status: string; otherGuestName: string }) => confirmation.direction === 'INCOMING' && confirmation.status === 'PENDING' && !previousSnapshot.confirmationIds.includes(confirmation.id));
           if (previousSnapshot.stage !== nextSnapshot.stage) {
             const stageCopy = gameStageCopy(nextSnapshot.stage);
             nextNotice = { title: `已进入「${stageCopy.label}」`, detail: nextSnapshot.phaseNote || stageCopy.note };
+          } else if (updatedAssignment) {
+            nextNotice = {
+              title: '你的任务已更新',
+              detail: `${updatedAssignment.task.title} · ${STATUS_LABELS[updatedAssignment.status] ?? '状态已更新'}`,
+            };
           } else if (newAssignment) nextNotice = { title: '你收到了一项新任务', detail: newAssignment.task.title };
           else if (newClue) nextNotice = { title: '一条新的秘密线索已经解锁', detail: newClue.title };
           else if (newConfirmation) nextNotice = { title: '你收到了一项好友确认请求', detail: `${newConfirmation.otherGuestName} 正在等待你的确认` };
@@ -672,7 +679,7 @@ export default function GuestPage() {
     : data.guest.is_hidden_spy
     ? { title: '丘比特的暗线恶作剧者', note: '你的阵营已经改变。请继续伪装成普通宾客，直到最终揭晓。' }
     : ROLE_LABELS[data.guest.role] ?? ROLE_LABELS.guest;
-  const rankedReward = data.game?.stage === 'task_round_1' ? undefined : data.assignments.find((assignment) => assignment.is_initial && assignment.completion_rank);
+  const rankedReward = data.assignments.find((assignment) => assignment.is_initial && assignment.completion_rank !== null && assignment.completion_rank >= 1 && assignment.completion_rank <= 10);
   const missionStory = data.missionStory;
   const tricksterRelationship = missionStory?.relationships.find((relationship) => relationship.type === 'TRICKSTER_CONNECTION');
   const phaseOneInteractionsOpen = isPhaseOneInteractionOpenAtStage(data.game?.stage);
