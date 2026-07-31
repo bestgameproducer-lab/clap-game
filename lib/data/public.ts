@@ -20,7 +20,7 @@ export async function getPublicScoreboard() {
   const [guestResult, assignmentResult, voteResult, teamPointResult] = await Promise.all([
     db.from('guests').select('id,name,team,points,participation_mode').eq('eligible_for_personal_score', true).or('drawn_at.not.is.null,special_card_revealed_at.not.is.null').order('name'),
     db.from('assignments').select('guest_id,status').eq('status', 'approved'),
-    db.from('votes').select('target_guest_id').eq('voting_round', game.voting_round),
+    db.from('votes').select('target_guest_id,vote_weight').eq('voting_round', game.voting_round),
     db.from('team_points_ledger').select('team,amount'),
   ]);
   const error = guestResult.error ?? assignmentResult.error ?? voteResult.error ?? teamPointResult.error;

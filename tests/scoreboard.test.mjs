@@ -50,6 +50,14 @@ test('sorts individual leaders and vote counts deterministically', () => {
   assert.deepEqual(result.voteCounts.map((item) => [item.name, item.votes]), [['C', 2], ['A', 1]]);
 });
 
+test('counts an exclusive extra-vote card as two votes after reveal', () => {
+  const result = buildPublicScoreboard(guests, [], [
+    { target_guest_id: 'c', vote_weight: 2 },
+    { target_guest_id: 'a', vote_weight: 1 },
+  ]);
+  assert.deepEqual(result.voteCounts.map((item) => [item.name, item.votes]), [['C', 2], ['A', 1]]);
+});
+
 test('honor guests can rank personally without creating a placeholder team', () => {
   const result = buildPublicScoreboard([
     { id: 'family', name: 'Family', team: '荣誉宾客', points: 8, countsForTeam: false },
