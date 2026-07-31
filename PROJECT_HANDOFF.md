@@ -160,6 +160,7 @@ NEXT_PUBLIC_WEDDING_TITLE=婚礼页面标题
 - `supabase/migrations/202607310006_align_unfinished_fixed_draws.sql`
 - `supabase/migrations/202607310007_phase_two_team_rank_clues.sql`
 - `supabase/migrations/202607310008_fix_live_random_card_draw.sql`
+- `supabase/migrations/202607310026_finalize_unmatched_symbol_players.sql`：开启第二阶段时保留已完成的爱心/星星联盟，拒绝未完成邀请，并自动为剩余左右图案补齐联盟与最终角色，避免现场漏配导致阶段切换失败。
 
 个人任务采用小分值尺度，正常为 1–3 分；固定仪式任务可有独立分值。恶作剧者秘密计分使用独立私密账本，揭晓前不能进入个人榜或团队榜。
 
