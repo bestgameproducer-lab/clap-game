@@ -91,7 +91,7 @@ button.text-button { background: transparent; color: #76665e; padding: 8px; text
 .section-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .section-heading small { color: #a17b67; letter-spacing: .14em; font-weight: 800; font-size: 9px; }
 .section-heading h2 { font-family: Georgia,'Noto Serif SC',serif; font-weight: 500; margin: 3px 0 0; font-size: 25px; }
-.section-heading > span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: #eee3db; color: #75594c; font-weight: 800; }
+.section-heading > span { box-sizing:border-box; min-width:30px; width:auto; height:30px; flex:0 0 auto; padding:0 9px; display:grid; place-items:center; border-radius:999px; background:#eee3db; color:#75594c; font-weight:800; line-height:1; white-space:nowrap; }
 .mission-item { border-top: 1px solid #eee3dc; }
 .mission-item:first-of-type { border-top: 0; }
 .mission-summary{display:grid;grid-template-columns:38px minmax(0,1fr) 36px;gap:11px;align-items:center;padding:16px 0;cursor:pointer;list-style:none;-webkit-tap-highlight-color:transparent}
@@ -239,8 +239,8 @@ button.mini-button { width:auto; margin:0; padding:6px 8px; font-size:11px; back
 .readiness-list p,.readiness-list strong,.readiness-list small { display:block; margin:0; }
 .readiness-list small { margin-top:2px; color:#877970; }
 .ready-badge,.warning-badge { padding:5px 9px; border-radius:999px; font-size:12px; }
-.ready-badge { background:#dfeee3; color:#356947; }
-.warning-badge { background:#f5e5d9; color:#8d4f34; }
+.ready-badge,.section-heading > .ready-badge { width:auto; height:auto; min-height:30px; padding:6px 10px; border-radius:999px; background:#dfeee3; color:#356947; line-height:1.2; white-space:nowrap; }
+.warning-badge,.section-heading > .warning-badge { width:auto; height:auto; min-height:30px; padding:6px 10px; border-radius:999px; background:#f5e5d9; color:#8d4f34; line-height:1.2; white-space:nowrap; }
 .readiness-help { margin:12px 0 0; color:#8d4f34; font-size:12px; }
 .export-actions { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 18px; }
 .export-actions a { padding:9px 12px; border:1px solid #d8c4b8; border-radius:999px; color:#704e42; background:#fffaf7; font-size:12px; font-weight:800; text-decoration:none; }
