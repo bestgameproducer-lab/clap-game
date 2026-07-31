@@ -18,6 +18,8 @@ type GuestData = {
   game: { registration_open: boolean; stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null; task_catalog_mode: 'demo' | 'live'; trickster_max_attempts: number; phase_one_completed_at: string | null } | null;
   candidates: Array<{ id: string; name: string; team: string }>;
   existingVote: string | null;
+  pointLedger?: Array<{ id: number; amount: number; label: string; createdAt: string }>;
+  teamScores?: Array<{ team: string; points: number }>;
   results: null | {
     teamMembers: Array<{ id: string; name: string; role: string; is_hidden_spy: boolean }>;
     votedTargetId: string | null;
@@ -85,6 +87,7 @@ function CardScene({ className, label, disabled = false, onActivate, children }:
 
 export default function GuestPage() {
   const [data, setData] = useState<GuestData | null>(null);
+  const [scoreLedgerOpen, setScoreLedgerOpen] = useState(false);
   const [checking, setChecking] = useState(true);
   const [invitationCode, setInvitationCode] = useState('');
   const [guests, setGuests] = useState<RegistrationGuest[] | null>(null);
@@ -619,6 +622,8 @@ export default function GuestPage() {
   const trueTricksterAssignments = usesTricksterFacade ? data.assignments.filter((assignment) => assignment.task.category === 'hidden') : [];
   const dashboardAssignments = usesTricksterFacade ? data.assignments.filter((assignment) => assignment.task.category !== 'hidden') : data.assignments;
   const readerAssignments = usesTricksterFacade ? trueTricksterAssignments : data.assignments;
+  const pointLedger = data.pointLedger ?? [];
+  const teamScores = data.teamScores ?? [];
 
   function renderMutualConfirmation(assignment: GuestData['assignments'][number]) {
     if (!['P1-SOCIAL-001', 'P1-SOCIAL-002'].includes(assignment.task.mission_code || '') || !['assigned', 'rejected'].includes(assignment.status)) return null;
@@ -702,7 +707,7 @@ export default function GuestPage() {
   return <main className="dashboard-shell">
     <section className="mission-hero">
       <div className="eyebrow">丘比特的婚礼考验</div>
-      <div className="hero-line"><div><span className="team-chip">{isHonorGuest ? data.guest.special_card_title || '亲爱的家人' : data.guest.team}</span><h1>{data.guest.name}</h1></div><div className="score-orb"><strong>{data.guest.points}</strong><small>积分</small></div></div>
+      <div className="hero-line"><div><span className="team-chip">{isHonorGuest ? data.guest.special_card_title || '亲爱的家人' : data.guest.team}</span><h1>{data.guest.name}</h1></div><button type="button" className="score-orb" aria-label={`查看我的积分流水，当前 ${data.guest.points} 分`} onClick={() => setScoreLedgerOpen(true)}><strong>{data.guest.points}</strong><small>积分明细</small></button></div>
       <div className="hero-player-code"><div><small>我的玩家编号</small><strong>{data.guest.player_code}</strong></div><button type="button" className={playerCodeCopied ? 'copied' : ''} onClick={() => { void navigator.clipboard?.writeText(data.guest.player_code); setPlayerCodeCopied(true); window.setTimeout(() => setPlayerCodeCopied(false), 1800); }}>{playerCodeCopied ? '已复制 ✓' : '复制编号'}</button></div>
       <div className={`identity-strip ${identityVisible ? 'visible' : 'concealed'} ${isTrickster && identityVisible && !data.game?.results_visible ? 'trickster-identity' : ''}`}>
         <div className="identity-strip-heading">
@@ -720,6 +725,7 @@ export default function GuestPage() {
     {offline && <div className="connection-banner offline" role="status">离线只读模式 · 已显示最近同步的任务，提交和投票暂不可用</div>}
     {message && <div className="notice success" aria-live="polite">{message}</div>}{error && <div className="notice error" aria-live="polite">{error}</div>}
     {isActivePlayer && data.game?.stage === 'task_round_1' && <div className="connection-banner ceremony-pause" role="status">婚礼仪式进行中 · 照片上传、任务提交和玩家确认暂时暂停，仪式结束后会自动恢复。</div>}
+    {teamScores.length > 0 && <section className="section-card guest-team-score-card"><div className="section-heading"><div><small>TEAM SCORE</small><h2>团队实时积分</h2></div><span>LIVE</span></div><p className="muted">团队环节已开放，分数会随主持人现场计分自动更新。</p><div className="guest-team-score-grid">{teamScores.map((team, index) => <article className={team.team === data.guest.team ? 'mine' : ''} key={team.team}><small>第 {index + 1} 名</small><strong>{team.team}</strong><b>{team.points} 分</b>{team.team === data.guest.team && <span>我的团队</span>}</article>)}</div></section>}
     {rankedReward && <section className="reward-banner"><small>EARLY COMPLETION HONOR</small><strong>你是第 {rankedReward.completion_rank} 位完成首轮任务的宾客</strong><p>{rankedReward.reward_task_id && rankedReward.reward_clue_id ? `升级任务、${rankedReward.early_bonus_points ? '额外 1 分和' : ''}一条秘密线索已经发放。` : rankedReward.reward_task_id ? '升级任务已经发放，将在第二轮开放。' : '你的首轮任务已经记录。'}</p></section>}
     {isHonorGuest && <section className="section-card honor-participation-card"><div className="section-heading"><div><small>FAMILY PARTICIPATION</small><h2>家人参与区</h2></div><span>♡</span></div><p>你可以和大家一起参加现场互动，获得的个人积分会显示在上方并进入个人积分榜。</p><div className="honor-boundary-note"><strong>轻松参与</strong><span>系统不会向你发放秘密任务、隐藏阵营或秘密线索。</span></div></section>}
     {isActivePlayer && missionStory?.mutualConfirmations.some((confirmation) => confirmation.direction === 'INCOMING' && confirmation.status === 'PENDING') && <section className="section-card mutual-confirmation-card"><div className="section-heading"><div><small>FRIEND CONFIRMATION</small><h2>好友确认请求</h2></div><span>待处理</span></div>{missionStory.mutualConfirmations.filter((confirmation) => confirmation.direction === 'INCOMING' && confirmation.status === 'PENDING').map((confirmation) => <div className="approval-row" key={confirmation.id}><div className="approval-copy"><strong>{confirmation.otherGuestName}</strong><p>对方表示你们今天第一次见面，并已完成互相介绍。请按真实情况确认。</p></div><div className="approval-actions"><button disabled={busy || offline || !phaseOneInteractionsOpen} onClick={() => void respondMutualConfirmation(confirmation.id, true)}>确实完成</button><button className="danger" disabled={busy || offline || !phaseOneInteractionsOpen} onClick={() => void respondMutualConfirmation(confirmation.id, false)}>不符合</button></div></div>)}</section>}
@@ -745,6 +751,7 @@ export default function GuestPage() {
         <footer className="secret-reader-footer"><button type="button" onClick={() => setSecretReaderOpen(false)}>再次点击 · 隐藏内容</button><small>切换应用或锁屏时会自动隐藏。</small></footer>
       </section>
     </div>}
+    {scoreLedgerOpen && <div className="score-ledger-backdrop" role="presentation"><section className="score-ledger-dialog" role="dialog" aria-modal="true" aria-labelledby="score-ledger-title"><header><div><small>MY POINTS</small><h2 id="score-ledger-title">我的积分流水</h2></div><button type="button" aria-label="关闭积分流水" onClick={() => setScoreLedgerOpen(false)}>×</button></header><div className="score-ledger-total"><span>当前积分</span><strong>{data.guest.points}</strong></div><div className="score-ledger-list">{pointLedger.length === 0 ? <p className="empty-state">积分尚未产生，完成任务后会显示在这里。</p> : pointLedger.map((entry) => <article key={entry.id}><div><strong>{entry.label}</strong><small>{new Date(entry.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small></div><b className={entry.amount < 0 ? 'negative' : ''}>{entry.amount > 0 ? '+' : ''}{entry.amount}</b></article>)}</div><footer><small>仅显示你的个人积分；团队积分和恶作剧积分分别计算。</small><button type="button" onClick={() => setScoreLedgerOpen(false)}>看清楚了 · 关闭</button></footer></section></div>}
     {contentNotice && <div className="new-content-backdrop"><section className="new-content-dialog" role="dialog" aria-modal="true" aria-labelledby="new-content-title"><header><span>NEW ACTIVITY</span><button type="button" aria-label="关闭新活动提示" onClick={() => setContentNotice(null)}>×</button></header><strong id="new-content-title">{contentNotice.title}</strong><p>{contentNotice.detail}</p><button type="button" onClick={() => setContentNotice(null)}>知道了 · 查看更新</button></section></div>}
   </main>;
 }
