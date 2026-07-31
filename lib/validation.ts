@@ -1,6 +1,7 @@
 import { ApiError } from './errors';
 import { isFourDigitClaimCode } from './claim-code';
 import { isInvitationCode, normalizeInvitationCode } from './invitation-code';
+import { isPlayerCode, normalizePlayerCode } from './player-code';
 import type { GuestRosterImportRow } from './guest-roster-import';
 
 export type JsonObject = Record<string, unknown>;
@@ -61,8 +62,8 @@ export function requiredClaimCode(value: unknown): string {
 }
 
 export function requiredPlayerCode(value: unknown): string {
-  const code = requiredString(value, '玩家编号', 12).toUpperCase();
-  if (!/^P[0-9]{3,6}$/.test(code)) throw new ApiError(400, '玩家编号格式不正确');
+  const code = normalizePlayerCode(requiredString(value, '玩家编号', 12));
+  if (!isPlayerCode(code)) throw new ApiError(400, '玩家编号格式不正确');
   return code;
 }
 
