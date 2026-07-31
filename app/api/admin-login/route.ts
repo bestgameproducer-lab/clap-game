@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { ADMIN_SESSION_MAX_AGE } from '@/lib/admin-session';
 import { getAdminLoginAttemptKey } from '@/lib/auth';
-import { recordAdminLoginAttempt } from '@/lib/data/admin-login';
+import { recordAdminLoginAttempt, verifyAdminPasswordOverride } from '@/lib/data/admin-login';
 import { createAdminSession } from '@/lib/data/admin-session';
 import { apiErrorResponse } from '@/lib/errors';
 import { getAdminPassword } from '@/lib/env';
@@ -13,10 +13,14 @@ export async function POST(request: Request) {
     assertSameOrigin(request);
     const body = await readJsonObject(request);
     const supplied = requiredString(body.password, '密码', 256);
-    const expected = getAdminPassword();
-    const suppliedHash = crypto.createHash('sha256').update(supplied).digest();
-    const expectedHash = crypto.createHash('sha256').update(expected).digest();
-    const passwordValid = crypto.timingSafeEqual(suppliedHash, expectedHash);
+    const overrideValid = await verifyAdminPasswordOverride(supplied);
+    let passwordValid = overrideValid ?? false;
+    if (overrideValid === null) {
+      const expected = getAdminPassword();
+      const suppliedHash = crypto.createHash('sha256').update(supplied).digest();
+      const expectedHash = crypto.createHash('sha256').update(expected).digest();
+      passwordValid = crypto.timingSafeEqual(suppliedHash, expectedHash);
+    }
     const attempt = await recordAdminLoginAttempt(getAdminLoginAttemptKey(request), passwordValid);
     if (attempt.status === 'rate_limited') {
       const minutes = Math.max(1, Math.ceil(attempt.retryAfterSeconds / 60));

@@ -621,7 +621,7 @@ export default function GuestPage() {
   const readerAssignments = usesTricksterFacade ? trueTricksterAssignments : data.assignments;
 
   function renderMutualConfirmation(assignment: GuestData['assignments'][number]) {
-    if (assignment.task.mission_code !== 'P1-SOCIAL-001' || !['assigned', 'rejected'].includes(assignment.status)) return null;
+    if (!['P1-SOCIAL-001', 'P1-SOCIAL-002'].includes(assignment.task.mission_code || '') || !['assigned', 'rejected'].includes(assignment.status)) return null;
     const outgoing = missionStory?.mutualConfirmations.find((confirmation) => confirmation.assignmentId === assignment.id && confirmation.direction === 'OUTGOING' && confirmation.status === 'PENDING');
     return <section className="inline-mutual-confirmation" aria-label="新朋友确认">
       <div className="inline-proof-heading"><strong>输入玩家编号</strong><span>不方便合影时，请新朋友确认。对方确认后任务会自动完成。</span></div>

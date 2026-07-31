@@ -13,9 +13,13 @@ type Guest = {
   id: string;
   name: string;
   team: string;
+  role: 'guest' | 'spy';
+  is_hidden_spy: boolean;
   points: number;
-  participation_mode: 'ACTIVE_PLAYER' | 'HONOR_GUEST';
+  participation_mode: 'ACTIVE_PLAYER' | 'HONOR_GUEST' | 'PRINCIPAL';
   special_card_title: string;
+  eligible_for_personal_score: boolean;
+  drawn_at: string | null;
 };
 
 type HostData = {
@@ -30,7 +34,7 @@ function clearHostCache() { try { for (const key of HOST_CACHE_KEYS) window.sess
 export default function HostPage() {
   const [password, setPassword] = useState('');
   const [data, setData] = useState<HostData | null>(null);
-  const [mode, setMode] = useState<'team' | 'guest'>('team');
+  const [mode, setMode] = useState<'overview' | 'team' | 'guest'>('overview');
   const [teamForm, setTeamForm] = useState({ team: '海岛组', amount: '1', reason: '主持人现场奖励' });
   const [guestForm, setGuestForm] = useState({ guestId: '', amount: '1', reason: '主持人现场奖励' });
   const [guestSearch, setGuestSearch] = useState('');
@@ -52,7 +56,7 @@ export default function HostPage() {
       const body = await responseBody(response);
       if (!response.ok) throw new Error(body.error || '计分数据加载失败');
       setData(body);
-      setGuestForm((current) => ({ ...current, guestId: current.guestId || body.guests?.[0]?.id || '' }));
+      setGuestForm((current) => ({ ...current, guestId: current.guestId || body.guests?.find((guest: Guest) => guest.eligible_for_personal_score)?.id || '' }));
       try { window.sessionStorage.setItem(HOST_CACHE_KEY, JSON.stringify(body)); } catch {}
       setOffline(false); setError('');
     } catch (cause) {
@@ -63,7 +67,7 @@ export default function HostPage() {
         if (cached) {
           const parsed = JSON.parse(cached) as HostData;
           setData((current) => current ?? parsed);
-          setGuestForm((current) => ({ ...current, guestId: current.guestId || parsed.guests?.[0]?.id || '' }));
+          setGuestForm((current) => ({ ...current, guestId: current.guestId || parsed.guests?.find((guest) => guest.eligible_for_personal_score)?.id || '' }));
         }
       } catch { clearHostCache(); }
     } finally { if (interactive) setSyncing(false); }
@@ -103,24 +107,25 @@ export default function HostPage() {
 
   const filteredGuests = useMemo(() => {
     const term = guestSearch.trim().toLocaleLowerCase();
-    if (!term) return data?.guests ?? [];
-    return (data?.guests ?? []).filter((guest) => `${guest.name} ${guest.team} ${guest.special_card_title}`.toLocaleLowerCase().includes(term));
+    const scoreEligible = (data?.guests ?? []).filter((guest) => guest.eligible_for_personal_score);
+    if (!term) return scoreEligible;
+    return scoreEligible.filter((guest) => `${guest.name} ${guest.team} ${guest.special_card_title}`.toLocaleLowerCase().includes(term));
   }, [data?.guests, guestSearch]);
   const effectiveGuestId = filteredGuests.some((guest) => guest.id === guestForm.guestId) ? guestForm.guestId : filteredGuests[0]?.id || '';
   const selectedGuest = data?.guests.find((guest) => guest.id === effectiveGuestId) ?? null;
   const teamTotals = TEAMS.map((team) => ({ team, points: (data?.teamPoints ?? []).filter((entry) => entry.team === team).reduce((sum, entry) => sum + entry.amount, 0) }));
 
-  if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">HOST ONLY</div><div className="heart-mark">♡</div><h1>主持人<br/>计分台</h1><p className="lead">现场只开放团队加分与个人加分。</p><form onSubmit={login}><label htmlFor="host-password">管理员密码</label><input id="host-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required/><button disabled={busy}>{busy ? '登录中…' : '进入主持人计分台'}</button>{error && <div className="notice error">{error}</div>}</form></section></main>;
+  if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">HOST ONLY</div><div className="heart-mark">♡</div><h1>主持人<br/>流程台</h1><p className="lead">查看全员分组、积分和恶作剧者，并处理现场加分。</p><form onSubmit={login}><label htmlFor="host-password">管理员密码</label><input id="host-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required/><button disabled={busy}>{busy ? '登录中…' : '进入主持人流程台'}</button>{error && <div className="notice error">{error}</div>}</form></section></main>;
 
   return <main className="host-shell host-score-shell">
-    <header className="host-hero host-score-hero"><div><div className="eyebrow">LIVE SCORE DESK</div><h1>主持人计分台</h1><p>个人加分同步给对应宾客，团队加分进入团队积分榜。</p></div><StaffLogoutButton clearSessionStorageKeys={HOST_CACHE_KEYS}/></header>
+    <header className="host-hero host-score-hero"><div><div className="eyebrow">LIVE HOST DESK</div><h1>主持人流程台</h1><p>身份信息仅供主持人与主办方现场查看，请勿投屏。</p></div><StaffLogoutButton clearSessionStorageKeys={HOST_CACHE_KEYS}/></header>
     {offline && <div className="connection-banner offline" role="status"><span>离线只读 · 加分功能暂时停用</span><button className="mini-button" disabled={syncing} onClick={() => void load(true)}>{syncing ? '重连中…' : '重新连接'}</button></div>}
     {message && <div className="notice success sticky-notice" role="status">{message}</div>}
     {error && <div className="notice error sticky-notice" role="alert">{error}</div>}
 
-    <nav className="host-score-tabs" aria-label="计分类型"><button className={mode === 'team' ? 'active' : ''} aria-pressed={mode === 'team'} onClick={() => { setMode('team'); setMessage(''); setError(''); }}>团队加分</button><button className={mode === 'guest' ? 'active' : ''} aria-pressed={mode === 'guest'} onClick={() => { setMode('guest'); setMessage(''); setError(''); }}>个人加分</button></nav>
+    <nav className="host-score-tabs" aria-label="主持人功能"><button className={mode === 'overview' ? 'active' : ''} aria-pressed={mode === 'overview'} onClick={() => { setMode('overview'); setMessage(''); setError(''); }}>全员总览</button><button className={mode === 'team' ? 'active' : ''} aria-pressed={mode === 'team'} onClick={() => { setMode('team'); setMessage(''); setError(''); }}>团队加分</button><button className={mode === 'guest' ? 'active' : ''} aria-pressed={mode === 'guest'} onClick={() => { setMode('guest'); setMessage(''); setError(''); }}>个人加分</button></nav>
 
-    {mode === 'team' ? <section className="section-card host-score-panel"><div className="section-heading"><div><small>TEAM SCORE</small><h2>给团队加分</h2></div></div>
+    {mode === 'overview' ? <section className="section-card host-score-panel"><div className="section-heading"><div><small>PRIVATE ROSTER</small><h2>分组、积分与身份</h2></div><span>{data.guests.length} 人</span></div><div className="host-roster-list">{data.guests.map((guest) => <article key={guest.id} className={(guest.role === 'spy' || guest.is_hidden_spy) && guest.drawn_at ? 'spy' : ''}><div><strong>{guest.name}</strong><small>{guest.team || '未分组'} · {guest.drawn_at ? '已抽卡' : guest.participation_mode === 'ACTIVE_PLAYER' ? '待抽卡' : '专属卡'}</small></div><span>{guest.eligible_for_personal_score ? `${guest.points} 分` : '不计分'}</span>{(guest.role === 'spy' || guest.is_hidden_spy) && guest.drawn_at && <b>{guest.is_hidden_spy ? '隐藏间谍' : '恶作剧者'}</b>}</article>)}</div></section> : mode === 'team' ? <section className="section-card host-score-panel"><div className="section-heading"><div><small>TEAM SCORE</small><h2>给团队加分</h2></div></div>
       <div className="team-total-list">{teamTotals.map((item) => <button type="button" className={teamForm.team === item.team ? 'selected' : ''} key={item.team} onClick={() => setTeamForm({ ...teamForm, team: item.team })}><strong>{item.team}</strong><span>{item.points} 分</span></button>)}</div>
       <form onSubmit={(event) => { event.preventDefault(); void addScore({ type: 'adjustTeamPoints', team: teamForm.team, amount: Number(teamForm.amount), reason: teamForm.reason }, `${teamForm.team} 已加 ${teamForm.amount} 分`); }}>
         <label htmlFor="team-score-amount">增加分数</label><input id="team-score-amount" type="number" inputMode="numeric" min={1} max={100} value={teamForm.amount} onChange={(event) => setTeamForm({ ...teamForm, amount: event.target.value })} required/>

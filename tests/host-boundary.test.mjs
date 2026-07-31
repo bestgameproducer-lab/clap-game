@@ -15,18 +15,18 @@ test('host data endpoint requires administrator authorization', async () => {
   assert.match(source, /getHostDashboardData/);
 });
 
-test('host score data returns eligible guests without roles or credentials', async () => {
+test('authenticated host data returns an explicit private roster without credentials', async () => {
   const source = await readFile(new URL('../lib/data/host.ts', import.meta.url), 'utf8');
   const scoreDto = source.slice(source.indexOf('export async function getHostDashboardData'), source.indexOf('export async function adjustHostTeamPoints'));
-  assert.match(scoreDto, /select\('id,name,team,points,participation_mode,special_card_title'\)/);
-  assert.match(scoreDto, /eq\('eligible_for_personal_score', true\)/);
-  assert.doesNotMatch(scoreDto, /voter_guest_id|pin_hash|role,|hidden_role|claim_code_hash/);
+  assert.match(scoreDto, /select\('id,name,team,role,is_hidden_spy,points,participation_mode,special_card_title,eligible_for_personal_score,drawn_at'\)/);
+  assert.doesNotMatch(scoreDto, /voter_guest_id|pin_hash|hidden_role|claim_code_hash|password_hash/);
 });
 
-test('host page does not expose voting or private run-of-show content', async () => {
+test('host page exposes the private roster but not ballots or run-of-show answers', async () => {
   const source = await readFile(new URL('../app/host/page.tsx', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /voteCounts|揭晓票数|correct_answer|host_notes|流程题库/);
-  assert.match(source, /现场只开放团队加分与个人加分/);
+  assert.match(source, /全员总览/);
+  assert.match(source, /恶作剧者/);
 });
 
 test('database publish function copies only public segment fields', async () => {

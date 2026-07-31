@@ -57,6 +57,7 @@ const ACTION_LABELS: Record<string, string> = {
   'spy_points.record': '记录间谍积分', 'spy_points.settle': '结算间谍积分',
   'rehearsal.reset': '清空彩排运行数据', 'rehearsal.evidence_cleanup_pending': '验证照片待清理',
   'admin_session.create': '工作人员登录', 'admin_session.revoke': '工作人员安全退出',
+  'admin_password.rotate': '更换管理员密码',
 };
 
 type Guest = { id: string; name: string; login_name: string; team: string; role: string; is_hidden_spy: boolean; points: number; claimed_at: string | null; drawn_at: string | null; team_locked: boolean; role_locked: boolean; table_label: string; is_elder: boolean; ceremony_eligible: boolean; active: boolean; staff_notes: string; participation_mode: 'ACTIVE_PLAYER' | 'HONOR_GUEST' | 'PRINCIPAL'; relationship: string; story_role: string; uses_app: boolean; eligible_for_mission: boolean; eligible_for_secret_role: boolean; eligible_for_personal_score: boolean; phase_two_eligible: boolean; special_card_title: string; special_card_body: string; player_code: string; unlocked_role: string };
@@ -124,6 +125,7 @@ export default function AdminPage() {
   const [resetEventKey, setResetEventKey] = useState('');
   const [resetCleanupPending, setResetCleanupPending] = useState(false);
   const [invitationCodeForm, setInvitationCodeForm] = useState({ code: '', confirm: '' });
+  const [adminPasswordForm, setAdminPasswordForm] = useState({ password: '', confirm: '' });
   const [guestPhaseNote, setGuestPhaseNote] = useState('');
   const [rosterImportText, setRosterImportText] = useState('');
   const [rosterImportConfirmed, setRosterImportConfirmed] = useState(false);
@@ -350,6 +352,21 @@ export default function AdminPage() {
     if (ok) setInvitationCodeForm({ code: '', confirm: '' });
   }
 
+  async function rotateStaffPassword(event: React.FormEvent) {
+    event.preventDefault();
+    if (adminPasswordForm.password !== adminPasswordForm.confirm) { setError('两次输入的管理员密码不一致'); return; }
+    if (!window.confirm('确认更换管理员密码？保存后所有主办方、主持人和任务站设备都会退出，需要使用新密码重新登录。')) return;
+    setError(''); setMessage(''); setBusy(true);
+    try {
+      const response = await fetch('/api/admin-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'rotateAdminPassword', password: adminPasswordForm.password }) });
+      const result = await responseBody(response);
+      if (!response.ok) throw new Error(result.error || '管理员密码更换失败');
+      setAdminPasswordForm({ password: '', confirm: '' });
+      setData(null); setMessage('管理员密码已更新，请使用新密码重新登录');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '管理员密码更换失败'); }
+    finally { setBusy(false); }
+  }
+
   async function importRoster(event: React.FormEvent) {
     event.preventDefault();
     if (!data?.game || data.game.registration_open || rosterImportPreview.issues.length || !rosterImportPreview.rows.length || !rosterImportConfirmed) return;
@@ -408,8 +425,9 @@ export default function AdminPage() {
         <button type="button" onClick={() => openPanel('guests')}><span className="launchpad-index">03</span><strong>宾客状态</strong><small>查看认领进度或重置宾客密码</small><b>{claimed}/{activeGuests.length} 已认领 →</b></button>
         <button type="button" onClick={() => openPanel('finale')}><span className="launchpad-index">04</span><strong>投票与揭晓</strong><small>票数、积分流水与颁奖结果</small><b>{data.votes.length} 票已提交 →</b></button>
       </div>
-      <details className="admin-advanced-tools admin-setup-links"><summary>婚礼设置与数据管理</summary><div className="launchpad-grid"><button type="button" onClick={() => openPanel('content')}><span className="launchpad-index">A</span><strong>任务与线索设置</strong><small>婚礼开始前配置内容</small><b>{data.game?.task_catalog_mode === 'demo' ? `${activeCatalogTasks.length} 项演示任务` : `${activeCatalogTasks.length} 项正式任务`} →</b></button><button type="button" className="launchpad-danger" onClick={() => openPanel('data')}><span className="launchpad-index">B</span><strong>备份与清场</strong><small>导出数据或清空彩排记录</small><b className={rehearsalDataCount ? 'needs-attention' : ''}>{rehearsalDataCount ? `${rehearsalDataCount} 条运行记录` : '当前已清场'} →</b></button></div></details>
+      <details className="admin-advanced-tools admin-setup-links"><summary>婚礼设置与安全工具</summary><div className="launchpad-grid"><button type="button" onClick={() => openPanel('content')}><span className="launchpad-index">A</span><strong>任务与线索设置</strong><small>婚礼开始前配置内容</small><b>{data.game?.task_catalog_mode === 'demo' ? `${activeCatalogTasks.length} 项演示任务` : `${activeCatalogTasks.length} 项正式任务`} →</b></button><button type="button" className="launchpad-danger" onClick={() => openPanel('data')}><span className="launchpad-index">B</span><strong>安全、备份与清场</strong><small>更换管理员密码、导出数据或清空彩排记录</small><b className={rehearsalDataCount ? 'needs-attention' : ''}>{rehearsalDataCount ? `${rehearsalDataCount} 条运行记录` : '当前已清场'} →</b></button></div></details>
     </section>}
+    {activePanel === 'home' && <section className="section-card"><div className="section-heading"><div><small>SECURITY</small><h2>管理员密码</h2></div><span className="ready-badge">加密保存</span></div><p className="muted">此密码同时用于主办方控制台、主持人台和任务站。更换后会立即退出所有工作人员设备；系统不会显示或导出密码。</p><form onSubmit={rotateStaffPassword}><label htmlFor="admin-password-new">新管理员密码</label><input id="admin-password-new" type="password" autoComplete="new-password" minLength={12} maxLength={128} value={adminPasswordForm.password} onChange={(event) => setAdminPasswordForm({ ...adminPasswordForm, password: event.target.value })} required/><p className="field-help">12–128 位，必须同时包含字母和数字。</p><label htmlFor="admin-password-confirm">再次输入</label><input id="admin-password-confirm" type="password" autoComplete="new-password" minLength={12} maxLength={128} value={adminPasswordForm.confirm} onChange={(event) => setAdminPasswordForm({ ...adminPasswordForm, confirm: event.target.value })} required/><button disabled={busy || adminPasswordForm.password.length < 12 || adminPasswordForm.password !== adminPasswordForm.confirm}>{busy ? '正在更新…' : '更换管理员密码并退出所有设备'}</button></form></section>}
 
     {activePanel === 'home' && <details className="admin-advanced-tools readiness-details"><summary>开场前就绪检查 · {data.preflight.ready ? '可以开场' : `${data.preflight.blockedCount} 项待处理`}</summary><section className="section-card readiness-card">
       <div className="section-heading"><div><small>PRE-FLIGHT CHECK</small><h2>开场前就绪检查</h2></div><span className={data.preflight.ready ? 'ready-badge' : 'warning-badge'}>{data.preflight.ready ? '可以开场' : `${data.preflight.blockedCount} 项待处理`}</span></div>
