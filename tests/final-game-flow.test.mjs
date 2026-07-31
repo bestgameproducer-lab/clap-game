@@ -8,6 +8,13 @@ const passwordMigration = await readFile(new URL('../supabase/migrations/2026073
 const fixedDrawMigration = await readFile(new URL('../supabase/migrations/202607310006_align_unfinished_fixed_draws.sql', import.meta.url), 'utf8');
 const teamClueMigration = await readFile(new URL('../supabase/migrations/202607310007_phase_two_team_rank_clues.sql', import.meta.url), 'utf8');
 const liveDrawMigration = await readFile(new URL('../supabase/migrations/202607310008_fix_live_random_card_draw.sql', import.meta.url), 'utf8');
+const teamCoverageMigration = await readFile(new URL('../supabase/migrations/202607310011_fix_phase_one_team_coverage.sql', import.meta.url), 'utf8');
+const phaseTwoResetMigration = await readFile(new URL('../supabase/migrations/202607310012_reset_phase_two_runtime.sql', import.meta.url), 'utf8');
+const randomRoleResetMigration = await readFile(new URL('../supabase/migrations/202607310013_reset_random_story_roles.sql', import.meta.url), 'utf8');
+const phaseTwoTransitionMigration = await readFile(new URL('../supabase/migrations/202607310014_finalize_before_phase_two.sql', import.meta.url), 'utf8');
+const speechReservationMigration = await readFile(new URL('../supabase/migrations/202607310015_reserve_phase_two_speech_player.sql', import.meta.url), 'utf8');
+const speechPresetMigration = await readFile(new URL('../supabase/migrations/202607310016_align_fixed_speech_preset.sql', import.meta.url), 'utf8');
+const teamClueUuidMigration = await readFile(new URL('../supabase/migrations/202607310017_fix_team_clue_spy_uuid.sql', import.meta.url), 'utf8');
 const passwordPathFix = await readFile(new URL('../supabase/migrations/202607310010_fix_admin_password_pgcrypto_path.sql', import.meta.url), 'utf8');
 const adminData = await readFile(new URL('../lib/data/admin.ts', import.meta.url), 'utf8');
 const adminRoute = await readFile(new URL('../app/api/admin-action/route.ts', import.meta.url), 'utf8');
@@ -91,4 +98,64 @@ test('live draw safely creates tricksters and fills random heart/star/photo slot
   assert.match(liveDrawMigration, /when 'P1-STAR-001' then 'STAR_HOLDER'/);
   assert.match(liveDrawMigration, /assigned_guest\.role='guest'/);
   assert.doesNotMatch(liveDrawMigration, /delete from|truncate/);
+});
+
+test('live draw reserves all relationship roles for the competitive roster', () => {
+  assert.match(teamCoverageMigration, /v_guest\.phase_two_eligible and t\.mission_code='P1-HEART-001'/);
+  assert.match(teamCoverageMigration, /v_guest\.phase_two_eligible and t\.mission_code='P1-STAR-001'/);
+  assert.match(teamCoverageMigration, /assigned_guest\.phase_two_eligible\)[\s\S]+reserved\.phase_two_eligible[\s\S]+<5\)/);
+  assert.match(teamCoverageMigration, /case when t\.mission_code='P1-SOCIAL-001' then 2 else 1 end/);
+  assert.match(teamCoverageMigration, /not v_guest\.phase_two_eligible and v_guest\.team='家人组'/);
+  assert.match(teamCoverageMigration, /case when t\.mission_code='P1-SOCIAL-002' then 1 else 0 end/);
+  assert.match(teamCoverageMigration, /'competitive_hearts',5,'competitive_stars',5/);
+  assert.doesNotMatch(teamCoverageMigration, /delete from|truncate/);
+});
+
+test('rehearsal reset also clears all phase-two runtime state', () => {
+  assert.match(phaseTwoResetMigration, /after insert on rehearsal_resets/);
+  assert.match(phaseTwoResetMigration, /delete from phase_two_dilemmas where true/);
+  assert.match(phaseTwoResetMigration, /delete from phase_two_copy_choices where true/);
+  assert.match(phaseTwoResetMigration, /delete from phase_two_profiles where true/);
+  assert.match(phaseTwoResetMigration, /configuration_preserved',true/);
+  assert.doesNotMatch(phaseTwoResetMigration, /delete from guests|delete from tasks|truncate/);
+});
+
+test('rehearsal reset clears random story roles but preserves locked presets', () => {
+  assert.match(randomRoleResetMigration, /update guests set story_role='NONE',ceremony_eligible=false/);
+  assert.match(randomRoleResetMigration, /where not role_locked and story_role<>'NONE'/);
+  assert.match(randomRoleResetMigration, /locked_presets_preserved',true/);
+  assert.doesNotMatch(randomRoleResetMigration, /delete from guests|truncate/);
+});
+
+test('act-two transition finalizes relationship roles before allocation', () => {
+  const finalizeAt = phaseTwoTransitionMigration.indexOf('perform finalize_phase_one_content(p_actor)');
+  const unlockAt = phaseTwoTransitionMigration.indexOf('unlock_phase_two_missions(p_actor)');
+  assert.ok(finalizeAt > 0 && unlockAt > finalizeAt);
+  assert.match(phaseTwoTransitionMigration, /p_stage='task_round_2'/);
+  assert.match(phaseTwoTransitionMigration, /atomic_transition',true/);
+  assert.doesNotMatch(phaseTwoTransitionMigration, /delete from|truncate/);
+});
+
+test('fixed act-two speech player cannot consume a relationship or trickster slot', () => {
+  assert.match(speechReservationMigration, /lower\(v_guest\.login_name\)='yirui zhang' or v_guest\.story_role/);
+  assert.match(speechReservationMigration, /mission_code='P1-SOCIAL-001'/);
+  assert.match(speechReservationMigration, /speech_player\.drawn_at is null/);
+  assert.match(speechReservationMigration, /relationship_role_excluded',true,'trickster_excluded',true/);
+  assert.match(speechReservationMigration, /speech_player_reservation_incomplete/);
+  assert.doesNotMatch(speechReservationMigration, /delete from|truncate/);
+});
+
+test('unfinished fixed speech player cannot retain a conflicting symbol preset', () => {
+  assert.match(speechPresetMigration, /drawn_at is null and lower\(login_name\)='yirui zhang'/);
+  assert.match(speechPresetMigration, /story_role in\('HEART_HOLDER','STAR_HOLDER'\)/);
+  assert.match(speechPresetMigration, /story_role='NONE'/);
+  assert.match(speechPresetMigration, /conflicting_symbol_preset_removed',true/);
+  assert.doesNotMatch(speechPresetMigration, /delete from|truncate|update assignments|update points_ledger/);
+});
+
+test('team clue settlement selects a UUID without unsupported min aggregation', () => {
+  assert.match(teamClueUuidMigration, /array_agg\(id order by id\)\)\[1\]/);
+  assert.match(teamClueUuidMigration, /count\(\*\)::integer into v_spy_id,v_spy_count/);
+  assert.match(teamClueUuidMigration, /team_clue_spy_uuid_patch_failed/);
+  assert.doesNotMatch(teamClueUuidMigration, /delete from|truncate/);
 });
