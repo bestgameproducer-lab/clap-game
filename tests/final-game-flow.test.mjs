@@ -5,6 +5,7 @@ import test from 'node:test';
 const phaseOne = await readFile(new URL('../supabase/migrations/202607310003_finalize_phase_one_assignments.sql', import.meta.url), 'utf8');
 const phaseTwo = await readFile(new URL('../supabase/migrations/202607310004_phase_two_photo_exclusion.sql', import.meta.url), 'utf8');
 const passwordMigration = await readFile(new URL('../supabase/migrations/202607310005_admin_password_rotation.sql', import.meta.url), 'utf8');
+const fixedDrawMigration = await readFile(new URL('../supabase/migrations/202607310006_align_unfinished_fixed_draws.sql', import.meta.url), 'utf8');
 const adminRoute = await readFile(new URL('../app/api/admin-action/route.ts', import.meta.url), 'utf8');
 const loginRoute = await readFile(new URL('../app/api/admin-login/route.ts', import.meta.url), 'utf8');
 const adminPage = await readFile(new URL('../app/admin/page.tsx', import.meta.url), 'utf8');
@@ -47,4 +48,13 @@ test('administrator password rotation is bcrypt-only, audited, and revokes sessi
   assert.match(loginRoute, /verifyAdminPasswordOverride/);
   assert.match(adminRoute, /type === 'rotateAdminPassword'/);
   assert.match(adminPage, /更换管理员密码并退出所有设备/);
+});
+
+test('unfinished fixed draws align forward-only without rewriting score history', () => {
+  assert.match(fixedDrawMigration, /v_assignment\.status<>'assigned'/);
+  assert.match(fixedDrawMigration, /v_assignment\.evidence_path is not null/);
+  assert.match(fixedDrawMigration, /exists\(select 1 from points_ledger where assignment_id=v_assignment\.id\)/);
+  assert.match(fixedDrawMigration, /fixed_draw_runtime_conflict/);
+  assert.match(fixedDrawMigration, /complete_system_mission\(v_guest_id,'INSTANT_BONUS'/);
+  assert.doesNotMatch(fixedDrawMigration, /delete from|truncate|update points_ledger/);
 });
