@@ -1,6 +1,6 @@
 # Wedding Mission 项目交接入口
 
-> 最后更新：2026-07-30。目标婚礼日期暂按 2026-08-22 理解，请接手时向项目负责人确认。
+> 最后更新：2026-07-31。目标婚礼日期暂按 2026-08-22 理解，请接手时向项目负责人确认。
 
 这份文件是另一台电脑接手项目时的单一入口。代码、数据库迁移、测试和现场文档都保存在 GitHub 仓库中；生产数据与配置保存在 Supabase；部署由 Vercel 从 `main` 自动完成。不要通过聊天、Git 或截图传递任何密码和密钥。
 
@@ -57,14 +57,13 @@ NEXT_PUBLIC_WEDDING_TITLE=婚礼页面标题
 
 截至本文件更新时间：
 
-- PR #24 的清场修复已合并到 `main`，合并提交为 `d7ffe86e71c442f6f9c2a1340cdbbf2f385c7162`。
-- 最新已应用的生产迁移是 `202607300007_fix_reset_safe_update.sql`。
-- 已实际执行并验证一次完整彩排清场。
-- 宾客认领、四位密码、宾客会话、抽卡结果、任务进度、验证照片、线索领取、投票及个人/团队/间谍/资源流水均为 0。
-- 私有 `task-evidence` 中的真实验证照片文件为 0，待清理照片队列为 0；Supabase 可能保留一个 0 字节 `.emptyFolderPlaceholder`，它不是宾客照片。
-- 注册关闭、投票关闭、公开大屏关闭。
-- 正式 32 人名单、初始角色/家人类型、任务与线索配置、主持题库、隐藏卡配置和审计记录被保留。
-- 最近完整验证：207 项测试通过，`npm run typecheck` 通过，`npm run build` 通过。
+- PR #33 的完整一、二幕流程已合并到 `main`，合并提交为 `e2a2390e866d51a9d15fd4915951fbaeb1a0903f`。
+- 生产已应用 `202607310003` 至 `202607310006`；`202607310007_phase_two_team_rank_clues.sql` 随本次交接更新发布后应成为最新迁移，接手时必须在迁移审计中只读确认。
+- 2026-07-30 已实际执行并验证一次完整彩排清场；之后为校正正式固定卡，系统仅对尚未提交、未审核、无证据、无积分流水的旧抽卡记录做了前向对齐，没有清空或重新 seed。
+- 生产当前保留 32 人正式名单、任务与线索配置、主持题库、隐藏卡配置和审计记录；已有的正式运行记录必须继续保留。
+- 注册关闭、投票关闭、公开大屏关闭。重新开放任何入口前先完成现场就绪检查。
+- 主持人私密页现可查看全员分组、当前个人分与恶作剧者；管理员首页可轮换管理员密码并立即撤销全部管理员会话。
+- 最近完整验证：229 项测试通过，`npm run typecheck` 通过，`npm run build` 通过。
 
 清场不是延时任务。正常情况下按钮应在几秒内返回成功；出现红色错误就是真实失败，应立即查看 Vercel `/api/admin-action` 日志，不要告诉用户继续等待。
 
@@ -82,7 +81,7 @@ NEXT_PUBLIC_WEDDING_TITLE=婚礼页面标题
 ### 抽卡、家人与秘密身份
 
 - 每位使用 App 的宾客都有抽卡动作；卡片本身和保留按钮都可以触发抽取。
-- 家人也登录并先抽“荣誉惊喜卡”，文字核心是“你已经完成了最重要的任务，陪伴新郎/新娘长大”等感谢内容。抽完后仍进入正常主界面，可参加公开活动和积分，但不领取普通秘密任务或线索。
+- 七位荣誉家人登录并抽“荣誉惊喜卡”，不领取普通秘密任务、隐藏身份或秘密线索。金星澄、陈安道、金紫洋从第一阶段起显示为家人组，但前两位仍领取戒指任务，金紫洋仍领取普通第一阶段任务；全部家人均排除在第二阶段任务外。
 - 新郎 Zimin Jin、新娘 Anrong 是 `PRINCIPAL`，保留专属惊喜内容，不进入普通秘密任务池。
 - Yifan Yu 是誓词引导人；Andao Chen 与 Xingcheng Jin 是戒指守护者。固定剧情职务通过抽卡动画揭晓，但不进入恶作剧者池。
 - 秘密身份默认隐藏。普通身份可“按住查看”，松手立即盖住；长内容另有可滚动的“展开查看/再次隐藏”。切后台、锁屏或离开页面时必须自动盖住。
@@ -119,7 +118,8 @@ NEXT_PUBLIC_WEDDING_TITLE=婚礼页面标题
 
 - 管理台使用短入口/标签分区，不要把所有工具堆成一张超长页面。
 - 待审核任务按最新提交在最上方，每项可折叠。
-- 主持人页面当前至少开放团队加分和个人加分；所有分数操作写审计日志。
+- 主持人页面开放私密全员总览、团队加分和个人加分；总览显示分组、当前分数和恶作剧者，所有分数操作写审计日志。
+- 管理员可在首页安全工具中更换管理员密码；新密码只保存 bcrypt 散列，更换后全部管理员会话立即失效，密码与散列不得进入日志、Git 或聊天。
 - 后台、主持台和任务站共用管理员认证并支持安全退出。
 - 公开大屏在身份揭晓前绝不能泄露角色、秘密任务、线索、答案或间谍私密积分。
 - 清空彩排必须由用户本人可操作，不依赖开发者到场。执行前关闭注册、投票、大屏，完成八类导出确认，填写原因并输入 `RESET WEDDING`。清空运行数据但保留名单、任务配置、锁定预设、邀请码配置、隐藏卡配置和审计。
@@ -134,8 +134,8 @@ NEXT_PUBLIC_WEDDING_TITLE=婚礼页面标题
 
 - 新人：Anrong（新娘）、Zimin Jin（新郎）
 - 固定仪式角色：Yifan Yu（誓词引导人）、Andao Chen 和 Xingcheng Jin（送戒指）
-- 荣誉家人：Danying Yang、Liying Jin、Jianjun Jin、Xiaofeng Jin、Wei Jin
-- Ziyang Jin 是家人但参加普通游戏
+- 荣誉家人：Danying Yang、Liying Jin、Jianjun Jin、Xiaofeng Jin、Wei Jin、Huimin Xu、Gang Yao
+- Xingcheng Jin、Andao Chen、Ziyang Jin 也属于家人组；前两位领取戒指任务，Ziyang Jin 参加第一阶段普通任务，三人均不进入第二阶段
 - 其余宾客为普通活跃玩家
 
 不要根据中文关系字段自动排除家人；以 `participation_mode`、`uses_app`、`eligible_for_mission` 和明确配置为准。荣誉家人要抽惊喜卡，并在之后进入正常仪表盘参与公开活动。
@@ -149,6 +149,14 @@ NEXT_PUBLIC_WEDDING_TITLE=婚礼页面标题
 - `supabase/migrations/202607300005_fix_preset_spy_draw.sql`
 - `supabase/migrations/202607300006_align_submission_windows_with_ceremony.sql`
 - `supabase/migrations/202607300008_remove_cupid_helper_feature.sql`
+- `supabase/migrations/202607300009_phase_two_team_foundation.sql`
+- `supabase/migrations/202607310001_phase_two_assignments_and_powers.sql`
+- `supabase/migrations/202607310002_phase_two_player_actions.sql`
+- `supabase/migrations/202607310003_finalize_phase_one_assignments.sql`
+- `supabase/migrations/202607310004_phase_two_photo_exclusion.sql`
+- `supabase/migrations/202607310005_admin_password_rotation.sql`
+- `supabase/migrations/202607310006_align_unfinished_fixed_draws.sql`
+- `supabase/migrations/202607310007_phase_two_team_rank_clues.sql`
 
 个人任务采用小分值尺度，正常为 1–3 分；固定仪式任务可有独立分值。恶作剧者秘密计分使用独立私密账本，揭晓前不能进入个人榜或团队榜。
 
@@ -177,7 +185,7 @@ NEXT_PUBLIC_WEDDING_TITLE=婚礼页面标题
 5. `lib/game-stages.ts` — 环节名称与默认提示
 6. `supabase/migrations/202607290041_final_roster_participation.sql` — 32 人正式名单
 7. `supabase/migrations/202607300001_phase_one_real_missions.sql` — 第一阶段真实任务机制
-8. 最新迁移 `202607300002` 至 `202607300007` — 最近回归修复
+8. 最新迁移 `202607300002` 至 `202607300009`、`202607310001` 至 `202607310007` — 正式一、二幕与最近回归修复
 9. `tests/` — 隐私、计分、抽卡、同步、清场和手机 UI 的可执行验收规则
 
 ## 9. 新电脑可直接粘贴给 Codex 的 Prompt
@@ -193,14 +201,14 @@ Supabase 项目 ID：bkrtgrufcctgxyfxdgqy
 Vercel 项目：zmdward/clap-game-hlj6
 
 请先完成以下接手动作：
-1. 克隆仓库，切到并拉取最新 main；确认包含 PROJECT_HANDOFF.md 与 supabase/migrations/202607300007_fix_reset_safe_update.sql。
-2. 完整阅读 AGENTS.md、PROJECT_HANDOFF.md、docs/wedding-day-runbook.md、docs/acceptance-checklist.md、lib/game-stages.ts，以及 202607290041 和 202607300001–202607300007 的迁移。
+1. 克隆仓库，切到并拉取最新 main；确认包含 PROJECT_HANDOFF.md、supabase/migrations/202607300007_fix_reset_safe_update.sql 与最新的 202607310007 迁移。
+2. 完整阅读 AGENTS.md、PROJECT_HANDOFF.md、docs/wedding-day-runbook.md、docs/acceptance-checklist.md、lib/game-stages.ts，以及 202607290041、202607300001–202607300009、202607310001–202607310007 的迁移。
 3. 运行 npm install、npm run typecheck、npm test、npm run build，报告基线结果。
 4. 用只读方式核对 Git、Vercel 部署和 Supabase 当前状态；不要重置、覆盖或重新 seed 生产数据库。
 5. 开发前创建 codex/ 分支。任何数据库变化都新增 forward-only migration，不修改已经上线的迁移。
 6. 不要把 ADMIN_PASSWORD、SUPABASE_SERVICE_ROLE_KEY、邀请码原文、宾客四位密码或任何散列写入聊天、代码、日志或 Git。需要本地运行时，通过已登录的 Vercel/Supabase 页面或本机密码管理器配置未提交的 .env.local。
 
-当前生产状态：2026-07-30 已完整清空彩排运行数据；注册、投票和大屏关闭；32 人名单、任务配置、初始预设与审计保留。PR #24 的安全清场修复已进入 main。最新完整基线为 207 项测试、typecheck 和 production build 全部通过。
+当前生产状态：2026-07-30 已完整清空彩排运行数据，此后只做了不覆盖已完成记录的正式固定卡前向校正；注册、投票和大屏关闭；32 人名单、任务配置、初始预设、当前正式运行记录与审计保留。PR #33 的完整一、二幕流程已进入 main；请以最新迁移审计、测试数字和 Vercel `main` 部署为准。
 
 产品核心：共享邀请码后搜索姓名；首次登录由宾客自己设置四位密码；每人只能认领一次；所有使用 App 的家人也要先抽卡，荣誉家人抽感谢惊喜卡后仍进入正常主界面参加公开活动；固定仪式角色通过抽卡揭晓；恶作剧者未展开时界面必须和普通玩家完全一致，真实身份和真实任务只在主动查看时出现；秘密内容默认隐藏；任务最新在上、默认折叠；自动同步静默；仪式前和仪式后可提交，仪式进行中暂停；公开页面绝不泄露秘密数据。
 

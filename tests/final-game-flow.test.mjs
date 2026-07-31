@@ -6,6 +6,8 @@ const phaseOne = await readFile(new URL('../supabase/migrations/202607310003_fin
 const phaseTwo = await readFile(new URL('../supabase/migrations/202607310004_phase_two_photo_exclusion.sql', import.meta.url), 'utf8');
 const passwordMigration = await readFile(new URL('../supabase/migrations/202607310005_admin_password_rotation.sql', import.meta.url), 'utf8');
 const fixedDrawMigration = await readFile(new URL('../supabase/migrations/202607310006_align_unfinished_fixed_draws.sql', import.meta.url), 'utf8');
+const teamClueMigration = await readFile(new URL('../supabase/migrations/202607310007_phase_two_team_rank_clues.sql', import.meta.url), 'utf8');
+const adminData = await readFile(new URL('../lib/data/admin.ts', import.meta.url), 'utf8');
 const adminRoute = await readFile(new URL('../app/api/admin-action/route.ts', import.meta.url), 'utf8');
 const loginRoute = await readFile(new URL('../app/api/admin-login/route.ts', import.meta.url), 'utf8');
 const adminPage = await readFile(new URL('../app/admin/page.tsx', import.meta.url), 'utf8');
@@ -58,4 +60,16 @@ test('unfinished fixed draws align forward-only without rewriting score history'
   assert.match(fixedDrawMigration, /fixed_draw_runtime_conflict/);
   assert.match(fixedDrawMigration, /complete_system_mission\(v_guest_id,'INSTANT_BONUS'/);
   assert.doesNotMatch(fixedDrawMigration, /delete from|truncate|update points_ledger/);
+});
+
+test('opening final voting awards ranked team clues atomically and idempotently', () => {
+  assert.match(teamClueMigration, /dense_rank\(\) over\(order by score desc\)/);
+  assert.match(teamClueMigration, /when v_team\.team_rank=1 then 2 when v_team\.team_rank=2 then 1/);
+  assert.match(teamClueMigration, /g\.id<>v_spy_id/);
+  assert.match(teamClueMigration, /on conflict\(guest_id,clue_id\) do nothing/);
+  assert.match(teamClueMigration, /perform settle_phase_two_team_clues\(p_actor\)/);
+  assert.match(teamClueMigration, /phase_two\.team_clues_settle/);
+  assert.match(adminData, /phase_two_team_scores_missing/);
+  assert.match(adminData, /phase_two_team_clues_missing/);
+  assert.doesNotMatch(teamClueMigration, /truncate|delete from/);
 });
