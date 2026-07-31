@@ -1,6 +1,6 @@
 export type ScoreboardGuest = { id: string; name: string; team: string; points: number; countsForTeam?: boolean };
 export type ScoreboardAssignment = { guest_id: string; status: string };
-export type ScoreboardVote = { target_guest_id: string };
+export type ScoreboardVote = { target_guest_id: string; vote_weight?: number };
 export type ScoreboardTeamPoint = { team: string; amount: number };
 
 export function buildPublicScoreboard(
@@ -15,7 +15,7 @@ export function buildPublicScoreboard(
   }
 
   const votesByGuest = new Map<string, number>();
-  for (const vote of votes) votesByGuest.set(vote.target_guest_id, (votesByGuest.get(vote.target_guest_id) ?? 0) + 1);
+  for (const vote of votes) votesByGuest.set(vote.target_guest_id, (votesByGuest.get(vote.target_guest_id) ?? 0) + (vote.vote_weight ?? 1));
 
   const teams = new Map<string, { team: string; points: number; guests: number; completedTasks: number }>();
   for (const guest of guests) {

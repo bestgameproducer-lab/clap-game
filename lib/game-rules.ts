@@ -7,6 +7,7 @@ export const STORY_ROLES = ['NONE', 'OFFICIANT', 'RING_KEEPER', 'GROOM_CHEERLEAD
 export const PHASE_TWO_PRIMARY_MISSIONS = [
   'TOAST_GROOM_FATHER', 'TOAST_BRIDE_MOTHER', 'INTERACT_WITH_GROOM', 'INTERACT_WITH_BRIDE',
   'DINNER_SPEECH', 'HEART_DILEMMA', 'STAR_DILEMMA', 'COPY_SCORE', 'TEAM_CAPTAIN', 'TRICKSTER',
+  'EXTRA_VOTE', 'SUPER_LUCKY',
 ] as const;
 export const ROLE_SCOPES = ['all', ...GAME_ROLES] as const;
 export const TASK_CATEGORIES = ['standard', 'ceremony', 'group', 'upgrade', 'hidden'] as const;
