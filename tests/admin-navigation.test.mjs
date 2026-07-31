@@ -11,7 +11,7 @@ test('admin console opens focused modules instead of one continuous page', async
     readFile(stylesUrl, 'utf8'),
   ]);
 
-  for (const panel of ['开场准备', '现场流程', '宾客管理', '任务与内容', '审核任务', '投票与揭晓', '数据与清场']) {
+  for (const panel of ['开场准备', '现场流程', '宾客管理', '任务与内容', '审核任务', '终局结算', '数据与清场']) {
     assert.match(page, new RegExp(panel));
   }
   assert.match(page, /const \[activePanel, setActivePanel\] = useState<AdminPanel>\('home'\)/);
