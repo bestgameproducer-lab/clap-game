@@ -4,7 +4,6 @@ type PreflightGuest = {
   id: string; active: boolean; team: string; role: string; is_hidden_spy: boolean;
   drawn_at: string | null; team_locked: boolean; role_locked: boolean; participation_mode: string;
   story_role?: string;
-  hidden_role?: string;
 };
 type PreflightTask = { id: string; active: boolean; role_scope: string; category: string; stage: string; mission_code?: string | null; points?: number; max_assignments?: number | null };
 type PreflightClue = { active: boolean; spy_guest_id: string | null };
@@ -22,7 +21,7 @@ export type PreflightItem = {
 export const PHASE_ONE_MISSION_SPECS = [
   ['P1-CER-001',5,1],['P1-CER-002',3,2],['P1-CER-003',3,1],['P1-CER-004',3,1],['P1-CER-005',3,2],
   ['P1-HEART-001',2,5],['P1-STAR-001',2,5],['P1-SOCIAL-001',2,null],['P1-BONUS-001',2,3],
-  ['P1-SPECIAL-001',0,1],['P1-DECOY-001',2,null],['P1-DECOY-002',2,2],['P1-DECOY-003',2,2],
+  ['P1-DECOY-001',2,null],['P1-DECOY-002',2,2],['P1-DECOY-003',2,2],
   ['P1-DECOY-004',2,null],['P1-DECOY-005',2,null],['P1-DECOY-006',2,null],['P1-TRICKSTER-001',0,null],
 ] as const;
 
@@ -70,7 +69,6 @@ export function buildWeddingPreflight(input: {
     && storyCounts.APPLAUSE_STARTER >= 1 && storyCounts.APPLAUSE_STARTER <= 2
     && storyCounts.HEART_HOLDER === 5
     && storyCounts.STAR_HOLDER === 5
-    && activeGuests.filter((guest) => guest.hidden_role === 'CUPID_HELPER').length === 1
     && activeGuests.every((guest) => guest.story_role === 'NONE' || guest.role !== 'spy');
   const hostSegments = input.hostSegments.filter((segment) => segment.active);
   const unreadyHostSegments = hostSegments.filter((segment) => !segment.ready).length;
@@ -82,7 +80,7 @@ export function buildWeddingPreflight(input: {
     item('guest-roster', '32 位宾客名单', `${invitedGuests.length} 位可登录 · ${activeGuests.length} 位任务玩家`, invitedGuests.length === 32),
     item('draw-capacity', '抽卡容量没有冲突', teamSummary.map((team) => `${team.team} ${team.total}/8`).join(' · '), capacityValid),
     item('official-missions', '第一阶段任务、分值与人数正确', `${officialMissionCount}/${officialMissionCodes.length} 项符合定稿${unexpectedPhaseOneTasks.length ? ` · 另有 ${unexpectedPhaseOneTasks.length} 项非定稿任务仍启用` : ''}`, officialMissionCount === officialMissionCodes.length && unexpectedPhaseOneTasks.length === 0),
-    item('story-cast', '第一阶段特殊职务人数正确', `誓词 ${storyCounts.OFFICIANT} · 戒指 ${storyCounts.RING_KEEPER} · 应援 ${storyCounts.GROOM_CHEERLEADER + storyCounts.BRIDE_CHEERLEADER} · 掌声 ${storyCounts.APPLAUSE_STARTER} · 爱心 ${storyCounts.HEART_HOLDER} · 星星 ${storyCounts.STAR_HOLDER} · 帮手 ${activeGuests.filter((guest) => guest.hidden_role === 'CUPID_HELPER').length}`, storyCastReady),
+    item('story-cast', '第一阶段特殊职务人数正确', `誓词 ${storyCounts.OFFICIANT} · 戒指 ${storyCounts.RING_KEEPER} · 应援 ${storyCounts.GROOM_CHEERLEADER + storyCounts.BRIDE_CHEERLEADER} · 掌声 ${storyCounts.APPLAUSE_STARTER} · 爱心 ${storyCounts.HEART_HOLDER} · 星星 ${storyCounts.STAR_HOLDER}`, storyCastReady),
     item('upgrade-pool', '升级任务池充足', `${activeTasks.filter((task) => task.category === 'upgrade').length} 项启用（建议至少 5 项）`, activeTasks.filter((task) => task.category === 'upgrade').length >= 5),
     item('group-pool', '团队任务池已配置', `${activeTasks.filter((task) => task.category === 'group').length} 项启用`, activeTasks.some((task) => task.category === 'group')),
     item('hidden-cards', '四张隐藏任务实体卡', `${activeHidden.filter((task) => codedHiddenIds.has(task.id)).length}/${activeHidden.length} 项已有一次性代码`, activeHidden.length >= 4 && activeHidden.every((task) => codedHiddenIds.has(task.id))),

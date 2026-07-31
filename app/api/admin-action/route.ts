@@ -10,7 +10,6 @@ import {
   updateCeremonyAssignment,
   configureGuestGameProfile,
   configureGuestStoryRole,
-  configureGuestHiddenRole,
   saveGameClue,
   saveGameTask,
   saveGuestRoster,
@@ -33,7 +32,7 @@ import {
   undoPlayerRelationship,
 } from '@/lib/data/admin';
 import { ApiError, apiErrorResponse, noStoreJson } from '@/lib/errors';
-import { CEREMONY_STATUSES, GAME_ROLES, HIDDEN_ROLES, MANUAL_GAME_STAGES, RING_VARIANTS, ROLE_SCOPES, STORY_ROLES, TASK_CATEGORIES, TASK_STAGES } from '@/lib/game-rules';
+import { CEREMONY_STATUSES, GAME_ROLES, MANUAL_GAME_STAGES, RING_VARIANTS, ROLE_SCOPES, STORY_ROLES, TASK_CATEGORIES, TASK_STAGES } from '@/lib/game-rules';
 import {
   assertSameOrigin,
   optionalString,
@@ -158,12 +157,6 @@ export async function POST(request: Request) {
       await configureGuestStoryRole(
         requiredUuid(body.guestId, '宾客 ID'),
         requiredEnum(body.storyRole, '剧情职务', STORY_ROLES),
-        actor,
-      );
-    } else if (type === 'configureHiddenRole') {
-      await configureGuestHiddenRole(
-        requiredUuid(body.guestId, '宾客 ID'),
-        requiredEnum(body.hiddenRole, '隐藏身份', HIDDEN_ROLES),
         actor,
       );
     } else if (type === 'undoRelationship') {

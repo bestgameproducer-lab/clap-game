@@ -10,9 +10,9 @@ import { useLiveRefresh } from '@/lib/use-live-refresh';
 const GUEST_CACHE_KEY = 'wedding-guest-session-cache-v1';
 
 type RegistrationGuest = { id: string; name: string; loginName: string; hasPassword: boolean };
-type SecretCard = { team: string; role: string; storyRole: string; hiddenRole: 'NONE' | 'CUPID_HELPER'; task: { id: string; title: string; description: string; verificationMethod: string; points: number }; drawnAt: string };
+type SecretCard = { team: string; role: string; storyRole: string; task: { id: string; title: string; description: string; verificationMethod: string; points: number }; drawnAt: string };
 type GuestData = {
-  guest: { id: string; name: string; team: string; role: string; hidden_role: 'NONE' | 'CUPID_HELPER'; is_hidden_spy: boolean; points: number; drawn_at: string | null; special_card_revealed_at: string | null; participation_mode: 'ACTIVE_PLAYER' | 'HONOR_GUEST' | 'PRINCIPAL'; relationship: string; story_role: string; eligible_for_mission: boolean; eligible_for_secret_role: boolean; eligible_for_personal_score: boolean; special_card_title: string; special_card_body: string; player_code: string; unlocked_role: string };
+  guest: { id: string; name: string; team: string; role: string; is_hidden_spy: boolean; points: number; drawn_at: string | null; special_card_revealed_at: string | null; participation_mode: 'ACTIVE_PLAYER' | 'HONOR_GUEST' | 'PRINCIPAL'; relationship: string; story_role: string; eligible_for_mission: boolean; eligible_for_secret_role: boolean; eligible_for_personal_score: boolean; special_card_title: string; special_card_body: string; player_code: string; unlocked_role: string };
   assignments: Array<{ id: string; status: string; is_initial: boolean; completion_rank: number | null; early_bonus_points: number; reward_task_id: string | null; reward_clue_id: string | null; completion_note: string; verification_note: string; verified_at: string | null; evidence_uploaded_at: string | null; evidence_url: string | null; rejection_reason: string | null; task: { title: string; description: string; verification_method: string; points: number; category: string; stage: string; mission_code: string | null; mechanic: string; score_policy: string } }>;
   clues: Array<{ id: string; title: string; content: string }>;
   game: { registration_open: boolean; stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null; task_catalog_mode: 'demo' | 'live'; trickster_max_attempts: number; phase_one_completed_at: string | null } | null;
@@ -33,7 +33,6 @@ type GuestData = {
     relationships: Array<{ id: string; type: 'CUPID_ALLIANCE' | 'STAR_ALLIANCE' | 'TRICKSTER_CONNECTION'; status: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'REVEALED'; partnerName: string; confirmedByMe: boolean; confirmedByPartner: boolean; activatedAt: string | null }>;
     tricksterAttemptsUsed: number;
     tricksterMaxAttempts: number;
-    helper: null | { tricksters: Array<{ id: string; name: string; team: string }>; actions: Array<{ id: string; tricksterGuestId: string; tricksterName: string; note: string; status: string; createdAt: string }> };
     mutualConfirmations: Array<{ id: string; assignmentId: string; direction: 'INCOMING' | 'OUTGOING'; otherGuestName: string; status: 'PENDING' | 'ACTIVE' | 'REJECTED'; createdAt: string }>;
     allianceClue: null | { title: string; fragment: string };
   };
@@ -45,7 +44,6 @@ const STATUS_LABELS: Record<string, string> = {
 
 const ROLE_LABELS: Record<string, { title: string; note: string }> = {
   spy: { title: '丘比特的恶作剧者', note: '第一阶段正常完成表面任务，并使用暗号悄悄寻找同伴。' },
-  helper: { title: '丘比特的秘密信使', note: '暗中帮助队友，让线索自然流动。' },
   guest: { title: '婚礼守护者', note: '完成阶段任务，并留意身边的可疑行动。' },
 };
 
@@ -96,8 +94,6 @@ export default function GuestPage() {
   const [completionNotes, setCompletionNotes] = useState<Record<string, string>>({});
   const [evidenceBusyId, setEvidenceBusyId] = useState<string | null>(null);
   const [connectionTargetCode, setConnectionTargetCode] = useState('');
-  const [helperTargetId, setHelperTargetId] = useState('');
-  const [helperNote, setHelperNote] = useState('');
   const [mutualTargetCodes, setMutualTargetCodes] = useState<Record<string, string>>({});
   const [expandedAssignments, setExpandedAssignments] = useState<Record<string, boolean>>({});
   const [playerCodeCopied, setPlayerCodeCopied] = useState(false);
@@ -450,21 +446,6 @@ export default function GuestPage() {
     finally { setBusy(false); }
   }
 
-  async function saveHelperAction() {
-    setBusy(true); setError(''); setMessage('');
-    try {
-      const response = await fetch('/api/helper-action', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tricksterGuestId: helperTargetId, note: helperNote }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error || '帮助记录保存失败');
-      setHelperTargetId(''); setHelperNote(''); setMessage('保护行动已秘密记录。');
-      await load();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : '帮助记录保存失败'); }
-    finally { setBusy(false); }
-  }
-
   async function requestMutualConfirmation(assignmentId: string) {
     setBusy(true); setError(''); setMessage('');
     try {
@@ -576,7 +557,7 @@ export default function GuestPage() {
   // Keep the reveal on screen until the guest explicitly dismisses it.
   if (data.guest.participation_mode === 'ACTIVE_PLAYER' && (!data.guest.drawn_at || revealedCard)) {
     const drawOpen = Boolean(data.game?.registration_open);
-    const role = revealedCard ? STORY_ROLE_LABELS[revealedCard.storyRole] ?? (revealedCard.hiddenRole === 'CUPID_HELPER' ? { title: '丘比特的帮手', note: '你知道所有恶作剧者身份。请暗中保护他们，并在主页记录真实发生的帮助。' } : ROLE_LABELS[revealedCard.role] ?? ROLE_LABELS.guest) : null;
+    const role = revealedCard ? STORY_ROLE_LABELS[revealedCard.storyRole] ?? ROLE_LABELS[revealedCard.role] ?? ROLE_LABELS.guest : null;
     const isTricksterCard = revealedCard?.role === 'spy';
     return <main className="draw-shell"><section className="draw-stage">
       <div className="eyebrow">YOUR SECRET AWAITS</div>
@@ -609,8 +590,6 @@ export default function GuestPage() {
     ? { title: '家庭荣誉宾客', note: '参与现场互动并累积个人积分；不领取秘密任务、隐藏身份或秘密线索。' }
     : data.guest.story_role !== 'NONE' && STORY_ROLE_LABELS[data.guest.story_role]
     ? STORY_ROLE_LABELS[data.guest.story_role]
-    : data.guest.hidden_role === 'CUPID_HELPER'
-    ? { title: '丘比特的帮手', note: '你知道所有恶作剧者的身份。暗中保护他们，并为真实发生的帮助留下秘密记录。' }
     : data.guest.is_hidden_spy
     ? { title: '丘比特的暗线恶作剧者', note: '你的阵营已经改变。请继续伪装成普通宾客，直到最终揭晓。' }
     : ROLE_LABELS[data.guest.role] ?? ROLE_LABELS.guest;
@@ -676,7 +655,6 @@ export default function GuestPage() {
     {rankedReward && <section className="reward-banner"><small>EARLY COMPLETION HONOR</small><strong>你是第 {rankedReward.completion_rank} 位完成首轮任务的宾客</strong><p>{rankedReward.reward_task_id && rankedReward.reward_clue_id ? `升级任务、${rankedReward.early_bonus_points ? '额外 1 分和' : ''}一条秘密线索已经发放。` : rankedReward.reward_task_id ? '升级任务已经发放，将在第二轮开放。' : '你的首轮任务已经记录。'}</p></section>}
     {isHonorGuest && <section className="section-card honor-participation-card"><div className="section-heading"><div><small>FAMILY PARTICIPATION</small><h2>家人参与区</h2></div><span>♡</span></div><p>你可以和大家一起参加现场互动，获得的个人积分会显示在上方并进入个人积分榜。</p><div className="honor-boundary-note"><strong>轻松参与</strong><span>系统不会向你发放秘密任务、隐藏阵营或秘密线索。</span></div></section>}
     {isActivePlayer && missionStory?.symbolPairing && <section className="section-card story-connection-card"><div className="section-heading"><div><small>{missionStory.symbolPairing.symbol} MATCH</small><h2>{missionStory.symbolPairing.symbol === 'HEART' ? '爱心配对' : '星星配对'}</h2></div><span>{missionStory.symbolPairing.symbol === 'HEART' ? '♡' : '☆'}</span></div><p className="muted">你的玩家编号固定显示在页面顶部。所有同图案玩家开局完全平等，你可以与任意一名尚未配对的同图案玩家组成联盟。</p>{missionStory.symbolPairing.status === 'UNPAIRED_FINAL' ? <div className="story-unlock lonely"><strong>{missionStory.symbolPairing.symbol === 'HEART' ? '孤单丘比特' : '领航星'}</strong><p>{missionStory.symbolPairing.symbol === 'HEART' ? '你就是帮助别人相遇的丘比特。任务已完成，并获得与成功配对者相同的积分。' : '你不属于某一个固定组合，而是为所有人指引方向。任务已完成。'}</p></div> : symbolRelationship?.status === 'ACTIVE' ? <div className="story-unlock"><strong>{missionStory.symbolPairing.symbol === 'HEART' ? '丘比特联盟' : '星光联盟'}已成立</strong><p>你与 {symbolRelationship.partnerName} 已完成双向确认。</p></div> : <div className="connection-form"><label htmlFor="symbol-partner-code">对方的玩家编号</label><div><input id="symbol-partner-code" value={connectionTargetCode} onChange={(event) => setConnectionTargetCode(event.target.value.toUpperCase())} maxLength={7} placeholder="例如 P012"/><button disabled={busy || offline || !phaseOneInteractionsOpen || !/^P[0-9]{3,6}$/.test(connectionTargetCode)} onClick={() => void connectPlayer(symbolRelationshipType)}>{missionStory.symbolPairing.symbol === 'HEART' ? '邀请爱心伙伴' : '邀请星星伙伴'}</button></div>{symbolRelationship?.status === 'PENDING' && <div className="pending-connection"><p>{symbolRelationship.confirmedByMe ? `已提交，等待 ${symbolRelationship.partnerName} 输入你的编号。` : `${symbolRelationship.partnerName} 邀请你配对；输入对方编号即可接受。`}</p><button type="button" className="text-button" disabled={busy || offline} onClick={() => void rejectConnection(symbolRelationship.id)}>拒绝这项邀请</button></div>}</div>}</section>}
-    {isActivePlayer && data.guest.hidden_role === 'CUPID_HELPER' && missionStory?.helper && <section className="section-card helper-secret-card"><div className="section-heading"><div><small>CUPID'S HELPER</small><h2>秘密保护记录</h2></div><span>{missionStory.helper.actions.length}</span></div><p className="muted">下列名单只对你可见。只有真实发生且被确认的帮助，才会进入最终计分。</p><div className="helper-spy-list">{missionStory.helper.tricksters.map((trickster) => <div key={trickster.id}><strong>{trickster.name}</strong><span>{trickster.team}</span></div>)}</div><div className="submission-form"><label htmlFor="helper-target">这次帮助了谁</label><select id="helper-target" value={helperTargetId} onChange={(event) => setHelperTargetId(event.target.value)}><option value="">请选择恶作剧者</option>{missionStory.helper.tricksters.map((trickster) => <option key={trickster.id} value={trickster.id}>{trickster.name}</option>)}</select><label htmlFor="helper-note">发生了什么</label><textarea id="helper-note" value={helperNote} onChange={(event) => setHelperNote(event.target.value)} maxLength={500} placeholder="简短记录你如何帮助对方隐藏身份"/><button disabled={busy || offline || !phaseOneInteractionsOpen || !helperTargetId || !helperNote.trim()} onClick={() => void saveHelperAction()}>秘密保存帮助记录</button></div>{missionStory.helper.actions.map((action) => <div className="submission-note" key={action.id}><strong>{action.tricksterName}</strong><span>{action.note}</span></div>)}</section>}
     {isActivePlayer && missionStory?.mutualConfirmations.some((confirmation) => confirmation.direction === 'INCOMING' && confirmation.status === 'PENDING') && <section className="section-card mutual-confirmation-card"><div className="section-heading"><div><small>FRIEND CONFIRMATION</small><h2>好友确认请求</h2></div><span>待处理</span></div>{missionStory.mutualConfirmations.filter((confirmation) => confirmation.direction === 'INCOMING' && confirmation.status === 'PENDING').map((confirmation) => <div className="approval-row" key={confirmation.id}><div className="approval-copy"><strong>{confirmation.otherGuestName}</strong><p>对方表示你们今天第一次见面，并已完成互相介绍。请按真实情况确认。</p></div><div className="approval-actions"><button disabled={busy || offline || !phaseOneInteractionsOpen} onClick={() => void respondMutualConfirmation(confirmation.id, true)}>确实完成</button><button className="danger" disabled={busy || offline || !phaseOneInteractionsOpen} onClick={() => void respondMutualConfirmation(confirmation.id, false)}>不符合</button></div></div>)}</section>}
     {isActivePlayer && <section className="section-card"><div className="section-heading"><div><small>SECRET MISSIONS</small><h2>我的秘密任务</h2></div><span>{dashboardAssignments.length}</span></div>
       {data.game?.task_catalog_mode === 'demo' && <div className="demo-task-note"><strong>当前是演示任务</strong><p>用于测试领取、提交和审核流程，不代表婚礼当天的最终任务设计。</p></div>}

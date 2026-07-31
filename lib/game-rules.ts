@@ -4,7 +4,6 @@ export const TASK_STAGES = ['task_round_1', 'task_round_2', 'group_game'] as con
 export const GAME_ROLES = ['guest', 'spy'] as const;
 export const PARTICIPATION_MODES = ['ACTIVE_PLAYER', 'HONOR_GUEST', 'PRINCIPAL'] as const;
 export const STORY_ROLES = ['NONE', 'OFFICIANT', 'RING_KEEPER', 'GROOM_CHEERLEADER', 'BRIDE_CHEERLEADER', 'APPLAUSE_STARTER', 'HEART_HOLDER', 'STAR_HOLDER'] as const;
-export const HIDDEN_ROLES = ['NONE', 'CUPID_HELPER'] as const;
 export const ROLE_SCOPES = ['all', ...GAME_ROLES] as const;
 export const TASK_CATEGORIES = ['standard', 'ceremony', 'group', 'upgrade', 'hidden'] as const;
 export const PLAYER_RELATIONSHIP_TYPES = ['CUPID_ALLIANCE', 'STAR_ALLIANCE', 'TRICKSTER_CONNECTION'] as const;
@@ -36,7 +35,7 @@ export function isAssignmentVisibleAtStage(input: {
 }): boolean {
   const waitingForFirstRound = input.taskStage === 'task_round_1'
     && ['registration', 'waiting'].includes(input.gameStage ?? '')
-    && (input.isInitial || ['P1-TRICKSTER-001', 'P1-SPECIAL-001'].includes(input.missionCode ?? ''));
+    && (input.isInitial || input.missionCode === 'P1-TRICKSTER-001');
   return waitingForFirstRound || isTaskVisibleAtStage(input.taskStage, input.gameStage);
 }
 

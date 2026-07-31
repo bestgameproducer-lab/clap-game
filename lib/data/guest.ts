@@ -42,7 +42,6 @@ export async function drawGuestCard(guestId: string) {
     team: card.guest_team,
     role: card.guest_role,
     storyRole: card.guest_story_role,
-    hiddenRole: card.guest_hidden_role,
     task: {
       id: card.task_id,
       title: card.task_title,
@@ -94,16 +93,6 @@ export async function rejectGuestConnection(guestId: string, relationshipId: str
   if (error) throw new Error(`Unable to reject player connection: ${error.message}`);
 }
 
-export async function recordCupidHelperAction(helperGuestId: string, tricksterGuestId: string, note: string) {
-  const { error } = await getSupabaseAdmin().rpc('record_cupid_helper_action', {
-    p_helper_guest_id: helperGuestId, p_trickster_guest_id: tricksterGuestId, p_note: note,
-  });
-  if (error?.message.includes('helper_action_forbidden')) throw new ApiError(403, '当前身份不能记录保护行动');
-  if (error?.message.includes('helper_action_stage_closed')) throw new ApiError(409, '当前环节暂停或已关闭保存；仪式前、仪式结束后至最终投票前开放');
-  if (error?.message.includes('trickster_not_found')) throw new ApiError(404, '找不到这位恶作剧者');
-  if (error) throw new Error(`Unable to record helper action: ${error.message}`);
-}
-
 export async function requestAssignmentMutualConfirmation(assignmentId: string, guestId: string, targetCode: string) {
   const { error } = await getSupabaseAdmin().rpc('request_assignment_mutual_confirmation', {
     p_assignment_id: assignmentId, p_owner_guest_id: guestId, p_target_code: targetCode,
@@ -130,7 +119,7 @@ export async function respondAssignmentMutualConfirmation(confirmationId: string
 export async function getGuestView(guestId: string) {
   const db = getSupabaseAdmin();
   const [{ data: guest, error: guestError }, { data: game, error: gameError }] = await Promise.all([
-    db.from('guests').select('id,name,team,role,hidden_role,is_hidden_spy,points,drawn_at,special_card_revealed_at,participation_mode,relationship,story_role,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,special_card_title,special_card_body,player_code,unlocked_role').eq('id', guestId).single(),
+    db.from('guests').select('id,name,team,role,is_hidden_spy,points,drawn_at,special_card_revealed_at,participation_mode,relationship,story_role,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,special_card_title,special_card_body,player_code,unlocked_role').eq('id', guestId).single(),
     db.from('game_state').select('registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note,task_catalog_mode,trickster_max_attempts,phase_one_completed_at').eq('id', 1).single(),
   ]);
   if (guestError || !guest) throw new ApiError(401, '登录已失效');
@@ -147,8 +136,6 @@ export async function getGuestView(guestId: string) {
     db.from('player_relationships').select('id,relationship_type,player_a_id,player_b_id,player_a_confirmed,player_b_confirmed,status,activated_at,player_a:guests!player_relationships_player_a_id_fkey(id,name),player_b:guests!player_relationships_player_b_id_fkey(id,name)').or(`player_a_id.eq.${guestId},player_b_id.eq.${guestId}`).order('created_at'),
     db.from('trickster_signal_attempts').select('id', { count: 'exact', head: true }).eq('guest_id', guestId),
     db.from('alliance_clue_fragments').select('pair_key,title,left_fragment,right_fragment,active').eq('active', true),
-    db.from('guests').select('id,name,team').eq('role', 'spy').eq('active', true).not('drawn_at', 'is', null).order('name'),
-    db.from('cupid_helper_actions').select('id,trickster_guest_id,note,status,created_at,trickster:guests!cupid_helper_actions_trickster_guest_id_fkey(id,name)').eq('helper_guest_id', guestId).order('created_at', { ascending: false }),
     db.from('assignment_mutual_confirmations').select('id,assignment_id,owner_guest_id,confirmer_guest_id,status,created_at,owner:guests!assignment_mutual_confirmations_owner_guest_id_fkey(id,name),confirmer:guests!assignment_mutual_confirmations_confirmer_guest_id_fkey(id,name)').or(`owner_guest_id.eq.${guestId},confirmer_guest_id.eq.${guestId}`).order('created_at', { ascending: false }),
   ]);
   const error = results.find((result) => result.error)?.error;
@@ -227,21 +214,7 @@ export async function getGuestView(guestId: string) {
       relationships,
       tricksterAttemptsUsed: results[6].count ?? 0,
       tricksterMaxAttempts: game.trickster_max_attempts,
-      helper: guest.hidden_role === 'CUPID_HELPER' ? {
-        tricksters: results[8].data ?? [],
-        actions: (results[9].data ?? []).map((action) => {
-          const trickster = action.trickster as { name: string } | Array<{ name: string }> | null;
-          return {
-            id: action.id,
-            tricksterGuestId: action.trickster_guest_id,
-            tricksterName: Array.isArray(trickster) ? trickster[0]?.name : trickster?.name,
-            note: action.note,
-            status: action.status,
-            createdAt: action.created_at,
-          };
-        }),
-      } : null,
-      mutualConfirmations: (results[10].data ?? []).map((confirmation) => {
+      mutualConfirmations: (results[8].data ?? []).map((confirmation) => {
         const owner = confirmation.owner as { name: string } | Array<{ name: string }> | null;
         const confirmer = confirmation.confirmer as { name: string } | Array<{ name: string }> | null;
         return {

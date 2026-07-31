@@ -12,7 +12,7 @@ test('the complete phase-one real mission catalogue replaces the superseded rehe
   const migration = await readFile(migrationUrl, 'utf8');
   for (const code of [
     'P1-CER-001','P1-CER-002','P1-CER-003','P1-CER-004','P1-CER-005',
-    'P1-HEART-001','P1-STAR-001','P1-SOCIAL-001','P1-BONUS-001','P1-SPECIAL-001',
+    'P1-HEART-001','P1-STAR-001','P1-SOCIAL-001','P1-BONUS-001',
     'P1-DECOY-001','P1-DECOY-002','P1-DECOY-003','P1-DECOY-004','P1-DECOY-005','P1-DECOY-006','P1-TRICKSTER-001',
   ]) assert.match(migration, new RegExp(`'${code}'`));
   assert.match(migration, /'P1-CER-001'[\s\S]+,5,'guest','ceremony'/);
@@ -64,11 +64,11 @@ test('alliance fragments and relationship details stay in authenticated DTOs', a
   const guestData = await readFile(guestDataUrl, 'utf8');
   assert.match(guestData, /from\('player_relationships'\)[\s\S]+\.or\(`player_a_id\.eq\.\$\{guestId\},player_b_id\.eq\.\$\{guestId\}`\)/);
   assert.match(guestData, /from\('symbol_pairing_assignments'\)/);
-  assert.match(guestData, /guest\.hidden_role === 'CUPID_HELPER'/);
+  assert.doesNotMatch(guestData, /CUPID_HELPER|cupid_helper_actions/);
   assert.doesNotMatch(guestData, /select\('\*'\)/);
   const adminRoute = await readFile(adminRouteUrl, 'utf8');
   assert.match(adminRoute, /type === 'configureStoryRole'/);
-  assert.match(adminRoute, /type === 'configureHiddenRole'/);
+  assert.doesNotMatch(adminRoute, /configureHiddenRole|HIDDEN_ROLES/);
   assert.match(adminRoute, /type === 'undoRelationship'/);
 });
 

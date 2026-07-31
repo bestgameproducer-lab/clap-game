@@ -23,7 +23,7 @@ test('fails closed for missing or unknown game stages', () => {
 test('reveals only draw-issued first-round assignments before the round opens', () => {
   assert.equal(isAssignmentVisibleAtStage({ taskStage: 'task_round_1', gameStage: 'registration', isInitial: true, missionCode: 'P1-SOCIAL-001' }), true);
   assert.equal(isAssignmentVisibleAtStage({ taskStage: 'task_round_1', gameStage: 'waiting', isInitial: false, missionCode: 'P1-TRICKSTER-001' }), true);
-  assert.equal(isAssignmentVisibleAtStage({ taskStage: 'task_round_1', gameStage: 'registration', isInitial: false, missionCode: 'P1-SPECIAL-001' }), true);
+  assert.equal(isAssignmentVisibleAtStage({ taskStage: 'task_round_1', gameStage: 'registration', isInitial: false, missionCode: 'P1-SPECIAL-001' }), false);
   assert.equal(isAssignmentVisibleAtStage({ taskStage: 'task_round_1', gameStage: 'registration', isInitial: false, missionCode: 'P1-DECOY-001' }), false);
   assert.equal(isAssignmentVisibleAtStage({ taskStage: 'task_round_2', gameStage: 'registration', isInitial: true, missionCode: 'P2-TRICKSTER-001' }), false);
   assert.equal(isTaskWaitingForStage('task_round_1', 'registration'), true);

@@ -7,12 +7,11 @@ function completeFixture() {
   const guests = WEDDING_TEAMS.flatMap((team, teamIndex) => Array.from({ length: 8 }, (_, index) => ({
     id: `${teamIndex}-${index}`, active: true, team,
     role: index === 0 ? 'spy' : 'guest', is_hidden_spy: false,
-    drawn_at: null, team_locked: true, role_locked: true, participation_mode: 'ACTIVE_PLAYER', story_role: 'NONE', hidden_role: 'NONE',
+    drawn_at: null, team_locked: true, role_locked: true, participation_mode: 'ACTIVE_PLAYER', story_role: 'NONE',
   })));
   const storyRoles = ['OFFICIANT','RING_KEEPER','RING_KEEPER','GROOM_CHEERLEADER','BRIDE_CHEERLEADER','APPLAUSE_STARTER','HEART_HOLDER','HEART_HOLDER','HEART_HOLDER','HEART_HOLDER','HEART_HOLDER','STAR_HOLDER','STAR_HOLDER','STAR_HOLDER','STAR_HOLDER','STAR_HOLDER'];
   const storyIndexes = [1,2,3,4,5,6,7,9,10,11,12,13,14,15,17,18];
   storyRoles.forEach((role, index) => { guests[storyIndexes[index]].story_role = role; });
-  guests[19].hidden_role = 'CUPID_HELPER';
   const tasks = [
     ...PHASE_ONE_MISSION_SPECS.map(([mission_code, points, max_assignments], index) => ({ id: `official-${index}`, active: true, role_scope: 'guest', category: 'standard', stage: 'task_round_1', mission_code, points, max_assignments })),
     ...Array.from({ length: 5 }, (_, index) => ({ id: `upgrade-${index}`, active: true, role_scope: 'all', category: 'upgrade', stage: 'task_round_2' })),
