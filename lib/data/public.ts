@@ -1,7 +1,6 @@
 import 'server-only';
 import { ApiError } from '../errors';
 import { buildPublicScoreboard } from '../scoreboard-core';
-import { buildPublicSpyReveals } from '../spy-reveal-core';
 import { getSupabaseAdmin } from '../supabase';
 
 export async function getPublicScoreboard() {
@@ -14,7 +13,7 @@ export async function getPublicScoreboard() {
   if (gameError || !game) throw new ApiError(503, '积分大屏暂时无法加载');
 
   if (!game.scoreboard_visible) {
-    return { visible: false, stage: game.stage, resultsVisible: false, displayTitle: null, displayBody: null, publicClue: null, timerEndsAt: null, updatedAt: game.updated_at, teams: [], leaders: [], voteCounts: [], revealedRoles: [], awards: [], spyScores: [] };
+    return { visible: false, stage: game.stage, resultsVisible: false, displayTitle: null, displayBody: null, publicClue: null, timerEndsAt: null, updatedAt: game.updated_at, teams: [], leaders: [], voteCounts: [], revealedRoles: [], awards: [] };
   }
 
   const [guestResult, assignmentResult, voteResult, teamPointResult] = await Promise.all([
@@ -36,50 +35,18 @@ export async function getPublicScoreboard() {
   const scoreboard = buildPublicScoreboard(scoreboardGuests, assignmentResult.data ?? [], voteResult.data ?? [], teamPointResult.data ?? []);
   let revealedRoles: Array<{ id: string; name: string; team: string; role: string; is_hidden_spy: boolean }> = [];
   let awards: Array<{ id: string; title: string; winnerName: string; winnerTeam: string | null; reason: string }> = [];
-  let spyScores: Array<{
-    id: string;
-    name: string;
-    team: string;
-    isHiddenSpy: boolean;
-    points: number;
-    actions: Array<{ reason: string; label: string; count: number; points: number }>;
-    missions: Array<{ title: string; completed: boolean }>;
-  }> = [];
   if (game.results_visible) {
-    const [roleResult, awardResult, spyPointResult, spyMissionResult] = await Promise.all([
+    const [roleResult, awardResult] = await Promise.all([
       db.from('guests').select('id,name,team,role,is_hidden_spy').in('role', ['spy', 'helper']).not('drawn_at', 'is', null).order('team').order('name'),
       db.from('awards').select('id,title,winner_team,reason,winner:guests(name,team)').eq('published', true).order('sort_order').order('created_at'),
-      db.from('spy_points_ledger').select('guest_id,amount,reason'),
-      db.from('assignments').select('guest_id,status,task:tasks!assignments_task_id_fkey(title,role_scope,grants_hidden_spy)'),
     ]);
-    const revealError = roleResult.error ?? awardResult.error ?? spyPointResult.error ?? spyMissionResult.error;
+    const revealError = roleResult.error ?? awardResult.error;
     if (revealError) throw new Error(`Unable to load published results: ${revealError.message}`);
     revealedRoles = roleResult.data ?? [];
     awards = (awardResult.data ?? []).map((award) => {
       const winner = Array.isArray(award.winner) ? award.winner[0] : award.winner;
       return { id: award.id, title: award.title, winnerName: winner?.name || award.winner_team || '待公布', winnerTeam: winner?.team || award.winner_team, reason: award.reason };
     });
-    const spyMissions = (spyMissionResult.data ?? []).flatMap((assignment) => {
-      const task = Array.isArray(assignment.task) ? assignment.task[0] : assignment.task;
-      if (!task) return [];
-      return [{
-        guestId: assignment.guest_id,
-        title: task.title,
-        status: assignment.status,
-        roleScope: task.role_scope,
-        grantsHiddenSpy: task.grants_hidden_spy,
-      }];
-    });
-    spyScores = buildPublicSpyReveals(
-      (roleResult.data ?? []).filter((guest) => guest.role === 'spy').map((guest) => ({
-        id: guest.id,
-        name: guest.name,
-        team: guest.team,
-        isHiddenSpy: guest.is_hidden_spy,
-      })),
-      (spyPointResult.data ?? []).map((entry) => ({ guestId: entry.guest_id, amount: entry.amount, reason: entry.reason })),
-      spyMissions,
-    );
   }
 
   return {
@@ -96,6 +63,5 @@ export async function getPublicScoreboard() {
     voteCounts: game.results_visible ? scoreboard.voteCounts : [],
     revealedRoles,
     awards,
-    spyScores,
   };
 }

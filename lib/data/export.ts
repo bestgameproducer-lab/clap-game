@@ -2,7 +2,7 @@ import 'server-only';
 import { buildCsv, type CsvCell } from '../csv';
 import { getSupabaseAdmin } from '../supabase';
 
-export type AdminExportKind = 'guests' | 'assignments' | 'points' | 'team-points' | 'spy-points' | 'team-resources' | 'awards' | 'audit';
+export type AdminExportKind = 'guests' | 'assignments' | 'points' | 'team-points' | 'team-resources' | 'awards' | 'audit';
 
 export async function getAdminCsvExport(kind: AdminExportKind) {
   const db = getSupabaseAdmin();
@@ -36,14 +36,6 @@ export async function getAdminCsvExport(kind: AdminExportKind) {
     if (error) throw new Error(`Unable to export team points: ${error.message}`);
     headers = ['组别', '团队积分变化', '原因', '操作人', '时间'];
     rows = (data ?? []).map((item) => [item.team, item.amount, item.reason, item.actor, item.created_at]);
-  } else if (kind === 'spy-points') {
-    const { data, error } = await db.from('spy_points_ledger').select('amount,reason,note,actor,voting_round,created_at,guest:guests(name,team)').order('created_at');
-    if (error) throw new Error(`Unable to export spy points: ${error.message}`);
-    headers = ['间谍', '组别', '积分变化', '事件', '现场记录', '投票轮次', '操作人', '时间'];
-    rows = (data ?? []).map((item) => {
-      const guest = Array.isArray(item.guest) ? item.guest[0] : item.guest;
-      return [guest?.name, guest?.team, item.amount, item.reason, item.note, item.voting_round, item.actor, item.created_at];
-    });
   } else if (kind === 'team-resources') {
     const { data, error } = await db.from('team_resource_ledger').select('team,amount,balance_after,reason,actor,created_at').order('created_at');
     if (error) throw new Error(`Unable to export team resources: ${error.message}`);

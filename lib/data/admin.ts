@@ -27,11 +27,8 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
     if (error.message.includes('guest_roster_import_registration_open')) throw new ApiError(409, '请先关闭宾客注册，再批量导入名单');
     if (error.message.includes('guest_roster_import_conflict')) throw new ApiError(409, '名单中有重复或已存在的登录名，本次未导入任何宾客');
     if (error.message.includes('hidden_task_stage_closed')) throw new ApiError(409, '隐藏任务卡仅可在第二轮任务或团队挑战环节兑换');
-    if (error.message.includes('guest_not_active_spy')) throw new ApiError(409, '只能给已抽卡且当前身份为间谍的宾客记录间谍分');
-    if (error.message.includes('invalid_spy_point_reason')) throw new ApiError(400, '间谍积分事件类型无效');
-    if (error.message.includes('spy_scoring_closed')) throw new ApiError(409, '身份已经揭晓，间谍现场积分已锁定');
     if (error.message.includes('reset_confirmation_invalid')) throw new ApiError(400, '清场确认词不正确');
-    if (error.message.includes('reset_backup_required')) throw new ApiError(400, '请先导出并确认八类备份');
+    if (error.message.includes('reset_backup_required')) throw new ApiError(400, '请先导出并确认七类备份');
     if (error.message.includes('reset_reason_required')) throw new ApiError(400, '请填写本次彩排清场原因');
     if (error.message.includes('reset_public_controls_open')) throw new ApiError(409, '清场前必须关闭注册、投票和公开大屏');
     if (error.message.includes('guest_card_not_drawn')) throw new ApiError(409, '宾客尚未抽取身份卡，暂时不能兑换隐藏任务');
@@ -93,7 +90,6 @@ export async function getAdminDashboardData() {
     db.from('awards').select('id,title,winner_guest_id,winner_team,reason,sort_order,published,updated_at,winner:guests(id,name,team)').order('sort_order').order('created_at'),
     db.from('result_rewards').select('id,voting_round,reward_type,guest_id,team,amount,details,created_at').order('created_at', { ascending: false }).limit(100),
     db.from('hidden_task_codes').select('id,task_id,issued_by,issued_at,claimed_by,claimed_at,assignment_id,task:tasks(id,title,active),guest:guests!hidden_task_codes_claimed_by_fkey(id,name)').order('issued_at', { ascending: false }),
-    db.from('spy_points_ledger').select('id,guest_id,amount,reason,note,actor,voting_round,created_at,guest:guests(id,name,team)').order('created_at', { ascending: false }).limit(100),
     db.from('host_segments').select('id,title,stage,ready,active').order('sort_order').order('created_at'),
     db.from('team_resources').select('team,balance,updated_at').order('team'),
     db.rpc('preview_rehearsal_reset'),
@@ -109,8 +105,8 @@ export async function getAdminDashboardData() {
   const tasks = results[2].data ?? [];
   const clues = results[6].data ?? [];
   const hiddenTaskCodes = results[13].data ?? [];
-  const hostSegments = results[15].data ?? [];
-  const resourceWallets = results[16].data ?? [];
+  const hostSegments = results[14].data ?? [];
+  const resourceWallets = results[15].data ?? [];
   return {
     guests, assignments: await signEvidencePaths(results[1].data ?? []), tasks,
     submissions: await signEvidencePaths(results[3].data ?? []),
@@ -120,16 +116,15 @@ export async function getAdminDashboardData() {
     pointLedger: results[8].data ?? [], auditLog: results[9].data ?? [], teamPointLedger: results[10].data ?? [], awards: results[11].data ?? [],
     resultRewards: results[12].data ?? [],
     hiddenTaskCodes: results[13].data ?? [],
-    spyPointLedger: results[14].data ?? [],
     hostSegments,
     resourceWallets,
     preflight: buildWeddingPreflight({ guests, tasks, clues, hiddenTaskCodes, hostSegments, resourceWallets, hasGameState: Boolean(results[5].data), invitationCodeRotated: Boolean(results[5].data?.invitation_code_updated_at) }),
-    rehearsalResetPreview: results[17].data ?? {},
-    heartSlots: results[18].data ?? [],
-    playerRelationships: results[19].data ?? [],
-    allianceClues: results[20].data ?? [],
-    symbolPairings: results[21].data ?? [],
-    phaseTwoProfiles: results[22].data ?? [],
+    rehearsalResetPreview: results[16].data ?? {},
+    heartSlots: results[17].data ?? [],
+    playerRelationships: results[18].data ?? [],
+    allianceClues: results[19].data ?? [],
+    symbolPairings: results[20].data ?? [],
+    phaseTwoProfiles: results[21].data ?? [],
   };
 }
 
@@ -265,17 +260,6 @@ export async function redeemHiddenTaskCode(guestId: string, code: string, actor:
     p_guest_id: guestId, p_code_hash: hashHiddenTaskCode(code), p_actor: actor,
   });
   ensureNoDatabaseError(error, 'Unable to redeem hidden task code');
-}
-
-export async function recordSpyPointEvent(input: { guestId: string; reason: string; note: string; eventKey: string }, actor: string) {
-  const { error } = await getSupabaseAdmin().rpc('record_spy_point_event', {
-    p_guest_id: input.guestId,
-    p_reason: input.reason,
-    p_note: input.note,
-    p_event_key: input.eventKey,
-    p_actor: actor,
-  });
-  ensureNoDatabaseError(error, 'Unable to record spy point event');
 }
 
 export async function resetRehearsalData(input: { confirmation: string; backupConfirmed: boolean; reason: string; eventKey: string }, actor: string) {
