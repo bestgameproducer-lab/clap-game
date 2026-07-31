@@ -1,5 +1,5 @@
-export const GAME_STAGES = ['registration', 'waiting', 'task_round_1', 'task_round_2', 'group_game', 'voting', 'results'] as const;
-export const MANUAL_GAME_STAGES = ['registration', 'waiting', 'task_round_1', 'task_round_2', 'group_game'] as const;
+export const GAME_STAGES = ['registration', 'waiting', 'task_round_1', 'ceremony_end', 'task_round_2', 'group_game', 'voting', 'results'] as const;
+export const MANUAL_GAME_STAGES = ['registration', 'waiting', 'task_round_1', 'ceremony_end', 'task_round_2', 'group_game'] as const;
 export const TASK_STAGES = ['task_round_1', 'task_round_2', 'group_game'] as const;
 export const GAME_ROLES = ['guest', 'spy'] as const;
 export const PARTICIPATION_MODES = ['ACTIVE_PLAYER', 'HONOR_GUEST', 'PRINCIPAL'] as const;
@@ -19,6 +19,7 @@ const STAGE_ORDER: Record<string, number> = {
   registration: 0,
   waiting: 0,
   task_round_1: 1,
+  ceremony_end: 1,
   task_round_2: 2,
   group_game: 3,
   voting: 4,
@@ -52,7 +53,7 @@ export function isTaskWaitingForStage(taskStage: string | null | undefined, game
 }
 
 export function isPhaseOneInteractionOpenAtStage(gameStage: string | null | undefined): boolean {
-  return ['registration', 'waiting', 'task_round_2', 'group_game'].includes(gameStage ?? '');
+  return ['registration', 'waiting', 'ceremony_end', 'task_round_2', 'group_game'].includes(gameStage ?? '');
 }
 
 export function isTaskPausedDuringCeremony(taskStage: string | null | undefined, gameStage: string | null | undefined): boolean {

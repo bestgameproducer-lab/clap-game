@@ -27,10 +27,10 @@ test('star matching controls live inside the expanded mission and expose only th
   assert.match(data, /select\('symbol,status,fragment_side,/);
   assert.match(data, /fragmentSide: symbolPairing\.fragment_side/);
   assert.match(page, /renderSymbolPairing\(assignment\)/);
-  assert.match(page, /你的星星碎片/);
+  assert.match(page, /`你的\$\{symbolName\}碎片`/);
   assert.match(page, /邀请另一半星星/);
   assert.doesNotMatch(page, /<h2>星星配对<\/h2>/);
-  assert.match(styles, /@keyframes star-half-left/);
-  assert.match(styles, /@keyframes star-half-right/);
+  assert.match(styles, /@keyframes symbol-half-left/);
+  assert.match(styles, /@keyframes symbol-half-right/);
   assert.match(styles, /prefers-reduced-motion:reduce/);
 });

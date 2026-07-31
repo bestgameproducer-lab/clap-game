@@ -119,7 +119,7 @@ export default function GuestPage() {
   const loadRequestRef = useRef(0);
   const manualRefreshRef = useRef(false);
   const refreshNoticeTimerRef = useRef<number | null>(null);
-  const contentSnapshotRef = useRef<null | { stage: string; phaseNote: string; assignmentIds: string[]; clueIds: string[]; confirmationIds: string[] }>(null);
+  const contentSnapshotRef = useRef<null | { guestId: string; stage: string; phaseNote: string; assignmentIds: string[]; clueIds: string[]; confirmationIds: string[] }>(null);
 
   const load = useCallback(async () => {
     const requestId = ++loadRequestRef.current;
@@ -129,6 +129,7 @@ export default function GuestPage() {
       if (response.ok) {
         const nextData = await response.json();
         const nextSnapshot = {
+          guestId: nextData.guest.id,
           stage: nextData.game?.stage ?? 'registration',
           phaseNote: nextData.game?.phase_note ?? '',
           assignmentIds: nextData.assignments.map((assignment: GuestData['assignments'][number]) => assignment.id),
@@ -139,8 +140,8 @@ export default function GuestPage() {
         };
         const previousSnapshot = contentSnapshotRef.current;
         let nextNotice: { title: string; detail: string } | null = null;
-        if (previousSnapshot) {
-          const newAssignment = nextData.assignments.find((assignment: GuestData['assignments'][number]) => !previousSnapshot.assignmentIds.includes(assignment.id) && !(nextData.guest.role === 'spy' && assignment.task.category === 'hidden'));
+        if (previousSnapshot && previousSnapshot.guestId === nextSnapshot.guestId) {
+          const newAssignment = nextData.assignments.find((assignment: GuestData['assignments'][number]) => ['assigned', 'rejected'].includes(assignment.status) && !previousSnapshot.assignmentIds.includes(assignment.id) && !(nextData.guest.role === 'spy' && assignment.task.category === 'hidden'));
           const newClue = nextData.clues.find((clue: GuestData['clues'][number]) => !previousSnapshot.clueIds.includes(clue.id));
           const newConfirmation = (nextData.missionStory?.mutualConfirmations ?? []).find((confirmation: { id: string; direction: string; status: string; otherGuestName: string }) => confirmation.direction === 'INCOMING' && confirmation.status === 'PENDING' && !previousSnapshot.confirmationIds.includes(confirmation.id));
           if (previousSnapshot.stage !== nextSnapshot.stage) {
@@ -167,6 +168,8 @@ export default function GuestPage() {
         setData(null);
         setShowSecrets(false);
         setSecretReaderOpen(false);
+        setContentNotice(null);
+        contentSnapshotRef.current = null;
         try { window.sessionStorage.removeItem(GUEST_CACHE_KEY); } catch {}
       }
       else setError('暂时无法加载游戏，请稍后重试。');
@@ -391,6 +394,7 @@ export default function GuestPage() {
       setOffline(true); setError('安全退出需要联网完成。请恢复网络后重试，当前身份仍保持登录。'); setBusy(false); return;
     }
     try { window.sessionStorage.removeItem(GUEST_CACHE_KEY); } catch {}
+    contentSnapshotRef.current = null; setContentNotice(null);
     setData(null); setInvitationCode(''); setGuests(null); setSelectedGuest(null); setClaimCode(''); setClaimCodeConfirm(''); setSearch(''); setShowSecrets(false); setSecretReaderOpen(false); setRevealedCard(null); setSpecialCardRevealed(false);
     setBusy(false);
   }
@@ -645,13 +649,16 @@ export default function GuestPage() {
     const relationshipType = isStarTask ? 'STAR_ALLIANCE' : 'CUPID_ALLIANCE';
     const relationship = missionStory?.relationships.find((item) => item.type === relationshipType && item.status !== 'REJECTED');
     const isPaired = relationship?.status === 'ACTIVE';
-    const fragmentLabel = pairing.fragmentSide === 'LEFT' ? '左半星' : pairing.fragmentSide === 'RIGHT' ? '右半星' : '星星碎片';
+    const symbolName = isStarTask ? '星星' : '爱心';
+    const fragmentLabel = pairing.fragmentSide === 'LEFT' ? `左半${symbolName}` : pairing.fragmentSide === 'RIGHT' ? `右半${symbolName}` : `${symbolName}碎片`;
+    const counterpartLabel = pairing.fragmentSide === 'LEFT' ? `右半${symbolName}` : pairing.fragmentSide === 'RIGHT' ? `左半${symbolName}` : `另一半${symbolName}`;
+    const symbolGlyph = isStarTask ? '★' : '♥';
     const inputId = `symbol-partner-code-${assignment.id}`;
     return <section className={`inline-symbol-pairing ${isStarTask ? 'star' : 'heart'}`} aria-label={isStarTask ? '星星伙伴配对' : '爱心伙伴配对'}>
-      {isStarTask && <div className={`star-fragment-stage ${isPaired ? 'merged' : ''}`} role="img" aria-label={isPaired ? '左右两半星星已经合并成完整星星' : `你持有${fragmentLabel}`}>
-        {isPaired ? <><span className="star-merge-half left" aria-hidden="true">★</span><span className="star-merge-half right" aria-hidden="true">★</span><span className="star-merge-glow" aria-hidden="true">✦</span></> : <span className={`star-own-fragment ${pairing.fragmentSide?.toLowerCase() ?? 'unknown'}`} aria-hidden="true">★</span>}
-        <div><small>{isPaired ? 'STAR MATCH COMPLETE' : '你的星星碎片'}</small><strong>{isPaired ? '完整星星' : fragmentLabel}</strong><p>{isPaired ? '两半星光已经合二为一' : `寻找持有${pairing.fragmentSide === 'LEFT' ? '右半星' : pairing.fragmentSide === 'RIGHT' ? '左半星' : '另一半星星'}的玩家`}</p></div>
-      </div>}
+      <div className={`symbol-fragment-stage ${isStarTask ? 'star' : 'heart'} ${isPaired ? 'merged' : ''}`} role="img" aria-label={isPaired ? `左右两半${symbolName}已经合并成完整${symbolName}` : `你持有${fragmentLabel}`}>
+        {isPaired ? <><span className="symbol-merge-half left" aria-hidden="true">{symbolGlyph}</span><span className="symbol-merge-half right" aria-hidden="true">{symbolGlyph}</span><span className="symbol-merge-glow" aria-hidden="true">{isStarTask ? '✦' : '♡'}</span></> : <span className={`symbol-own-fragment ${pairing.fragmentSide?.toLowerCase() ?? 'unknown'}`} aria-hidden="true">{symbolGlyph}</span>}
+        <div><small>{isPaired ? `${isStarTask ? 'STAR' : 'HEART'} MATCH COMPLETE` : `你的${symbolName}碎片`}</small><strong>{isPaired ? `完整${symbolName}` : fragmentLabel}</strong><p>{isPaired ? `两半${isStarTask ? '星光' : '爱心'}已经合二为一` : `寻找持有${counterpartLabel}的玩家`}</p></div>
+      </div>
       {pairing.status === 'UNPAIRED_FINAL' ? <div className="story-unlock lonely"><strong>{isStarTask ? '领航星' : '孤单丘比特'}</strong><p>{isStarTask ? '你不属于某一个固定组合，而是为所有人指引方向。任务已完成。' : '你就是帮助别人相遇的丘比特。任务已完成，并获得与成功配对者相同的积分。'}</p></div> : isPaired ? <div className="story-unlock"><strong>{isStarTask ? '星光联盟' : '丘比特联盟'}已成立</strong><p>你与 {relationship.partnerName} 已完成双向确认。</p></div> : <div className="connection-form"><label htmlFor={inputId}>对方的玩家编号</label><div><input id={inputId} value={connectionTargetCode} onChange={(event) => setConnectionTargetCode(event.target.value.toUpperCase())} maxLength={7} placeholder="例如 P012"/><button disabled={busy || offline || !phaseOneInteractionsOpen || !/^P[0-9]{3,6}$/.test(connectionTargetCode)} onClick={() => void connectPlayer(relationshipType)}>{isStarTask ? '邀请另一半星星' : '邀请爱心伙伴'}</button></div>{relationship?.status === 'PENDING' && <div className="pending-connection"><p>{relationship.confirmedByMe ? `已提交，等待 ${relationship.partnerName} 输入你的编号。` : `${relationship.partnerName} 邀请你配对；输入对方编号即可接受。`}</p><button type="button" className="text-button" disabled={busy || offline} onClick={() => void rejectConnection(relationship.id)}>拒绝这项邀请</button></div>}</div>}
     </section>;
   }
