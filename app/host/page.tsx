@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { StaffLogoutButton } from '../staff-logout-button';
 import { createEventKey } from '@/lib/event-key';
+import { GAME_STAGE_OPTIONS, gameStageCopy } from '@/lib/game-stages';
 import { useLiveRefresh } from '@/lib/use-live-refresh';
 
 const TEAMS = ['海岛组', '沙漠组'] as const;
@@ -31,6 +32,7 @@ type HostData = {
 };
 
 type FinaleAction = 'open-voting' | 'close-voting' | 'publish-results';
+const HOST_STAGE_OPTIONS = GAME_STAGE_OPTIONS.filter(([stage]) => !['voting', 'results'].includes(stage));
 
 async function responseBody(response: Response) { try { return await response.json(); } catch { return {}; } }
 function clearHostCache() { try { for (const key of HOST_CACHE_KEYS) window.sessionStorage.removeItem(key); } catch {} }
@@ -48,6 +50,7 @@ export default function HostPage() {
   const [offline, setOffline] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [pendingFinaleAction, setPendingFinaleAction] = useState<FinaleAction | null>(null);
+  const [pendingStage, setPendingStage] = useState('');
   const loadRequestRef = useRef(0);
   const pendingScoreRef = useRef<{ signature: string; eventKey: string } | null>(null);
 
@@ -132,6 +135,18 @@ export default function HostPage() {
     finally { setBusy(false); }
   }
 
+  async function runStageChange(stage: string) {
+    if (!navigator.onLine) { setOffline(true); setError('当前离线，联网后才能切换婚礼流程'); return; }
+    setBusy(true); setError(''); setMessage('');
+    try {
+      const response = await fetch('/api/host-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'setStage', stage }) });
+      const result = await responseBody(response);
+      if (!response.ok) throw new Error(result.error || '婚礼流程切换失败');
+      setPendingStage(''); setPendingFinaleAction(null); setMessage(`已切换到「${gameStageCopy(stage).label}」`); await load();
+    } catch (cause) { setOffline(!navigator.onLine); setError(cause instanceof Error ? cause.message : '婚礼流程切换失败'); }
+    finally { setBusy(false); }
+  }
+
   const filteredGuests = useMemo(() => {
     const term = guestSearch.trim().toLocaleLowerCase();
     const scoreEligible = (data?.guests ?? []).filter((guest) => guest.eligible_for_personal_score);
@@ -150,7 +165,7 @@ export default function HostPage() {
     {message && <div className="notice success sticky-notice" role="status">{message}</div>}
     {error && <div className="notice error sticky-notice" role="alert">{error}</div>}
 
-    <nav className="host-score-tabs" aria-label="主持人功能"><button className={mode === 'overview' ? 'active' : ''} aria-pressed={mode === 'overview'} onClick={() => { setMode('overview'); setMessage(''); setError(''); }}>全员总览</button><button className={mode === 'team' ? 'active' : ''} aria-pressed={mode === 'team'} onClick={() => { setMode('team'); setMessage(''); setError(''); }}>团队加分</button><button className={mode === 'guest' ? 'active' : ''} aria-pressed={mode === 'guest'} onClick={() => { setMode('guest'); setMessage(''); setError(''); }}>个人加分</button><button className={mode === 'finale' ? 'active' : ''} aria-pressed={mode === 'finale'} onClick={() => { setMode('finale'); setMessage(''); setError(''); }}>投票结算</button></nav>
+    <nav className="host-score-tabs" aria-label="主持人功能"><button className={mode === 'overview' ? 'active' : ''} aria-pressed={mode === 'overview'} onClick={() => { setMode('overview'); setMessage(''); setError(''); }}>全员总览</button><button className={mode === 'team' ? 'active' : ''} aria-pressed={mode === 'team'} onClick={() => { setMode('team'); setMessage(''); setError(''); }}>团队加分</button><button className={mode === 'guest' ? 'active' : ''} aria-pressed={mode === 'guest'} onClick={() => { setMode('guest'); setMessage(''); setError(''); }}>个人加分</button><button className={mode === 'finale' ? 'active' : ''} aria-pressed={mode === 'finale'} onClick={() => { setMode('finale'); setMessage(''); setError(''); }}>流程控制</button></nav>
 
     {mode === 'overview' ? <section className="section-card host-score-panel"><div className="section-heading"><div><small>PRIVATE ROSTER</small><h2>分组、积分与身份</h2></div><span>{data.guests.length} 人</span></div><div className="host-roster-list">{data.guests.map((guest) => <article key={guest.id} className={(guest.role === 'spy' || guest.is_hidden_spy) && guest.drawn_at ? 'spy' : ''}><div><strong>{guest.name}</strong><small>{guest.team || '未分组'} · {guest.drawn_at ? '已抽卡' : guest.participation_mode === 'ACTIVE_PLAYER' ? '待抽卡' : '专属卡'}</small></div><span>{guest.eligible_for_personal_score ? `${guest.points} 分` : '不计分'}</span>{(guest.role === 'spy' || guest.is_hidden_spy) && guest.drawn_at && <b>{guest.is_hidden_spy ? '隐藏间谍' : '恶作剧者'}</b>}</article>)}</div></section> : mode === 'team' ? <section className="section-card host-score-panel"><div className="section-heading"><div><small>TEAM SCORE</small><h2>给团队加分</h2></div></div>
       <div className="team-total-list">{teamTotals.map((item) => <button type="button" className={teamForm.team === item.team ? 'selected' : ''} key={item.team} onClick={() => setTeamForm({ ...teamForm, team: item.team })}><strong>{item.team}</strong><span>{item.points} 分</span></button>)}</div>
@@ -172,9 +187,13 @@ export default function HostPage() {
         <button disabled={busy || offline || !selectedGuest || Number(guestForm.amount) < 1 || Number(guestForm.amount) > 100 || !guestForm.reason.trim()}>{busy ? '保存中…' : `确认给${selectedGuest?.name || '宾客'}加 ${guestForm.amount || 0} 分`}</button>
       </form>
       {data.personalPoints.length > 0 && <details className="score-history"><summary>查看最近个人加分</summary>{data.personalPoints.slice(0,10).map((entry) => <div key={entry.id}><span><strong>{entry.guest?.name || '宾客'}</strong><small>{entry.reason}</small></span><b>{entry.amount > 0 ? '+' : ''}{entry.amount}</b></div>)}</details>}
-    </section> : <section className="section-card host-score-panel host-finale-panel"><div className="section-heading"><div><small>FINAL VOTE</small><h2>投票与终局结算</h2></div><span className={data.game?.results_visible ? 'ready-badge' : data.game?.voting_open ? 'warning-badge' : ''}>{data.game?.results_visible ? '已结算' : data.game?.voting_open ? '投票中' : '等待操作'}</span></div>
+    </section> : <section className="section-card host-score-panel host-finale-panel"><div className="section-heading"><div><small>RUN OF SHOW</small><h2>婚礼流程控制</h2></div><span className={data.game?.results_visible ? 'ready-badge' : data.game?.voting_open ? 'warning-badge' : ''}>{data.game?.results_visible ? '已结算' : data.game?.voting_open ? '投票中' : gameStageCopy(data.game?.stage).label}</span></div>
+      <div className="host-stage-grid" aria-label="婚礼流程快捷切换">{HOST_STAGE_OPTIONS.map(([stage, label], index) => <button type="button" className={data.game?.stage === stage ? 'active' : ''} aria-current={data.game?.stage === stage ? 'step' : undefined} disabled={busy || offline || data.game?.stage === stage} key={stage} onClick={() => { setPendingFinaleAction(null); setPendingStage(stage); }}><small>{String(index + 1).padStart(2, '0')}</small><strong>{label.split(' · ')[1] || label}</strong></button>)}</div>
+      {pendingStage && <section className="finale-confirmation" role="dialog" aria-label="确认切换婚礼流程"><div><small>请确认流程切换</small><strong>{gameStageCopy(pendingStage).label}</strong><p>{['voting', 'results'].includes(data.game?.stage || '') ? '切换后会关闭当前投票并隐藏公开揭晓；已经结算的积分不会撤销。' : gameStageCopy(pendingStage).note}</p></div><div><button type="button" disabled={busy} onClick={() => void runStageChange(pendingStage)}>{busy ? '切换中…' : '确认切换'}</button><button type="button" className="secondary" disabled={busy} onClick={() => setPendingStage('')}>取消</button></div></section>}
+      <div className="section-divider"/>
+      <div className="section-heading host-finale-heading"><div><small>FINAL VOTE</small><h3>投票与终局结算</h3></div></div>
       <div className="host-finale-status"><small>当前状态</small><strong>{data.game?.results_visible ? '身份已公布，积分已结算' : data.game?.voting_open ? `第 ${data.game.voting_round} 轮投票进行中` : data.game?.voting_round ? `第 ${data.game.voting_round} 轮投票已关闭` : '最终投票尚未开始'}</strong><span>{data.voteCount} 人已提交本轮投票</span></div>
-      {!data.game?.results_visible && <div className="host-finale-actions">{data.game?.voting_open ? <button type="button" disabled={busy || offline} onClick={() => setPendingFinaleAction('close-voting')}>关闭本轮投票</button> : <><button type="button" disabled={busy || offline || data.game?.stage !== 'team_game'} onClick={() => setPendingFinaleAction('open-voting')}>开启新一轮投票</button>{(data.game?.voting_round ?? 0) > 0 && <button type="button" className="finale-publish-button" disabled={busy || offline} onClick={() => setPendingFinaleAction('publish-results')}>公布身份并结算</button>}</>}</div>}
+      {!data.game?.results_visible && <div className="host-finale-actions">{data.game?.voting_open ? <button type="button" disabled={busy || offline} onClick={() => { setPendingStage(''); setPendingFinaleAction('close-voting'); }}>关闭本轮投票</button> : <><button type="button" disabled={busy || offline || data.game?.stage !== 'team_game'} onClick={() => { setPendingStage(''); setPendingFinaleAction('open-voting'); }}>开启新一轮投票</button>{(data.game?.voting_round ?? 0) > 0 && <button type="button" className="finale-publish-button" disabled={busy || offline} onClick={() => { setPendingStage(''); setPendingFinaleAction('publish-results'); }}>公布身份并结算</button>}</>}</div>}
       {!data.game?.results_visible && !data.game?.voting_open && data.game?.stage !== 'team_game' && data.game?.stage !== 'voting' && <p className="muted">需要先由主办方把婚礼流程切换到“团队挑战”，才能开启最终投票。</p>}
       {pendingFinaleAction && <section className="finale-confirmation" role="dialog" aria-label="确认主持人终局操作"><div><small>请确认现场操作</small><strong>{pendingFinaleAction === 'open-voting' ? '开启新一轮最终投票' : pendingFinaleAction === 'close-voting' ? '关闭本轮最终投票' : '公布身份并结算全部积分'}</strong><p>{pendingFinaleAction === 'open-voting' ? '系统会关闭宾客注册并创建新一轮投票，每位宾客只能提交一次。' : pendingFinaleAction === 'close-voting' ? `当前已有 ${data.voteCount} 人投票。关闭后可检查结果，再决定是否公布结算。` : `当前已有 ${data.voteCount} 人投票。确认后将公开恶作剧者，并一次性结算个人、团队与第二阶段奖励。`}</p></div><div><button type="button" disabled={busy} onClick={() => void runFinaleAction(pendingFinaleAction)}>{busy ? '处理中…' : '确认执行'}</button><button type="button" className="secondary" disabled={busy} onClick={() => setPendingFinaleAction(null)}>取消</button></div></section>}
       {data.game?.results_visible && <div className="control-state on">结算具有幂等保护，重复刷新不会再次加分。</div>}

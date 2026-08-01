@@ -10,9 +10,11 @@ const migration = await readFile(new URL('../supabase/migrations/202607300004_ho
 test('host UI exposes score controls and a bounded finale workflow', () => {
   assert.match(page, /团队加分/);
   assert.match(page, /个人加分/);
+  assert.match(page, /流程控制/);
+  assert.match(page, /婚礼流程快捷切换/);
   assert.match(page, /type: 'adjustTeamPoints'/);
   assert.match(page, /type: 'adjustGuestPoints'/);
-  assert.match(page, /投票结算/);
+  assert.match(page, /投票与终局结算/);
   assert.match(page, /type: 'toggleVoting'/);
   assert.match(page, /type: 'publishResults'/);
   assert.match(page, /pendingScoreRef\.current\?\.signature === signature/);
@@ -28,6 +30,8 @@ test('host score mutations are authenticated, same-origin, validated, and idempo
   assert.match(route, /requiredUuid\(body\.eventKey, '幂等事件 ID'\)/);
   assert.match(route, /requiredBoolean\(body\.value, '投票状态'\)/);
   assert.match(route, /setHostFinaleFlag\('results_visible', true, actor\)/);
+  assert.match(route, /requiredEnum\(body\.stage, '游戏阶段', MANUAL_GAME_STAGES\)/);
+  assert.match(route, /setHostGameStage/);
   assert.doesNotMatch(route, /saveSegment|publishSegment|adjustResources/);
   assert.match(migration, /pg_advisory_xact_lock\(hashtext\('host-score:'\|\|p_event_key::text\)\)/);
   assert.match(migration, /score_event_conflict/);
@@ -58,4 +62,13 @@ test('host finale mutations reuse the server-authoritative idempotent settlement
   assert.match(page, /确认主持人终局操作/);
   assert.match(page, /结算具有幂等保护/);
   assert.match(page, /data\.game\?\.stage !== 'team_game'/);
+});
+
+test('host flow controls use only manual wedding stages and require confirmation', () => {
+  assert.match(page, /GAME_STAGE_OPTIONS\.filter\(\(\[stage\]\) => !\['voting', 'results'\]\.includes\(stage\)\)/);
+  assert.match(page, /确认切换婚礼流程/);
+  assert.match(page, /type: 'setStage'/);
+  assert.match(page, /已经结算的积分不会撤销/);
+  assert.match(data, /setHostGameStage/);
+  assert.match(data, /rpc\('set_game_stage'/);
 });

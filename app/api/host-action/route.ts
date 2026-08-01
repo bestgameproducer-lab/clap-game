@@ -1,7 +1,8 @@
 import { requireAdmin } from '@/lib/auth';
-import { adjustHostGuestPoints, adjustHostTeamPoints, setHostFinaleFlag } from '@/lib/data/host';
+import { adjustHostGuestPoints, adjustHostTeamPoints, setHostFinaleFlag, setHostGameStage } from '@/lib/data/host';
 import { ApiError, apiErrorResponse, noStoreJson } from '@/lib/errors';
-import { assertSameOrigin, readJsonObject, requiredBoolean, requiredInteger, requiredString, requiredUuid } from '@/lib/validation';
+import { MANUAL_GAME_STAGES } from '@/lib/game-rules';
+import { assertSameOrigin, readJsonObject, requiredBoolean, requiredEnum, requiredInteger, requiredString, requiredUuid } from '@/lib/validation';
 
 export async function POST(request: Request) {
   try {
@@ -33,6 +34,10 @@ export async function POST(request: Request) {
     }
     if (type === 'publishResults') {
       await setHostFinaleFlag('results_visible', true, actor);
+      return noStoreJson({ ok: true });
+    }
+    if (type === 'setStage') {
+      await setHostGameStage(requiredEnum(body.stage, '游戏阶段', MANUAL_GAME_STAGES), actor);
       return noStoreJson({ ok: true });
     }
     throw new ApiError(400, '未知操作');
