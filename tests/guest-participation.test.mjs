@@ -38,7 +38,8 @@ test('honor guests draw a dedicated family surprise instead of a random task', a
   assert.match(guestPage, /我已读完 · 进入游戏主页/);
   assert.match(guestPage, /participation_mode === 'ACTIVE_PLAYER' && \(!data\.guest\.drawn_at \|\| revealedCard\)/);
   assert.match(guestPage, /isHonorGuest && <section className="section-card honor-participation-card"/);
-  assert.match(guestPage, /isActivePlayer && <section className="section-card" id="guest-missions"><div className="section-heading"><div><small>SECRET MISSIONS/);
+  assert.match(guestPage, /isActivePlayer && <section className=\{`section-card .*`} id="guest-missions"/);
+  assert.match(guestPage, /usesTricksterFacade && secretReaderOpen \? 'TRUE MISSIONS' : 'SECRET MISSIONS'/);
   assert.match(dashboardMigration, /add column if not exists special_card_revealed_at timestamptz/);
   assert.match(dashboardMigration, /set eligible_for_personal_score=true\s+where active and participation_mode='HONOR_GUEST'/);
   assert.match(dashboardMigration, /guest\.honor_card_revealed/);
