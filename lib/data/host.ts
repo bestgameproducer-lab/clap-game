@@ -33,19 +33,39 @@ function ensureHostDatabaseError(error: { message: string } | null, fallback: st
   if (error.message.includes('guest_not_personal_score_eligible')) throw new ApiError(409, '这位宾客目前不能获得个人积分');
   if (error.message.includes('guest_not_found')) throw new ApiError(404, '找不到这位宾客');
   if (error.message.includes('invalid_team')) throw new ApiError(400, '组别不正确');
+  if (error.message.includes('voting_stage_not_ready')) throw new ApiError(409, '请先在主办方后台切换到团队挑战，再开启最终投票');
+  if (error.message.includes('no_drawn_guests')) throw new ApiError(409, '尚无宾客完成抽卡，不能开启最终投票');
+  if (error.message.includes('phase_two_team_scores_missing')) throw new ApiError(409, '请先记录海岛组或沙漠组的团队成绩，再开启最终投票');
+  if (error.message.includes('phase_two_team_spy_missing')) throw new ApiError(409, '每个竞技组都必须已经产生一位恶作剧者');
+  if (error.message.includes('phase_two_team_clues_missing')) throw new ApiError(409, '本队恶作剧者线索不足，请先在主办方后台补齐');
+  if (error.message.includes('voting_not_started')) throw new ApiError(409, '请先发起最终投票，再进行结算');
   throw new Error(`${fallback}: ${error.message}`);
 }
 
 export async function getHostDashboardData() {
   const db = getSupabaseAdmin();
-  const [guests, teamPoints, personalPoints] = await Promise.all([
+  const [guests, teamPoints, personalPoints, game, votes] = await Promise.all([
     db.from('guests').select('id,name,team,role,is_hidden_spy,points,participation_mode,special_card_title,eligible_for_personal_score,drawn_at').eq('active', true).eq('uses_app', true).order('team').order('name'),
     db.from('team_points_ledger').select('id,team,amount,reason,created_at').order('created_at', { ascending: false }),
     db.from('points_ledger').select('id,guest_id,amount,reason,created_at,guest:guests(id,name)').is('assignment_id', null).order('created_at', { ascending: false }).limit(50),
+    db.from('game_state').select('stage,voting_open,voting_round,results_visible').eq('id', 1).single(),
+    db.from('votes').select('id,voting_round'),
   ]);
-  const error = guests.error ?? teamPoints.error ?? personalPoints.error;
+  const error = guests.error ?? teamPoints.error ?? personalPoints.error ?? game.error ?? votes.error;
   if (error) throw new Error(`Unable to load host data: ${error.message}`);
-  return { guests: guests.data ?? [], teamPoints: teamPoints.data ?? [], personalPoints: personalPoints.data ?? [] };
+  const votingRound = game.data?.voting_round ?? 0;
+  return {
+    guests: guests.data ?? [], teamPoints: teamPoints.data ?? [], personalPoints: personalPoints.data ?? [],
+    game: game.data,
+    voteCount: (votes.data ?? []).filter((vote) => vote.voting_round === votingRound).length,
+  };
+}
+
+export async function setHostFinaleFlag(field: 'voting_open' | 'results_visible', value: boolean, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('set_game_flag', {
+    p_field: field, p_value: value, p_actor: actor,
+  });
+  ensureHostDatabaseError(error, 'Unable to update finale state');
 }
 
 export async function adjustHostTeamPoints(input: { team: string; amount: number; reason: string; eventKey: string }, actor: string) {
