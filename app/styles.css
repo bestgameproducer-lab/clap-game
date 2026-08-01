@@ -404,6 +404,7 @@ button.draw-button { width:min(350px,86vw); margin:0 auto; padding:15px 18px; ba
 .identity-strip-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
 .identity-strip-heading button { width:auto; min-height:32px; margin:0; padding:6px 11px; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.12); color:#fff; font-size:11px; }
 .identity-private-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}.identity-strip-heading .identity-reader-button{border-color:rgba(255,226,214,.42);background:rgba(255,226,214,.17)}
+.trickster-hold-hint{display:block;margin-top:10px;padding:9px 11px;border:1px solid rgba(255,226,214,.3);border-radius:11px;background:rgba(255,255,255,.1);color:#fff0e9;font-size:11px;font-weight:750;line-height:1.5}
 .identity-strip.concealed { background:rgba(29,18,15,.16); }
 .identity-strip .identity-mask { color:#e6d1c8; letter-spacing:.18em; }
 .identity-strip.trickster-identity{border:2px solid #f2b49f;background:linear-gradient(135deg,rgba(102,28,22,.58),rgba(30,14,12,.38));box-shadow:0 0 0 4px rgba(242,180,159,.1)}
