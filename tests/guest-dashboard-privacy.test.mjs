@@ -17,7 +17,9 @@ test('the recurring dashboard stays visible while only a private identity is con
   }
   assert.doesNotMatch(page, /setShowSecrets\(\(visible\) => !visible\)/);
   assert.match(page, /identityVisible \? <><strong>\{dashboardRole\.title\}<\/strong><p>\{dashboardRole\.note\}<\/p>/);
-  assert.match(page, /setRevealedCard\(null\);\s*setShowSecrets\(false\)/);
+  const missionTransition = page.slice(page.indexOf('async function enterMissionPage()'), page.indexOf('async function revealSpecialCard()'));
+  assert.match(missionTransition, /setShowSecrets\(false\)/);
+  assert.match(missionTransition, /setRevealedCard\(null\)/);
 });
 
 test('long private content opens in a scrollable reader with an explicit privacy exit', async () => {
