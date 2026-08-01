@@ -29,6 +29,7 @@ type HostData = {
   personalPoints: Array<{ id: string; guest_id: string; amount: number; reason: string; created_at: string; guest: { id: string; name: string } | null }>;
   game: { stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; team_clues_settled_at: string | null } | null;
   voteCount: number;
+  teamClueCounts: Record<string, number>;
   rankings: {
     personal: Array<{ id: string; name: string; team: string; points: number; completedTasks: number }>;
     teams: Array<{ team: string; points: number; guests: number; completedTasks: number }>;
@@ -164,6 +165,16 @@ export default function HostPage() {
   const effectiveGuestId = filteredGuests.some((guest) => guest.id === guestForm.guestId) ? guestForm.guestId : filteredGuests[0]?.id || '';
   const selectedGuest = data?.guests.find((guest) => guest.id === effectiveGuestId) ?? null;
   const teamTotals = TEAMS.map((team) => ({ team, points: (data?.teamPoints ?? []).filter((entry) => entry.team === team).reduce((sum, entry) => sum + entry.amount, 0) }));
+  const competitiveDrawn = (data?.guests ?? []).filter((guest) => TEAMS.includes(guest.team as typeof TEAMS[number]) && guest.drawn_at).length;
+  const teamSettlementChecks = TEAMS.map((team) => ({
+    team,
+    spies: (data?.guests ?? []).filter((guest) => guest.team === team && guest.drawn_at && guest.role === 'spy').length,
+    clues: data?.teamClueCounts?.[team] ?? 0,
+  }));
+  const hasTeamScore = (data?.teamPoints ?? []).some((entry) => TEAMS.includes(entry.team as typeof TEAMS[number]));
+  const teamSettlementReady = competitiveDrawn === 20 && hasTeamScore
+    && teamSettlementChecks.every((check) => check.spies === 1 && check.clues >= 2);
+  const teamSettlementStatus = `${competitiveDrawn}/20 人已抽卡 · ${teamSettlementChecks.map((check) => `${check.team}：恶作剧者 ${check.spies}/1、线索 ${check.clues}/2`).join(' · ')}`;
 
   if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">HOST ONLY</div><div className="heart-mark">♡</div><h1>主持人<br/>流程台</h1><p className="lead">查看全员分组、积分和恶作剧者，并处理现场加分。</p><form onSubmit={login}><label htmlFor="host-password">管理员密码</label><input id="host-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required/><button disabled={busy}>{busy ? '登录中…' : '进入主持人流程台'}</button>{error && <div className="notice error">{error}</div>}</form></section></main>;
 
@@ -201,6 +212,7 @@ export default function HostPage() {
       <div className="section-divider"/>
       <div className="section-heading host-finale-heading"><div><small>FINAL VOTE</small><h3>投票与终局结算</h3></div></div>
       <div className="host-finale-status"><small>当前状态</small><strong>{data.game?.results_visible ? '身份已公布，积分已结算' : data.game?.voting_open ? `第 ${data.game.voting_round} 轮投票进行中` : data.game?.voting_round ? `第 ${data.game.voting_round} 轮投票已关闭` : data.game?.team_clues_settled_at ? '团队积分已结算，线索已发放' : '等待结算团队积分'}</strong><span>{data.voteCount} 人已提交本轮投票</span></div>
+      {!data.game?.team_clues_settled_at && <div className={teamSettlementReady ? 'notice success' : 'notice error'} role="status">{teamSettlementReady ? '结算条件已齐备' : `结算条件尚未齐备：${teamSettlementStatus}${!hasTeamScore ? ' · 尚未记录团队成绩' : ''}`}</div>}
       {!data.game?.results_visible && <div className="host-finale-actions">{data.game?.voting_open ? <button type="button" disabled={busy || offline} onClick={() => { setPendingStage(''); setPendingFinaleAction('close-voting'); }}>关闭本轮投票</button> : <>{!data.game?.team_clues_settled_at && <button type="button" disabled={busy || offline || data.game?.stage !== 'group_game'} onClick={() => { setPendingStage(''); setPendingFinaleAction('settle-team-clues'); }}>结算团队积分并发放线索</button>}<button type="button" disabled={busy || offline || data.game?.stage !== 'group_game' || !data.game?.team_clues_settled_at} onClick={() => { setPendingStage(''); setPendingFinaleAction('open-voting'); }}>开启新一轮投票</button>{(data.game?.voting_round ?? 0) > 0 && <button type="button" className="finale-publish-button" disabled={busy || offline} onClick={() => { setPendingStage(''); setPendingFinaleAction('publish-results'); }}>公布身份并结算</button>}</>}</div>}
       {!data.game?.results_visible && !data.game?.voting_open && data.game?.stage !== 'group_game' && data.game?.stage !== 'voting' && <p className="muted">请先在上方把婚礼流程切换到“团队挑战”，再开启最终投票。</p>}
       {pendingFinaleAction && <section className="finale-confirmation" role="dialog" aria-label="确认主持人终局操作"><div><small>请确认现场操作</small><strong>{pendingFinaleAction === 'settle-team-clues' ? '结算团队积分并发放线索' : pendingFinaleAction === 'open-voting' ? '开启新一轮最终投票' : pendingFinaleAction === 'close-voting' ? '关闭本轮最终投票' : '公布身份并结算全部积分'}</strong><p>{pendingFinaleAction === 'settle-team-clues' ? `${teamTotals.map((item) => `${item.team} ${item.points} 分`).join(' · ')}。确认后系统按排名自动发放线索，再开放投票。` : pendingFinaleAction === 'open-voting' ? '系统会关闭宾客注册并创建新一轮投票，每位宾客只能提交一次。' : pendingFinaleAction === 'close-voting' ? `当前已有 ${data.voteCount} 人投票。关闭后可检查结果，再决定是否公布结算。` : `当前已有 ${data.voteCount} 人投票。确认后将公开恶作剧者，并一次性结算个人、团队与第二阶段奖励。`}</p></div><div><button type="button" disabled={busy} onClick={() => void runFinaleAction(pendingFinaleAction)}>{busy ? '处理中…' : '确认执行'}</button><button type="button" className="secondary" disabled={busy} onClick={() => setPendingFinaleAction(null)}>取消</button></div></section>}

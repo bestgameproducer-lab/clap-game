@@ -37,3 +37,22 @@ test('seed placeholders are removed without deleting issued clue history', async
   assert.match(migration, /exists\(select 1 from guest_clues/);
   assert.doesNotMatch(seed, /示例线索一|示例线索二/);
 });
+
+test('legacy generic placeholders are removed forward-only and settlement readiness is visible', async () => {
+  const [migration, admin, host, hostData] = await Promise.all([
+    read('supabase/migrations/202608010001_remove_legacy_generic_clues.sql'),
+    read('app/admin/page.tsx'), read('app/host/page.tsx'), read('lib/data/host.ts'),
+  ]);
+  assert.match(migration, /group_name='通用线索'/);
+  assert.match(migration, /title='秘密线索'/);
+  assert.match(migration, /not exists\(select 1 from guest_clues/);
+  assert.match(migration, /set active=false/);
+  assert.doesNotMatch(migration, /truncate|delete from guest_clues/i);
+  for (const page of [admin, host]) {
+    assert.match(page, /teamSettlementReady/);
+    assert.match(page, /恶作剧者 \$\{check\.spies\}\/1/);
+    assert.match(page, /线索 \$\{check\.clues\}\/2/);
+  }
+  assert.match(hostData, /select\('team_scope,active'\)/);
+  assert.match(hostData, /teamClueCounts/);
+});

@@ -75,8 +75,8 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
     if (error.message.includes('voting_stage_not_ready')) throw new ApiError(409, '请先切换到团队挑战环节，再开启最终投票');
     if (error.message.includes('no_drawn_guests')) throw new ApiError(409, '尚无宾客完成抽卡，不能开启最终投票');
     if (error.message.includes('phase_two_team_scores_missing')) throw new ApiError(409, '请先在团队游戏计分中记录海岛组或沙漠组的成绩，再开启最终投票');
-    if (error.message.includes('phase_two_team_spy_missing')) throw new ApiError(409, '每个竞技组必须先完成抽卡并产生一名恶作剧者，才能发放排名线索');
-    if (error.message.includes('phase_two_team_clues_missing')) throw new ApiError(409, '启用的本队恶作剧者线索不足，请先在任务与线索设置中补齐');
+    if (error.message.includes('phase_two_team_spy_missing')) throw new ApiError(409, '海岛组和沙漠组必须各有 1 名已抽卡的恶作剧者；请先完成全员抽卡或修正预设身份');
+    if (error.message.includes('phase_two_team_clues_missing')) throw new ApiError(409, '海岛组和沙漠组都至少需要 2 条启用线索；请先到婚礼设置补齐团队线索');
     if (error.message.includes('team_clue_settlement_stage_not_ready')) throw new ApiError(409, '请先切换到团队挑战，再结算团队积分与线索');
     if (error.message.includes('team_clues_not_settled')) throw new ApiError(409, '请先结算团队积分并自动发放线索，再开启最终投票');
     if (error.message.includes('team_scores_already_settled')) throw new ApiError(409, '团队积分已经结算，不能继续调整；如需纠错请在结算前完成');

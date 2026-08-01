@@ -434,6 +434,16 @@ export default function AdminPage() {
   const readyHiddenTaskCards = activeHiddenTasks.filter((task) => issuedHiddenTaskIds.has(task.id)).length;
   const clueGroups = Array.from(new Set(data.clues.map((clue) => clue.group_name || '身份线索'))).sort((a, b) => a.localeCompare(b, 'zh-CN'));
   const teamTotals = TEAMS.map((teamName) => ({ team: teamName, points: data.teamPointLedger.filter((entry) => entry.team === teamName).reduce((sum, entry) => sum + entry.amount, 0) }));
+  const competitiveDrawn = activeGuests.filter((guest) => guest.phase_two_eligible && guest.drawn_at).length;
+  const teamSettlementChecks = TEAMS.map((teamName) => ({
+    team: teamName,
+    spies: activeGuests.filter((guest) => guest.phase_two_eligible && guest.drawn_at && guest.team === teamName && guest.role === 'spy').length,
+    clues: data.clues.filter((clue) => clue.active && clue.team_scope === teamName).length,
+  }));
+  const hasTeamScore = data.teamPointLedger.some((entry) => TEAMS.includes(entry.team as typeof TEAMS[number]));
+  const teamSettlementReady = competitiveDrawn === 20 && hasTeamScore
+    && teamSettlementChecks.every((check) => check.spies === 1 && check.clues >= 2);
+  const teamSettlementStatus = `${competitiveDrawn}/20 人已抽卡 · ${teamSettlementChecks.map((check) => `${check.team}：恶作剧者 ${check.spies}/1、线索 ${check.clues}/2`).join(' · ')}`;
   const finaleActive = Boolean(data.game?.voting_open || data.game?.results_visible || ['voting', 'results'].includes(data.game?.stage || ''));
   const activePrimaryPanel: AdminPanel = ['guests', 'data'].includes(activePanel) ? 'home' : activePanel;
   const preparedAwards = data.awards.filter((award) => award.published && Boolean(award.winner_guest_id || award.winner_team)).length;
@@ -565,6 +575,7 @@ export default function AdminPage() {
     <section className="section-card finale-workflow-card">
       <div className="section-heading"><div><small>FINALE WORKFLOW</small><h2>终局结算流程</h2></div><span className={data.game?.results_visible ? 'ready-badge' : 'warning-badge'}>{data.game?.results_visible ? '已公布并结算' : data.game?.voting_open ? '投票进行中' : '等待开始'}</span></div>
       <p className="muted">按顺序确认奖项、结算团队挑战并发放线索，再开启最终投票和公开揭晓。团队线索结算完成前，系统不会允许投票。</p>
+      {!data.game?.team_clues_settled_at && <div className={teamSettlementReady ? 'notice success' : 'notice error'} role="status"><strong>{teamSettlementReady ? '结算条件已齐备' : '结算条件尚未齐备'}</strong><br/>{teamSettlementStatus}{!hasTeamScore ? ' · 尚未记录团队成绩' : ''}{!teamSettlementReady && <><br/>请先完成 20 位竞技组玩家抽卡，确保每队恰好 1 名恶作剧者，并在“婚礼设置”中为每队准备至少 2 条启用线索。</>}</div>}
       <div className="finale-workflow-steps">
         <article className={preparedAwards > 0 ? 'done' : 'current'}><span className="finale-step-index">01</span><div><strong>确认颁奖结果</strong><small>{data.awards.length === 0 ? '当前没有预设奖项，可直接进入投票' : `${preparedAwards}/${data.awards.length} 个奖项已选择获奖者并设为公布`}</small></div><button type="button" className="secondary" onClick={() => document.getElementById('final-awards')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>查看奖项</button></article>
         <article className={data.game?.team_clues_settled_at ? 'done' : 'current'}><span className="finale-step-index">02</span><div><strong>结算团队积分并发放线索</strong><small>{data.game?.team_clues_settled_at ? `已结算 · ${teamTotals.map((item) => `${item.team} ${item.points} 分`).join(' · ')}` : '确认团队挑战分数后，第一名获 2 条线索、第二名获 1 条线索'}</small></div><button type="button" className={data.game?.team_clues_settled_at ? 'secondary' : ''} disabled={busy || Boolean(data.game?.team_clues_settled_at) || data.game?.stage !== 'group_game'} onClick={() => { if (window.confirm(`确认结算团队挑战？\n${teamTotals.map((item) => `${item.team}：${item.points} 分`).join('\n')}\n结算后将按排名自动发放线索。`)) void action({ type: 'settleTeamClues' }, '团队积分已结算，排名线索已自动发放'); }}>{data.game?.team_clues_settled_at ? '已完成发放' : '结算并发放线索'}</button></article>
