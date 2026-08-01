@@ -13,6 +13,19 @@ async function consumePlayerCodeAttempt(guestId: string) {
   if (retryAfter > 0) throw new ApiError(429, '玩家编号尝试次数过多，请十分钟后再试，或联系现场工作人员');
 }
 
+export async function getPlayerCodeDirectory(guestId: string) {
+  const { data, error } = await getSupabaseAdmin()
+    .from('guests')
+    .select('id,name,player_code')
+    .eq('active', true)
+    .eq('uses_app', true)
+    .not('drawn_at', 'is', null)
+    .neq('id', guestId)
+    .order('name');
+  if (error) throw new Error(`Unable to load player code directory: ${error.message}`);
+  return (data ?? []).map((guest) => ({ name: guest.name, playerCode: guest.player_code }));
+}
+
 export async function submitGuestAssignment(assignmentId: string, guestId: string, completionNote: string) {
   const { error } = await getSupabaseAdmin().rpc('submit_assignment', {
     p_assignment_id: assignmentId, p_guest_id: guestId, p_completion_note: completionNote,
