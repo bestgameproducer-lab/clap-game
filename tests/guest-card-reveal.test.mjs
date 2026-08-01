@@ -26,6 +26,6 @@ test('a revealed trickster card distinguishes the facade task from the true miss
 
   assert.match(page, /isTricksterCard \? '你的伪装任务'/);
   assert.match(page, /这不是你的真正任务/);
-  assert.match(page, /点击“展开真实界面”/);
-  assert.match(page, /当前页面会原地替换为你的真正信息/);
+  assert.match(page, /主页的“展开查看”通往真实界面/);
+  assert.match(page, /当前页面才会替换为你的真正信息/);
 });

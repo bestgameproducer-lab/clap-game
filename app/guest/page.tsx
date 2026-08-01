@@ -735,7 +735,7 @@ export default function GuestPage() {
         <div className={`secret-card-front ${isTricksterCard ? 'trickster-card-front' : ''}`}><small>你被选中成为</small><h2>{role?.title}</h2><p>{role?.note}</p>
           {revealedCard && <div className={`identity-secrecy-callout ${isTricksterCard ? 'critical' : ''}`}><strong>{isTricksterCard ? '这是必须隐藏的身份' : '你的身份必须保密'}</strong><span>{isTricksterCard ? '请伪装成普通宾客：不要口头承认、不要展示本页、不要直接询问他人身份，只能使用规定暗号试探。' : '在最终揭晓前，不要说出身份、阵营或任务，也不要把手机页面展示给其他宾客。'}</span></div>}
           <div className="card-team"><span>你的组别</span><strong>{revealedCard?.team}</strong></div>
-          <div className="card-task"><span>{isTricksterCard ? '你的伪装任务' : data.game?.task_catalog_mode === 'demo' ? '演示任务 · 之后会替换' : '第一项秘密任务'} · {revealedCard?.task.points} 分</span><strong>{revealedCard?.task.title}</strong><p>{revealedCard?.task.description}</p>{isTricksterCard && <aside className="trickster-facade-explainer"><strong>这不是你的真正任务</strong><span>请像普通宾客一样完成这项伪装任务。进入主页后找到高亮入口，点击“展开真实界面”，当前页面会原地替换为你的真正信息。</span></aside>}</div>
+          <div className="card-task"><span>{isTricksterCard ? '你的伪装任务' : data.game?.task_catalog_mode === 'demo' ? '演示任务 · 之后会替换' : '第一项秘密任务'} · {revealedCard?.task.points} 分</span><strong>{revealedCard?.task.title}</strong><p>{revealedCard?.task.description}</p>{isTricksterCard && <aside className="trickster-facade-explainer"><strong>这不是你的真正任务</strong><span>记住：主页的“展开查看”通往真实界面。进入主页后，页面会看起来和普通宾客完全一样；请遮挡屏幕，点击身份卡旁普通的“展开查看”，当前页面才会替换为你的真正信息。</span></aside>}</div>
         </div>
       </div></CardScene>
       {!revealedCard && <button className="draw-button" disabled={drawing || !drawOpen} onClick={drawCard}>{drawing ? '丘比特正在洗牌…' : drawOpen ? '抽取我的秘密卡' : '抽卡入口暂未开放'}</button>}
@@ -784,8 +784,6 @@ export default function GuestPage() {
     ? { label: '最终结果已经公布', detail: '查看身份揭晓、最终积分和今晚的婚礼荣誉。', button: '查看最终结果', target: 'guest-results', tone: 'complete' }
     : data.game?.voting_open && !data.existingVote
       ? { label: '现在请完成最终投票', detail: '每人只有一次机会，提交后不能修改。', button: '立即投票', target: 'guest-vote', tone: 'urgent' }
-      : usesTricksterFacade && !secretReaderOpen
-        ? { label: '你的伪装已经就位', detail: '这里展示的是伪装身份和伪装任务。请独自展开真实界面，确认真正行动。', button: '展开真实界面', target: 'guest-trickster-toggle', tone: 'trickster' }
       : incomingConfirmationCount > 0
         ? { label: `你有 ${incomingConfirmationCount} 项好友确认`, detail: '请按真实情况确认，对方的任务会自动更新。', button: '处理确认', target: 'guest-confirmations', tone: 'urgent' }
         : actionableAssignment
@@ -797,12 +795,6 @@ export default function GuestPage() {
               : { label: '当前没有待处理事项', detail: '保持页面即可，新的任务、提示或投票会自动出现。', button: '查看我的任务', target: 'guest-missions', tone: 'complete' };
 
   function focusPrimaryAction() {
-    if (primaryAction.target === 'guest-trickster-toggle') {
-      setShowSecrets(false);
-      setSecretReaderOpen(true);
-      window.requestAnimationFrame(() => document.getElementById('guest-trickster-toggle')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
-      return;
-    }
     if ('assignmentId' in primaryAction && primaryAction.assignmentId) {
       setExpandedAssignments((current) => ({ ...current, [primaryAction.assignmentId as string]: true }));
     }
@@ -894,24 +886,23 @@ export default function GuestPage() {
       <div className="eyebrow">丘比特的婚礼考验</div>
       <div className="hero-line"><div><span className="team-chip">{isHonorGuest ? data.guest.special_card_title || '亲爱的家人' : data.guest.team}</span><h1>{data.guest.name}</h1></div><button type="button" className="score-orb" aria-label={`查看我的积分流水，当前 ${data.guest.points} 分`} onClick={() => setScoreLedgerOpen(true)}><strong>{data.guest.points}</strong><small>积分明细</small></button></div>
       <div className="hero-player-code"><div><small>我的玩家编号</small><strong>{data.guest.player_code}</strong></div><button type="button" className={playerCodeCopied ? 'copied' : ''} onClick={() => { void navigator.clipboard?.writeText(data.guest.player_code); setPlayerCodeCopied(true); window.setTimeout(() => setPlayerCodeCopied(false), 1800); }}>{playerCodeCopied ? '已复制 ✓' : '复制编号'}</button></div>
-      <div className={`identity-strip ${identityVisible ? 'visible' : 'concealed'} ${isTrickster && identityVisible && !data.game?.results_visible ? 'trickster-identity' : ''} ${usesTricksterFacade && secretReaderOpen ? 'trickster-real-identity' : ''}`}>
+      <div className={`identity-strip ${identityVisible || (usesTricksterFacade && secretReaderOpen) ? 'visible' : 'concealed'} ${isTrickster && identityVisible && !data.game?.results_visible && (!usesTricksterFacade || secretReaderOpen) ? 'trickster-identity' : ''} ${usesTricksterFacade && secretReaderOpen ? 'trickster-real-identity' : ''}`}>
         <div className="identity-strip-heading">
           <small>{usesTricksterFacade && secretReaderOpen ? '真实身份视图' : hasPublicIdentity ? '你的公开身份' : '你的秘密身份'}</small>
           {!hasPublicIdentity && !secretReaderOpen && <div className="identity-private-actions">
             <button type="button" className="identity-hold-button" aria-pressed={identityVisible} onPointerDown={(event) => { event.preventDefault(); try { event.currentTarget.setPointerCapture(event.pointerId); } catch {} setShowSecrets(true); }} onPointerUp={() => setShowSecrets(false)} onPointerCancel={() => setShowSecrets(false)} onLostPointerCapture={() => setShowSecrets(false)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setShowSecrets(true); } }} onKeyUp={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setShowSecrets(false); } }} onBlur={() => setShowSecrets(false)} onContextMenu={(event) => event.preventDefault()}>{identityVisible ? '松开隐藏' : '按住查看'}</button>
-            <button type="button" className={`identity-reader-button ${usesTricksterFacade ? 'trickster-highlight' : ''}`} onClick={() => { setShowSecrets(false); setSecretReaderOpen(true); }}>{usesTricksterFacade ? '展开真实界面' : '展开查看'}</button>
+            <button type="button" className="identity-reader-button" onClick={() => { setShowSecrets(false); setSecretReaderOpen(true); }}>展开查看</button>
           </div>}
           {usesTricksterFacade && secretReaderOpen && <button type="button" className="trickster-hide-button" onClick={() => setSecretReaderOpen(false)}>隐藏真实界面</button>}
         </div>
-        {usesTricksterFacade && secretReaderOpen ? <><strong>{dashboardRole.title}</strong><p>{dashboardRole.note}</p><div className="trickster-inline-rule"><strong>必须隐藏身份</strong><span>不要承认身份、不要展示本页、不要直接询问别人是不是同伴；请继续使用伪装身份行动。</span></div></> : identityVisible ? <><strong>{dashboardRole.title}</strong><p>{dashboardRole.note}</p></> : <><strong className="identity-mask" aria-hidden="true">••••••</strong><p>{usesTricksterFacade ? '按住会显示普通宾客的伪装身份。请点击高亮按钮，独自查看真正任务。' : '短按住可快速查看；需要完整阅读时请点“展开查看”。'}</p></>}
+        {usesTricksterFacade && secretReaderOpen ? <><strong>{dashboardRole.title}</strong><p>{dashboardRole.note}</p><div className="trickster-inline-rule"><strong>必须隐藏身份</strong><span>不要承认身份、不要展示本页、不要直接询问别人是不是同伴；请继续使用伪装身份行动。</span></div></> : identityVisible ? <><strong>{dashboardRole.title}</strong><p>{dashboardRole.note}</p></> : <><strong className="identity-mask" aria-hidden="true">••••••</strong><p>短按住可快速查看；需要完整阅读时请点“展开查看”。</p></>}
       </div>
       {isActivePlayer && !data.game?.results_visible && <div className="identity-game-rule"><strong>所有宾客共同规则</strong><span>最终揭晓前，不主动告诉别人你的身份、阵营或任务，也不要要求别人展示手机。</span></div>}
       <div className="stage-card" id="guest-stage"><small>当前婚礼环节</small><strong>{stage.label}</strong><p className="stage-default-prompt">{stage.note}</p>{data.game?.phase_note && <div className="stage-live-note"><b>主办方最新提示</b><span>{data.game.phase_note}</span></div>}</div>
     </section>
     {offline && <div className="connection-banner offline" role="status">离线只读模式 · 已显示最近同步的任务，提交和投票暂不可用</div>}
     {message && <div className="notice success" aria-live="polite">{message}</div>}{error && <div className="notice error" aria-live="polite">{error}</div>}
-    {usesTricksterFacade && !secretReaderOpen && <section className="trickster-expand-guide" id="guest-trickster-toggle" aria-label="恶作剧者真实界面入口"><span className="trickster-guide-mark" aria-hidden="true">◆</span><div><small>TRICKSTER ACCESS</small><strong>你正在查看伪装界面</strong><p>上面的身份与下面的任务都是给旁人看的伪装。请遮挡屏幕后展开，确认你的真实身份、真正任务和暗号。</p></div><button type="button" onClick={() => { setShowSecrets(false); setSecretReaderOpen(true); }}>展开真实界面 <span aria-hidden="true">→</span></button></section>}
-    {usesTricksterFacade && secretReaderOpen && <section className="trickster-real-mode-banner" id="guest-trickster-toggle" aria-live="polite"><div><small>TRUE VIEW ACTIVE</small><strong>真实界面已展开</strong><p>页面内容已原地替换为真正信息。切换应用、锁屏或离开页面时会自动恢复伪装。</p></div><button type="button" onClick={() => setSecretReaderOpen(false)}>隐藏并恢复伪装</button></section>}
+    {usesTricksterFacade && secretReaderOpen && <section className="trickster-real-mode-banner" aria-live="polite"><div><small>TRUE VIEW ACTIVE</small><strong>真实界面已展开</strong><p>页面内容已原地替换为真正信息。切换应用、锁屏或离开页面时会自动恢复伪装。</p></div><button type="button" onClick={() => setSecretReaderOpen(false)}>隐藏并恢复伪装</button></section>}
     {isActivePlayer && <section className={`guest-primary-action ${primaryAction.tone}`} aria-label="现在请做"><div><small>现在请做</small><strong>{primaryAction.label}</strong><p>{primaryAction.detail}</p></div><button type="button" onClick={focusPrimaryAction}>{primaryAction.button}<span aria-hidden="true">→</span></button></section>}
     {isActivePlayer && data.phaseTwo?.isCaptain && data.phaseTwo.unlockedAt && <section className="captain-public-note"><small>LEADING STAR</small><strong>你是本队的领航星队长</strong><p>这是可以公开的身份。你可以主动告诉队友，并在团队环节组织协作。</p></section>}
     {isActivePlayer && data.game?.stage === 'task_round_1' && <div className="connection-banner ceremony-pause" role="status">婚礼仪式进行中 · 照片上传、任务提交和玩家确认暂时暂停，仪式结束后会自动恢复。</div>}
