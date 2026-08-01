@@ -1,9 +1,10 @@
 // Bump the worker URL/cache together whenever the public shell behavior changes.
 // This release intentionally replaces the pre-private-reader worker so mobile
 // in-app browsers cannot keep serving the old trickster interface.
-const CACHE_NAME = 'wedding-public-shell-v5-private-reader';
+const CACHE_NAME = 'wedding-public-shell-v6-dinner-menu';
 const APP_PATHS = ['/guest', '/scoreboard'];
 const MANIFEST_PATH = '/manifest.webmanifest';
+const PUBLIC_ASSET_PATHS = ['/wedding-dinner-menu.jpg'];
 
 async function cachePublicShells() {
   const cache = await caches.open(CACHE_NAME);
@@ -17,7 +18,7 @@ async function cachePublicShells() {
       .map((match) => match[1])
       .filter((assetPath) => assetPath.startsWith('/_next/static/') || assetPath === MANIFEST_PATH));
   }
-  await Promise.allSettled([...new Set(assetPaths)].map(async (path) => {
+  await Promise.allSettled([...new Set([...assetPaths, ...PUBLIC_ASSET_PATHS])].map(async (path) => {
     const asset = await fetch(path, { cache: 'reload' });
     if (asset.ok) await cache.put(path, asset);
   }));
@@ -59,7 +60,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (url.pathname.startsWith('/_next/static/') || url.pathname === MANIFEST_PATH) {
+  if (url.pathname.startsWith('/_next/static/') || url.pathname === MANIFEST_PATH || PUBLIC_ASSET_PATHS.includes(url.pathname)) {
     event.respondWith((async () => {
       const cached = await caches.match(request);
       if (cached) return cached;

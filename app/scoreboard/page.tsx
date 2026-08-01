@@ -75,7 +75,7 @@ export default function ScoreboardPage() {
   useEffect(() => {
     if (!('serviceWorker' in window.navigator)) return;
     let active = true;
-    window.navigator.serviceWorker.register('/sw.js?v=5-private-reader', { scope: '/', updateViaCache: 'none' })
+    window.navigator.serviceWorker.register('/sw.js?v=6-dinner-menu', { scope: '/', updateViaCache: 'none' })
       .then(async (registration) => {
         await registration.update();
         await window.navigator.serviceWorker.ready;

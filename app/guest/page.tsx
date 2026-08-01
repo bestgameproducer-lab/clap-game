@@ -16,6 +16,7 @@ const PENDING_VOTE_MESSAGE = '投票已提交并锁定。结果公布后会自�
 const PENDING_MUTUAL_CONFIRMATION_MESSAGE = '确认邀请已发送，请让对方打开自己的页面处理。';
 const PENDING_DILEMMA_MESSAGE = '秘密选择已密封提交';
 const PENDING_COPY_MESSAGE = '命运复制目标已锁定';
+const DINNER_MENU_STAGES = new Set(['task_round_2', 'group_game', 'voting', 'results']);
 
 type RegistrationGuest = { id: string; name: string; loginName: string; hasPassword: boolean };
 type SecretCard = { team: string; role: string; storyRole: string; task: { id: string; title: string; description: string; verificationMethod: string; points: number }; drawnAt: string };
@@ -131,6 +132,7 @@ function phaseTwoAwakening(data: GuestData): Omit<ContentNotice, 'signature'> | 
 export default function GuestPage() {
   const [data, setData] = useState<GuestData | null>(null);
   const [scoreLedgerOpen, setScoreLedgerOpen] = useState(false);
+  const [dinnerMenuOpen, setDinnerMenuOpen] = useState(false);
   const [checking, setChecking] = useState(true);
   const [deviceAccessChecking, setDeviceAccessChecking] = useState(true);
   const [invitationCode, setInvitationCode] = useState('');
@@ -314,6 +316,20 @@ export default function GuestPage() {
     };
   }, [secretReaderOpen, data?.guest.role, data?.game?.results_visible]);
 
+  useEffect(() => {
+    if (!dinnerMenuOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDinnerMenuOpen(false);
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [dinnerMenuOpen]);
+
   useLiveRefresh(async () => { if (!manualRefreshRef.current) await load(); }, undefined, Boolean(data));
 
   useEffect(() => {
@@ -381,7 +397,7 @@ export default function GuestPage() {
       window.location.reload();
     };
     window.navigator.serviceWorker.addEventListener('controllerchange', refreshForNewVersion);
-    window.navigator.serviceWorker.register('/sw.js?v=5-private-reader', { scope: '/', updateViaCache: 'none' })
+    window.navigator.serviceWorker.register('/sw.js?v=6-dinner-menu', { scope: '/', updateViaCache: 'none' })
       .then(async (registration) => {
         const checkForUpdate = () => {
           if (active && document.visibilityState === 'visible') void registration.update();
@@ -747,6 +763,7 @@ export default function GuestPage() {
   }
 
   const stage = gameStageCopy(data.game?.stage);
+  const dinnerMenuVisible = DINNER_MENU_STAGES.has(data.game?.stage ?? '');
   const isActivePlayer = data.guest.participation_mode === 'ACTIVE_PLAYER';
   const isHonorGuest = data.guest.participation_mode === 'HONOR_GUEST';
   const isTrickster = data.guest.role === 'spy' || data.guest.is_hidden_spy;
@@ -898,7 +915,7 @@ export default function GuestPage() {
         {usesTricksterFacade && secretReaderOpen ? <><strong>{dashboardRole.title}</strong><p>{dashboardRole.note}</p><div className="trickster-inline-rule"><strong>必须隐藏身份</strong><span>不要承认身份、不要展示本页、不要直接询问别人是不是同伴；请继续使用伪装身份行动。</span></div></> : identityVisible ? <><strong>{dashboardRole.title}</strong><p>{dashboardRole.note}</p>{usesTricksterFacade && showSecrets && <span className="trickster-hold-hint">记住：点击右侧“展开查看”，可以进入你的真实界面。</span>}</> : <><strong className="identity-mask" aria-hidden="true">••••••</strong><p>短按住可快速查看；需要完整阅读时请点“展开查看”。</p></>}
       </div>
       {isActivePlayer && !data.game?.results_visible && <div className="identity-game-rule"><strong>所有宾客共同规则</strong><span>最终揭晓前，不主动告诉别人你的身份、阵营或任务，也不要要求别人展示手机。</span></div>}
-      <div className="stage-card" id="guest-stage"><small>当前婚礼环节</small><strong>{stage.label}</strong><p className="stage-default-prompt">{stage.note}</p>{data.game?.phase_note && <div className="stage-live-note"><b>主办方最新提示</b><span>{data.game.phase_note}</span></div>}</div>
+      <div className="stage-card" id="guest-stage"><small>当前婚礼环节</small><strong>{stage.label}</strong><p className="stage-default-prompt">{stage.note}</p>{data.game?.phase_note && <div className="stage-live-note"><b>主办方最新提示</b><span>{data.game.phase_note}</span></div>}{dinnerMenuVisible && <button type="button" className="dinner-menu-entry" aria-haspopup="dialog" onClick={() => setDinnerMenuOpen(true)}><span aria-hidden="true">♧</span><span><small>DINNER MENU</small><strong>查看今日菜单</strong></span><b aria-hidden="true">→</b></button>}</div>
     </section>
     {offline && <div className="connection-banner offline" role="status">离线只读模式 · 已显示最近同步的任务，提交和投票暂不可用</div>}
     {message && <div className="notice success" aria-live="polite">{message}</div>}{error && <div className="notice error" aria-live="polite">{error}</div>}
@@ -935,6 +952,7 @@ export default function GuestPage() {
       </section>
     </div>}
     {scoreLedgerOpen && <div className="score-ledger-backdrop" role="presentation"><section className="score-ledger-dialog" role="dialog" aria-modal="true" aria-labelledby="score-ledger-title"><header><div><small>MY POINTS</small><h2 id="score-ledger-title">我的积分流水</h2></div><button type="button" aria-label="关闭积分流水" onClick={() => setScoreLedgerOpen(false)}>×</button></header><div className="score-ledger-total"><span>当前积分</span><strong>{data.guest.points}</strong></div><div className="score-ledger-list">{pointLedger.length === 0 ? <p className="empty-state">积分尚未产生，完成任务后会显示在这里。</p> : pointLedger.map((entry) => <article key={entry.id}><div><strong>{entry.label}</strong><small>{new Date(entry.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small></div><b className={entry.amount < 0 ? 'negative' : ''}>{entry.amount > 0 ? '+' : ''}{entry.amount}</b></article>)}</div><footer><small>这里只显示个人积分；团队环节可查看团队实时积分。</small><button type="button" onClick={() => setScoreLedgerOpen(false)}>看清楚了 · 关闭</button></footer></section></div>}
+    {dinnerMenuOpen && <div className="dinner-menu-backdrop" role="presentation"><section className="dinner-menu-dialog" role="dialog" aria-modal="true" aria-labelledby="dinner-menu-title"><header><div><small>ZIMIN &amp; ANRONG</small><h2 id="dinner-menu-title">今日晚宴菜单</h2></div><button type="button" aria-label="关闭今日菜单" onClick={() => setDinnerMenuOpen(false)}>×</button></header><div className="dinner-menu-scroll"><img src="/wedding-dinner-menu.jpg" alt="婚礼晚宴菜单：意式蔬菜汤配青酱、金枪鱼塔塔配裙带菜毛豆萝卜水芹沙拉、炭烤西冷牛排配碳烤洋葱烤蘑菇芝麻菜阿根廷香草酱柠檬、香草马斯卡彭慢煮梨、咖啡茶与精致小点"/></div><footer><span>双指可放大查看菜品细节</span><button type="button" onClick={() => setDinnerMenuOpen(false)}>看完菜单 · 返回游戏</button></footer></section></div>}
     {contentNotice && <div className={`new-content-backdrop ${contentNotice.variant === 'awakening' ? 'awakening' : ''}`}><section className={`new-content-dialog ${contentNotice.variant === 'awakening' ? `awakening ${contentNotice.awakeningKind === 'GUIDING_STAR' ? 'star' : 'heart'}` : ''}`} role="dialog" aria-modal="true" aria-labelledby="new-content-title"><header><span>{contentNotice.variant === 'awakening' ? 'DESTINY AWAKENED' : 'NEW ACTIVITY'}</span><button type="button" aria-label="关闭新活动提示" onClick={acknowledgeContentNotice}>×</button></header>{contentNotice.variant === 'awakening' && <div className="awakening-symbol" aria-hidden="true"><span>{contentNotice.awakeningKind === 'GUIDING_STAR' ? '★' : '♥'}</span><i>✦</i><i>✧</i><i>✦</i></div>}<strong id="new-content-title">{contentNotice.title}</strong><p>{contentNotice.detail}</p><button type="button" onClick={acknowledgeContentNotice}>{contentNotice.variant === 'awakening' ? '接受我的新命运 · 查看能力' : '知道了 · 查看更新'}</button></section></div>}
   </main>;
 }
