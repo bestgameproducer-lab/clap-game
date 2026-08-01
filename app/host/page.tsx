@@ -175,6 +175,27 @@ export default function HostPage() {
   const teamSettlementReady = competitiveDrawn === 20 && hasTeamScore
     && teamSettlementChecks.every((check) => check.spies === 1 && check.clues >= 2);
   const teamSettlementStatus = `${competitiveDrawn}/20 人已抽卡 · ${teamSettlementChecks.map((check) => `${check.team}：恶作剧者 ${check.spies}/1、线索 ${check.clues}/2`).join(' · ')}`;
+  const currentStageIndex = HOST_STAGE_OPTIONS.findIndex(([stage]) => stage === data?.game?.stage);
+  const nextStage = currentStageIndex >= 0 ? HOST_STAGE_OPTIONS[currentStageIndex + 1] : null;
+  const hostGuidance = data?.game?.results_visible
+    ? { eyebrow: '流程已完成', title: '身份与积分已经公布', detail: '现在可以带领宾客查看最终排名与婚礼荣誉。', action: '查看最终排名', mode: 'finale' as const }
+    : data?.game?.voting_open
+      ? { eyebrow: '当前进行中', title: `第 ${data.game.voting_round} 轮最终投票`, detail: `${data.voteCount} 人已提交；确认人数后关闭投票，再公布身份。`, action: '管理投票', mode: 'finale' as const }
+      : data?.game?.stage === 'group_game' && !hasTeamScore
+        ? { eyebrow: '下一步建议', title: '记录团队挑战成绩', detail: '先为各队记录最终成绩，随后才能结算并自动发放线索。', action: '前往团队加分', mode: 'team' as const }
+        : data?.game?.stage === 'group_game' && !data.game.team_clues_settled_at
+          ? { eyebrow: '下一步建议', title: '结算团队积分并发放线索', detail: teamSettlementReady ? '结算条件已齐备，可以继续进入最终投票。' : '仍有结算条件未满足，请先检查现场配置。', action: '前往流程控制', mode: 'finale' as const }
+          : data?.game?.stage === 'group_game' && data.game.team_clues_settled_at
+            ? { eyebrow: '下一步建议', title: '开启最终投票', detail: '团队线索已经发放，可以邀请宾客作出最终判断。', action: '前往流程控制', mode: 'finale' as const }
+            : nextStage
+              ? { eyebrow: '下一步建议', title: `进入${nextStage[1].split(' · ')[1] || nextStage[1]}`, detail: gameStageCopy(nextStage[0]).note, action: '确认下一环节', mode: 'finale' as const, stage: nextStage[0] }
+              : { eyebrow: '当前流程', title: gameStageCopy(data?.game?.stage).label, detail: gameStageCopy(data?.game?.stage).note, action: '查看流程控制', mode: 'finale' as const };
+
+  function openHostGuidance() {
+    setMode(hostGuidance.mode);
+    if ('stage' in hostGuidance && hostGuidance.stage) setPendingStage(hostGuidance.stage);
+    window.requestAnimationFrame(() => document.querySelector('.host-score-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
 
   if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">HOST ONLY</div><div className="heart-mark">♡</div><h1>主持人<br/>流程台</h1><p className="lead">查看全员分组、积分和恶作剧者，并处理现场加分。</p><form onSubmit={login}><label htmlFor="host-password">管理员密码</label><input id="host-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required/><button disabled={busy}>{busy ? '登录中…' : '进入主持人流程台'}</button>{error && <div className="notice error">{error}</div>}</form></section></main>;
 
@@ -183,6 +204,8 @@ export default function HostPage() {
     {offline && <div className="connection-banner offline" role="status"><span>离线只读 · 加分功能暂时停用</span><button className="mini-button" disabled={syncing} onClick={() => void load(true)}>{syncing ? '重连中…' : '重新连接'}</button></div>}
     {message && <div className="notice success sticky-notice" role="status">{message}</div>}
     {error && <div className="notice error sticky-notice" role="alert">{error}</div>}
+
+    <section className="host-guidance-card" aria-label="主持人下一步"><div><small>{hostGuidance.eyebrow}</small><strong>{hostGuidance.title}</strong><p>{hostGuidance.detail}</p></div><button type="button" onClick={openHostGuidance}>{hostGuidance.action}<span aria-hidden="true">→</span></button></section>
 
     <nav className="host-score-tabs" aria-label="主持人功能"><button className={mode === 'overview' ? 'active' : ''} aria-pressed={mode === 'overview'} onClick={() => { setMode('overview'); setMessage(''); setError(''); }}>全员总览</button><button className={mode === 'team' ? 'active' : ''} aria-pressed={mode === 'team'} onClick={() => { setMode('team'); setMessage(''); setError(''); }}>团队加分</button><button className={mode === 'guest' ? 'active' : ''} aria-pressed={mode === 'guest'} onClick={() => { setMode('guest'); setMessage(''); setError(''); }}>个人加分</button><button className={mode === 'finale' ? 'active' : ''} aria-pressed={mode === 'finale'} onClick={() => { setMode('finale'); setMessage(''); setError(''); }}>流程控制</button></nav>
 

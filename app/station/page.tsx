@@ -20,6 +20,7 @@ export default function StationPage() {
   const [password, setPassword] = useState('');
   const [data, setData] = useState<StationData | null>(null);
   const [query, setQuery] = useState('');
+  const [guestFilter, setGuestFilter] = useState<'pending' | 'all'>('pending');
   const [guestId, setGuestId] = useState('');
   const [taskId, setTaskId] = useState('');
   const [clueId, setClueId] = useState('');
@@ -34,6 +35,7 @@ export default function StationPage() {
   const [evidenceBusyId, setEvidenceBusyId] = useState<string | null>(null);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const loadRequestRef = useRef(0);
+  const workspaceRef = useRef<HTMLElement | null>(null);
 
   async function load(interactive = false) {
     const requestId = ++loadRequestRef.current;
@@ -47,7 +49,8 @@ export default function StationPage() {
       setData(body);
       try { window.sessionStorage.setItem(STATION_CACHE_KEY, JSON.stringify(body)); } catch {}
       setOffline(false); setError('');
-      setGuestId((current) => current || body.guests?.[0]?.id || '');
+      const firstPendingGuestId = body.assignments?.find((assignment: Assignment) => ['submitted', 'rejected'].includes(assignment.status))?.guest_id;
+      setGuestId((current) => current || firstPendingGuestId || body.guests?.[0]?.id || '');
       const preferredTask = body.tasks?.find((task: Task) => task.category === 'hidden') || body.tasks?.[0];
       setTaskId((current) => current || preferredTask?.id || '');
       setClueId((current) => current || body.clues?.[0]?.id || '');
@@ -59,7 +62,8 @@ export default function StationPage() {
         if (cached) {
           const parsed = JSON.parse(cached) as StationData;
           setData((current) => current ?? parsed);
-          setGuestId((current) => current || parsed.guests?.[0]?.id || '');
+          const firstPendingGuestId = parsed.assignments?.find((assignment) => ['submitted', 'rejected'].includes(assignment.status))?.guest_id;
+          setGuestId((current) => current || firstPendingGuestId || parsed.guests?.[0]?.id || '');
           const preferredTask = parsed.tasks?.find((task) => task.category === 'hidden') || parsed.tasks?.[0];
           setTaskId((current) => current || preferredTask?.id || '');
           setClueId((current) => current || parsed.clues?.[0]?.id || '');
@@ -176,13 +180,24 @@ export default function StationPage() {
   const filteredGuests = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     if (!data) return [];
-    if (!needle) return data.guests;
-    return data.guests.filter((guest) => `${guest.name} ${guest.login_name} ${guest.team}`.toLocaleLowerCase().includes(needle));
-  }, [data, query]);
+    const pendingGuestIds = new Set(data.assignments.filter((assignment) => ['submitted', 'rejected'].includes(assignment.status)).map((assignment) => assignment.guest_id));
+    return data.guests
+      .filter((guest) => guestFilter === 'all' || pendingGuestIds.has(guest.id))
+      .filter((guest) => !needle || `${guest.name} ${guest.login_name} ${guest.team}`.toLocaleLowerCase().includes(needle))
+      .sort((a, b) => Number(pendingGuestIds.has(b.id)) - Number(pendingGuestIds.has(a.id)) || a.name.localeCompare(b.name, 'zh-CN'));
+  }, [data, guestFilter, query]);
   const guest = data?.guests.find((item) => item.id === guestId) || null;
   const assignments = data?.assignments.filter((item) => item.guest_id === guestId) || [];
   const hiddenTasks = data?.tasks.filter((task) => ['hidden', 'upgrade', 'group', 'ceremony'].includes(task.category)) || [];
   const clueGroups = Array.from(new Set((data?.clues ?? []).map((clue) => clue.group_name || '通用线索')));
+  const pendingGuestCount = new Set((data?.assignments ?? []).filter((assignment) => ['submitted', 'rejected'].includes(assignment.status)).map((assignment) => assignment.guest_id)).size;
+
+  function selectGuest(nextGuestId: string) {
+    setGuestId(nextGuestId);
+    if (window.matchMedia('(max-width: 800px)').matches) {
+      window.requestAnimationFrame(() => workspaceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+  }
 
   if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">CUPID STATION</div><div className="heart-mark">♡</div><h1>丘比特<br/>任务站</h1><p className="lead">核验任务、发放线索和隐藏奖励。</p><form onSubmit={login}><label htmlFor="station-password">管理员密码</label><input id="station-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required/><button disabled={busy}>{busy ? '登录中…' : '进入任务站'}</button>{error && <div className="notice error">{error}</div>}</form></section></main>;
 
@@ -191,8 +206,8 @@ export default function StationPage() {
     {offline && <div className="connection-banner offline" role="status"><span>离线只读 · 可查看最近同步的宾客与任务文字，验证照片可能需要联网；所有记录操作已禁用</span><button className="mini-button" disabled={syncing} onClick={() => void load(true)}>{syncing ? '重连中…' : '重新连接'}</button></div>}
     {message && <div className="notice success sticky-notice">{message}</div>}{error && <div className="notice error sticky-notice">{error}</div>}
     <div className="station-layout">
-      <aside className="station-guests section-card"><label htmlFor="station-search">搜索宾客</label><input id="station-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="姓名、拼音或组别"/><div className="station-guest-list">{filteredGuests.map((item) => <button key={item.id} className={item.id === guestId ? 'selected' : ''} onClick={() => setGuestId(item.id)}><span>{item.name.slice(0, 1)}</span><p><strong>{item.name}</strong><small>{item.team} · {item.points} 分</small></p><b>{item.drawn_at ? '已抽卡' : item.claimed_at ? '待抽卡' : '未认领'}</b></button>)}</div>{filteredGuests.length === 0 && <div className="empty-state">没有找到宾客。</div>}</aside>
-      <section className="station-workspace">
+      <aside className="station-guests section-card"><div className="station-guest-heading"><div><small>选择宾客</small><strong>{guestFilter === 'pending' ? `${pendingGuestCount} 人待处理` : `${data.guests.length} 位宾客`}</strong></div><div className="station-filter-tabs"><button type="button" className={guestFilter === 'pending' ? 'active' : ''} aria-pressed={guestFilter === 'pending'} onClick={() => setGuestFilter('pending')}>待处理</button><button type="button" className={guestFilter === 'all' ? 'active' : ''} aria-pressed={guestFilter === 'all'} onClick={() => setGuestFilter('all')}>全部</button></div></div><label htmlFor="station-search">搜索宾客</label><input id="station-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="姓名、拼音或组别"/><div className="station-guest-list">{filteredGuests.map((item) => <button type="button" key={item.id} className={item.id === guestId ? 'selected' : ''} onClick={() => selectGuest(item.id)}><span>{item.name.slice(0, 1)}</span><p><strong>{item.name}</strong><small>{item.team} · {item.points} 分</small></p><b>{item.drawn_at ? '已抽卡' : item.claimed_at ? '待抽卡' : '未认领'}</b></button>)}</div>{filteredGuests.length === 0 && <div className="empty-state">{guestFilter === 'pending' ? '当前没有待处理任务。可切换到“全部”查找宾客。' : '没有找到宾客。'}</div>}</aside>
+      <section className="station-workspace" ref={workspaceRef}>
         {!guest ? <article className="section-card empty-state">请选择一位宾客。</article> : <>
           <article className="station-profile section-card"><div><small>SELECTED GUEST</small><h2>{guest.name}</h2><p>{guest.login_name} · {guest.team}</p></div><strong>{guest.points}<small>个人积分</small></strong></article>
           <article className="section-card">
@@ -216,12 +231,12 @@ export default function StationPage() {
               <div className="station-review-actions"><span>{STATUS_LABELS[assignment.status] || assignment.status}</span>{assignment.status !== 'approved' && <><label htmlFor={`station-review-note-${assignment.id}`}>核验备注 <small>通过可留空</small></label><input id={`station-review-note-${assignment.id}`} value={reviewNotes[assignment.id] || ''} onChange={(event) => setReviewNotes((current) => ({ ...current, [assignment.id]: event.target.value }))} maxLength={500} placeholder="退回时请填写原因"/><button data-testid={`station-approve-${assignment.id}`} disabled={busy || offline || evidenceBusyId === assignment.id} onClick={() => void approveAtStation(assignment)}>{offline ? '联网后核验' : busy ? '处理中…' : '现场通过并加分'}</button></>}{assignment.status === 'submitted' && <button className="danger" disabled={busy || offline || evidenceBusyId === assignment.id || !reviewNotes[assignment.id]?.trim()} onClick={() => void rejectAtStation(assignment)}>退回</button>}</div>
             </article>)}</div>}
           </article>
-          <div className="station-tools">
+          <details className="station-more-tools"><summary><span><strong>更多现场操作</strong><small>兑换实体卡、派发特别任务、线索与人工积分</small></span><b aria-hidden="true">＋</b></summary><div className="station-tools">
             <form className="section-card redemption-code-card" onSubmit={(event) => { event.preventDefault(); void action({ type: 'redeemHiddenTaskCode', guestId: guest.id, code: hiddenCode }, `隐藏任务卡已兑换给 ${guest.name}`).then((ok) => { if (ok) setHiddenCode(''); }); }}><small>PHYSICAL CARD</small><h2>兑换隐藏任务卡</h2><p className="muted">输入宾客找到的实体卡代码。每张卡全场只能领取一次，任务会自动进入其手机。</p>{!['task_round_2', 'group_game'].includes(data.game?.stage ?? '') && <div className="notice">请在第二轮任务或团队挑战环节开放实体卡兑换。</div>}<label htmlFor="hidden-task-code">隐藏任务码</label><input id="hidden-task-code" className="redemption-code-input" value={hiddenCode} onChange={(event) => setHiddenCode(event.target.value.toUpperCase())} autoCapitalize="characters" autoComplete="off" spellCheck={false} placeholder="CUPID-XXXX-XXXX" required/><button disabled={busy || offline || !guest.drawn_at || !hiddenCode.trim() || !['task_round_2', 'group_game'].includes(data.game?.stage ?? '')}>{offline ? '联网后可兑换' : !['task_round_2', 'group_game'].includes(data.game?.stage ?? '') ? '当前环节不可兑换' : guest.drawn_at ? `兑换给 ${guest.name}` : '宾客抽卡后才能兑换'}</button></form>
             <form className="section-card" onSubmit={(event) => { event.preventDefault(); void action({ type: 'assignTask', guestId: guest.id, taskId }, '新任务已发放'); }}><small>HIDDEN REWARD</small><h2>发放特别任务</h2><select value={taskId} onChange={(event) => setTaskId(event.target.value)}>{hiddenTasks.map((task) => <option key={task.id} value={task.id}>{CATEGORY_LABELS[task.category]} · {task.title} · {task.points} 分</option>)}</select><button disabled={busy || offline || !taskId}>{offline ? '联网后可发放' : `发放给 ${guest.name}`}</button></form>
             <form className="section-card" onSubmit={(event) => { event.preventDefault(); void action({ type: 'grantClue', guestId: guest.id, clueId }, '私人线索已发放'); }}><small>PRIVATE CLUE</small><h2>发放线索</h2><select value={clueId} onChange={(event) => setClueId(event.target.value)}>{clueGroups.map((group) => <optgroup key={group} label={group}>{data.clues.filter((clue) => (clue.group_name || '通用线索') === group).map((clue) => <option key={clue.id} value={clue.id}>{clue.title}</option>)}</optgroup>)}</select><button disabled={busy || offline || !clueId}>{offline ? '联网后可发放' : `发放给 ${guest.name}`}</button></form>
             <form className="section-card" onSubmit={(event) => { event.preventDefault(); void action({ type: 'adjustPoints', guestId: guest.id, amount: Number(pointAmount), reason: pointReason }, '积分已补记').then((ok) => { if (ok) setPointAmount(''); }); }}><small>MANUAL REWARD</small><h2>补记积分</h2><input aria-label="积分变化" type="number" min={-1000} max={1000} value={pointAmount} onChange={(event) => setPointAmount(event.target.value)} placeholder="例如 1 或 3" required/><input aria-label="积分原因" value={pointReason} onChange={(event) => setPointReason(event.target.value)} maxLength={200} required/><button disabled={busy || offline || !pointAmount || !pointReason.trim()}>{offline ? '联网后可保存' : '保存积分'}</button></form>
-          </div>
+          </div></details>
         </>}
       </section>
     </div>
