@@ -12,11 +12,13 @@ test('首页入口遵循婚礼现场的操作顺序', async () => {
   const live = launchpad.indexOf("openPanel('live')");
   const review = launchpad.indexOf("openPanel('review')");
   const finale = launchpad.indexOf("openPanel('finale')");
-  assert.ok(preparation >= 0 && live > preparation && review > live && finale > review);
+  const settings = launchpad.indexOf("openPanel('content')");
+  assert.ok(preparation >= 0 && live > preparation && review > live && finale > review && settings > finale);
   assert.match(launchpad, /01[\s\S]*开场准备/);
   assert.match(launchpad, /02[\s\S]*现场流程/);
   assert.match(launchpad, /03[\s\S]*审核任务/);
   assert.match(launchpad, /04[\s\S]*终局结算/);
+  assert.match(launchpad, /05[\s\S]*婚礼设置/);
 });
 
 test('现场流程不再混入终局操作', async () => {
@@ -29,19 +31,21 @@ test('现场流程不再混入终局操作', async () => {
   assert.match(live, /统一在“终局结算”操作/);
 });
 
-test('终局结算按颁奖、投票、结算和核对流水引导', async () => {
+test('终局结算按颁奖、团队结算、投票、揭晓和流水引导', async () => {
   const admin = await read('app/admin/page.tsx');
   const finale = admin.slice(admin.indexOf("activePanel === 'finale'"), admin.indexOf("activePanel === 'data'", admin.indexOf("activePanel === 'finale'")));
 
   const awards = finale.indexOf('确认颁奖结果');
+  const teamSettlement = finale.indexOf('结算团队积分并发放线索');
   const voting = finale.indexOf('开启并收集最终投票');
   const settlement = finale.indexOf('公布身份并结算全部积分');
   const ledger = finale.indexOf('发放奖项并核对流水');
-  assert.ok(awards >= 0 && voting > awards && settlement > voting && ledger > settlement);
+  assert.ok(awards >= 0 && teamSettlement > awards && voting > teamSettlement && settlement > voting && ledger > settlement);
+  assert.match(finale, /type: 'settleTeamClues'/);
   assert.match(finale, /onClick=\{toggleVoting\}/);
   assert.match(finale, /onClick=\{requestResultsToggle\}/);
   assert.match(finale, /confirmResultsToggle/);
-  assert.match(finale, /投票、队伍奖励和第二阶段能力积分/);
+  assert.match(finale, /投票、团队奖励和第二阶段能力/);
   assert.match(finale, /id="final-awards"/);
   assert.match(finale, /id="final-points-ledger"/);
 });

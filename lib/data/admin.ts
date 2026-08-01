@@ -77,6 +77,10 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
     if (error.message.includes('phase_two_team_scores_missing')) throw new ApiError(409, '请先在团队游戏计分中记录海岛组或沙漠组的成绩，再开启最终投票');
     if (error.message.includes('phase_two_team_spy_missing')) throw new ApiError(409, '每个竞技组必须先完成抽卡并产生一名恶作剧者，才能发放排名线索');
     if (error.message.includes('phase_two_team_clues_missing')) throw new ApiError(409, '启用的本队恶作剧者线索不足，请先在任务与线索设置中补齐');
+    if (error.message.includes('team_clue_settlement_stage_not_ready')) throw new ApiError(409, '请先切换到团队挑战，再结算团队积分与线索');
+    if (error.message.includes('team_clues_not_settled')) throw new ApiError(409, '请先结算团队积分并自动发放线索，再开启最终投票');
+    if (error.message.includes('team_scores_already_settled')) throw new ApiError(409, '团队积分已经结算，不能继续调整；如需纠错请在结算前完成');
+    if (error.message.includes('invalid_clue_team')) throw new ApiError(400, '请选择海岛组或沙漠组作为线索适用队伍');
     if (error.message.includes('registration_during_finale')) throw new ApiError(409, '最终投票或身份揭晓期间不能重新开放注册；请先切回常规婚礼环节');
     throw new Error(`${fallback}: ${error.message}`);
   }
@@ -90,8 +94,8 @@ export async function getAdminDashboardData() {
     db.from('tasks').select('id,title,description,verification_method,points,role_scope,category,stage,active,grants_hidden_spy,is_demo,story_role_scope,mission_code,mechanic,score_policy,assignment_mode,verification_type,max_assignments,created_at').order('stage').order('title'),
     db.from('assignments').select('id,status,completion_note,evidence_path,evidence_uploaded_at,submitted_at,guest:guests(id,name),task:tasks!assignments_task_id_fkey(id,title,verification_method,points)').eq('status', 'submitted'),
     db.from('votes').select('id,voter_guest_id,target_guest_id,voting_round,vote_weight,created_at,voter:guests!votes_voter_guest_id_fkey(id,name,team),target:guests!votes_target_guest_id_fkey(id,name,team)'),
-    db.from('game_state').select('id,registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note,display_title,display_body,public_clue,timer_ends_at,invitation_code_updated_at,task_catalog_mode,trickster_max_attempts,phase_one_completed_at,updated_at').eq('id', 1).single(),
-    db.from('clues').select('id,title,content,group_name,active,spy_guest_id,level,created_at,spy:guests!clues_spy_guest_id_fkey(id,name,team)').order('group_name').order('created_at'),
+    db.from('game_state').select('id,registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note,display_title,display_body,public_clue,timer_ends_at,invitation_code_updated_at,task_catalog_mode,trickster_max_attempts,phase_one_completed_at,team_clues_settled_at,updated_at').eq('id', 1).single(),
+    db.from('clues').select('id,title,content,group_name,team_scope,active,spy_guest_id,level,created_at,spy:guests!clues_spy_guest_id_fkey(id,name,team)').order('team_scope').order('group_name').order('created_at'),
     db.from('guest_clues').select('id,guest_id,clue_id,created_at,guest:guests(id,name),clue:clues(id,title)').order('created_at', { ascending: false }).limit(50),
     db.from('points_ledger').select('id,guest_id,amount,reason,actor,created_at,guest:guests(id,name)').order('created_at', { ascending: false }).limit(50),
     db.from('audit_log').select('id,actor,action,target_type,target_id,details,created_at').order('created_at', { ascending: false }).limit(50),
@@ -413,10 +417,16 @@ export async function saveGameTask(input: SavedTask, actor: string) {
   ensureNoDatabaseError(error, 'Unable to save task');
 }
 
-export async function saveGameClue(input: { id: string | null; title: string; content: string; groupName: string }, actor: string) {
-  const { error } = await getSupabaseAdmin().rpc('save_game_clue_v2', {
+export async function saveGameClue(input: { id: string | null; title: string; content: string; groupName: string; teamScope: string }, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('save_game_clue_v3', {
     p_clue_id: input.id, p_title: input.title, p_content: input.content,
-    p_group_name: input.groupName, p_actor: actor,
+    p_group_name: input.groupName, p_team_scope: input.teamScope, p_actor: actor,
   });
   ensureNoDatabaseError(error, 'Unable to save clue');
+}
+
+export async function settleTeamChallengeClues(actor: string) {
+  const { data, error } = await getSupabaseAdmin().rpc('settle_phase_two_team_clues', { p_actor: actor });
+  ensureNoDatabaseError(error, 'Unable to settle team challenge clues');
+  return data;
 }

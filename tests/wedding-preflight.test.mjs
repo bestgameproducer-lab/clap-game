@@ -31,10 +31,7 @@ function completeFixture() {
     { id: 'group', active: true, role_scope: 'all', category: 'group', stage: 'group_game' },
     ...Array.from({ length: 4 }, (_, index) => ({ id: `hidden-${index}`, active: true, role_scope: 'all', category: 'hidden', stage: 'task_round_2' })),
   ];
-  const clues = [
-    ...Array.from({ length: 3 }, () => ({ active: true, spy_guest_id: null })),
-    ...guests.filter((guest) => guest.role === 'spy').map((guest) => ({ active: true, spy_guest_id: guest.id })),
-  ];
+  const clues = WEDDING_TEAMS.flatMap((team) => Array.from({ length: 2 }, () => ({ active: true, spy_guest_id: null, team_scope: team })));
   return {
     guests, tasks, clues,
     hiddenTaskCodes: Array.from({ length: 4 }, (_, index) => ({ task_id: `hidden-${index}` })),
@@ -67,16 +64,17 @@ test('preflight allows random heart and star casting but blocks incomplete fixed
   assert.equal(result.items.find((item) => item.id === 'official-missions')?.status, 'blocked');
 });
 
-test('preflight detects missing physical codes, clues, host answers, and wallets', () => {
+test('preflight blocks fixed setup gaps while allowing team clues to be created live', () => {
   const fixture = completeFixture();
   fixture.hiddenTaskCodes.pop();
   fixture.clues = [];
   fixture.hostSegments[0].ready = false;
   fixture.resourceWallets.pop();
   const result = buildWeddingPreflight(fixture);
-  for (const id of ['hidden-cards', 'generic-clues', 'spy-clues', 'host-content', 'resource-wallets']) {
+  for (const id of ['hidden-cards', 'host-content', 'resource-wallets']) {
     assert.equal(result.items.find((item) => item.id === id)?.status, 'blocked');
   }
+  assert.equal(result.items.find((item) => item.id === 'team-clues')?.status, 'ready');
 });
 
 test('the admin data layer supplies explicit protected inputs to the preflight builder', async () => {

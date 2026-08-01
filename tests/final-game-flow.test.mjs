@@ -75,16 +75,24 @@ test('unfinished fixed draws align forward-only without rewriting score history'
   assert.doesNotMatch(fixedDrawMigration, /delete from|truncate|update points_ledger/);
 });
 
-test('opening final voting awards ranked team clues atomically and idempotently', () => {
+test('ranked team clues remain atomic and idempotent before the explicit settlement upgrade', () => {
   assert.match(teamClueMigration, /dense_rank\(\) over\(order by score desc\)/);
   assert.match(teamClueMigration, /when v_team\.team_rank=1 then 2 when v_team\.team_rank=2 then 1/);
   assert.match(teamClueMigration, /g\.id<>v_spy_id/);
   assert.match(teamClueMigration, /on conflict\(guest_id,clue_id\) do nothing/);
-  assert.match(teamClueMigration, /perform settle_phase_two_team_clues\(p_actor\)/);
   assert.match(teamClueMigration, /phase_two\.team_clues_settle/);
   assert.match(adminData, /phase_two_team_scores_missing/);
   assert.match(adminData, /phase_two_team_clues_missing/);
   assert.doesNotMatch(teamClueMigration, /truncate|delete from/);
+});
+
+test('final voting now requires an explicit team settlement and team-scoped clues', async () => {
+  const migration = await readFile(new URL('../supabase/migrations/202607310032_explicit_team_clue_settlement.sql', import.meta.url), 'utf8');
+  assert.match(migration, /team_clues_settled_at/);
+  assert.match(migration, /message='team_clues_not_settled'/);
+  assert.match(migration, /c\.team_scope=v_team\.team/);
+  assert.match(migration, /when v_team\.team_rank=1 then 2 when v_team\.team_rank=2 then 1/);
+  assert.doesNotMatch(migration.slice(migration.indexOf('create or replace function set_game_flag')), /perform settle_phase_two_team_clues\(p_actor\)/);
 });
 
 test('live draw safely creates tricksters and fills random heart/star/photo slots', () => {

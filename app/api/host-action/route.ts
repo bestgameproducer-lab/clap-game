@@ -1,5 +1,5 @@
 import { requireAdmin } from '@/lib/auth';
-import { adjustHostGuestPoints, adjustHostTeamPoints, setHostFinaleFlag, setHostGameStage } from '@/lib/data/host';
+import { adjustHostGuestPoints, adjustHostTeamPoints, setHostFinaleFlag, setHostGameStage, settleHostTeamChallengeClues } from '@/lib/data/host';
 import { ApiError, apiErrorResponse, noStoreJson } from '@/lib/errors';
 import { MANUAL_GAME_STAGES } from '@/lib/game-rules';
 import { assertSameOrigin, readJsonObject, requiredBoolean, requiredEnum, requiredInteger, requiredString, requiredUuid } from '@/lib/validation';
@@ -31,6 +31,9 @@ export async function POST(request: Request) {
     if (type === 'toggleVoting') {
       await setHostFinaleFlag('voting_open', requiredBoolean(body.value, '投票状态'), actor);
       return noStoreJson({ ok: true });
+    }
+    if (type === 'settleTeamClues') {
+      return noStoreJson({ ok: true, settlement: await settleHostTeamChallengeClues(actor) });
     }
     if (type === 'publishResults') {
       await setHostFinaleFlag('results_visible', true, actor);

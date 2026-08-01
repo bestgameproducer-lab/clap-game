@@ -23,13 +23,5 @@ from (values
 ) as seed(title,description,verification_method,points,role_scope,category,stage,active)
 where not exists (select 1 from tasks t where t.title=seed.title);
 
-insert into clues (title,content,level,active)
-select seed.*
-from (values
-  ('示例线索一','间谍不在姓名首字母为 C 的宾客中。',1,true),
-  ('示例线索二','间谍所在组不是当前积分最高的小组。',1,true)
-) as seed(title,content,level,active)
-where not exists (select 1 from clues c where c.title=seed.title);
-
 update game_state set registration_open=true,stage='registration',voting_open=false,results_visible=false,updated_at=now()
 where id=1;
