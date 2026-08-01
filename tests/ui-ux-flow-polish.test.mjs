@@ -44,3 +44,15 @@ test('shared visual system exposes focus, mobile hierarchy and reduced-motion st
   assert.match(styles, /\.station-filter-tabs/);
   assert.match(styles, /prefers-reduced-motion:reduce\)\{\*,\*::before,\*::after/);
 });
+
+test('guest dashboard cards use one restrained wedding palette', async () => {
+  const styles = await read('app/styles.css');
+  const primaryAction = styles.slice(styles.indexOf('.guest-primary-action{'), styles.indexOf('.identity-game-rule{'));
+  assert.match(primaryAction, /background:rgba\(255,252,248,.9\)/);
+  assert.match(primaryAction, /\.guest-primary-action\.complete button\{border:1px solid #d8c7bd;background:#f2e8e1/);
+  assert.doesNotMatch(primaryAction, /#526c58|#bed5c3|#e8f3ea/);
+  assert.match(styles, /\.reward-banner \{[^}]*background:rgba\(255,252,248,.9\)/);
+  assert.match(styles, /\.reward-banner::before\{[^}]*content:'✦'/);
+  assert.match(styles, /\.section-card \{[^}]*background: rgba\(255,252,249,.92\)/);
+  assert.match(styles, /\.reward-banner\.trickster-warning::before\{display:none\}/);
+});
