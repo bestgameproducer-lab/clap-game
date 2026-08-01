@@ -36,6 +36,7 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
     if (error.message.includes('invalid_hidden_spy_task')) throw new ApiError(400, '隐藏间谍卡必须是第二轮、仅限普通宾客的隐藏任务');
     if (error.message.includes('invalid_task_points')) throw new ApiError(400, '任务积分必须是 0–12 分');
     if (error.message.includes('preset_spy_team_conflict')) throw new ApiError(409, '这个组已经预设了一位恶作剧者，请为其中一人选择其他组别');
+    if (error.message.includes('fixed_story_role_conflict')) throw new ApiError(409, '这位宾客已有固定剧情身份，不能预设为恶作剧者');
     if (error.message.includes('symbol_pairing_count_invalid')) throw new ApiError(409, '爱心和星星都必须各有五位玩家完成抽卡');
     if (error.message.includes('symbol_pairing_incomplete')) throw new ApiError(409, '爱心和星星都需要先形成两组正式联盟，并处理全部待确认邀请');
     if (error.message.includes('symbol_pairing_state_invalid') || error.message.includes('symbol_finalization_incomplete')) throw new ApiError(409, '爱心或星星配对状态异常，请先在主持人界面核对联盟记录');
