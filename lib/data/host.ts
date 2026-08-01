@@ -34,7 +34,7 @@ function ensureHostDatabaseError(error: { message: string } | null, fallback: st
   if (error.message.includes('guest_not_personal_score_eligible')) throw new ApiError(409, '这位宾客目前不能获得个人积分');
   if (error.message.includes('guest_not_found')) throw new ApiError(404, '找不到这位宾客');
   if (error.message.includes('invalid_team')) throw new ApiError(400, '组别不正确');
-  if (error.message.includes('voting_stage_not_ready')) throw new ApiError(409, '请先在主办方后台切换到团队挑战，再开启最终投票');
+  if (error.message.includes('voting_stage_not_ready')) throw new ApiError(409, '请先在主持人流程台切换到团队挑战，再开启最终投票');
   if (error.message.includes('no_drawn_guests')) throw new ApiError(409, '尚无宾客完成抽卡，不能开启最终投票');
   if (error.message.includes('phase_two_team_scores_missing')) throw new ApiError(409, '请先记录海岛组或沙漠组的团队成绩，再开启最终投票');
   if (error.message.includes('phase_two_team_spy_missing')) throw new ApiError(409, '每个竞技组都必须已经产生一位恶作剧者');
