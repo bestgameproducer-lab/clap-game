@@ -16,10 +16,11 @@ test('all 32 final guests remain app-login eligible while runtime rehearsal data
 });
 
 test('honor guests draw a dedicated family surprise instead of a random task', async () => {
-  const [migration, surpriseMigration, dashboardMigration, guestPage, guestData, revealRoute, publicData] = await Promise.all([
+  const [migration, surpriseMigration, dashboardMigration, familyAlignmentMigration, guestPage, guestData, revealRoute, publicData] = await Promise.all([
     readFile(migrationUrl, 'utf8'),
     readFile(new URL('../supabase/migrations/202607290042_honor_surprise_copy.sql', import.meta.url), 'utf8'),
     readFile(new URL('../supabase/migrations/202607290043_honor_guest_dashboard.sql', import.meta.url), 'utf8'),
+    readFile(new URL('../supabase/migrations/202607310031_align_added_family_score_eligibility.sql', import.meta.url), 'utf8'),
     readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../lib/data/guest.ts', import.meta.url), 'utf8'),
     readFile(new URL('../app/api/reveal-special-card/route.ts', import.meta.url), 'utf8'),
@@ -45,6 +46,12 @@ test('honor guests draw a dedicated family surprise instead of a random task', a
   assert.match(dashboardMigration, /guest_clues_guest_eligibility_guard/);
   assert.match(dashboardMigration, /votes_participant_eligibility_guard/);
   assert.match(dashboardMigration, /participation_mode='ACTIVE_PLAYER' and drawn_at is not null/);
+  assert.match(familyAlignmentMigration, /lower\(login_name\) in \('huimin xu','gang yao'\)/);
+  assert.match(familyAlignmentMigration, /team='家人组'/);
+  assert.match(familyAlignmentMigration, /participation_mode='HONOR_GUEST'/);
+  assert.match(familyAlignmentMigration, /set eligible_for_personal_score=true/);
+  assert.match(familyAlignmentMigration, /added_honor_family_roster_mismatch/);
+  assert.doesNotMatch(familyAlignmentMigration, /delete from|truncate|eligible_for_mission=true|eligible_for_secret_role=true/);
   assert.match(revealRoute, /assertSameOrigin\(request\)/);
   assert.match(revealRoute, /await requireGuest\(\)/);
   assert.match(guestData, /reveal_honor_special_card/);
