@@ -143,6 +143,7 @@ export default function GuestPage() {
   const [claimCodeConfirm, setClaimCodeConfirm] = useState('');
   const [search, setSearch] = useState('');
   const [drawing, setDrawing] = useState(false);
+  const [enteringMissionPage, setEnteringMissionPage] = useState(false);
   const [revealedCard, setRevealedCard] = useState<SecretCard | null>(null);
   const [specialCardRevealed, setSpecialCardRevealed] = useState(false);
   const [showSecrets, setShowSecrets] = useState(false);
@@ -565,15 +566,26 @@ export default function GuestPage() {
       ]);
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || '抽卡失败');
+      setData((current) => current ? { ...current, guest: { ...current.guest, drawn_at: body.card.drawnAt } } : current);
       setRevealedCard(body.card);
     } catch (cause) { setError(cause instanceof Error ? cause.message : '抽卡失败，请重试'); }
     finally { setDrawing(false); }
   }
 
   async function enterMissionPage() {
-    setRevealedCard(null);
+    if (enteringMissionPage) return;
+    setEnteringMissionPage(true);
     setShowSecrets(false);
-    await load();
+    try {
+      if (!data?.guest.drawn_at) {
+        const refreshed = await load();
+        if (!refreshed) return;
+      }
+      setRevealedCard(null);
+      void load();
+    } finally {
+      setEnteringMissionPage(false);
+    }
   }
 
   async function revealSpecialCard() {
@@ -756,7 +768,7 @@ export default function GuestPage() {
       </div></CardScene>
       {!revealedCard && <button className="draw-button" disabled={drawing || !drawOpen} onClick={drawCard}>{drawing ? '丘比特正在洗牌…' : drawOpen ? '抽取我的秘密卡' : '抽卡入口暂未开放'}</button>}
       {!revealedCard && !drawOpen && <div className="notice">主办方目前已关闭宾客抽卡，请联系现场工作人员协助。</div>}
-      {revealedCard && <button className="draw-button" onClick={enterMissionPage}>我已经看清楚 · 收起卡片</button>}
+      {revealedCard && <button className="draw-button" disabled={enteringMissionPage} onClick={enterMissionPage}>{enteringMissionPage ? '正在打开游戏主页…' : '我已经看清楚 · 收起卡片'}</button>}
       {!revealedCard && <button className="text-button" disabled={busy} onClick={logout}>{busy ? '安全退出中…' : '退出此身份'}</button>}
       <p className="privacy-hint"><strong>全员保密规则：</strong>请遮挡屏幕，不告诉任何人你的身份、阵营或任务。卡片不会自动消失，只有你点击上方按钮后才会隐藏。</p>
     </section></main>;
