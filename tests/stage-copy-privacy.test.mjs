@@ -36,5 +36,5 @@ test('every secret card explains secrecy and tricksters receive a critical warni
   assert.match(guest, /这是必须隐藏的身份/);
   assert.match(guest, /不要口头承认、不要展示本页、不要直接询问他人身份/);
   assert.match(guest, /secret-reader-rule \$\{isTrickster \? 'critical' : ''\}/);
-  assert.match(guest, /identityVisible \? <><strong>\{dashboardRole\.title\}<\/strong><p>\{dashboardRole\.note\}<\/p>/);
+  assert.match(guest, /identityVisible \? <><strong>\{identityRevealRole\.title\}<\/strong><p>\{identityRevealRole\.note\}<\/p>/);
 });

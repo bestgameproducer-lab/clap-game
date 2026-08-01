@@ -16,7 +16,7 @@ test('the recurring dashboard stays visible while only a private identity is con
     assert.ok(page.includes(handler), `missing secret hold handler: ${handler}`);
   }
   assert.doesNotMatch(page, /setShowSecrets\(\(visible\) => !visible\)/);
-  assert.match(page, /identityVisible \? <><strong>\{dashboardRole\.title\}<\/strong><p>\{dashboardRole\.note\}<\/p>/);
+  assert.match(page, /identityVisible \? <><strong>\{identityRevealRole\.title\}<\/strong><p>\{identityRevealRole\.note\}<\/p>/);
   const missionTransition = page.slice(page.indexOf('async function enterMissionPage()'), page.indexOf('async function revealSpecialCard()'));
   assert.match(missionTransition, /setShowSecrets\(false\)/);
   assert.match(missionTransition, /setRevealedCard\(null\)/);
