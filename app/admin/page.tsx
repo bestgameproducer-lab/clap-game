@@ -474,6 +474,17 @@ export default function AdminPage() {
   const rehearsalDataCount = resetPreview.claimed_guests + resetPreview.drawn_guests + resetPreview.assignments + resetPreview.votes
     + resetPreview.guest_clues + resetPreview.personal_ledger_entries + resetPreview.team_ledger_entries
     + resetPreview.spy_ledger_entries + resetPreview.resource_ledger_entries;
+  const adminGuidance = !data.preflight.ready
+    ? { label: '开场前检查尚未通过', detail: `${data.preflight.blockedCount} 项配置需要处理，完成后再开放宾客注册。`, action: '处理开场准备', panel: 'guests' as AdminPanel, tone: 'warning' }
+    : data.submissions.length > 0
+      ? { label: `${data.submissions.length} 项任务等待审核`, detail: '及时处理可以让宾客立即收到状态和积分更新。', action: '前往审核', panel: 'review' as AdminPanel, tone: 'attention' }
+      : data.game?.results_visible
+        ? { label: '终局已经公布并结算', detail: '检查最终排名与奖项，确认公开页面内容无误。', action: '查看终局', panel: 'finale' as AdminPanel, tone: 'complete' }
+        : data.game?.voting_open
+          ? { label: `第 ${data.game.voting_round} 轮投票进行中`, detail: `${data.votes.length} 票已提交；人数确认后可关闭投票并公布身份。`, action: '管理投票', panel: 'finale' as AdminPanel, tone: 'attention' }
+          : data.game?.stage === 'group_game'
+            ? { label: data.game.team_clues_settled_at ? '团队线索已发放，可以开启投票' : '下一步：结算团队积分并发放线索', detail: teamSettlementReady ? '团队成绩和线索条件已经齐备。' : teamSettlementStatus, action: '前往终局流程', panel: 'finale' as AdminPanel, tone: teamSettlementReady ? 'active' : 'warning' }
+            : { label: `当前：${STAGES.find(([value]) => value === data.game?.stage)?.[1] || '尚未设置流程'}`, detail: '根据现场进度切换下一环节；宾客端会自动同步。', action: '管理现场流程', panel: 'live' as AdminPanel, tone: 'active' };
 
   return <main className="admin-shell">
     <section className="admin-hero"><div><div className="eyebrow">LIVE CONTROL</div><h1>婚礼游戏控制台</h1><p>{claimed}/{data.guests.length} 位宾客已认领 · {data.submissions.length} 项待审核</p></div><div className="admin-hero-actions"><a href="/station">任务站</a><a href="/host">主持人流程台</a><StaffLogoutButton/><div className="live-dot">LIVE</div></div></section>
@@ -482,6 +493,7 @@ export default function AdminPage() {
     <nav className="admin-panel-tabs" aria-label="主办方后台功能入口">{PRIMARY_ADMIN_PANELS.map((panel) => <button type="button" key={panel.id} className={activePrimaryPanel === panel.id ? 'active' : ''} aria-current={activePrimaryPanel === panel.id ? 'page' : undefined} onClick={() => openPanel(panel.id)}><span>{panel.shortLabel}</span></button>)}</nav>
 
     {activePanel === 'home' && <section className="admin-launchpad" aria-labelledby="admin-launchpad-title">
+      <div className={`admin-guidance-card ${adminGuidance.tone}`}><div><small>现场指挥</small><strong>{adminGuidance.label}</strong><p>{adminGuidance.detail}</p></div><button type="button" onClick={() => openPanel(adminGuidance.panel)}>{adminGuidance.action}<span aria-hidden="true">→</span></button></div>
       <div className="launchpad-heading"><div><small>CONTROL CENTER</small><h2 id="admin-launchpad-title">今天要管理什么？</h2></div><p>每次只进入一个模块，避免在手机上反复长距离滚动。</p></div>
       <div className="launchpad-grid launchpad-primary">
         <button type="button" onClick={() => openPanel('guests')}><span className="launchpad-index">01</span><strong>开场准备</strong><small>核对宾客名单、认领状态与就绪检查</small><b className={!data.preflight.ready ? 'needs-attention' : ''}>{data.preflight.ready ? `${claimed}/${activeGuests.length} 已认领` : `${data.preflight.blockedCount} 项待处理`} →</b></button>
