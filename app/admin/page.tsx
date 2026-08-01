@@ -121,6 +121,7 @@ export default function AdminPage() {
   const [resetForm, setResetForm] = useState({ confirmation: '', backupConfirmed: false, reason: '婚礼正式开始前清空彩排记录' });
   const [resetEventKey, setResetEventKey] = useState('');
   const [resetCleanupPending, setResetCleanupPending] = useState(false);
+  const [pendingResetConfirmation, setPendingResetConfirmation] = useState(false);
   const [invitationCodeForm, setInvitationCodeForm] = useState({ code: '', confirm: '' });
   const [adminPasswordForm, setAdminPasswordForm] = useState({ password: '', confirm: '' });
   const [guestPhaseNote, setGuestPhaseNote] = useState('');
@@ -355,10 +356,13 @@ export default function AdminPage() {
     finally { setBusy(false); }
   }
 
-  async function resetRehearsal(event: React.FormEvent) {
+  function resetRehearsal(event: React.FormEvent) {
     event.preventDefault();
+    setPendingResetConfirmation(true);
+  }
+
+  async function confirmResetRehearsal() {
     try {
-      if (!window.confirm('最后确认：系统会先自动关闭注册、投票和公开大屏，再退出全部宾客并清除抽卡、任务进度、投票、积分和竞拍记录。宾客名单与配置内容会保留。是否继续？')) return;
       const eventKey = resetEventKey || createEventKey();
       setResetEventKey(eventKey); setError(''); setMessage(''); setBusy(true);
       const response = await fetch('/api/admin-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'resetRehearsal', ...resetForm, eventKey }) });
@@ -370,6 +374,7 @@ export default function AdminPage() {
         setResetForm({ confirmation: '', backupConfirmed: false, reason: '婚礼正式开始前清空彩排记录' });
         setResetEventKey('');
       }
+      setPendingResetConfirmation(false);
       await load();
     } catch (cause) { setError(cause instanceof Error ? cause.message : '当前浏览器无法发起彩排清场，请刷新管理台后重试'); }
     finally { setBusy(false); }
@@ -599,5 +604,6 @@ export default function AdminPage() {
     {activePanel === 'data' && <><section className="section-card"><div className="section-heading"><div><small>DATA &amp; AUDIT</small><h2>数据备份与最近操作</h2></div></div><p className="muted">建议在彩排后和婚礼结束后各导出一次。文件不会包含宾客密码、会话或服务器密钥。</p><div className="export-actions"><a href="/api/admin-export?type=guests">导出宾客</a><a href="/api/admin-export?type=assignments">导出任务</a><a href="/api/admin-export?type=points">个人积分</a><a href="/api/admin-export?type=team-points">团队积分</a><a href="/api/admin-export?type=team-resources">竞拍金币</a><a href="/api/admin-export?type=awards">导出奖项</a><a href="/api/admin-export?type=audit">导出审计</a></div>{data.auditLog.length === 0 ? <div className="empty-state">暂无后台操作。</div> : <div className="audit-list">{data.auditLog.slice(0, 20).map((entry) => <div key={entry.id}><strong>{ACTION_LABELS[entry.action] || entry.action}</strong><span>{new Date(entry.created_at).toLocaleString('zh-CN')}</span><small>{entry.actor}</small></div>)}</div>}</section>
 
     <section className="section-card danger-zone"><div className="section-heading"><div><small>REHEARSAL RESET</small><h2>彩排数据安全清场</h2></div><span className={resetControlsClosed ? 'ready-badge' : 'warning-badge'}>{resetControlsClosed ? '公开入口已关闭' : '清场时将自动关闭公开入口'}</span></div><div className="reset-assurance"><strong>清场后，运行数据应全部归零</strong><p>系统会先自动关闭宾客注册、投票和公开大屏。保留宾客名单、锁定的队伍与初始身份、任务、线索、主持题库、奖项名称和实体卡代码；清除所有宾客密码与登录、抽卡结果、任务进度、验证照片、投票、个人与团队积分、竞拍流水与发布状态；同时清除第一阶段的配对、互认和丘比特助手行动记录。</p></div><div className="reset-preview-grid"><div><strong>{resetPreview.claimed_guests}</strong><span>已认领宾客</span></div><div><strong>{resetPreview.assignments}</strong><span>任务记录</span></div><div><strong>{resetPreview.votes}</strong><span>投票记录</span></div><div><strong>{resetPreview.evidence_files}</strong><span>验证照片</span></div></div><form onSubmit={resetRehearsal}><label className="ready-check"><input type="checkbox" checked={resetForm.backupConfirmed} onChange={(event) => setResetForm({ ...resetForm, backupConfirmed: event.target.checked })}/><span><strong>我已下载上方七类 CSV 备份</strong><small>清场不可从网页撤销；审计日志会永久保留本次操作摘要。</small></span></label><label htmlFor="reset-reason">清场原因</label><input id="reset-reason" value={resetForm.reason} onChange={(event) => setResetForm({ ...resetForm, reason: event.target.value })} minLength={3} maxLength={300} required/><label htmlFor="reset-confirmation">输入 RESET WEDDING 确认</label><input id="reset-confirmation" value={resetForm.confirmation} onChange={(event) => setResetForm({ ...resetForm, confirmation: event.target.value })} autoComplete="off" spellCheck={false} placeholder="RESET WEDDING" required/><button className="danger" disabled={busy || !resetForm.backupConfirmed || resetForm.confirmation !== 'RESET WEDDING' || resetForm.reason.trim().length < 3}>{busy ? '正在安全清场…' : resetCleanupPending ? '重试照片清理' : '清空全部彩排运行数据'}</button></form></section></>}
+    {pendingResetConfirmation && <section className="finale-confirmation" role="dialog" aria-modal="true" aria-label="最后确认彩排清场"><div><small>不可撤销的运行数据清理</small><strong>确认清空本次彩排？</strong><p>系统会先关闭注册、投票和公开大屏，再退出全部宾客并清除抽卡、任务进度、投票、积分和竞拍记录。32 人名单与正式配置会保留。</p></div><div><button type="button" className="danger" disabled={busy} onClick={() => void confirmResetRehearsal()}>{busy ? '正在安全清场…' : '确认清空彩排数据'}</button><button type="button" className="secondary" disabled={busy} onClick={() => setPendingResetConfirmation(false)}>取消</button></div></section>}
   </main>;
 }

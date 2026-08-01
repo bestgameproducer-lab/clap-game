@@ -91,7 +91,7 @@ test('admin mutation is authenticated, same-origin, and validates every destruct
 });
 
 test('mobile reset generates a valid event key without requiring crypto.randomUUID', () => {
-  const resetHandler = adminPage.slice(adminPage.indexOf('async function resetRehearsal'), adminPage.indexOf('async function rotateInvitationCode'));
+  const resetHandler = adminPage.slice(adminPage.indexOf('function resetRehearsal'), adminPage.indexOf('async function rotateInvitationCode'));
   assert.match(resetHandler, /createEventKey\(\)/);
   assert.doesNotMatch(resetHandler, /crypto\.randomUUID/);
   assert.match(eventKey, /typeof source\?\.randomUUID === 'function'/);
@@ -115,7 +115,10 @@ test('mobile admin UI presents preview, export acknowledgement, typed phrase, an
   assert.match(adminPage, /彩排数据安全清场/);
   assert.match(adminPage, /我已下载上方七类 CSV 备份/);
   assert.match(adminPage, /resetForm\.confirmation !== 'RESET WEDDING'/);
-  assert.match(adminPage, /window\.confirm\('最后确认：系统会先自动关闭注册、投票和公开大屏/);
+  assert.match(adminPage, /pendingResetConfirmation/);
+  assert.match(adminPage, /aria-label="最后确认彩排清场"/);
+  assert.match(adminPage, /确认清空彩排数据/);
+  assert.doesNotMatch(adminPage.slice(adminPage.indexOf('function resetRehearsal'), adminPage.indexOf('async function rotateInvitationCode')), /window\.confirm/);
   assert.match(adminPage, /resetControlsClosed/);
   assert.doesNotMatch(adminPage, /busy \|\| !resetControlsClosed \|\| !resetForm\.backupConfirmed/);
   assert.match(adminPage, /清场时将自动关闭公开入口/);
