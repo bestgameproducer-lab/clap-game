@@ -27,7 +27,7 @@ test('a trickster dashboard replaces facade content with true content in place',
   assert.match(page, /<span>\{assignment\.task\.points\} 分<\/span>/);
   assert.doesNotMatch(page, /完成但不计个人分|完成记录 · 不计个人分/);
   assert.match(page, /const dashboardRole = usesTricksterFacade && !secretReaderOpen \? ROLE_LABELS\.guest : role/);
-  assert.match(page, /identityVisible \? <><strong>\{dashboardRole\.title\}<\/strong><p>\{dashboardRole\.note\}<\/p><\/>/);
+  assert.match(page, /identityVisible \? <><strong>\{dashboardRole\.title\}<\/strong><p>\{dashboardRole\.note\}<\/p>/);
   assert.match(page, /isTrickster && identityVisible && !data\.game\?\.results_visible && \(!usesTricksterFacade \|\| secretReaderOpen\) \? 'trickster-identity'/);
   assert.match(page, /usesTricksterFacade && secretReaderOpen \? trueTricksterAssignments : facadeAssignments/);
   assert.match(page, /<details className="mission-item"/);
@@ -41,6 +41,11 @@ test('a trickster dashboard replaces facade content with true content in place',
   assert.match(page, /className="identity-reader-button"/);
   assert.match(page, />展开查看<\/button>/);
   assert.doesNotMatch(page, /identity-reader-button trickster-highlight/);
+  assert.match(page, /usesTricksterFacade && showSecrets && <span className="trickster-hold-hint"/);
+  assert.match(page, /点击右侧“展开查看”，可以进入你的真实界面/);
+  assert.match(page, /你今天早上吃了什么？/);
+  assert.match(page, /吃了仙人掌。/);
+  assert.doesNotMatch(page, /你觉得丘比特今天心情怎么样？|他好像想开个玩笑。/);
   assert.match(page, /恶作剧者真正任务/);
   assert.match(page, /隐藏并恢复伪装/);
   assert.match(page, /!usesTricksterFacade && <div className="secret-reader-backdrop"/);
