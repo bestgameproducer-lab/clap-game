@@ -6,6 +6,7 @@ const migrationUrl = new URL('../supabase/migrations/202607310023_ceremony_end_s
 const finalizationFixUrl = new URL('../supabase/migrations/202607310024_fix_ceremony_end_finalization.sql', import.meta.url);
 const guestPageUrl = new URL('../app/guest/page.tsx', import.meta.url);
 const adminPageUrl = new URL('../app/admin/page.tsx', import.meta.url);
+const stylesUrl = new URL('../app/styles.css', import.meta.url);
 
 test('ceremony end resumes phase one without unlocking act two', async () => {
   const migration = await readFile(migrationUrl, 'utf8');
@@ -28,6 +29,21 @@ test('admin exposes ceremony end and a separate act-two transition', async () =>
   assert.match(admin, /LIVE_FLOW_STAGES = \['registration', 'waiting', 'task_round_1', 'ceremony_end', 'task_round_2', 'group_game'\]/);
   assert.match(admin, /第一阶段任务提交和伙伴配对会重新开放，但第二阶段任务仍保持关闭/);
   assert.match(admin, /系统会结束第一阶段、处理尚未配对的最终角色，并一次性创建第二阶段任务/);
+});
+
+test('stage changes use an in-page confirmation instead of a fragile browser dialog', async () => {
+  const [admin, styles] = await Promise.all([
+    readFile(adminPageUrl, 'utf8'),
+    readFile(stylesUrl, 'utf8'),
+  ]);
+  const stageFlow = admin.slice(admin.indexOf('function stageTransitionWarning'), admin.indexOf('function toggleVoting'));
+
+  assert.match(stageFlow, /setPendingStage\(stage\)/);
+  assert.match(stageFlow, /confirmStageChange/);
+  assert.doesNotMatch(stageFlow, /window\.confirm/);
+  assert.match(admin, /role="alert" aria-live="assertive"/);
+  assert.match(admin, /确认开启第二阶段/);
+  assert.match(styles, /\.stage-confirmation/);
 });
 
 test('login baselines existing content and never reports a completed assignment as new', async () => {
