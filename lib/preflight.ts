@@ -49,11 +49,12 @@ export function buildWeddingPreflight(input: {
   const activeClues = input.clues.filter((clue) => clue.active);
   const teamSummary = WEDDING_TEAMS.map((team) => {
     const members = committedGuests.filter((guest) => guest.team === team);
+    const committedRoles = members.filter((guest) => guest.drawn_at || guest.role_locked);
     return {
       team,
       total: members.length,
-      spies: members.filter((guest) => guest.role === 'spy' && !guest.is_hidden_spy).length,
-      guests: members.filter((guest) => guest.role === 'guest').length,
+      spies: committedRoles.filter((guest) => guest.role === 'spy' && !guest.is_hidden_spy).length,
+      guests: committedRoles.filter((guest) => guest.role === 'guest').length,
     };
   });
   const capacityValid = committedGuests.every((guest) => WEDDING_TEAMS.includes(guest.team as typeof WEDDING_TEAMS[number]))

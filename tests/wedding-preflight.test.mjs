@@ -55,6 +55,16 @@ test('preflight blocks role capacity conflicts before card drawing', () => {
   assert.equal(result.ready, false);
 });
 
+test('preflight accepts fixed teams whose roles are still random', () => {
+  const fixture = completeFixture();
+  for (const guest of fixture.guests.filter((item) => item.phase_two_eligible)) {
+    guest.role = 'guest';
+    guest.role_locked = false;
+  }
+  const result = buildWeddingPreflight(fixture);
+  assert.equal(result.items.find((item) => item.id === 'draw-capacity')?.status, 'ready');
+});
+
 test('preflight allows random heart and star casting but blocks incomplete fixed roles and missions', () => {
   const fixture = completeFixture();
   fixture.guests.find((guest) => guest.story_role === 'GROOM_CHEERLEADER').story_role = 'NONE';
