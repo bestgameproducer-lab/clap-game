@@ -41,7 +41,8 @@ test('终局结算按颁奖、团队结算、投票、揭晓和流水引导', as
   const settlement = finale.indexOf('公布身份并结算全部积分');
   const ledger = finale.indexOf('发放奖项并核对流水');
   assert.ok(awards >= 0 && teamSettlement > awards && voting > teamSettlement && settlement > voting && ledger > settlement);
-  assert.match(finale, /type: 'settleTeamClues'/);
+  assert.match(admin, /type: 'settleTeamClues'/);
+  assert.match(finale, /setPendingFinaleAction\('settle-team-clues'\)/);
   assert.match(finale, /onClick=\{toggleVoting\}/);
   assert.match(finale, /onClick=\{requestResultsToggle\}/);
   assert.match(finale, /confirmResultsToggle/);
