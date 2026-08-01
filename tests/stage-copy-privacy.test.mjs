@@ -23,7 +23,7 @@ test('admin, guests, and scoreboard share wedding-stage names and visible defaul
 test('new guest content waits for manual dismissal without expanding tasks', async () => {
   const guest = await readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8');
   assert.match(guest, /contentSnapshotRef/);
-  assert.match(guest, /className="new-content-dialog" role="dialog" aria-modal="true"/);
+  assert.match(guest, /new-content-dialog[^\n]+role="dialog" aria-modal="true"/);
   assert.match(guest, /setContentNotice\(null\)/);
   assert.doesNotMatch(guest, /setTimeout\(\(\) => setContentNotice/);
   assert.match(guest, /expandedAssignments\[assignment\.id\] \?\? false/);

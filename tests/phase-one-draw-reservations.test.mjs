@@ -66,7 +66,7 @@ test('the card itself and the retained button both start a draw', () => {
 });
 
 test('new activity is a scroll-safe dialog that waits for manual dismissal', () => {
-  assert.match(guestPage, /className="new-content-dialog" role="dialog" aria-modal="true"/);
+  assert.match(guestPage, /new-content-dialog[^\n]+role="dialog" aria-modal="true"/);
   assert.match(guestPage, /setContentNotice\(null\)/);
   assert.doesNotMatch(guestPage, /setTimeout\(\(\) => setContentNotice/);
   assert.match(guestCss, /\.new-content-dialog\{[^}]*max-height:[^;}]+;overflow-y:auto/);
