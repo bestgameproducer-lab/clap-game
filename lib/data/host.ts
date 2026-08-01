@@ -68,6 +68,13 @@ export async function setHostFinaleFlag(field: 'voting_open' | 'results_visible'
   ensureHostDatabaseError(error, 'Unable to update finale state');
 }
 
+export async function setHostGameStage(stage: string, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('set_game_stage', {
+    p_stage: stage, p_actor: actor,
+  });
+  ensureHostDatabaseError(error, 'Unable to update game stage');
+}
+
 export async function adjustHostTeamPoints(input: { team: string; amount: number; reason: string; eventKey: string }, actor: string) {
   const { data, error } = await getSupabaseAdmin().rpc('adjust_host_team_points', {
     p_team: input.team, p_amount: input.amount, p_reason: input.reason, p_event_key: input.eventKey, p_actor: actor,
