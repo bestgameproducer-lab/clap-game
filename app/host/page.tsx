@@ -27,7 +27,7 @@ type HostData = {
   guests: Guest[];
   teamPoints: Array<{ id: number; team: string; amount: number; reason: string; created_at: string }>;
   personalPoints: Array<{ id: string; guest_id: string; amount: number; reason: string; created_at: string; guest: { id: string; name: string } | null }>;
-  game: { stage: string; voting_open: boolean; voting_round: number; results_visible: boolean } | null;
+  game: { stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; team_clues_settled_at: string | null } | null;
   voteCount: number;
   rankings: {
     personal: Array<{ id: string; name: string; team: string; points: number; completedTasks: number }>;
@@ -35,7 +35,7 @@ type HostData = {
   };
 };
 
-type FinaleAction = 'open-voting' | 'close-voting' | 'publish-results';
+type FinaleAction = 'settle-team-clues' | 'open-voting' | 'close-voting' | 'publish-results';
 const HOST_STAGE_OPTIONS = GAME_STAGE_OPTIONS.filter(([stage]) => !['voting', 'results'].includes(stage));
 
 async function responseBody(response: Response) { try { return await response.json(); } catch { return {}; } }
@@ -119,12 +119,16 @@ export default function HostPage() {
 
   async function runFinaleAction(finaleAction: FinaleAction) {
     if (!navigator.onLine) { setOffline(true); setError('当前离线，联网后才能操作终局流程'); return; }
-    const request = finaleAction === 'open-voting'
+    const request = finaleAction === 'settle-team-clues'
+      ? { type: 'settleTeamClues' }
+      : finaleAction === 'open-voting'
       ? { type: 'toggleVoting', value: true }
       : finaleAction === 'close-voting'
         ? { type: 'toggleVoting', value: false }
         : { type: 'publishResults' };
-    const success = finaleAction === 'open-voting'
+    const success = finaleAction === 'settle-team-clues'
+      ? '团队积分已结算，排名线索已自动发放'
+      : finaleAction === 'open-voting'
       ? '新一轮最终投票已开启'
       : finaleAction === 'close-voting'
         ? '本轮最终投票已关闭'
@@ -173,11 +177,11 @@ export default function HostPage() {
 
     {mode === 'overview' ? <section className="section-card host-score-panel"><div className="section-heading"><div><small>PRIVATE ROSTER</small><h2>分组、积分与身份</h2></div><span>{data.guests.length} 人</span></div><div className="host-roster-list">{data.guests.map((guest) => <article key={guest.id} className={(guest.role === 'spy' || guest.is_hidden_spy) && guest.drawn_at ? 'spy' : ''}><div><strong>{guest.name}</strong><small>{guest.team || '未分组'} · {guest.drawn_at ? '已抽卡' : guest.participation_mode === 'ACTIVE_PLAYER' ? '待抽卡' : '专属卡'}</small></div><span>{guest.eligible_for_personal_score ? `${guest.points} 分` : '不计分'}</span>{(guest.role === 'spy' || guest.is_hidden_spy) && guest.drawn_at && <b>{guest.is_hidden_spy ? '隐藏间谍' : '恶作剧者'}</b>}</article>)}</div></section> : mode === 'team' ? <section className="section-card host-score-panel"><div className="section-heading"><div><small>TEAM SCORE</small><h2>给团队加分</h2></div></div>
       <div className="team-total-list">{teamTotals.map((item) => <button type="button" className={teamForm.team === item.team ? 'selected' : ''} key={item.team} onClick={() => setTeamForm({ ...teamForm, team: item.team })}><strong>{item.team}</strong><span>{item.points} 分</span></button>)}</div>
-      <form onSubmit={(event) => { event.preventDefault(); void addScore({ type: 'adjustTeamPoints', team: teamForm.team, amount: Number(teamForm.amount), reason: teamForm.reason }, `${teamForm.team} 已加 ${teamForm.amount} 分`); }}>
+      {data.game?.team_clues_settled_at && <div className="control-state on">团队积分已结算并锁定，不能继续加分。</div>}<form onSubmit={(event) => { event.preventDefault(); void addScore({ type: 'adjustTeamPoints', team: teamForm.team, amount: Number(teamForm.amount), reason: teamForm.reason }, `${teamForm.team} 已加 ${teamForm.amount} 分`); }}>
         <label htmlFor="team-score-amount">增加分数</label><input id="team-score-amount" type="number" inputMode="numeric" min={1} max={100} value={teamForm.amount} onChange={(event) => setTeamForm({ ...teamForm, amount: event.target.value })} required/>
         <div className="score-presets">{[1,2,3,5,10].map((amount) => <button type="button" className={Number(teamForm.amount) === amount ? 'selected' : ''} key={amount} onClick={() => setTeamForm({ ...teamForm, amount: String(amount) })}>+{amount}</button>)}</div>
         <label htmlFor="team-score-reason">加分原因</label><input id="team-score-reason" value={teamForm.reason} onChange={(event) => setTeamForm({ ...teamForm, reason: event.target.value })} maxLength={200} required/>
-        <button disabled={busy || offline || Number(teamForm.amount) < 1 || Number(teamForm.amount) > 100 || !teamForm.reason.trim()}>{busy ? '保存中…' : `确认给${teamForm.team}加 ${teamForm.amount || 0} 分`}</button>
+        <button disabled={busy || offline || Boolean(data.game?.team_clues_settled_at) || Number(teamForm.amount) < 1 || Number(teamForm.amount) > 100 || !teamForm.reason.trim()}>{busy ? '保存中…' : `确认给${teamForm.team}加 ${teamForm.amount || 0} 分`}</button>
       </form>
       {data.teamPoints.length > 0 && <details className="score-history"><summary>查看最近团队加分</summary>{data.teamPoints.slice(0,10).map((entry) => <div key={entry.id}><span><strong>{entry.team}</strong><small>{entry.reason}</small></span><b>{entry.amount > 0 ? '+' : ''}{entry.amount}</b></div>)}</details>}
     </section> : mode === 'guest' ? <section className="section-card host-score-panel"><div className="section-heading"><div><small>PERSONAL SCORE</small><h2>给宾客个人加分</h2></div></div>
@@ -196,10 +200,10 @@ export default function HostPage() {
       {pendingStage && <section className="finale-confirmation" role="dialog" aria-label="确认切换婚礼流程"><div><small>请确认流程切换</small><strong>{gameStageCopy(pendingStage).label}</strong><p>{['voting', 'results'].includes(data.game?.stage || '') ? '切换后会关闭当前投票并隐藏公开揭晓；已经结算的积分不会撤销。' : gameStageCopy(pendingStage).note}</p></div><div><button type="button" disabled={busy} onClick={() => void runStageChange(pendingStage)}>{busy ? '切换中…' : '确认切换'}</button><button type="button" className="secondary" disabled={busy} onClick={() => setPendingStage('')}>取消</button></div></section>}
       <div className="section-divider"/>
       <div className="section-heading host-finale-heading"><div><small>FINAL VOTE</small><h3>投票与终局结算</h3></div></div>
-      <div className="host-finale-status"><small>当前状态</small><strong>{data.game?.results_visible ? '身份已公布，积分已结算' : data.game?.voting_open ? `第 ${data.game.voting_round} 轮投票进行中` : data.game?.voting_round ? `第 ${data.game.voting_round} 轮投票已关闭` : '最终投票尚未开始'}</strong><span>{data.voteCount} 人已提交本轮投票</span></div>
-      {!data.game?.results_visible && <div className="host-finale-actions">{data.game?.voting_open ? <button type="button" disabled={busy || offline} onClick={() => { setPendingStage(''); setPendingFinaleAction('close-voting'); }}>关闭本轮投票</button> : <><button type="button" disabled={busy || offline || data.game?.stage !== 'group_game'} onClick={() => { setPendingStage(''); setPendingFinaleAction('open-voting'); }}>开启新一轮投票</button>{(data.game?.voting_round ?? 0) > 0 && <button type="button" className="finale-publish-button" disabled={busy || offline} onClick={() => { setPendingStage(''); setPendingFinaleAction('publish-results'); }}>公布身份并结算</button>}</>}</div>}
+      <div className="host-finale-status"><small>当前状态</small><strong>{data.game?.results_visible ? '身份已公布，积分已结算' : data.game?.voting_open ? `第 ${data.game.voting_round} 轮投票进行中` : data.game?.voting_round ? `第 ${data.game.voting_round} 轮投票已关闭` : data.game?.team_clues_settled_at ? '团队积分已结算，线索已发放' : '等待结算团队积分'}</strong><span>{data.voteCount} 人已提交本轮投票</span></div>
+      {!data.game?.results_visible && <div className="host-finale-actions">{data.game?.voting_open ? <button type="button" disabled={busy || offline} onClick={() => { setPendingStage(''); setPendingFinaleAction('close-voting'); }}>关闭本轮投票</button> : <>{!data.game?.team_clues_settled_at && <button type="button" disabled={busy || offline || data.game?.stage !== 'group_game'} onClick={() => { setPendingStage(''); setPendingFinaleAction('settle-team-clues'); }}>结算团队积分并发放线索</button>}<button type="button" disabled={busy || offline || data.game?.stage !== 'group_game' || !data.game?.team_clues_settled_at} onClick={() => { setPendingStage(''); setPendingFinaleAction('open-voting'); }}>开启新一轮投票</button>{(data.game?.voting_round ?? 0) > 0 && <button type="button" className="finale-publish-button" disabled={busy || offline} onClick={() => { setPendingStage(''); setPendingFinaleAction('publish-results'); }}>公布身份并结算</button>}</>}</div>}
       {!data.game?.results_visible && !data.game?.voting_open && data.game?.stage !== 'group_game' && data.game?.stage !== 'voting' && <p className="muted">请先在上方把婚礼流程切换到“团队挑战”，再开启最终投票。</p>}
-      {pendingFinaleAction && <section className="finale-confirmation" role="dialog" aria-label="确认主持人终局操作"><div><small>请确认现场操作</small><strong>{pendingFinaleAction === 'open-voting' ? '开启新一轮最终投票' : pendingFinaleAction === 'close-voting' ? '关闭本轮最终投票' : '公布身份并结算全部积分'}</strong><p>{pendingFinaleAction === 'open-voting' ? '系统会关闭宾客注册并创建新一轮投票，每位宾客只能提交一次。' : pendingFinaleAction === 'close-voting' ? `当前已有 ${data.voteCount} 人投票。关闭后可检查结果，再决定是否公布结算。` : `当前已有 ${data.voteCount} 人投票。确认后将公开恶作剧者，并一次性结算个人、团队与第二阶段奖励。`}</p></div><div><button type="button" disabled={busy} onClick={() => void runFinaleAction(pendingFinaleAction)}>{busy ? '处理中…' : '确认执行'}</button><button type="button" className="secondary" disabled={busy} onClick={() => setPendingFinaleAction(null)}>取消</button></div></section>}
+      {pendingFinaleAction && <section className="finale-confirmation" role="dialog" aria-label="确认主持人终局操作"><div><small>请确认现场操作</small><strong>{pendingFinaleAction === 'settle-team-clues' ? '结算团队积分并发放线索' : pendingFinaleAction === 'open-voting' ? '开启新一轮最终投票' : pendingFinaleAction === 'close-voting' ? '关闭本轮最终投票' : '公布身份并结算全部积分'}</strong><p>{pendingFinaleAction === 'settle-team-clues' ? `${teamTotals.map((item) => `${item.team} ${item.points} 分`).join(' · ')}。确认后系统按排名自动发放线索，再开放投票。` : pendingFinaleAction === 'open-voting' ? '系统会关闭宾客注册并创建新一轮投票，每位宾客只能提交一次。' : pendingFinaleAction === 'close-voting' ? `当前已有 ${data.voteCount} 人投票。关闭后可检查结果，再决定是否公布结算。` : `当前已有 ${data.voteCount} 人投票。确认后将公开恶作剧者，并一次性结算个人、团队与第二阶段奖励。`}</p></div><div><button type="button" disabled={busy} onClick={() => void runFinaleAction(pendingFinaleAction)}>{busy ? '处理中…' : '确认执行'}</button><button type="button" className="secondary" disabled={busy} onClick={() => setPendingFinaleAction(null)}>取消</button></div></section>}
       {data.game?.results_visible && <><div className="control-state on">结算具有幂等保护，重复刷新不会再次加分。</div><section className="host-final-rankings" aria-label="最终积分排名"><div className="section-heading"><div><small>FINAL RANKING</small><h3>最终积分排名</h3></div></div><div className="host-team-ranking">{data.rankings.teams.filter((team) => TEAMS.includes(team.team as typeof TEAMS[number])).map((team, index) => <article key={team.team}><b>{index + 1}</b><div><strong>{team.team}</strong><small>团队挑战与终局奖励</small></div><span>{team.points} 分</span></article>)}</div><h4>个人积分 TOP {Math.min(10, data.rankings.personal.length)}</h4>{data.rankings.personal.length ? <ol className="host-personal-ranking">{data.rankings.personal.map((guest, index) => <li key={guest.id}><b>{String(index + 1).padStart(2, '0')}</b><div><strong>{guest.name}</strong><small>{guest.team} · 完成 {guest.completedTasks} 项任务</small></div><span>{guest.points} 分</span></li>)}</ol> : <div className="empty-state">尚无个人积分。</div>}</section></>}
     </section>}
   </main>;

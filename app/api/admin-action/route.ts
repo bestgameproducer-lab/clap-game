@@ -28,6 +28,7 @@ import {
   setRegistrationOpen,
   saveAward,
   saveAllianceClue,
+  settleTeamChallengeClues,
   undoPlayerRelationship,
 } from '@/lib/data/admin';
 import { ApiError, apiErrorResponse, noStoreJson } from '@/lib/errors';
@@ -56,6 +57,8 @@ export async function POST(request: Request) {
     let result: Record<string, unknown> = { ok: true };
     if (type === 'toggleVoting') {
       await setGameFlag('voting_open', requiredBoolean(body.value, '投票状态'), actor);
+    } else if (type === 'settleTeamClues') {
+      result = { ok: true, settlement: await settleTeamChallengeClues(actor) };
     } else if (type === 'toggleResults') {
       await setGameFlag('results_visible', requiredBoolean(body.value, '结果状态'), actor);
     } else if (type === 'toggleScoreboard') {
@@ -211,6 +214,7 @@ export async function POST(request: Request) {
         title: requiredString(body.title, '线索标题', 120),
         content: requiredString(body.content, '线索内容', 1000),
         groupName: requiredString(body.groupName, '线索分组', 60),
+        teamScope: requiredEnum(body.teamScope, '线索适用队伍', ['海岛组', '沙漠组'] as const),
       }, actor);
     } else if (type === 'saveAward') {
       const winnerKind = requiredEnum(body.winnerKind, '获奖对象类型', ['none', 'guest', 'team'] as const);

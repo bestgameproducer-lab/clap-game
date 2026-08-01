@@ -6,7 +6,7 @@ type PreflightGuest = {
   story_role?: string; phase_two_eligible?: boolean;
 };
 type PreflightTask = { id: string; active: boolean; role_scope: string; category: string; stage: string; mission_code?: string | null; points?: number; max_assignments?: number | null };
-type PreflightClue = { active: boolean; spy_guest_id: string | null };
+type PreflightClue = { active: boolean; spy_guest_id: string | null; team_scope?: string | null };
 type PreflightCode = { task_id: string };
 type PreflightHostSegment = { ready: boolean; active: boolean; stage: string };
 type PreflightWallet = { team: string };
@@ -46,7 +46,6 @@ export function buildWeddingPreflight(input: {
   const activeTasks = input.tasks.filter((task) => task.active);
   const activeHidden = activeTasks.filter((task) => task.category === 'hidden');
   const codedHiddenIds = new Set(input.hiddenTaskCodes.map((code) => code.task_id));
-  const spies = activeGuests.filter((guest) => guest.role === 'spy' && !guest.is_hidden_spy);
   const activeClues = input.clues.filter((clue) => clue.active);
   const teamSummary = WEDDING_TEAMS.map((team) => {
     const members = committedGuests.filter((guest) => guest.team === team);
@@ -84,8 +83,7 @@ export function buildWeddingPreflight(input: {
     item('upgrade-pool', '升级任务池充足', `${activeTasks.filter((task) => task.category === 'upgrade').length} 项启用（建议至少 5 项）`, activeTasks.filter((task) => task.category === 'upgrade').length >= 5),
     item('group-pool', '团队任务池已配置', `${activeTasks.filter((task) => task.category === 'group').length} 项启用`, activeTasks.some((task) => task.category === 'group')),
     item('hidden-cards', '四张隐藏任务实体卡', `${activeHidden.filter((task) => codedHiddenIds.has(task.id)).length}/${activeHidden.length} 项已有一次性代码`, activeHidden.length >= 4 && activeHidden.every((task) => codedHiddenIds.has(task.id))),
-    item('generic-clues', '通用线索备用池', `${activeClues.filter((clue) => !clue.spy_guest_id).length} 条（建议至少 3 条）`, activeClues.filter((clue) => !clue.spy_guest_id).length >= 3),
-    item('spy-clues', '随机恶作剧者线索可用', spies.length ? `已抽出 ${spies.length}/2 位 · 通用线索 ${activeClues.filter((clue) => !clue.spy_guest_id).length} 条` : '将按每组 1 人随机抽取', spies.length === 0 || (spies.length === 2 && activeClues.filter((clue) => !clue.spy_guest_id).length >= 3)),
+    item('team-clues', '团队排名线索可现场准备', WEDDING_TEAMS.map((team) => `${team} ${activeClues.filter((clue) => clue.team_scope === team).length} 条`).join(' · ') + '；结算前每队至少准备 2 条', true),
     item('host-content', '主持人题目与答案已复核', `${hostSegments.length - unreadyHostSegments}/${hostSegments.length} 个启用环节可发布`, hostSegments.length >= 7 && unreadyHostSegments === 0),
     item('resource-wallets', '竞拍金币钱包已初始化', missingWallets.length ? `缺少：${missingWallets.join('、')}` : '两队钱包均已建立', missingWallets.length === 0),
   ];

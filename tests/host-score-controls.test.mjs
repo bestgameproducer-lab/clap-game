@@ -50,7 +50,7 @@ test('host data is an explicit private operations DTO', () => {
   assert.match(data, /select\('id,name,team,role,is_hidden_spy,points,participation_mode,special_card_title,eligible_for_personal_score,drawn_at'\)/);
   assert.match(data, /select\('id,team,amount,reason,created_at'\)/);
   assert.match(data, /select\('id,guest_id,amount,reason,created_at,guest:guests\(id,name\)'\)/);
-  assert.match(data, /select\('stage,voting_open,voting_round,results_visible'\)/);
+  assert.match(data, /select\('stage,voting_open,voting_round,results_visible,team_clues_settled_at'\)/);
   assert.match(data, /select\('id,voting_round'\)/);
   const scoreDto = data.slice(data.indexOf('export async function getHostDashboardData'), data.indexOf('export async function adjustHostTeamPoints'));
   assert.doesNotMatch(scoreDto, /correct_answer|host_notes|team_resources|voter_guest_id|target_guest_id|vote_weight/);
@@ -74,10 +74,13 @@ test('host flow controls use only manual wedding stages and require confirmation
   assert.match(data, /rpc\('set_game_stage'/);
 });
 
-test('host can enter team challenge and immediately unlock the final vote', () => {
+test('host can enter team challenge, settle clues, and then unlock the final vote', () => {
   assert.match(page, /HOST_STAGE_OPTIONS/);
   assert.match(page, /runStageChange\(pendingStage\)/);
   assert.match(page, /data\.game\?\.stage !== 'group_game'/);
+  assert.match(page, /settle-team-clues/);
+  assert.match(page, /team_clues_settled_at/);
+  assert.match(data, /settleHostTeamChallengeClues/);
   assert.match(page, /请先在上方把婚礼流程切换到“团队挑战”/);
   assert.match(data, /请先在主持人流程台切换到团队挑战/);
 });

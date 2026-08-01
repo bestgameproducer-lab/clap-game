@@ -46,7 +46,7 @@ test('final reveal remains actionable during voting and uses an in-page confirma
 test('clues are saved and displayed in organizer-defined groups', () => {
   assert.match(migration, /group_name text not null default '通用线索'/);
   assert.match(migration, /save_game_clue_v2/);
-  assert.match(admin, /线索只需要分组、名称和内容/);
+  assert.match(admin, /分类标签/);
   assert.match(admin, /<optgroup/);
   assert.match(guest, /guestClueGroups/);
 });
