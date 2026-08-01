@@ -20,7 +20,7 @@ const PHASE_TWO_MISSION_LABELS: Record<string, string> = {
   INTERACT_WITH_GROOM: '与新郎互动或合影', INTERACT_WITH_BRIDE: '与新娘互动或合影',
   DINNER_SPEECH: '晚宴致辞', HEART_DILEMMA: '爱心联盟秘密选择', STAR_DILEMMA: '星光联盟秘密选择',
   COPY_SCORE: '孤单丘比特 · 命运复制', TEAM_CAPTAIN: '领航星队长', TRICKSTER: '丘比特的恶作剧者',
-  EXTRA_VOTE: '双重裁决 · 额外投票权', SUPER_LUCKY: '超级幸运星 · 第一阶段积分翻倍',
+  EXTRA_VOTE: '双重裁决 · 额外投票权', SUPER_LUCKY: '丘比特幸运星 · 立即翻倍',
 };
 const CEREMONY_STATUS_LABELS: Record<string, string> = { LOCKED: '尚未开放', AVAILABLE: '等待沟通', BRIEFED: '流程已沟通', RING_RECEIVED: '已领取戒指', IN_PROGRESS: '进行中', DELIVERED: '已送达', COMPLETED: '已完成' };
 const CATEGORY_LABELS: Record<string, string> = { standard: '普通任务', ceremony: '仪式任务', group: '团队任务', upgrade: '升级任务', hidden: '隐藏任务' };
@@ -61,7 +61,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 type Guest = { id: string; name: string; login_name: string; team: string; role: string; is_hidden_spy: boolean; points: number; claimed_at: string | null; drawn_at: string | null; team_locked: boolean; role_locked: boolean; table_label: string; is_elder: boolean; ceremony_eligible: boolean; active: boolean; staff_notes: string; participation_mode: 'ACTIVE_PLAYER' | 'HONOR_GUEST' | 'PRINCIPAL'; relationship: string; story_role: string; uses_app: boolean; eligible_for_mission: boolean; eligible_for_secret_role: boolean; eligible_for_personal_score: boolean; phase_two_eligible: boolean; special_card_title: string; special_card_body: string; player_code: string; unlocked_role: string };
 type Task = { id: string; title: string; description: string; verification_method: string; points: number; role_scope: string; category: string; stage: string; active: boolean; grants_hidden_spy: boolean; is_demo: boolean; story_role_scope: string; mission_code: string | null; mechanic: string; score_policy: string; assignment_mode: string; verification_type: string; max_assignments: number | null };
-type Clue = { id: string; title: string; content: string; active: boolean; spy_guest_id: string | null; level: number; spy?: { id: string; name: string; team: string } };
+type Clue = { id: string; title: string; content: string; group_name: string; active: boolean; spy_guest_id: string | null; level: number; spy?: { id: string; name: string; team: string } };
 type HiddenTaskCode = { id: string; task_id: string; issued_by: string; issued_at: string; claimed_by: string | null; claimed_at: string | null; assignment_id: string | null; task?: { id: string; title: string; active: boolean }; guest?: { id: string; name: string } };
 type AdminData = {
   guests: Guest[];
@@ -111,7 +111,7 @@ export default function AdminPage() {
   const [pointAmount, setPointAmount] = useState('');
   const [pointReason, setPointReason] = useState('');
   const [newTask, setNewTask] = useState({ title: '', description: '', verificationMethod: DEFAULT_VERIFICATION_METHOD, points: '1', roleScope: 'all', category: 'standard', stage: 'task_round_1', active: true, grantsHiddenSpy: false });
-  const [newClue, setNewClue] = useState({ title: '', content: '', active: true, spyGuestId: '', level: '1' });
+  const [newClue, setNewClue] = useState({ title: '', content: '', groupName: '通用线索', spyGuestId: '', level: '1', active: true });
   const [teamScore, setTeamScore] = useState({ team: '海岛组', amount: '5', reason: '团队游戏第一名' });
   const [liveDisplay, setLiveDisplay] = useState({ title: '', body: '', publicClue: '', timerMinutes: '0' });
   const [selectedAwardId, setSelectedAwardId] = useState('');
@@ -126,6 +126,7 @@ export default function AdminPage() {
   const [guestPhaseNote, setGuestPhaseNote] = useState('');
   const [pendingStage, setPendingStage] = useState('');
   const [stageError, setStageError] = useState('');
+  const [pendingResultsVisible, setPendingResultsVisible] = useState<boolean | null>(null);
   const [rosterImportText, setRosterImportText] = useState('');
   const [rosterImportConfirmed, setRosterImportConfirmed] = useState(false);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
@@ -181,8 +182,8 @@ export default function AdminPage() {
   }, [libraryTaskId, libraryTaskSignature]);
 
   useEffect(() => {
-    if (libraryClueId === 'new') { setNewClue({ title: '', content: '', active: true, spyGuestId: '', level: '1' }); return; }
-    if (libraryClue) setNewClue({ title: libraryClue.title, content: libraryClue.content, active: libraryClue.active, spyGuestId: libraryClue.spy_guest_id || '', level: String(libraryClue.level) });
+    if (libraryClueId === 'new') { setNewClue({ title: '', content: '', groupName: '通用线索', spyGuestId: '', level: '1', active: true }); return; }
+    if (libraryClue) setNewClue({ title: libraryClue.title, content: libraryClue.content, groupName: libraryClue.group_name || '通用线索', spyGuestId: libraryClue.spy_guest_id || '', level: String(libraryClue.level), active: libraryClue.active });
   }, [libraryClueId, libraryClueSignature]);
 
   useEffect(() => {
@@ -328,13 +329,15 @@ export default function AdminPage() {
     void action({ type: 'toggleVoting', value: opening }, opening ? '新一轮最终投票已开启，宾客注册已关闭' : '最终投票已关闭');
   }
 
-  function toggleResults() {
-    const publishing = !data?.game?.results_visible;
-    const prompt = publishing
-      ? `确认公布身份并结算终局奖励？当前收到 ${data?.votes.length ?? 0} 票。系统会关闭投票并自动发放全部终局奖励。`
-      : '确认暂时隐藏公开身份？已经结算的个人和团队积分不会撤销；如需重新投票，必须开启一个新轮次。';
-    if (!window.confirm(prompt)) return;
-    void action({ type: 'toggleResults', value: publishing }, publishing ? '身份已公布，全部终局奖励已结算' : '公开身份已隐藏，已结算积分保持不变');
+  function requestResultsToggle() {
+    setPendingResultsVisible(!data?.game?.results_visible);
+  }
+
+  async function confirmResultsToggle() {
+    if (pendingResultsVisible === null) return;
+    const publishing = pendingResultsVisible;
+    const changed = await action({ type: 'toggleResults', value: publishing }, publishing ? '身份已公布，全部终局奖励已结算' : '公开身份已隐藏，已结算积分保持不变');
+    if (changed) setPendingResultsVisible(null);
   }
 
   async function issueCode(task: Task, replacing: boolean) {
@@ -429,7 +432,7 @@ export default function AdminPage() {
   const activeHiddenTasks = data.tasks.filter((task) => task.active && task.category === 'hidden');
   const issuedHiddenTaskIds = new Set(data.hiddenTaskCodes.map((code) => code.task_id));
   const readyHiddenTaskCards = activeHiddenTasks.filter((task) => issuedHiddenTaskIds.has(task.id)).length;
-  const spyGuests = data.guests.filter((guest) => guest.active && guest.role === 'spy');
+  const clueGroups = Array.from(new Set(data.clues.map((clue) => clue.group_name || '通用线索'))).sort((a, b) => a.localeCompare(b, 'zh-CN'));
   const teamTotals = TEAMS.map((teamName) => ({ team: teamName, points: data.teamPointLedger.filter((entry) => entry.team === teamName).reduce((sum, entry) => sum + entry.amount, 0) }));
   const finaleActive = Boolean(data.game?.voting_open || data.game?.results_visible || ['voting', 'results'].includes(data.game?.stage || ''));
   const activePrimaryPanel: AdminPanel = ['guests', 'content', 'data'].includes(activePanel) ? 'home' : activePanel;
@@ -534,7 +537,7 @@ export default function AdminPage() {
           <button disabled={busy}>{libraryTaskId === 'new' ? '创建任务' : '保存任务'}</button>
         </form>
       </article>
-      <article className="section-card"><div className="section-heading"><div><small>CLUE LIBRARY</small><h2>线索库管理</h2></div><span>{data.clues.filter((clue) => clue.active).length}/{data.clues.length} 启用</span></div><label htmlFor="library-clue">选择线索或新建</label><select id="library-clue" value={libraryClueId} onChange={(event) => setLibraryClueId(event.target.value)}><option value="new">＋ 新建线索</option>{data.clues.map((clue) => <option key={clue.id} value={clue.id}>{clue.active ? '●' : '○'} L{clue.level} · {clue.spy?.name || '通用'} · {clue.title}</option>)}</select><form onSubmit={(event) => { event.preventDefault(); void action({ type: 'saveClue', clueId: libraryClueId === 'new' ? null : libraryClueId, ...newClue, level: Number(newClue.level) }, libraryClueId === 'new' ? '线索已加入线索库' : '线索已保存').then((ok) => { if (ok && libraryClueId === 'new') setLibraryClueId('new'); }); }}><label htmlFor="clue-title">线索标题</label><input id="clue-title" value={newClue.title} onChange={(event) => setNewClue({ ...newClue, title: event.target.value })} maxLength={120} required/><label htmlFor="clue-content">线索内容</label><textarea id="clue-content" value={newClue.content} onChange={(event) => setNewClue({ ...newClue, content: event.target.value })} maxLength={1000} required/><div className="form-grid"><div><label htmlFor="clue-spy">对应间谍</label><select id="clue-spy" value={newClue.spyGuestId} onChange={(event) => setNewClue({ ...newClue, spyGuestId: event.target.value })}><option value="">通用线索</option>{spyGuests.map((guest) => <option key={guest.id} value={guest.id}>{guest.name} · {guest.team}</option>)}</select></div><div><label htmlFor="clue-level">线索等级</label><select id="clue-level" value={newClue.level} onChange={(event) => setNewClue({ ...newClue, level: event.target.value })}><option value="1">一级 · 模糊</option><option value="2">二级 · 收窄范围</option><option value="3">三级 · 接近答案</option></select></div></div><label className="ready-check"><input type="checkbox" checked={newClue.active} onChange={(event) => setNewClue({ ...newClue, active: event.target.checked })}/><span><strong>允许继续发放</strong><small>停用后已获得该线索的宾客仍可查看。</small></span></label>{libraryClueId !== 'new' && <p className="field-help">线索发放后，对应间谍和等级会锁定；仍可修正文案或停用。</p>}<button disabled={busy}>{libraryClueId === 'new' ? '创建线索' : '保存线索'}</button></form>{libraryClueId !== 'new' && <div className="library-preview"><div><strong>L{newClue.level} · {newClue.title}</strong><p>{newClue.content}</p></div></div>}</article>
+      <article className="section-card"><div className="section-heading"><div><small>CLUE LIBRARY</small><h2>线索库管理</h2></div><span>{data.clues.length} 条</span></div><p className="muted">线索只需要分组、名称和内容；新建或保存后即可在任务站按组发放。</p><label htmlFor="library-clue">选择线索或新建</label><select id="library-clue" value={libraryClueId} onChange={(event) => setLibraryClueId(event.target.value)}><option value="new">＋ 新建线索</option>{clueGroups.map((group) => <optgroup key={group} label={group}>{data.clues.filter((clue) => (clue.group_name || '通用线索') === group).map((clue) => <option key={clue.id} value={clue.id}>{clue.title}</option>)}</optgroup>)}</select><form onSubmit={(event) => { event.preventDefault(); void action({ type: 'saveClue', clueId: libraryClueId === 'new' ? null : libraryClueId, title: newClue.title, content: newClue.content, groupName: newClue.groupName }, libraryClueId === 'new' ? '线索已加入线索库' : '线索已保存').then((ok) => { if (ok && libraryClueId === 'new') setNewClue({ ...newClue, title: '', content: '' }); }); }}><label htmlFor="clue-group">线索分组</label><input id="clue-group" value={newClue.groupName} onChange={(event) => setNewClue({ ...newClue, groupName: event.target.value })} maxLength={80} list="clue-group-options" required/><datalist id="clue-group-options">{clueGroups.map((group) => <option key={group} value={group}/>)}</datalist><label htmlFor="clue-title">线索名称</label><input id="clue-title" value={newClue.title} onChange={(event) => setNewClue({ ...newClue, title: event.target.value })} maxLength={120} required/><label htmlFor="clue-content">线索内容</label><textarea id="clue-content" value={newClue.content} onChange={(event) => setNewClue({ ...newClue, content: event.target.value })} maxLength={1000} required/><button disabled={busy}>{libraryClueId === 'new' ? '添加线索' : '保存线索'}</button></form>{libraryClueId !== 'new' && <div className="library-preview"><div><strong>{newClue.groupName} · {newClue.title}</strong><p>{newClue.content}</p></div></div>}</article>
     </section>
 
     <section className="admin-grid">
@@ -564,9 +567,10 @@ export default function AdminPage() {
       <div className="finale-workflow-steps">
         <article className={preparedAwards > 0 ? 'done' : 'current'}><span className="finale-step-index">01</span><div><strong>确认颁奖结果</strong><small>{data.awards.length === 0 ? '当前没有预设奖项，可直接进入投票' : `${preparedAwards}/${data.awards.length} 个奖项已选择获奖者并设为公布`}</small></div><button type="button" className="secondary" onClick={() => document.getElementById('final-awards')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>查看奖项</button></article>
         <article className={data.game?.results_visible ? 'done' : data.game?.voting_open ? 'current' : ''}><span className="finale-step-index">02</span><div><strong>开启并收集最终投票</strong><small>{data.game?.voting_open ? `第 ${data.game.voting_round} 轮进行中 · ${data.votes.length}/${drawn} 人已投` : data.game?.stage === 'voting' ? `第 ${data.game.voting_round} 轮已关闭 · 共 ${data.votes.length} 票` : '开启新一轮会清除上一轮选票，并自动关闭宾客注册'}</small></div><button type="button" disabled={busy || Boolean(data.game?.results_visible)} onClick={toggleVoting}>{data.game?.voting_open ? '关闭本轮投票' : '开启新投票'}</button></article>
-        <article className={data.game?.results_visible ? 'done' : ''}><span className="finale-step-index">03</span><div><strong>公布身份并结算全部积分</strong><small>{data.game?.results_visible ? `个人已结算 +${settledPersonalPoints} 分 · 团队已结算 +${settledTeamPoints} 分` : '确认投票结束后再操作；积分结算具有幂等保护，不会重复加分'}</small></div><button type="button" className={data.game?.results_visible ? 'secondary' : ''} disabled={busy || Boolean(data.game?.voting_open)} onClick={toggleResults}>{data.game?.results_visible ? '暂时隐藏公开揭晓' : '公布身份并结算'}</button></article>
+        <article className={data.game?.results_visible ? 'done' : ''}><span className="finale-step-index">03</span><div><strong>公布身份并结算全部积分</strong><small>{data.game?.results_visible ? `个人已结算 +${settledPersonalPoints} 分 · 团队已结算 +${settledTeamPoints} 分` : '公布时会自动关闭投票；积分结算具有幂等保护，不会重复加分'}</small></div><button type="button" className={data.game?.results_visible ? 'secondary' : ''} disabled={busy || (!data.game?.results_visible && (data.game?.voting_round ?? 0) < 1)} onClick={requestResultsToggle}>{data.game?.results_visible ? '暂时隐藏公开揭晓' : '公布身份并结算'}</button></article>
         <article className={data.game?.results_visible ? 'current' : ''}><span className="finale-step-index">04</span><div><strong>发放奖项并核对流水</strong><small>按已公布奖项现场颁发，并在下方核对个人积分流水与投票结果</small></div><button type="button" className="secondary" onClick={() => document.getElementById('final-points-ledger')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>查看流水</button></article>
       </div>
+      {pendingResultsVisible !== null && <section className="finale-confirmation" role="dialog" aria-label="确认公布身份"><div><small>请确认终局操作</small><strong>{pendingResultsVisible ? '公布身份并结算全部积分' : '暂时隐藏公开身份'}</strong><p>{pendingResultsVisible ? `当前收到 ${data.votes.length} 票。继续后将自动关闭投票，并一次性结算投票、团队奖励和第二阶段能力。` : '已经结算的个人和团队积分不会撤销；如需重新投票，必须开启新一轮。'}</p></div><div><button type="button" onClick={() => void confirmResultsToggle()} disabled={busy}>{pendingResultsVisible ? '确认公布并结算' : '确认隐藏'}</button><button type="button" className="secondary" onClick={() => setPendingResultsVisible(null)} disabled={busy}>取消</button></div></section>}
       <div className={`control-state ${data.game?.voting_open || data.game?.results_visible ? 'on' : ''}`}>{data.game?.results_visible ? `● 第 ${data.game.voting_round} 轮已公布并锁定` : data.game?.voting_open ? `● 第 ${data.game.voting_round} 轮投票中 · ${data.votes.length}/${drawn} 人已投` : data.game?.stage === 'voting' ? `○ 第 ${data.game.voting_round} 轮投票已关闭，可以公布结算` : '○ 最终投票尚未开放'}</div>
     </section>
 
