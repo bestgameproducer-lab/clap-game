@@ -163,6 +163,7 @@ NEXT_PUBLIC_WEDDING_TITLE=婚礼页面标题
 - `supabase/migrations/202607310026_finalize_unmatched_symbol_players.sql`：开启第二阶段时保留已完成的爱心/星星联盟，拒绝未完成邀请，并自动为剩余左右图案补齐联盟与最终角色，避免现场漏配导致阶段切换失败。
 - `supabase/migrations/202607310027_explain_star_dilemma_payoffs.sql`：在任务正文与宾客选择区完整公开“同行/独占”的 3/5/1 分博弈矩阵，不改变既有结算逻辑。
 - `supabase/migrations/202607310028_phase_two_finale_clue_polish.sql`：为爱心与星光抉择补齐秘密选择规则；领航星身份可公开；丘比特幸运星在第二阶段开启时立即翻倍并完成；线索支持主办方自定义分组。
+- `supabase/migrations/202607310029_limit_final_team_rewards.sql`：终局团队奖励只结算海岛组与沙漠组，避免家人组触发团队字段约束后让整次身份公布事务回滚。
 
 个人任务采用小分值尺度，正常为 1–3 分；固定仪式任务可有独立分值。恶作剧者秘密计分使用独立私密账本，揭晓前不能进入个人榜或团队榜。
 
