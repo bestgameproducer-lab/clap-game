@@ -12,7 +12,7 @@ test('host fallback keeps private data in tab-scoped storage only', async () => 
   assert.match(hostSource, /window\.sessionStorage\.setItem\(HOST_CACHE_KEY/);
   assert.match(hostSource, /window\.sessionStorage\.getItem\(HOST_CACHE_KEY/);
   assert.doesNotMatch(hostSource, /localStorage/);
-  assert.match(hostSource, /HOST_CACHE_KEYS = \['wedding-host-private-cache-v1', 'wedding-host-private-cache-v2', HOST_CACHE_KEY\]/);
+  assert.match(hostSource, /HOST_CACHE_KEYS = \['wedding-host-private-cache-v1', 'wedding-host-private-cache-v2', 'wedding-host-score-cache-v1', HOST_CACHE_KEY\]/);
   assert.match(hostSource, /clearSessionStorageKeys=\{HOST_CACHE_KEYS\}/);
   assert.match(logoutSource, /window\.sessionStorage\.removeItem\(key\)/);
   assert.match(hostSource, /response\.status === 401[\s\S]*clearHostCache\(\)/);

@@ -29,6 +29,18 @@ test('host page exposes the private roster but not ballots or run-of-show answer
   assert.match(source, /恶作剧者/);
 });
 
+test('host finale exposes personal and team rankings after result publication', async () => {
+  const [page, dataSource] = await Promise.all([
+    readFile(new URL('../app/host/page.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../lib/data/host.ts', import.meta.url), 'utf8'),
+  ]);
+  assert.match(dataSource, /buildPublicScoreboard/);
+  assert.match(dataSource, /rankings: \{ personal: rankings\.leaders, teams: rankings\.teams \}/);
+  assert.match(page, /data\.game\?\.results_visible/);
+  assert.match(page, /最终积分排名/);
+  assert.match(page, /个人积分 TOP/);
+});
+
 test('database publish function copies only public segment fields', async () => {
   const migration = await readFile(new URL('../supabase/migrations/202607280011_host_segment_library.sql', import.meta.url), 'utf8');
   const publishBody = migration.slice(migration.indexOf('create or replace function publish_host_segment'));

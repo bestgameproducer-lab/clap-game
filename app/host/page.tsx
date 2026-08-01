@@ -7,8 +7,8 @@ import { GAME_STAGE_OPTIONS, gameStageCopy } from '@/lib/game-stages';
 import { useLiveRefresh } from '@/lib/use-live-refresh';
 
 const TEAMS = ['海岛组', '沙漠组'] as const;
-const HOST_CACHE_KEY = 'wedding-host-score-cache-v1';
-const HOST_CACHE_KEYS = ['wedding-host-private-cache-v1', 'wedding-host-private-cache-v2', HOST_CACHE_KEY];
+const HOST_CACHE_KEY = 'wedding-host-score-cache-v2';
+const HOST_CACHE_KEYS = ['wedding-host-private-cache-v1', 'wedding-host-private-cache-v2', 'wedding-host-score-cache-v1', HOST_CACHE_KEY];
 
 type Guest = {
   id: string;
@@ -29,6 +29,10 @@ type HostData = {
   personalPoints: Array<{ id: string; guest_id: string; amount: number; reason: string; created_at: string; guest: { id: string; name: string } | null }>;
   game: { stage: string; voting_open: boolean; voting_round: number; results_visible: boolean } | null;
   voteCount: number;
+  rankings: {
+    personal: Array<{ id: string; name: string; team: string; points: number; completedTasks: number }>;
+    teams: Array<{ team: string; points: number; guests: number; completedTasks: number }>;
+  };
 };
 
 type FinaleAction = 'open-voting' | 'close-voting' | 'publish-results';
@@ -196,7 +200,7 @@ export default function HostPage() {
       {!data.game?.results_visible && <div className="host-finale-actions">{data.game?.voting_open ? <button type="button" disabled={busy || offline} onClick={() => { setPendingStage(''); setPendingFinaleAction('close-voting'); }}>关闭本轮投票</button> : <><button type="button" disabled={busy || offline || data.game?.stage !== 'team_game'} onClick={() => { setPendingStage(''); setPendingFinaleAction('open-voting'); }}>开启新一轮投票</button>{(data.game?.voting_round ?? 0) > 0 && <button type="button" className="finale-publish-button" disabled={busy || offline} onClick={() => { setPendingStage(''); setPendingFinaleAction('publish-results'); }}>公布身份并结算</button>}</>}</div>}
       {!data.game?.results_visible && !data.game?.voting_open && data.game?.stage !== 'team_game' && data.game?.stage !== 'voting' && <p className="muted">需要先由主办方把婚礼流程切换到“团队挑战”，才能开启最终投票。</p>}
       {pendingFinaleAction && <section className="finale-confirmation" role="dialog" aria-label="确认主持人终局操作"><div><small>请确认现场操作</small><strong>{pendingFinaleAction === 'open-voting' ? '开启新一轮最终投票' : pendingFinaleAction === 'close-voting' ? '关闭本轮最终投票' : '公布身份并结算全部积分'}</strong><p>{pendingFinaleAction === 'open-voting' ? '系统会关闭宾客注册并创建新一轮投票，每位宾客只能提交一次。' : pendingFinaleAction === 'close-voting' ? `当前已有 ${data.voteCount} 人投票。关闭后可检查结果，再决定是否公布结算。` : `当前已有 ${data.voteCount} 人投票。确认后将公开恶作剧者，并一次性结算个人、团队与第二阶段奖励。`}</p></div><div><button type="button" disabled={busy} onClick={() => void runFinaleAction(pendingFinaleAction)}>{busy ? '处理中…' : '确认执行'}</button><button type="button" className="secondary" disabled={busy} onClick={() => setPendingFinaleAction(null)}>取消</button></div></section>}
-      {data.game?.results_visible && <div className="control-state on">结算具有幂等保护，重复刷新不会再次加分。</div>}
+      {data.game?.results_visible && <><div className="control-state on">结算具有幂等保护，重复刷新不会再次加分。</div><section className="host-final-rankings" aria-label="最终积分排名"><div className="section-heading"><div><small>FINAL RANKING</small><h3>最终积分排名</h3></div></div><div className="host-team-ranking">{data.rankings.teams.filter((team) => TEAMS.includes(team.team as typeof TEAMS[number])).map((team, index) => <article key={team.team}><b>{index + 1}</b><div><strong>{team.team}</strong><small>团队挑战与终局奖励</small></div><span>{team.points} 分</span></article>)}</div><h4>个人积分 TOP {Math.min(10, data.rankings.personal.length)}</h4>{data.rankings.personal.length ? <ol className="host-personal-ranking">{data.rankings.personal.map((guest, index) => <li key={guest.id}><b>{String(index + 1).padStart(2, '0')}</b><div><strong>{guest.name}</strong><small>{guest.team} · 完成 {guest.completedTasks} 项任务</small></div><span>{guest.points} 分</span></li>)}</ol> : <div className="empty-state">尚无个人积分。</div>}</section></>}
     </section>}
   </main>;
 }
