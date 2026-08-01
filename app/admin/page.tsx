@@ -124,6 +124,7 @@ export default function AdminPage() {
   const [invitationCodeForm, setInvitationCodeForm] = useState({ code: '', confirm: '' });
   const [adminPasswordForm, setAdminPasswordForm] = useState({ password: '', confirm: '' });
   const [guestPhaseNote, setGuestPhaseNote] = useState('');
+  const [pendingStage, setPendingStage] = useState('');
   const [rosterImportText, setRosterImportText] = useState('');
   const [rosterImportConfirmed, setRosterImportConfirmed] = useState(false);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
@@ -280,18 +281,32 @@ export default function AdminPage() {
     });
   }
 
-  async function changeStage(stage: string) {
-    if (!data?.game || stage === data.game.stage || ['voting', 'results'].includes(stage)) return;
-    const transitionWarning = stage === 'task_round_2'
+  function stageTransitionWarning(stage: string) {
+    return stage === 'task_round_2'
       ? '系统会结束第一阶段、处理尚未配对的最终角色，并一次性创建第二阶段任务。'
       : stage === 'ceremony_end'
         ? '第一阶段任务提交和伙伴配对会重新开放，但第二阶段任务仍保持关闭。'
         : '系统会关闭当前投票、隐藏揭晓，并清空大屏上的上一题、公开线索和倒计时。';
-    if (!window.confirm(`切换到「${gameStageCopy(stage).label}」？${transitionWarning}已经结算的积分不会撤销。`)) return;
+  }
+
+  function requestStageChange(stage: string) {
+    if (!data?.game || stage === data.game.stage || ['voting', 'results'].includes(stage)) return;
+    setPendingStage(stage);
+  }
+
+  async function confirmStageChange() {
+    const stage = pendingStage;
+    if (!data?.game || !stage || stage === data.game.stage || ['voting', 'results'].includes(stage)) {
+      setPendingStage('');
+      return;
+    }
     const changed = await action({ type: 'setStage', stage }, `已切换到「${gameStageCopy(stage).label}」`);
-    if (changed && data.game.phase_note) {
-      const cleared = await action({ type: 'setGuestPhaseNote', note: '' }, '婚礼环节已切换，宾客端已恢复该阶段的默认提示');
-      if (cleared) setGuestPhaseNote('');
+    if (changed) {
+      setPendingStage('');
+      if (data.game.phase_note) {
+        const cleared = await action({ type: 'setGuestPhaseNote', note: '' }, '婚礼环节已切换，宾客端已恢复该阶段的默认提示');
+        if (cleared) setGuestPhaseNote('');
+      }
     }
   }
 
@@ -447,10 +462,11 @@ export default function AdminPage() {
       <article className="section-card"><div className="section-heading"><div><small>REGISTRATION</small><h2>宾客注册</h2></div><span className={data.game?.invitation_code_updated_at ? 'ready-badge' : 'warning-badge'}>{data.game?.invitation_code_updated_at ? '邀请码已设置' : '请更换示例码'}</span></div><p className="muted">首次进入由宾客自行设置四位密码，忘记后可在宾客列表中重置。开启最终投票时注册会自动关闭。</p><button disabled={busy || (!data.game?.registration_open && finaleActive)} onClick={() => action({ type: 'toggleRegistration', value: !data.game?.registration_open })}>{data.game?.registration_open ? '关闭注册' : finaleActive ? '终局期间不可开放' : '开放注册'}</button><div className={`control-state ${data.game?.registration_open ? 'on' : ''}`}>{data.game?.registration_open ? '● 注册开放中' : finaleActive ? '○ 注册已关闭 · 先切回常规环节才能开放' : '○ 注册已关闭'}</div><form onSubmit={rotateInvitationCode}><h3>更换共享邀请码</h3><p className="field-help">使用 6–32 位英文字母、数字或连字符。系统只保存哈希，保存后不会再次显示原码。</p><label htmlFor="invitation-code-new">新邀请码</label><input id="invitation-code-new" value={invitationCodeForm.code} onChange={(event) => setInvitationCodeForm({ ...invitationCodeForm, code: event.target.value.toUpperCase() })} minLength={6} maxLength={32} pattern="[A-Z0-9-]{6,32}" autoCapitalize="characters" autoComplete="off" required/><label htmlFor="invitation-code-confirm">再次输入</label><input id="invitation-code-confirm" value={invitationCodeForm.confirm} onChange={(event) => setInvitationCodeForm({ ...invitationCodeForm, confirm: event.target.value.toUpperCase() })} minLength={6} maxLength={32} pattern="[A-Z0-9-]{6,32}" autoCapitalize="characters" autoComplete="off" required/><button disabled={busy || invitationCodeForm.code.length < 6 || invitationCodeForm.code !== invitationCodeForm.confirm}>保存并替换旧邀请码</button></form></article>
       <article className="section-card">
         <div className="section-heading"><div><small>GAME STAGE</small><h2>当前流程</h2></div></div>
-        <div className="stage-flow-steps" aria-label="婚礼流程快捷切换">{LIVE_FLOW_STAGES.map((stage, index) => <button type="button" key={stage} className={data.game?.stage === stage ? 'current' : ''} disabled={busy || data.game?.stage === stage} onClick={() => void changeStage(stage)}><span>{String(index + 1).padStart(2, '0')}</span><strong>{gameStageCopy(stage).label.split(' · ')[1] || gameStageCopy(stage).label}</strong></button>)}</div>
+        <div className="stage-flow-steps" aria-label="婚礼流程快捷切换">{LIVE_FLOW_STAGES.map((stage, index) => <button type="button" key={stage} className={data.game?.stage === stage ? 'current' : pendingStage === stage ? 'pending' : ''} disabled={busy || data.game?.stage === stage} onClick={() => requestStageChange(stage)}><span>{String(index + 1).padStart(2, '0')}</span><strong>{gameStageCopy(stage).label.split(' · ')[1] || gameStageCopy(stage).label}</strong></button>)}</div>
         <label htmlFor="game-stage">切换婚礼环节</label>
-        <select id="game-stage" value={data.game?.stage || 'registration'} disabled={busy} onChange={(event) => void changeStage(event.target.value)}>{STAGES.map(([value, label]) => <option value={value} key={value} disabled={['voting', 'results'].includes(value)}>{label}{['voting', 'results'].includes(value) ? '（由下方按钮控制）' : ''}</option>)}</select>
+        <select id="game-stage" value={pendingStage || data.game?.stage || 'registration'} disabled={busy} onChange={(event) => requestStageChange(event.target.value)}>{STAGES.map(([value, label]) => <option value={value} key={value} disabled={['voting', 'results'].includes(value)}>{label}{['voting', 'results'].includes(value) ? '（由下方按钮控制）' : ''}</option>)}</select>
         <p className="field-help">“仪式结束”只恢复第一阶段提交；准备好晚宴任务后，再单独开启“第二阶段”。投票、身份揭晓与积分结算统一在“终局结算”操作。</p>
+        {pendingStage && <div className="stage-confirmation" role="alert" aria-live="assertive"><div><small>请确认流程切换</small><strong>{gameStageCopy(pendingStage).label}</strong><p>{stageTransitionWarning(pendingStage)}已经结算的积分不会撤销。</p></div><div><button type="button" disabled={busy} onClick={() => void confirmStageChange()}>{busy ? '正在切换…' : pendingStage === 'task_round_2' ? '确认开启第二阶段' : '确认切换流程'}</button><button type="button" className="secondary" disabled={busy} onClick={() => setPendingStage('')}>取消</button></div></div>}
         <div className="stage-default-preview"><small>宾客端默认提示</small><strong>{gameStageCopy(data.game?.stage).label}</strong><p>{gameStageCopy(data.game?.stage).note}</p></div>
         <form onSubmit={(event) => { event.preventDefault(); void action({ type: 'setGuestPhaseNote', note: guestPhaseNote }, guestPhaseNote.trim() ? '宾客端补充提示已更新' : '宾客端已恢复默认提示'); }}><label htmlFor="guest-phase-note">临时补充提示（选填）</label><textarea id="guest-phase-note" value={guestPhaseNote} onChange={(event) => setGuestPhaseNote(event.target.value)} maxLength={500} placeholder="例如：第一阶段延长五分钟，请完成后前往任务站核验。留空则只显示上方默认提示。"/><div className="form-grid"><button disabled={busy}>发布补充提示</button><button type="button" className="secondary" disabled={busy || !data.game?.phase_note} onClick={() => { void action({ type: 'setGuestPhaseNote', note: '' }, '宾客端已恢复当前阶段默认提示').then((ok) => { if (ok) setGuestPhaseNote(''); }); }}>恢复默认提示</button></div></form>
         <div className="control-buttons">
