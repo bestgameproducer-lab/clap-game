@@ -125,6 +125,7 @@ export default function AdminPage() {
   const [adminPasswordForm, setAdminPasswordForm] = useState({ password: '', confirm: '' });
   const [guestPhaseNote, setGuestPhaseNote] = useState('');
   const [pendingStage, setPendingStage] = useState('');
+  const [stageError, setStageError] = useState('');
   const [rosterImportText, setRosterImportText] = useState('');
   const [rosterImportConfirmed, setRosterImportConfirmed] = useState(false);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
@@ -237,7 +238,7 @@ export default function AdminPage() {
     finally { setBusy(false); }
   }
 
-  async function action(body: Record<string, unknown>, success = '操作已保存') {
+  async function action(body: Record<string, unknown>, success = '操作已保存', onError?: (message: string) => void) {
     setError(''); setMessage(''); setGeneratedHiddenCode(null); setBusy(true);
     try {
       const response = await fetch('/api/admin-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -246,7 +247,12 @@ export default function AdminPage() {
       setMessage(success);
       await load();
       return true;
-    } catch (cause) { setError(cause instanceof Error ? cause.message : '操作失败'); return false; }
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : '操作失败';
+      setError(message);
+      onError?.(message);
+      return false;
+    }
     finally { setBusy(false); }
   }
 
@@ -291,6 +297,7 @@ export default function AdminPage() {
 
   function requestStageChange(stage: string) {
     if (!data?.game || stage === data.game.stage || ['voting', 'results'].includes(stage)) return;
+    setStageError('');
     setPendingStage(stage);
   }
 
@@ -300,7 +307,12 @@ export default function AdminPage() {
       setPendingStage('');
       return;
     }
-    const changed = await action({ type: 'setStage', stage }, `已切换到「${gameStageCopy(stage).label}」`);
+    setStageError('');
+    const changed = await action(
+      { type: 'setStage', stage },
+      `已切换到「${gameStageCopy(stage).label}」`,
+      setStageError,
+    );
     if (changed) {
       setPendingStage('');
       if (data.game.phase_note) {
@@ -466,7 +478,7 @@ export default function AdminPage() {
         <label htmlFor="game-stage">切换婚礼环节</label>
         <select id="game-stage" value={pendingStage || data.game?.stage || 'registration'} disabled={busy} onChange={(event) => requestStageChange(event.target.value)}>{STAGES.map(([value, label]) => <option value={value} key={value} disabled={['voting', 'results'].includes(value)}>{label}{['voting', 'results'].includes(value) ? '（由下方按钮控制）' : ''}</option>)}</select>
         <p className="field-help">“仪式结束”只恢复第一阶段提交；准备好晚宴任务后，再单独开启“第二阶段”。投票、身份揭晓与积分结算统一在“终局结算”操作。</p>
-        {pendingStage && <div className="stage-confirmation" role="alert" aria-live="assertive"><div><small>请确认流程切换</small><strong>{gameStageCopy(pendingStage).label}</strong><p>{stageTransitionWarning(pendingStage)}已经结算的积分不会撤销。</p></div><div><button type="button" disabled={busy} onClick={() => void confirmStageChange()}>{busy ? '正在切换…' : pendingStage === 'task_round_2' ? '确认开启第二阶段' : '确认切换流程'}</button><button type="button" className="secondary" disabled={busy} onClick={() => setPendingStage('')}>取消</button></div></div>}
+        {pendingStage && <form className="stage-confirmation" role="alert" aria-live="assertive" onSubmit={(event) => { event.preventDefault(); void confirmStageChange(); }}><div><small>请确认流程切换</small><strong>{gameStageCopy(pendingStage).label}</strong><p>{stageTransitionWarning(pendingStage)}已经结算的积分不会撤销。</p>{stageError && <div className="notice error">切换失败：{stageError}</div>}</div><div><button type="submit" disabled={busy}>{busy ? '正在切换…' : pendingStage === 'task_round_2' ? '确认开启第二阶段' : '确认切换流程'}</button><button type="button" className="secondary" disabled={busy} onClick={() => { setPendingStage(''); setStageError(''); }}>取消</button></div></form>}
         <div className="stage-default-preview"><small>宾客端默认提示</small><strong>{gameStageCopy(data.game?.stage).label}</strong><p>{gameStageCopy(data.game?.stage).note}</p></div>
         <form onSubmit={(event) => { event.preventDefault(); void action({ type: 'setGuestPhaseNote', note: guestPhaseNote }, guestPhaseNote.trim() ? '宾客端补充提示已更新' : '宾客端已恢复默认提示'); }}><label htmlFor="guest-phase-note">临时补充提示（选填）</label><textarea id="guest-phase-note" value={guestPhaseNote} onChange={(event) => setGuestPhaseNote(event.target.value)} maxLength={500} placeholder="例如：第一阶段延长五分钟，请完成后前往任务站核验。留空则只显示上方默认提示。"/><div className="form-grid"><button disabled={busy}>发布补充提示</button><button type="button" className="secondary" disabled={busy || !data.game?.phase_note} onClick={() => { void action({ type: 'setGuestPhaseNote', note: '' }, '宾客端已恢复当前阶段默认提示').then((ok) => { if (ok) setGuestPhaseNote(''); }); }}>恢复默认提示</button></div></form>
         <div className="control-buttons">
