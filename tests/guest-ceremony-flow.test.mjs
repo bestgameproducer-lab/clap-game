@@ -40,6 +40,9 @@ test('stage changes use an in-page confirmation instead of a fragile browser dia
 
   assert.match(stageFlow, /setPendingStage\(stage\)/);
   assert.match(stageFlow, /confirmStageChange/);
+  assert.match(admin, /<form className="stage-confirmation"/);
+  assert.match(admin, /type="submit"/);
+  assert.match(admin, /切换失败：\{stageError\}/);
   assert.doesNotMatch(stageFlow, /window\.confirm/);
   assert.match(admin, /role="alert" aria-live="assertive"/);
   assert.match(admin, /确认开启第二阶段/);
