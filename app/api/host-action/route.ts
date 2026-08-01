@@ -1,7 +1,7 @@
 import { requireAdmin } from '@/lib/auth';
-import { adjustHostGuestPoints, adjustHostTeamPoints } from '@/lib/data/host';
+import { adjustHostGuestPoints, adjustHostTeamPoints, setHostFinaleFlag } from '@/lib/data/host';
 import { ApiError, apiErrorResponse, noStoreJson } from '@/lib/errors';
-import { assertSameOrigin, readJsonObject, requiredInteger, requiredString, requiredUuid } from '@/lib/validation';
+import { assertSameOrigin, readJsonObject, requiredBoolean, requiredInteger, requiredString, requiredUuid } from '@/lib/validation';
 
 export async function POST(request: Request) {
   try {
@@ -26,6 +26,14 @@ export async function POST(request: Request) {
         eventKey: requiredUuid(body.eventKey, '幂等事件 ID'),
       }, actor);
       return noStoreJson({ ok: true, total });
+    }
+    if (type === 'toggleVoting') {
+      await setHostFinaleFlag('voting_open', requiredBoolean(body.value, '投票状态'), actor);
+      return noStoreJson({ ok: true });
+    }
+    if (type === 'publishResults') {
+      await setHostFinaleFlag('results_visible', true, actor);
+      return noStoreJson({ ok: true });
     }
     throw new ApiError(400, '未知操作');
   } catch (error) { return apiErrorResponse(error); }
