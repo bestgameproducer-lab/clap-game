@@ -37,8 +37,8 @@ function ensureHostDatabaseError(error: { message: string } | null, fallback: st
   if (error.message.includes('voting_stage_not_ready')) throw new ApiError(409, '请先在主持人流程台切换到团队挑战，再开启最终投票');
   if (error.message.includes('no_drawn_guests')) throw new ApiError(409, '尚无宾客完成抽卡，不能开启最终投票');
   if (error.message.includes('phase_two_team_scores_missing')) throw new ApiError(409, '请先记录海岛组或沙漠组的团队成绩，再开启最终投票');
-  if (error.message.includes('phase_two_team_spy_missing')) throw new ApiError(409, '每个竞技组都必须已经产生一位恶作剧者');
-  if (error.message.includes('phase_two_team_clues_missing')) throw new ApiError(409, '本队恶作剧者线索不足，请先在主办方后台补齐');
+  if (error.message.includes('phase_two_team_spy_missing')) throw new ApiError(409, '海岛组和沙漠组必须各有 1 名已抽卡的恶作剧者；请先让主办方完成抽卡或修正预设身份');
+  if (error.message.includes('phase_two_team_clues_missing')) throw new ApiError(409, '海岛组和沙漠组都至少需要 2 条启用线索；请让主办方先补齐团队线索');
   if (error.message.includes('team_clue_settlement_stage_not_ready')) throw new ApiError(409, '请先切换到团队挑战，再结算团队积分与线索');
   if (error.message.includes('team_clues_not_settled')) throw new ApiError(409, '请先结算团队积分并自动发放线索，再开启最终投票');
   if (error.message.includes('team_scores_already_settled')) throw new ApiError(409, '团队积分已经结算，不能继续加分');
@@ -48,15 +48,16 @@ function ensureHostDatabaseError(error: { message: string } | null, fallback: st
 
 export async function getHostDashboardData() {
   const db = getSupabaseAdmin();
-  const [guests, teamPoints, personalPoints, game, votes, assignments] = await Promise.all([
+  const [guests, teamPoints, personalPoints, game, votes, assignments, clues] = await Promise.all([
     db.from('guests').select('id,name,team,role,is_hidden_spy,points,participation_mode,special_card_title,eligible_for_personal_score,drawn_at').eq('active', true).eq('uses_app', true).order('team').order('name'),
     db.from('team_points_ledger').select('id,team,amount,reason,created_at').order('created_at', { ascending: false }),
     db.from('points_ledger').select('id,guest_id,amount,reason,created_at,guest:guests(id,name)').is('assignment_id', null).order('created_at', { ascending: false }).limit(50),
     db.from('game_state').select('stage,voting_open,voting_round,results_visible,team_clues_settled_at').eq('id', 1).single(),
     db.from('votes').select('id,voting_round'),
     db.from('assignments').select('guest_id,status').eq('status', 'approved'),
+    db.from('clues').select('team_scope,active').eq('active', true).in('team_scope', ['海岛组', '沙漠组']),
   ]);
-  const error = guests.error ?? teamPoints.error ?? personalPoints.error ?? game.error ?? votes.error ?? assignments.error;
+  const error = guests.error ?? teamPoints.error ?? personalPoints.error ?? game.error ?? votes.error ?? assignments.error ?? clues.error;
   if (error) throw new Error(`Unable to load host data: ${error.message}`);
   const votingRound = game.data?.voting_round ?? 0;
   const eligibleGuests = (guests.data ?? [])
@@ -73,6 +74,8 @@ export async function getHostDashboardData() {
     guests: guests.data ?? [], teamPoints: teamPoints.data ?? [], personalPoints: personalPoints.data ?? [],
     game: game.data,
     voteCount: (votes.data ?? []).filter((vote) => vote.voting_round === votingRound).length,
+    teamClueCounts: Object.fromEntries(['海岛组', '沙漠组'].map((team) => [team,
+      (clues.data ?? []).filter((clue) => clue.team_scope === team).length])),
     rankings: { personal: rankings.leaders, teams: rankings.teams },
   };
 }
