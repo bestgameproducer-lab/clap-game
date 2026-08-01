@@ -61,7 +61,8 @@ test('host finale mutations reuse the server-authoritative idempotent settlement
   assert.match(data, /rpc\('set_game_flag'/);
   assert.match(page, /确认主持人终局操作/);
   assert.match(page, /结算具有幂等保护/);
-  assert.match(page, /data\.game\?\.stage !== 'team_game'/);
+  assert.match(page, /data\.game\?\.stage !== 'group_game'/);
+  assert.doesNotMatch(page, /team_game/);
 });
 
 test('host flow controls use only manual wedding stages and require confirmation', () => {
@@ -71,4 +72,12 @@ test('host flow controls use only manual wedding stages and require confirmation
   assert.match(page, /已经结算的积分不会撤销/);
   assert.match(data, /setHostGameStage/);
   assert.match(data, /rpc\('set_game_stage'/);
+});
+
+test('host can enter team challenge and immediately unlock the final vote', () => {
+  assert.match(page, /HOST_STAGE_OPTIONS/);
+  assert.match(page, /runStageChange\(pendingStage\)/);
+  assert.match(page, /data\.game\?\.stage !== 'group_game'/);
+  assert.match(page, /请先在上方把婚礼流程切换到“团队挑战”/);
+  assert.match(data, /请先在主持人流程台切换到团队挑战/);
 });
