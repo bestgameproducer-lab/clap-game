@@ -39,7 +39,8 @@ test('终局结算按颁奖、投票、结算和核对流水引导', async () =>
   const ledger = finale.indexOf('发放奖项并核对流水');
   assert.ok(awards >= 0 && voting > awards && settlement > voting && ledger > settlement);
   assert.match(finale, /onClick=\{toggleVoting\}/);
-  assert.match(finale, /onClick=\{toggleResults\}/);
+  assert.match(finale, /onClick=\{requestResultsToggle\}/);
+  assert.match(finale, /confirmResultsToggle/);
   assert.match(finale, /投票、队伍奖励和第二阶段能力积分/);
   assert.match(finale, /id="final-awards"/);
   assert.match(finale, /id="final-points-ledger"/);

@@ -180,7 +180,7 @@ export async function getGuestView(guestId: string) {
   }
   const results = await Promise.all([
     db.from('assignments').select('id,status,is_initial,completion_rank,early_bonus_points,reward_task_id,reward_clue_id,completion_note,verification_note,verified_at,evidence_path,evidence_uploaded_at,rejection_reason,task:tasks!assignments_task_id_fkey(title,description,verification_method,points,category,stage,mission_code,mechanic,score_policy)').eq('guest_id', guestId).neq('status', 'cancelled').order('created_at', { ascending: false }).order('id', { ascending: false }),
-    db.from('guest_clues').select('id,clue:clues(title,content)').eq('guest_id', guestId),
+    db.from('guest_clues').select('id,clue:clues(title,content,group_name)').eq('guest_id', guestId),
     db.from('guests').select('id,name,team').eq('team', guest.team).not('drawn_at', 'is', null).order('name'),
     db.from('votes').select('target_guest_id').eq('voter_guest_id', guestId).eq('voting_round', game.voting_round).maybeSingle(),
     db.from('symbol_pairing_assignments').select('symbol,status,fragment_side,partner_guest_id,pending_relationship_id,finalized_at').eq('guest_id', guestId).maybeSingle(),
@@ -263,10 +263,11 @@ export async function getGuestView(guestId: string) {
     assignments: signedVisibleAssignments,
     pointLedger: buildGuestPointLedger(pointLedgerResult.data ?? [], results[0].data ?? [], game.results_visible),
     teamScores: teamScoresVisible ? buildGuestTeamScores(teamPointResult.data ?? []) : [],
-    clues: (results[1].data ?? []).map((item: { id: string; clue: { title: string; content: string } | { title: string; content: string }[] | null }) => ({
+    clues: (results[1].data ?? []).map((item: { id: string; clue: { title: string; content: string; group_name: string } | { title: string; content: string; group_name: string }[] | null }) => ({
       id: item.id,
       title: Array.isArray(item.clue) ? item.clue[0]?.title : item.clue?.title,
       content: Array.isArray(item.clue) ? item.clue[0]?.content : item.clue?.content,
+      groupName: Array.isArray(item.clue) ? item.clue[0]?.group_name : item.clue?.group_name,
     })),
     game,
     candidates: results[2].data ?? [],

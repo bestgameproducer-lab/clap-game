@@ -43,12 +43,11 @@ test('private clue targeting metadata stays out of guest, station, and public DT
   }
 });
 
-test('admin clue saves validate target and level server-side', async () => {
+test('admin clue saves validate simple grouped content server-side', async () => {
   const route = await readFile(new URL('../app/api/admin-action/route.ts', import.meta.url), 'utf8');
   const page = await readFile(new URL('../app/admin/page.tsx', import.meta.url), 'utf8');
-  assert.match(route, /spyGuestId: body\.spyGuestId \? requiredUuid\(body\.spyGuestId, '对应间谍'\) : null/);
-  assert.match(route, /level: requiredInteger\(body\.level, '线索等级', 1, 3\)/);
-  assert.match(page, /每位间谍已有专属线索/);
-  assert.match(page, /一级 · 模糊/);
-  assert.match(page, /三级 · 接近答案/);
+  assert.match(route, /groupName: requiredString\(body\.groupName, '线索分组', 60\)/);
+  assert.match(page, /线索只需要分组、名称和内容/);
+  assert.match(page, /<optgroup/);
+  assert.doesNotMatch(page, /id="clue-spy"/);
 });

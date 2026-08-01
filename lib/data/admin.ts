@@ -91,7 +91,7 @@ export async function getAdminDashboardData() {
     db.from('assignments').select('id,status,completion_note,evidence_path,evidence_uploaded_at,submitted_at,guest:guests(id,name),task:tasks!assignments_task_id_fkey(id,title,verification_method,points)').eq('status', 'submitted'),
     db.from('votes').select('id,voter_guest_id,target_guest_id,voting_round,vote_weight,created_at,voter:guests!votes_voter_guest_id_fkey(id,name,team),target:guests!votes_target_guest_id_fkey(id,name,team)'),
     db.from('game_state').select('id,registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note,display_title,display_body,public_clue,timer_ends_at,invitation_code_updated_at,task_catalog_mode,trickster_max_attempts,phase_one_completed_at,updated_at').eq('id', 1).single(),
-    db.from('clues').select('id,title,content,active,spy_guest_id,level,created_at,spy:guests!clues_spy_guest_id_fkey(id,name,team)').order('level').order('created_at'),
+    db.from('clues').select('id,title,content,group_name,active,spy_guest_id,level,created_at,spy:guests!clues_spy_guest_id_fkey(id,name,team)').order('group_name').order('created_at'),
     db.from('guest_clues').select('id,guest_id,clue_id,created_at,guest:guests(id,name),clue:clues(id,title)').order('created_at', { ascending: false }).limit(50),
     db.from('points_ledger').select('id,guest_id,amount,reason,actor,created_at,guest:guests(id,name)').order('created_at', { ascending: false }).limit(50),
     db.from('audit_log').select('id,actor,action,target_type,target_id,details,created_at').order('created_at', { ascending: false }).limit(50),
@@ -413,10 +413,10 @@ export async function saveGameTask(input: SavedTask, actor: string) {
   ensureNoDatabaseError(error, 'Unable to save task');
 }
 
-export async function saveGameClue(input: { id: string | null; title: string; content: string; active: boolean; spyGuestId: string | null; level: number }, actor: string) {
-  const { error } = await getSupabaseAdmin().rpc('save_game_clue', {
-    p_clue_id: input.id, p_title: input.title, p_content: input.content, p_active: input.active,
-    p_spy_guest_id: input.spyGuestId, p_level: input.level, p_actor: actor,
+export async function saveGameClue(input: { id: string | null; title: string; content: string; groupName: string }, actor: string) {
+  const { error } = await getSupabaseAdmin().rpc('save_game_clue_v2', {
+    p_clue_id: input.id, p_title: input.title, p_content: input.content,
+    p_group_name: input.groupName, p_actor: actor,
   });
   ensureNoDatabaseError(error, 'Unable to save clue');
 }

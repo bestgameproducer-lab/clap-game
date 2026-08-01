@@ -34,7 +34,8 @@ test('重复登录使用设备凭证且退出个人身份时保留', async () =>
   assert.doesNotMatch(logoutRoute, /invitation_device_pass|INVITATION_DEVICE_COOKIE/);
   assert.match(guestPage, /fetch\('\/api\/registration\/guests', \{ cache: 'no-store' \}\)/);
   assert.match(guestPage, /body: JSON\.stringify\(\{ loginName: selectedGuest\.loginName, claimCode \}\)/);
-  assert.doesNotMatch(guestPage, /localStorage[\s\S]*(invitation|invite)/i);
+  assert.doesNotMatch(guestPage, /localStorage\.(?:setItem|getItem)\([^\n]*(invitation|invite)/i);
+  assert.match(guestPage, /ACTIVITY_ACK_KEY/);
 });
 
 test('邀请码更换后旧设备凭证会失效', async () => {

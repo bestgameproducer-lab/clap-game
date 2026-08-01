@@ -9,6 +9,7 @@ import { isPlayerCode, normalizePlayerCode } from '@/lib/player-code';
 import { useLiveRefresh } from '@/lib/use-live-refresh';
 
 const GUEST_CACHE_KEY = 'wedding-guest-session-cache-v1';
+const ACTIVITY_ACK_KEY = 'wedding-guest-activity-ack-v1';
 const PENDING_CONNECTION_MESSAGE = '你的编号确认已提交，等待对方输入你的玩家编号。';
 const PENDING_ASSIGNMENT_MESSAGE = '任务已送到丘比特任务站，等待主办方确认。';
 const PENDING_VOTE_MESSAGE = '投票已提交并锁定。结果公布后会自动结算侦探积分。';
@@ -29,7 +30,7 @@ type PendingNotice =
 type GuestData = {
   guest: { id: string; name: string; team: string; role: string; is_hidden_spy: boolean; points: number; drawn_at: string | null; special_card_revealed_at: string | null; participation_mode: 'ACTIVE_PLAYER' | 'HONOR_GUEST' | 'PRINCIPAL'; relationship: string; story_role: string; eligible_for_mission: boolean; eligible_for_secret_role: boolean; eligible_for_personal_score: boolean; special_card_title: string; special_card_body: string; player_code: string; unlocked_role: string };
   assignments: Array<{ id: string; status: string; is_initial: boolean; completion_rank: number | null; early_bonus_points: number; reward_task_id: string | null; reward_clue_id: string | null; completion_note: string; verification_note: string; verified_at: string | null; evidence_uploaded_at: string | null; evidence_url: string | null; rejection_reason: string | null; task: { title: string; description: string; verification_method: string; points: number; category: string; stage: string; mission_code: string | null; mechanic: string; score_policy: string } }>;
-  clues: Array<{ id: string; title: string; content: string }>;
+  clues: Array<{ id: string; title: string; content: string; groupName: string }>;
   game: { registration_open: boolean; stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null; task_catalog_mode: 'demo' | 'live'; trickster_max_attempts: number; phase_one_completed_at: string | null } | null;
   candidates: Array<{ id: string; name: string; team: string }>;
   existingVote: string | null;
@@ -99,6 +100,15 @@ function CardScene({ className, label, disabled = false, onActivate, children }:
   return <div className={className}>{children}</div>;
 }
 
+function activityFingerprint(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 export default function GuestPage() {
   const [data, setData] = useState<GuestData | null>(null);
   const [scoreLedgerOpen, setScoreLedgerOpen] = useState(false);
@@ -121,7 +131,8 @@ export default function GuestPage() {
   const [offlineReady, setOfflineReady] = useState(false);
   const [manualRefreshing, setManualRefreshing] = useState(false);
   const [refreshNotice, setRefreshNotice] = useState('');
-  const [contentNotice, setContentNotice] = useState<{ title: string; detail: string } | null>(null);
+  const [contentNotice, setContentNotice] = useState<{ title: string; detail: string; signature: string } | null>(null);
+  const [selectedVoteTargetId, setSelectedVoteTargetId] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [pendingNotice, setPendingNotice] = useState<PendingNotice | null>(null);
@@ -156,8 +167,9 @@ export default function GuestPage() {
             .filter((confirmation: { direction: string; status: string }) => confirmation.direction === 'INCOMING' && confirmation.status === 'PENDING')
             .map((confirmation: { id: string }) => confirmation.id),
         };
+        const activitySignature = activityFingerprint(JSON.stringify(nextSnapshot));
         const previousSnapshot = contentSnapshotRef.current;
-        let nextNotice: { title: string; detail: string } | null = null;
+        let nextNotice: { title: string; detail: string; signature: string } | null = null;
         if (previousSnapshot && previousSnapshot.guestId === nextSnapshot.guestId) {
           const newAssignment = nextData.assignments.find((assignment: GuestData['assignments'][number]) => ['assigned', 'rejected'].includes(assignment.status) && !previousSnapshot.assignmentIds.includes(assignment.id) && !(nextData.guest.role === 'spy' && assignment.task.category === 'hidden'));
           const updatedAssignment = nextData.assignments.find((assignment: GuestData['assignments'][number]) => previousSnapshot.assignmentStatuses[assignment.id] && previousSnapshot.assignmentStatuses[assignment.id] !== assignment.status && ['approved', 'rejected'].includes(assignment.status));
@@ -165,16 +177,27 @@ export default function GuestPage() {
           const newConfirmation = (nextData.missionStory?.mutualConfirmations ?? []).find((confirmation: { id: string; direction: string; status: string; otherGuestName: string }) => confirmation.direction === 'INCOMING' && confirmation.status === 'PENDING' && !previousSnapshot.confirmationIds.includes(confirmation.id));
           if (previousSnapshot.stage !== nextSnapshot.stage) {
             const stageCopy = gameStageCopy(nextSnapshot.stage);
-            nextNotice = { title: `已进入「${stageCopy.label}」`, detail: nextSnapshot.phaseNote || stageCopy.note };
+            nextNotice = { title: `已进入「${stageCopy.label}」`, detail: nextSnapshot.phaseNote || stageCopy.note, signature: activitySignature };
           } else if (updatedAssignment) {
             nextNotice = {
               title: '你的任务已更新',
               detail: `${updatedAssignment.task.title} · ${STATUS_LABELS[updatedAssignment.status] ?? '状态已更新'}`,
+              signature: activitySignature,
             };
-          } else if (newAssignment) nextNotice = { title: '你收到了一项新任务', detail: newAssignment.task.title };
-          else if (newClue) nextNotice = { title: '一条新的秘密线索已经解锁', detail: newClue.title };
-          else if (newConfirmation) nextNotice = { title: '你收到了一项好友确认请求', detail: `${newConfirmation.otherGuestName} 正在等待你的确认` };
-          else if (previousSnapshot.phaseNote !== nextSnapshot.phaseNote && nextSnapshot.phaseNote) nextNotice = { title: '主办方发布了新的现场提示', detail: nextSnapshot.phaseNote };
+          } else if (newAssignment) nextNotice = { title: '你收到了一项新任务', detail: newAssignment.task.title, signature: activitySignature };
+          else if (newClue) nextNotice = { title: '一条新的秘密线索已经解锁', detail: newClue.title, signature: activitySignature };
+          else if (newConfirmation) nextNotice = { title: '你收到了一项好友确认请求', detail: `${newConfirmation.otherGuestName} 正在等待你的确认`, signature: activitySignature };
+          else if (previousSnapshot.phaseNote !== nextSnapshot.phaseNote && nextSnapshot.phaseNote) nextNotice = { title: '主办方发布了新的现场提示', detail: nextSnapshot.phaseNote, signature: activitySignature };
+        } else {
+          try {
+            const guestKey = activityFingerprint(nextSnapshot.guestId);
+            const saved = JSON.parse(window.localStorage.getItem(ACTIVITY_ACK_KEY) || 'null') as { guestKey?: string; signature?: string } | null;
+            if (saved?.guestKey === guestKey && saved.signature && saved.signature !== activitySignature) {
+              nextNotice = { title: '你离开期间有新的活动', detail: '任务、线索或婚礼环节已有更新，请查看最新内容。', signature: activitySignature };
+            } else if (!saved || saved.guestKey !== guestKey) {
+              window.localStorage.setItem(ACTIVITY_ACK_KEY, JSON.stringify({ guestKey, signature: activitySignature }));
+            }
+          } catch {}
         }
         contentSnapshotRef.current = nextSnapshot;
         if (nextNotice) setContentNotice(nextNotice);
@@ -452,7 +475,6 @@ export default function GuestPage() {
   }
 
   async function vote(targetGuestId: string) {
-    if (!window.confirm('每位宾客本轮只能投一次，提交后不能修改。确认投给这位宾客吗？')) return;
     setError(''); setBusy(true);
     try {
       const response = await fetch('/api/vote', {
@@ -462,10 +484,20 @@ export default function GuestPage() {
       if (!response.ok) { setError(body.error || '投票失败'); return; }
       const votingRound = data?.game?.voting_round ?? 0;
       await load();
+      setSelectedVoteTargetId('');
       setPendingNotice({ kind: 'VOTE_RESULT', votingRound });
       setMessage(PENDING_VOTE_MESSAGE);
     } catch { setOffline(true); setError('当前处于离线状态，投票尚未保存，请联网后重试。'); }
     finally { setBusy(false); }
+  }
+
+  function acknowledgeContentNotice() {
+    if (contentNotice && data?.guest.id) {
+      try {
+        window.localStorage.setItem(ACTIVITY_ACK_KEY, JSON.stringify({ guestKey: activityFingerprint(data.guest.id), signature: contentNotice.signature }));
+      } catch {}
+    }
+    setContentNotice(null);
   }
 
   async function logout() {
@@ -712,6 +744,7 @@ export default function GuestPage() {
   const readerAssignments = usesTricksterFacade ? trueTricksterAssignments : data.assignments;
   const pointLedger = data.pointLedger ?? [];
   const teamScores = data.teamScores ?? [];
+  const guestClueGroups = Array.from(new Set(data.clues.map((clue) => clue.groupName || '通用线索'))).map((name) => ({ name, clues: data.clues.filter((clue) => (clue.groupName || '通用线索') === name) }));
 
   function renderMutualConfirmation(assignment: GuestData['assignments'][number]) {
     if (!['P1-SOCIAL-001', 'P1-SOCIAL-002'].includes(assignment.task.mission_code || '') || !['assigned', 'rejected'].includes(assignment.status)) return null;
@@ -780,7 +813,9 @@ export default function GuestPage() {
     const labels: Record<string, string> = { LOVE: '爱', HATE: '恨', TOGETHER: '同行', TAKE_ALL: '独占' };
     if (dilemma?.settled) return <div className="phase-two-choice-state settled"><strong>双方选择已经揭晓</strong><span>你选择「{labels[dilemma.myChoice ?? '']}」· 获得 {dilemma.myPoints ?? 0} 分</span><span>伙伴选择「{labels[dilemma.partnerChoice ?? '']}」· 获得 {dilemma.partnerPoints ?? 0} 分</span></div>;
     if (dilemma?.submitted) return <div className="phase-two-choice-state"><strong>你的选择已密封保存</strong><span>等待伙伴提交后，系统才会同时揭晓结果。</span><small>任何人都不能提前查看或修改选择。</small></div>;
-    return <div className="phase-two-action"><strong>{isHeart ? '爱与恨的秘密选择' : '星光秘密选择'}</strong><p>先选一项，再确认提交。提交后不能修改；伙伴提交前不会看到你的选择。</p>{!isHeart && <section className="phase-two-payoff" aria-label="星光抉择积分规则"><strong>积分规则 · 先看清再选择</strong><div><span>双方都选「同行」</span><b>各得 3 分</b></div><div><span>你选「同行」，伙伴选「独占」</span><b>你 0 分 · 伙伴 5 分</b></div><div><span>你选「独占」，伙伴选「同行」</span><b>你 5 分 · 伙伴 0 分</b></div><div><span>双方都选「独占」</span><b>各得 1 分</b></div><p>「同行」更稳；「独占」可能拿到 5 分，但如果双方都想独占，就只能各得 1 分。</p></section>}<div className="phase-two-choice-buttons">{choices.map((choice) => <button type="button" className={phaseTwoDilemmaChoice === choice.value ? 'selected' : ''} disabled={busy || offline || !actionOpen} key={choice.value} onClick={() => setPhaseTwoDilemmaChoice(choice.value)}>{choice.label}</button>)}</div><button disabled={busy || offline || !actionOpen || !phaseTwoDilemmaChoice} onClick={() => void submitPhaseTwoAction({ action: 'dilemma', choice: phaseTwoDilemmaChoice }, PENDING_DILEMMA_MESSAGE)}>确认提交 · 不可修改</button></div>;
+    const cooperative = isHeart ? '爱' : '同行';
+    const selfish = isHeart ? '恨' : '独占';
+    return <div className="phase-two-action"><strong>{isHeart ? '爱与恨的秘密选择' : '星光秘密选择'}</strong><div className="phase-two-secret-warning"><strong>必须秘密选择 · 不能商量</strong><p>请独立作出决定，不要询问、暗示或约定彼此的选择。</p></div><section className="phase-two-payoff" aria-label={`${isHeart ? '爱与恨' : '星光'}抉择积分规则`}><strong>积分规则 · 先看清再选择</strong><div><span>双方都选「{cooperative}」</span><b>各得 3 分</b></div><div><span>你选「{cooperative}」，伙伴选「{selfish}」</span><b>你 0 分 · 伙伴 5 分</b></div><div><span>你选「{selfish}」，伙伴选「{cooperative}」</span><b>你 5 分 · 伙伴 0 分</b></div><div><span>双方都选「{selfish}」</span><b>各得 1 分</b></div><p>选择合作更稳；选择「{selfish}」可能拿到 5 分，但双方都这样选时只能各得 1 分。</p></section><div className="phase-two-choice-buttons">{choices.map((choice) => <button type="button" className={phaseTwoDilemmaChoice === choice.value ? 'selected' : ''} disabled={busy || offline || !actionOpen} key={choice.value} onClick={() => setPhaseTwoDilemmaChoice(choice.value)}>{choice.label}</button>)}</div><button disabled={busy || offline || !actionOpen || !phaseTwoDilemmaChoice} onClick={() => void submitPhaseTwoAction({ action: 'dilemma', choice: phaseTwoDilemmaChoice }, PENDING_DILEMMA_MESSAGE)}>确认提交 · 不可修改</button></div>;
   }
 
   if (usesTricksterFacade && secretReaderOpen) return <main className="trickster-private-shell">
@@ -816,6 +851,7 @@ export default function GuestPage() {
     </section>
     {offline && <div className="connection-banner offline" role="status">离线只读模式 · 已显示最近同步的任务，提交和投票暂不可用</div>}
     {message && <div className="notice success" aria-live="polite">{message}</div>}{error && <div className="notice error" aria-live="polite">{error}</div>}
+    {isActivePlayer && data.phaseTwo?.isCaptain && data.phaseTwo.unlockedAt && <section className="captain-public-note"><small>LEADING STAR</small><strong>你是本队的领航星队长</strong><p>这是可以公开的身份。你可以主动告诉队友，并在团队环节组织协作。</p></section>}
     {isActivePlayer && data.game?.stage === 'task_round_1' && <div className="connection-banner ceremony-pause" role="status">婚礼仪式进行中 · 照片上传、任务提交和玩家确认暂时暂停，仪式结束后会自动恢复。</div>}
     {teamScores.length > 0 && <section className="section-card guest-team-score-card"><div className="section-heading"><div><small>TEAM SCORE</small><h2>团队实时积分</h2></div><span>LIVE</span></div><p className="muted">团队环节已开放，分数会随主持人现场计分自动更新。</p><div className="guest-team-score-grid">{teamScores.map((team, index) => <article className={team.team === data.guest.team ? 'mine' : ''} key={team.team}><small>第 {index + 1} 名</small><strong>{team.team}</strong><b>{team.points} 分</b>{team.team === data.guest.team && <span>我的团队</span>}</article>)}</div></section>}
     {rankedReward && <section className="reward-banner"><small>EARLY COMPLETION HONOR</small><strong>你是第 {rankedReward.completion_rank} 位完成首轮任务的宾客</strong><p>{rankedReward.reward_task_id && rankedReward.reward_clue_id ? `升级任务、${rankedReward.early_bonus_points ? '额外 1 分和' : ''}一条秘密线索已经发放。` : rankedReward.reward_task_id ? '升级任务已经发放，将在第二轮开放。' : '你的首轮任务已经记录。'}</p></section>}
@@ -825,8 +861,8 @@ export default function GuestPage() {
       {data.game?.task_catalog_mode === 'demo' && <div className="demo-task-note"><strong>当前是演示任务</strong><p>用于测试领取、提交和审核流程，不代表婚礼当天的最终任务设计。</p></div>}
       {dashboardAssignments.length === 0 ? <div className="empty-state">抽卡后，你领取的第一项任务会立即显示在这里。</div> : dashboardAssignments.map((assignment, index) => <details className="mission-item" key={assignment.id} open={expandedAssignments[assignment.id] ?? false} onToggle={(event) => { const open = event.currentTarget.open; setExpandedAssignments((current) => current[assignment.id] === open ? current : { ...current, [assignment.id]: open }); }}><summary className="mission-summary"><span className="mission-number">{String(index + 1).padStart(2, '0')}</span><span className="mission-summary-copy"><span className="mission-meta"><span>{assignment.task.points} 分</span><span className={`status ${assignment.status}`}>{STATUS_LABELS[assignment.status] ?? assignment.status}</span></span><strong>{assignment.task.title}</strong></span><span className="mission-chevron" aria-hidden="true"><span/></span></summary><div className="mission-body"><p>{assignment.task.description}</p>{!isTaskActionOpenAtStage(assignment.task.stage, data.game?.stage) && (assignment.status === 'assigned' || assignment.status === 'rejected') && <div className="task-feedback">{isTaskPausedDuringCeremony(assignment.task.stage, data.game?.stage) ? '婚礼仪式进行中，照片上传和任务提交暂时暂停；仪式结束后会自动恢复。' : isTaskWaitingForStage(assignment.task.stage, data.game?.stage) ? '这项任务将在相应婚礼环节开放，请先记住任务内容。' : '本环节已停止提交；如需补录，请到任务站联系工作人员。'}</div>}<div className="verification-note"><strong>如何验证</strong><span>{assignment.task.verification_method}</span></div>{renderSymbolPairing(assignment)}{renderMutualConfirmation(assignment)}{renderPhaseTwoAction(assignment)}{assignment.evidence_url && <figure className="evidence-preview"><a href={assignment.evidence_url} target="_blank" rel="noreferrer"><img src={assignment.evidence_url} alt={`${assignment.task.title}的验证照片`} loading="lazy"/></a><figcaption>验证照片 · 仅你和工作人员可见</figcaption></figure>}{isTaskActionOpenAtStage(assignment.task.stage, data.game?.stage) && (assignment.status === 'assigned' || assignment.status === 'rejected') && assignment.task.mechanic === 'STANDARD' && <div className="evidence-controls"><label htmlFor={`evidence-${assignment.id}`}>{assignment.evidence_url ? '更换验证照片' : assignment.task.mission_code === 'P1-SOCIAL-001' ? '选择或拍摄合影' : '添加验证照片（选填）'}</label><input id={`evidence-${assignment.id}`} type="file" accept="image/*" disabled={offline || evidenceBusyId === assignment.id} onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void uploadEvidence(assignment.id, file); }}/>{assignment.evidence_url && <button type="button" className="text-button" disabled={offline || evidenceBusyId === assignment.id} onClick={() => { if (window.confirm('删除这张验证照片？')) void removeEvidence(assignment.id); }}>删除照片</button>}{evidenceBusyId === assignment.id && <small>正在压缩并安全上传…</small>}</div>}{assignment.completion_note && <div className="submission-note"><strong>我的完成说明</strong><span>{assignment.completion_note}</span></div>}{assignment.status === 'approved' && assignment.verification_note && <div className="submission-note approved"><strong>任务站核验记录</strong><span>{assignment.verification_note}</span></div>}{assignment.status === 'rejected' && <div className="task-feedback">任务站留言：{assignment.rejection_reason || '请补充验证后再次提交。'}</div>}{isTaskActionOpenAtStage(assignment.task.stage, data.game?.stage) && (assignment.status === 'assigned' || assignment.status === 'rejected') && !['HEART_MATCH','STAR_MATCH','TRICKSTER_SIGNAL','INSTANT_BONUS','SECRET_DILEMMA','COPY_SCORE','TEAM_CAPTAIN','TRICKSTER_MISSION'].includes(assignment.task.mechanic) && <div className="submission-form"><label htmlFor={`completion-note-${assignment.id}`}>完成说明（选填）</label><textarea id={`completion-note-${assignment.id}`} value={completionNotes[assignment.id] ?? assignment.completion_note ?? ''} onChange={(event) => setCompletionNotes({ ...completionNotes, [assignment.id]: event.target.value })} maxLength={500} placeholder="例如：已完成合影，照片会在任务站出示。"/><button disabled={busy || offline || evidenceBusyId === assignment.id} onClick={() => submit(assignment.id, completionNotes[assignment.id] ?? assignment.completion_note ?? '')}>{offline ? '联网后可提交' : assignment.status === 'rejected' ? '补充完成 · 再次提交' : '我已完成 · 提交验证'}</button></div>}</div></details>)}
     </section>}
-    {isActivePlayer && <section className="section-card"><div className="section-heading"><div><small>SPY CLUES</small><h2>已解锁线索</h2></div><span>{data.clues.length}</span></div>{data.clues.length === 0 ? <div className="empty-state">完成任务后，线索会在这里出现。</div> : data.clues.map((clue) => <div className="clue" key={clue.id}><strong>{clue.title}</strong><p>{clue.content}</p></div>)}</section>}
-    {isActivePlayer && data.game?.voting_open && <section className="section-card"><div className="section-heading"><div><small>FINAL VOTE</small><h2>谁是恶作剧者？</h2></div><span>第 {data.game.voting_round} 轮</span></div><p className="muted">只能选择本队宾客。每人只有一次机会，确认后不能改票。</p><div className="vote-grid">{data.candidates.filter((candidate) => candidate.id !== data.guest.id).map((candidate) => <button disabled={busy || offline || Boolean(data.existingVote)} className={data.existingVote === candidate.id ? 'vote-choice selected' : 'vote-choice'} key={candidate.id} onClick={() => vote(candidate.id)}>{data.existingVote === candidate.id ? '✓ ' : ''}{candidate.name}</button>)}</div>{data.existingVote && <p className="vote-offline-note">你的本轮投票已安全保存。</p>}{offline && <p className="vote-offline-note">恢复网络后才能提交投票。</p>}</section>}
+    {isActivePlayer && <section className="section-card"><div className="section-heading"><div><small>SPY CLUES</small><h2>已解锁线索</h2></div><span>{data.clues.length}</span></div>{data.clues.length === 0 ? <div className="empty-state">完成任务后，线索会在这里出现。</div> : guestClueGroups.map((group) => <section className="guest-clue-group" key={group.name}><h3>{group.name}</h3>{group.clues.map((clue) => <div className="clue" key={clue.id}><strong>{clue.title}</strong><p>{clue.content}</p></div>)}</section>)}</section>}
+    {isActivePlayer && data.game?.voting_open && <section className="section-card"><div className="section-heading"><div><small>FINAL VOTE</small><h2>谁是恶作剧者？</h2></div><span>第 {data.game.voting_round} 轮</span></div><p className="muted">只能选择本队宾客。每人只有一次机会，确认后不能改票。</p><div className="vote-grid">{data.candidates.filter((candidate) => candidate.id !== data.guest.id).map((candidate) => <button type="button" disabled={busy || offline || Boolean(data.existingVote)} className={(data.existingVote || selectedVoteTargetId) === candidate.id ? 'vote-choice selected' : 'vote-choice'} key={candidate.id} onClick={() => setSelectedVoteTargetId(candidate.id)}>{(data.existingVote || selectedVoteTargetId) === candidate.id ? '✓ ' : ''}{candidate.name}</button>)}</div>{!data.existingVote && <div className="vote-confirm-row"><span>{selectedVoteTargetId ? `已选择：${data.candidates.find((candidate) => candidate.id === selectedVoteTargetId)?.name ?? ''}` : '请先选择一位宾客'}</span><button type="button" disabled={busy || offline || !selectedVoteTargetId} onClick={() => void vote(selectedVoteTargetId)}>确认投票</button></div>}{data.existingVote && <p className="vote-offline-note">你的本轮投票已安全保存。</p>}{offline && <p className="vote-offline-note">恢复网络后才能提交投票。</p>}</section>}
     {isActivePlayer && data.game?.results_visible && data.results && <section className="reveal-card"><small>THE FINAL REVEAL</small><h2>身份揭晓</h2>{data.results.votedTargetName ? <div className={`vote-verdict ${data.results.voteCorrect ? 'correct' : 'missed'}`}><span>你投给了 {data.results.votedTargetName}</span><strong>{data.results.voteCorrect ? `成功找到恶作剧者 · 获得 ${data.results.bonusPoints} 分` : '恶作剧者成功隐藏了自己'}</strong></div> : <div className="vote-verdict missed"><strong>你没有提交最终投票</strong></div>}<div className="team-role-reveal">{data.results.teamMembers.map((member) => <div key={member.id}><span>{member.name}</span><strong>{member.is_hidden_spy ? '丘比特的暗线恶作剧者' : ROLE_LABELS[member.role]?.title ?? member.role}</strong></div>)}</div><p>感谢你成为这场婚礼故事的一部分。</p></section>}
     <div className="footer-actions"><button className={`secondary refresh-button ${manualRefreshing ? 'refreshing' : ''}`} disabled={manualRefreshing} onClick={() => void refreshManually()}><span className="refresh-icon" aria-hidden="true">↻</span><span>{manualRefreshing ? '刷新中…' : '刷新状态'}</span></button><button className="text-button" disabled={busy} onClick={logout}>{busy ? '安全退出中…' : '退出此身份'}</button></div>
     {refreshNotice && <div className="notice success manual-refresh-notice" role="status">{refreshNotice}</div>}
@@ -844,6 +880,6 @@ export default function GuestPage() {
       </section>
     </div>}
     {scoreLedgerOpen && <div className="score-ledger-backdrop" role="presentation"><section className="score-ledger-dialog" role="dialog" aria-modal="true" aria-labelledby="score-ledger-title"><header><div><small>MY POINTS</small><h2 id="score-ledger-title">我的积分流水</h2></div><button type="button" aria-label="关闭积分流水" onClick={() => setScoreLedgerOpen(false)}>×</button></header><div className="score-ledger-total"><span>当前积分</span><strong>{data.guest.points}</strong></div><div className="score-ledger-list">{pointLedger.length === 0 ? <p className="empty-state">积分尚未产生，完成任务后会显示在这里。</p> : pointLedger.map((entry) => <article key={entry.id}><div><strong>{entry.label}</strong><small>{new Date(entry.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small></div><b className={entry.amount < 0 ? 'negative' : ''}>{entry.amount > 0 ? '+' : ''}{entry.amount}</b></article>)}</div><footer><small>这里只显示个人积分；团队环节可查看团队实时积分。</small><button type="button" onClick={() => setScoreLedgerOpen(false)}>看清楚了 · 关闭</button></footer></section></div>}
-    {contentNotice && <div className="new-content-backdrop"><section className="new-content-dialog" role="dialog" aria-modal="true" aria-labelledby="new-content-title"><header><span>NEW ACTIVITY</span><button type="button" aria-label="关闭新活动提示" onClick={() => setContentNotice(null)}>×</button></header><strong id="new-content-title">{contentNotice.title}</strong><p>{contentNotice.detail}</p><button type="button" onClick={() => setContentNotice(null)}>知道了 · 查看更新</button></section></div>}
+    {contentNotice && <div className="new-content-backdrop"><section className="new-content-dialog" role="dialog" aria-modal="true" aria-labelledby="new-content-title"><header><span>NEW ACTIVITY</span><button type="button" aria-label="关闭新活动提示" onClick={acknowledgeContentNotice}>×</button></header><strong id="new-content-title">{contentNotice.title}</strong><p>{contentNotice.detail}</p><button type="button" onClick={acknowledgeContentNotice}>知道了 · 查看更新</button></section></div>}
   </main>;
 }
