@@ -1,5 +1,6 @@
 import 'server-only';
 import { ApiError } from '../errors';
+import { buildPublicScoreboard } from '../scoreboard-core';
 import { getSupabaseAdmin } from '../supabase';
 
 export type HostSegmentInput = {
@@ -44,20 +45,32 @@ function ensureHostDatabaseError(error: { message: string } | null, fallback: st
 
 export async function getHostDashboardData() {
   const db = getSupabaseAdmin();
-  const [guests, teamPoints, personalPoints, game, votes] = await Promise.all([
+  const [guests, teamPoints, personalPoints, game, votes, assignments] = await Promise.all([
     db.from('guests').select('id,name,team,role,is_hidden_spy,points,participation_mode,special_card_title,eligible_for_personal_score,drawn_at').eq('active', true).eq('uses_app', true).order('team').order('name'),
     db.from('team_points_ledger').select('id,team,amount,reason,created_at').order('created_at', { ascending: false }),
     db.from('points_ledger').select('id,guest_id,amount,reason,created_at,guest:guests(id,name)').is('assignment_id', null).order('created_at', { ascending: false }).limit(50),
     db.from('game_state').select('stage,voting_open,voting_round,results_visible').eq('id', 1).single(),
     db.from('votes').select('id,voting_round'),
+    db.from('assignments').select('guest_id,status').eq('status', 'approved'),
   ]);
-  const error = guests.error ?? teamPoints.error ?? personalPoints.error ?? game.error ?? votes.error;
+  const error = guests.error ?? teamPoints.error ?? personalPoints.error ?? game.error ?? votes.error ?? assignments.error;
   if (error) throw new Error(`Unable to load host data: ${error.message}`);
   const votingRound = game.data?.voting_round ?? 0;
+  const eligibleGuests = (guests.data ?? [])
+    .filter((guest) => guest.eligible_for_personal_score)
+    .map((guest) => ({
+      id: guest.id,
+      name: guest.name,
+      team: guest.participation_mode === 'HONOR_GUEST' ? '荣誉宾客' : guest.team,
+      points: guest.points,
+      countsForTeam: guest.participation_mode === 'ACTIVE_PLAYER',
+    }));
+  const rankings = buildPublicScoreboard(eligibleGuests, assignments.data ?? [], [], teamPoints.data ?? []);
   return {
     guests: guests.data ?? [], teamPoints: teamPoints.data ?? [], personalPoints: personalPoints.data ?? [],
     game: game.data,
     voteCount: (votes.data ?? []).filter((vote) => vote.voting_round === votingRound).length,
+    rankings: { personal: rankings.leaders, teams: rankings.teams },
   };
 }
 
