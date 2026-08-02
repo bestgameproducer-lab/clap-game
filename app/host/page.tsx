@@ -67,14 +67,14 @@ export default function HostPage() {
       if (requestId !== loadRequestRef.current) return;
       if (response.status === 401) { clearHostCache(); setData(null); setOffline(false); return; }
       const body = await responseBody(response);
-      if (!response.ok) throw new Error(body.error || '计分数据加载失败');
+      if (!response.ok) throw new Error(body.error || '主持人数据加载失败');
       setData(body);
       setGuestForm((current) => ({ ...current, guestId: current.guestId || body.guests?.find((guest: Guest) => guest.eligible_for_personal_score)?.id || '' }));
       try { window.sessionStorage.setItem(HOST_CACHE_KEY, JSON.stringify(body)); } catch {}
       setOffline(false); setError('');
     } catch (cause) {
       if (requestId !== loadRequestRef.current) return;
-      setOffline(true); setError(cause instanceof Error ? cause.message : '计分数据加载失败');
+      setOffline(true); setError(cause instanceof Error ? cause.message : '主持人数据加载失败');
       try {
         const cached = window.sessionStorage.getItem(HOST_CACHE_KEY);
         if (cached) {
@@ -111,6 +111,7 @@ export default function HostPage() {
       pendingScoreRef.current = pending;
       const response = await fetch('/api/host-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, eventKey: pending.eventKey }) });
       const result = await responseBody(response);
+      if (response.status === 401) { clearHostCache(); setData(null); }
       if (!response.ok) throw new Error(result.error || '加分失败');
       pendingScoreRef.current = null;
       setMessage(`${success} · 当前 ${result.total} 分`); await load();
@@ -138,6 +139,7 @@ export default function HostPage() {
     try {
       const response = await fetch('/api/host-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request) });
       const result = await responseBody(response);
+      if (response.status === 401) { clearHostCache(); setData(null); }
       if (!response.ok) throw new Error(result.error || '终局操作失败');
       setPendingFinaleAction(null); setMessage(success); await load();
     } catch (cause) { setOffline(!navigator.onLine); setError(cause instanceof Error ? cause.message : '终局操作失败'); }
@@ -150,6 +152,7 @@ export default function HostPage() {
     try {
       const response = await fetch('/api/host-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'setStage', stage }) });
       const result = await responseBody(response);
+      if (response.status === 401) { clearHostCache(); setData(null); }
       if (!response.ok) throw new Error(result.error || '婚礼流程切换失败');
       setPendingStage(''); setPendingFinaleAction(null); setMessage(`已切换到「${gameStageCopy(stage).label}」`); await load();
     } catch (cause) { setOffline(!navigator.onLine); setError(cause instanceof Error ? cause.message : '婚礼流程切换失败'); }
@@ -197,7 +200,7 @@ export default function HostPage() {
     window.requestAnimationFrame(() => document.querySelector('.host-score-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 
-  if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">HOST ONLY</div><div className="heart-mark">♡</div><h1>主持人<br/>流程台</h1><p className="lead">查看全员分组、积分和恶作剧者，并处理现场加分。</p><form onSubmit={login}><label htmlFor="host-password">管理员密码</label><input id="host-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required/><button disabled={busy}>{busy ? '登录中…' : '进入主持人流程台'}</button>{error && <div className="notice error">{error}</div>}</form></section></main>;
+  if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">HOST ONLY</div><div className="heart-mark">♡</div><h1>主持人<br/>流程台</h1><p className="lead">查看全员分组、积分和恶作剧者，并处理现场加分。</p><form onSubmit={login}><label htmlFor="host-password">管理员密码</label><input id="host-password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required/><button disabled={busy}>{busy ? '登录中…' : '进入主持人流程台'}</button>{error && <div className="notice error">{error}</div>}</form></section></main>;
 
   return <main className="host-shell host-score-shell">
     <header className="host-hero host-score-hero"><div><div className="eyebrow">LIVE HOST DESK</div><h1>主持人流程台</h1><p>身份信息仅供主持人与主办方现场查看，请勿投屏。</p></div><StaffLogoutButton clearSessionStorageKeys={HOST_CACHE_KEYS}/></header>

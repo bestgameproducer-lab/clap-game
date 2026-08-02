@@ -107,8 +107,6 @@ export async function getAdminDashboardData() {
     db.from('awards').select('id,title,winner_guest_id,winner_team,reason,sort_order,published,updated_at,winner:guests(id,name,team)').order('sort_order').order('created_at'),
     db.from('result_rewards').select('id,voting_round,reward_type,guest_id,team,amount,details,created_at').order('created_at', { ascending: false }).limit(100),
     db.from('hidden_task_codes').select('id,task_id,issued_by,issued_at,claimed_by,claimed_at,assignment_id,task:tasks(id,title,active),guest:guests!hidden_task_codes_claimed_by_fkey(id,name)').order('issued_at', { ascending: false }),
-    db.from('host_segments').select('id,title,stage,ready,active').order('sort_order').order('created_at'),
-    db.from('team_resources').select('team,balance,updated_at').order('team'),
     db.rpc('preview_rehearsal_reset'),
     db.from('heart_slots').select('heart_code,pair_key,side,guest_id,assigned_at,guest:guests(id,name)').order('heart_code'),
     db.from('player_relationships').select('id,relationship_type,status,player_a_confirmed,player_b_confirmed,activated_at,player_a:guests!player_relationships_player_a_id_fkey(id,name),player_b:guests!player_relationships_player_b_id_fkey(id,name)').order('created_at', { ascending: false }),
@@ -122,8 +120,6 @@ export async function getAdminDashboardData() {
   const tasks = results[2].data ?? [];
   const clues = results[6].data ?? [];
   const hiddenTaskCodes = results[13].data ?? [];
-  const hostSegments = results[14].data ?? [];
-  const resourceWallets = results[15].data ?? [];
   return {
     guests, assignments: await signEvidencePaths(results[1].data ?? []), tasks,
     submissions: await signEvidencePaths(results[3].data ?? []),
@@ -133,15 +129,13 @@ export async function getAdminDashboardData() {
     pointLedger: results[8].data ?? [], auditLog: results[9].data ?? [], teamPointLedger: results[10].data ?? [], awards: results[11].data ?? [],
     resultRewards: results[12].data ?? [],
     hiddenTaskCodes: results[13].data ?? [],
-    hostSegments,
-    resourceWallets,
     preflight: buildWeddingPreflight({ guests, tasks, hasGameState: Boolean(results[5].data), invitationCodeRotated: Boolean(results[5].data?.invitation_code_updated_at) }),
-    rehearsalResetPreview: results[16].data ?? {},
-    heartSlots: results[17].data ?? [],
-    playerRelationships: results[18].data ?? [],
-    allianceClues: results[19].data ?? [],
-    symbolPairings: results[20].data ?? [],
-    phaseTwoProfiles: results[21].data ?? [],
+    rehearsalResetPreview: results[14].data ?? {},
+    heartSlots: results[15].data ?? [],
+    playerRelationships: results[16].data ?? [],
+    allianceClues: results[17].data ?? [],
+    symbolPairings: results[18].data ?? [],
+    phaseTwoProfiles: results[19].data ?? [],
   };
 }
 
