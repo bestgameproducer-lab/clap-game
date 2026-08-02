@@ -30,6 +30,8 @@
 - Work on a `codex/` feature branch. Do not push directly to `main`.
 - Keep commits focused and never commit `.env` files, credentials, generated build output, or local stores.
 - Present the plan and affected files before pushing or opening a pull request.
+- Run GitHub CLI authentication checks and API operations only with confirmed network access. Do not interpret DNS failures, sandbox network restrictions, or other connectivity errors as an expired token.
+- Before requesting GitHub reauthorization, perform a read-only connected check and require an explicit authentication response such as HTTP 401 or `Bad credentials`; never extract, display, copy, or repurpose credentials from Git credential storage.
 
 ## Definition of done
 - Acceptance criteria are implemented; migrations are forward-safe; authorization and validation are centralized.
