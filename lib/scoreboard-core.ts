@@ -2,12 +2,35 @@ export type ScoreboardGuest = { id: string; name: string; team: string; points: 
 export type ScoreboardAssignment = { guest_id: string; status: string };
 export type ScoreboardVote = { target_guest_id: string; vote_weight?: number };
 export type ScoreboardTeamPoint = { team: string; amount: number };
+export type ScoreboardOptions = {
+  leaderLimit?: number;
+  priorityGuestIds?: ReadonlySet<string>;
+};
+
+export function findUndetectedTricksterIds(
+  guests: Array<Pick<ScoreboardGuest, 'id' | 'team'>>,
+  votes: ScoreboardVote[],
+  tricksters: Array<{ id: string; team: string }>,
+) {
+  const votesByGuest = new Map<string, number>();
+  for (const vote of votes) votesByGuest.set(vote.target_guest_id, (votesByGuest.get(vote.target_guest_id) ?? 0) + (vote.vote_weight ?? 1));
+
+  const undetected = new Set<string>();
+  for (const trickster of tricksters) {
+    const teamGuests = guests.filter((guest) => guest.team === trickster.team);
+    const topVotes = Math.max(0, ...teamGuests.map((guest) => votesByGuest.get(guest.id) ?? 0));
+    const tricksterVotes = votesByGuest.get(trickster.id) ?? 0;
+    if (topVotes === 0 || tricksterVotes < topVotes) undetected.add(trickster.id);
+  }
+  return undetected;
+}
 
 export function buildPublicScoreboard(
   guests: ScoreboardGuest[],
   assignments: ScoreboardAssignment[],
   votes: ScoreboardVote[],
   teamPoints: ScoreboardTeamPoint[] = [],
+  options: ScoreboardOptions = {},
 ) {
   const approvedByGuest = new Map<string, number>();
   for (const assignment of assignments) {
@@ -35,8 +58,10 @@ export function buildPublicScoreboard(
     teams: [...teams.values()].sort((a, b) => b.points - a.points || b.completedTasks - a.completedTasks || a.team.localeCompare(b.team)),
     leaders: guests
       .map((guest) => ({ id: guest.id, name: guest.name, team: guest.team, points: guest.points, completedTasks: approvedByGuest.get(guest.id) ?? 0 }))
-      .sort((a, b) => b.points - a.points || b.completedTasks - a.completedTasks || a.name.localeCompare(b.name))
-      .slice(0, 10),
+      .sort((a, b) => Number(options.priorityGuestIds?.has(b.id) ?? false) - Number(options.priorityGuestIds?.has(a.id) ?? false)
+        || b.points - a.points || b.completedTasks - a.completedTasks || a.name.localeCompare(b.name))
+      .slice(0, options.leaderLimit ?? 10)
+      .map((guest) => ({ ...guest, undetectedTrickster: options.priorityGuestIds?.has(guest.id) ?? false })),
     voteCounts: guests
       .map((guest) => ({ id: guest.id, name: guest.name, team: guest.team, votes: votesByGuest.get(guest.id) ?? 0 }))
       .filter((guest) => guest.votes > 0)

@@ -1,6 +1,6 @@
 import 'server-only';
 import { ApiError } from '../errors';
-import { buildPublicScoreboard } from '../scoreboard-core';
+import { buildPublicScoreboard, findUndetectedTricksterIds } from '../scoreboard-core';
 import { getSupabaseAdmin } from '../supabase';
 
 export async function getPublicScoreboard() {
@@ -12,7 +12,7 @@ export async function getPublicScoreboard() {
     .single();
   if (gameError || !game) throw new ApiError(503, '积分大屏暂时无法加载');
 
-  if (!game.scoreboard_visible) {
+  if (!game.scoreboard_visible && !game.results_visible) {
     return { visible: false, stage: game.stage, resultsVisible: false, displayTitle: null, displayBody: null, publicClue: null, timerEndsAt: null, updatedAt: game.updated_at, teams: [], leaders: [], voteCounts: [], revealedRoles: [], awards: [] };
   }
 
@@ -32,7 +32,6 @@ export async function getPublicScoreboard() {
     points: guest.points,
     countsForTeam: guest.participation_mode === 'ACTIVE_PLAYER',
   }));
-  const scoreboard = buildPublicScoreboard(scoreboardGuests, assignmentResult.data ?? [], voteResult.data ?? [], teamPointResult.data ?? []);
   let revealedRoles: Array<{ id: string; name: string; team: string; role: string; is_hidden_spy: boolean }> = [];
   let awards: Array<{ id: string; title: string; winnerName: string; winnerTeam: string | null; reason: string }> = [];
   if (game.results_visible) {
@@ -48,6 +47,20 @@ export async function getPublicScoreboard() {
       return { id: award.id, title: award.title, winnerName: winner?.name || award.winner_team || '待公布', winnerTeam: winner?.team || award.winner_team, reason: award.reason };
     });
   }
+
+  const undetectedTricksterIds = game.results_visible
+    ? findUndetectedTricksterIds(scoreboardGuests, voteResult.data ?? [], revealedRoles.filter((guest) => guest.role === 'spy'))
+    : new Set<string>();
+  const scoreboard = buildPublicScoreboard(
+    scoreboardGuests,
+    assignmentResult.data ?? [],
+    voteResult.data ?? [],
+    teamPointResult.data ?? [],
+    {
+      leaderLimit: game.results_visible ? scoreboardGuests.length : 10,
+      priorityGuestIds: undetectedTricksterIds,
+    },
+  );
 
   return {
     visible: true,
