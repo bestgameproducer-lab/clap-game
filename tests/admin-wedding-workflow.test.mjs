@@ -55,5 +55,17 @@ test('安全设置和开场检查归入对应准备模块', async () => {
   const admin = await read('app/admin/page.tsx');
 
   assert.match(admin, /activePanel === 'data'[\s\S]*管理员密码/);
-  assert.match(admin, /activePanel === 'guests'[\s\S]*开场前就绪检查/);
+  assert.match(admin, /activePanel === 'guests'[\s\S]*开场检查/);
+});
+
+test('开场检查只展开待处理事项并折叠已通过明细', async () => {
+  const admin = await read('app/admin/page.tsx');
+  const css = await read('app/styles.css');
+
+  assert.match(admin, /pendingPreflightItems = data\.preflight\.items\.filter\(\(item\) => item\.status !== 'ready'\)/);
+  assert.match(admin, /passedPreflightItems = data\.preflight\.items\.filter\(\(item\) => item\.status === 'ready'\)/);
+  assert.match(admin, /pendingPreflightItems\.map/);
+  assert.match(admin, /className="readiness-passed-details"[\s\S]*passedPreflightItems\.map/);
+  assert.match(admin, /无需逐项确认/);
+  assert.match(css, /\.readiness-passed-details/);
 });

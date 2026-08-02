@@ -476,6 +476,8 @@ export default function AdminPage() {
   const rehearsalDataCount = resetPreview.claimed_guests + resetPreview.drawn_guests + resetPreview.assignments + resetPreview.votes
     + resetPreview.guest_clues + resetPreview.personal_ledger_entries + resetPreview.team_ledger_entries
     + resetPreview.spy_ledger_entries + resetPreview.resource_ledger_entries;
+  const pendingPreflightItems = data.preflight.items.filter((item) => item.status !== 'ready');
+  const passedPreflightItems = data.preflight.items.filter((item) => item.status === 'ready');
   const adminGuidance = !data.preflight.ready
     ? { label: '开场前检查尚未通过', detail: `${data.preflight.blockedCount} 项配置需要处理，完成后再开放宾客注册。`, action: '处理开场准备', panel: 'guests' as AdminPanel, tone: 'warning' }
     : data.submissions.length > 0
@@ -508,10 +510,12 @@ export default function AdminPage() {
     </section>}
     {activePanel === 'data' && <section className="section-card"><div className="section-heading"><div><small>SECURITY</small><h2>管理员密码</h2></div><span className="ready-badge">加密保存</span></div><p className="muted">此密码同时用于主办方控制台、主持人台和任务站。更换后会立即退出所有工作人员设备；系统不会显示或导出密码。</p><form onSubmit={rotateStaffPassword}><label htmlFor="admin-password-new">新管理员密码</label><input id="admin-password-new" type="password" autoComplete="new-password" minLength={12} maxLength={128} value={adminPasswordForm.password} onChange={(event) => setAdminPasswordForm({ ...adminPasswordForm, password: event.target.value })} required/><p className="field-help">12–128 位，必须同时包含字母和数字。</p><label htmlFor="admin-password-confirm">再次输入</label><input id="admin-password-confirm" type="password" autoComplete="new-password" minLength={12} maxLength={128} value={adminPasswordForm.confirm} onChange={(event) => setAdminPasswordForm({ ...adminPasswordForm, confirm: event.target.value })} required/><button disabled={busy || adminPasswordForm.password.length < 12 || adminPasswordForm.password !== adminPasswordForm.confirm}>{busy ? '正在更新…' : '更换管理员密码并退出所有设备'}</button></form></section>}
 
-    {activePanel === 'guests' && <details className="admin-advanced-tools readiness-details" open><summary>开场前就绪检查 · {data.preflight.ready ? '可以开场' : `${data.preflight.blockedCount} 项待处理`}</summary><section className="section-card readiness-card">
-      <div className="section-heading"><div><small>PRE-FLIGHT CHECK</small><h2>开场前就绪检查</h2></div><span className={data.preflight.ready ? 'ready-badge' : 'warning-badge'}>{data.preflight.ready ? '可以开场' : `${data.preflight.blockedCount} 项待处理`}</span></div>
-      <div className="readiness-list">{data.preflight.items.map((item) => <div key={item.id} className={item.status === 'ready' ? 'ready' : 'not-ready'}><b aria-hidden="true">{item.status === 'ready' ? '✓' : '!'}</b><p><strong>{item.label}</strong><small>{item.detail}</small></p></div>)}</div>
-      {!data.preflight.ready && <p className="readiness-help">带感叹号的项目会影响完整流程，请在开放注册前处理。主持题目必须替换为真实答案，并确认每位间谍已有专属线索。</p>}
+    {activePanel === 'guests' && <details className="admin-advanced-tools readiness-details" open={!data.preflight.ready}><summary>开场检查 · {data.preflight.ready ? `${passedPreflightItems.length} 项已通过` : `${pendingPreflightItems.length} 项需要处理`}</summary><section className="section-card readiness-card">
+      <div className="section-heading"><div><small>OPENING CHECK</small><h2>{data.preflight.ready ? '开场条件已满足' : '只处理这些事项'}</h2></div><span className={data.preflight.ready ? 'ready-badge' : 'warning-badge'}>{data.preflight.ready ? '可以开场' : `${pendingPreflightItems.length} 项`}</span></div>
+      {pendingPreflightItems.length > 0 && <div className="readiness-list readiness-priority-list">{pendingPreflightItems.map((item) => <div key={item.id} className="not-ready"><b aria-hidden="true">!</b><p><strong>{item.label}</strong><small>{item.detail}</small></p></div>)}</div>}
+      {data.preflight.ready && <p className="readiness-complete-copy">宾客名单、任务配置和现场流程均已通过检查，无需逐项确认。</p>}
+      <details className="readiness-passed-details"><summary>查看已通过的 {passedPreflightItems.length} 项</summary><div className="readiness-list">{passedPreflightItems.map((item) => <div key={item.id} className="ready"><b aria-hidden="true">✓</b><p><strong>{item.label}</strong><small>{item.detail}</small></p></div>)}</div></details>
+      {!data.preflight.ready && <p className="readiness-help">只需处理上方事项；已通过的检查无需现场操作。</p>}
     </section></details>}
 
     {activePanel === 'live' && <>
