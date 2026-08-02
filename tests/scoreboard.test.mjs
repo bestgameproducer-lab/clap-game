@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildPublicScoreboard } from '../lib/scoreboard-core.ts';
+import { buildPublicScoreboard, findUndetectedTricksterIds } from '../lib/scoreboard-core.ts';
 
 const guests = [
   { id: 'a', name: 'A', team: '玫瑰组', points: 20 },
@@ -68,4 +68,40 @@ test('honor guests can rank personally without creating a placeholder team', () 
   assert.equal(result.leaders[0].team, '荣誉宾客');
   assert.equal(result.teams.some((team) => team.team === '荣誉宾客'), false);
   assert.deepEqual(result.teams[0], { team: '玫瑰组', points: 0, guests: 1, completedTasks: 0 });
+});
+
+test('puts an undetected trickster first without changing personal points', () => {
+  const finalGuests = [
+    { id: 'spy', name: 'Hidden', team: '玫瑰组', points: 1 },
+    { id: 'top', name: 'Suspect', team: '玫瑰组', points: 12 },
+    { id: 'winner', name: 'Winner', team: '琥珀组', points: 20 },
+  ];
+  const finalVotes = [
+    { target_guest_id: 'spy', vote_weight: 1 },
+    { target_guest_id: 'top', vote_weight: 2 },
+  ];
+  const undetected = findUndetectedTricksterIds(finalGuests, finalVotes, [{ id: 'spy', team: '玫瑰组' }]);
+  const result = buildPublicScoreboard(finalGuests, [], finalVotes, [], {
+    leaderLimit: finalGuests.length,
+    priorityGuestIds: undetected,
+  });
+
+  assert.deepEqual([...undetected], ['spy']);
+  assert.equal(result.leaders[0].id, 'spy');
+  assert.equal(result.leaders[0].points, 1);
+  assert.equal(result.leaders[0].undetectedTrickster, true);
+  assert.equal(result.leaders[1].id, 'winner');
+});
+
+test('a trickster tied for the team highest vote count is considered detected', () => {
+  const finalGuests = [
+    { id: 'spy', name: 'Hidden', team: '玫瑰组', points: 1 },
+    { id: 'other', name: 'Other', team: '玫瑰组', points: 2 },
+  ];
+  const finalVotes = [
+    { target_guest_id: 'spy', vote_weight: 2 },
+    { target_guest_id: 'other', vote_weight: 2 },
+  ];
+
+  assert.equal(findUndetectedTricksterIds(finalGuests, finalVotes, [{ id: 'spy', team: '玫瑰组' }]).size, 0);
 });
