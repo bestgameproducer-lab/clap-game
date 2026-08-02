@@ -46,7 +46,7 @@ test('终局结算按颁奖、团队结算、投票、揭晓和流水引导', as
   assert.match(finale, /onClick=\{toggleVoting\}/);
   assert.match(finale, /onClick=\{requestResultsToggle\}/);
   assert.match(finale, /confirmResultsToggle/);
-  assert.match(finale, /投票、团队奖励和第二阶段能力/);
+  assert.match(finale, /投票、团队奖励和第二轮能力/);
   assert.match(finale, /id="final-awards"/);
   assert.match(finale, /id="final-points-ledger"/);
 });

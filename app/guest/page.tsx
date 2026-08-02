@@ -16,7 +16,7 @@ const PENDING_VOTE_MESSAGE = '投票已提交并锁定。结果公布后会自�
 const PENDING_MUTUAL_CONFIRMATION_MESSAGE = '确认邀请已发送，请让对方打开自己的页面处理。';
 const PENDING_DILEMMA_MESSAGE = '秘密选择已密封提交';
 const PENDING_COPY_MESSAGE = '命运复制目标已锁定';
-const DINNER_MENU_STAGES = new Set(['task_round_2', 'group_game', 'voting', 'results']);
+const DINNER_MENU_STAGES = new Set(['task_round_2', 'banquet', 'group_game', 'voting', 'results']);
 
 type RegistrationGuest = { id: string; name: string; loginName: string; hasPassword: boolean };
 type PlayerDirectoryEntry = { name: string; playerCode: string };
@@ -77,7 +77,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const ROLE_LABELS: Record<string, { title: string; note: string }> = {
-  spy: { title: '丘比特的恶作剧者', note: '第一阶段正常完成表面任务，并使用暗号悄悄寻找同伴。' },
+  spy: { title: '丘比特的恶作剧者', note: '第一轮正常完成表面任务，并使用暗号悄悄寻找同伴。' },
   guest: { title: '婚礼守护者', note: '完成阶段任务，并留意身边的可疑行动。' },
 };
 
@@ -114,7 +114,7 @@ function activityFingerprint(value: string) {
 }
 
 function phaseTwoAwakening(data: GuestData): Omit<ContentNotice, 'signature'> | null {
-  if (!data.phaseTwo?.unlockedAt || !['task_round_2', 'group_game', 'voting', 'results'].includes(data.game?.stage ?? '')) return null;
+  if (!data.phaseTwo?.unlockedAt || !['task_round_2', 'banquet', 'group_game', 'voting', 'results'].includes(data.game?.stage ?? '')) return null;
   if (data.phaseTwo.mission === 'COPY_SCORE' && data.guest.unlocked_role === 'LONELY_CUPID') return {
     title: '原来，你从未被遗忘',
     detail: '第一幕没有找到爱心另一半，并不是失败。丘比特刻意留下了你，让你成为「孤单丘比特」。现在，你可以选择一名竞技玩家；最终揭晓时，你会复制他在第二幕获得的个人积分。',
@@ -895,7 +895,7 @@ export default function GuestPage() {
     const fragmentLabel = pairing.fragmentSide === 'LEFT' ? `左半${symbolName}` : pairing.fragmentSide === 'RIGHT' ? `右半${symbolName}` : `${symbolName}碎片`;
     const counterpartLabel = pairing.fragmentSide === 'LEFT' ? `右半${symbolName}` : pairing.fragmentSide === 'RIGHT' ? `左半${symbolName}` : `另一半${symbolName}`;
     const symbolGlyph = isStarTask ? '★' : '♥';
-    const awakeningRevealed = Boolean(data?.phaseTwo?.unlockedAt && ['task_round_2', 'group_game', 'voting', 'results'].includes(data.game?.stage ?? ''));
+    const awakeningRevealed = Boolean(data?.phaseTwo?.unlockedAt && ['task_round_2', 'banquet', 'group_game', 'voting', 'results'].includes(data.game?.stage ?? ''));
     const inputId = `symbol-partner-code-${assignment.id}`;
     return <section className={`inline-symbol-pairing ${isStarTask ? 'star' : 'heart'}`} aria-label={isStarTask ? '星星伙伴配对' : '爱心伙伴配对'}>
       <div className={`symbol-fragment-stage ${isStarTask ? 'star' : 'heart'} ${isPaired ? 'merged' : ''}`} role="img" aria-label={isPaired ? `左右两半${symbolName}已经合并成完整${symbolName}` : `你持有${fragmentLabel}`}>
@@ -913,12 +913,12 @@ export default function GuestPage() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || '第二阶段选择提交失败');
+      if (!response.ok) throw new Error(result.error || '第二轮任务选择提交失败');
       setPhaseTwoDilemmaChoice('');
       await load();
       setPendingNotice(payload.action === 'dilemma' ? { kind: 'PHASE_TWO_DILEMMA' } : { kind: 'PHASE_TWO_COPY' });
       setMessage(success);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : '第二阶段选择提交失败'); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '第二轮任务选择提交失败'); }
     finally { setBusy(false); }
   }
 
@@ -927,8 +927,8 @@ export default function GuestPage() {
     if (!phaseTwo || !['P2-HEART-001','P2-STAR-001','P2-LONELY-001'].includes(assignment.task.mission_code ?? '')) return null;
     const actionOpen = isTaskActionOpenAtStage(assignment.task.stage, data.game?.stage);
     if (assignment.task.mission_code === 'P2-LONELY-001') {
-      if (phaseTwo.copyChoice) return <div className="phase-two-choice-state"><strong>命运已经选定</strong><span>{phaseTwo.copyChoice.targetName} · {phaseTwo.copyChoice.targetTeam}</span><small>{phaseTwo.copyChoice.settled ? `最终复制 ${phaseTwo.copyChoice.settledPoints ?? 0} 分` : '最终揭晓时自动复制该玩家的第二阶段个人积分。选择不可修改。'}</small></div>;
-      return <div className="phase-two-action"><label htmlFor={`copy-target-${assignment.id}`}>选择要复制命运的玩家</label><select id={`copy-target-${assignment.id}`} value={phaseTwoCopyTarget} disabled={busy || offline || !actionOpen} onChange={(event) => setPhaseTwoCopyTarget(event.target.value)}><option value="">请选择一位竞技玩家</option>{phaseTwo.copyCandidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name} · {candidate.team}</option>)}</select><p>提交后不能修改；最终只复制对方第二阶段获得的个人积分。</p><button disabled={busy || offline || !actionOpen || !phaseTwoCopyTarget} onClick={() => void submitPhaseTwoAction({ action: 'copy', targetGuestId: phaseTwoCopyTarget }, PENDING_COPY_MESSAGE)}>确认并锁定目标</button></div>;
+      if (phaseTwo.copyChoice) return <div className="phase-two-choice-state"><strong>命运已经选定</strong><span>{phaseTwo.copyChoice.targetName} · {phaseTwo.copyChoice.targetTeam}</span><small>{phaseTwo.copyChoice.settled ? `最终复制 ${phaseTwo.copyChoice.settledPoints ?? 0} 分` : '最终揭晓时自动复制该玩家的第二轮个人积分。选择不可修改。'}</small></div>;
+      return <div className="phase-two-action"><label htmlFor={`copy-target-${assignment.id}`}>选择要复制命运的玩家</label><select id={`copy-target-${assignment.id}`} value={phaseTwoCopyTarget} disabled={busy || offline || !actionOpen} onChange={(event) => setPhaseTwoCopyTarget(event.target.value)}><option value="">请选择一位竞技玩家</option>{phaseTwo.copyCandidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name} · {candidate.team}</option>)}</select><p>提交后不能修改；最终只复制对方第二轮获得的个人积分。</p><button disabled={busy || offline || !actionOpen || !phaseTwoCopyTarget} onClick={() => void submitPhaseTwoAction({ action: 'copy', targetGuestId: phaseTwoCopyTarget }, PENDING_COPY_MESSAGE)}>确认并锁定目标</button></div>;
     }
     const dilemma = phaseTwo.dilemma;
     const isHeart = assignment.task.mission_code === 'P2-HEART-001';

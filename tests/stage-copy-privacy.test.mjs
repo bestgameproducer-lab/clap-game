@@ -9,7 +9,7 @@ test('admin, guests, and scoreboard share wedding-stage names and visible defaul
     readFile(new URL('../app/admin/page.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app/scoreboard/page.tsx', import.meta.url), 'utf8'),
   ]);
-  for (const stage of ['registration', 'waiting', 'task_round_1', 'ceremony_end', 'task_round_2', 'group_game', 'voting', 'results']) {
+  for (const stage of ['registration', 'waiting', 'task_round_1', 'ceremony_end', 'task_round_2', 'banquet', 'group_game', 'voting', 'results']) {
     assert.match(stages, new RegExp(`${stage}: \\{`));
   }
   assert.match(guest, /gameStageCopy\(data\.game\?\.stage\)/);

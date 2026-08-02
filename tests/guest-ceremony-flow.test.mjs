@@ -26,9 +26,10 @@ test('ceremony end is accepted by the phase-one finalizer before act two', async
 
 test('admin exposes ceremony end and a separate act-two transition', async () => {
   const admin = await readFile(adminPageUrl, 'utf8');
-  assert.match(admin, /LIVE_FLOW_STAGES = \['registration', 'waiting', 'task_round_1', 'ceremony_end', 'task_round_2', 'group_game'\]/);
-  assert.match(admin, /第一阶段任务提交和伙伴配对会重新开放，但第二阶段任务仍保持关闭/);
-  assert.match(admin, /系统会结束第一阶段、处理尚未配对的最终角色，并一次性创建第二阶段任务/);
+  assert.match(admin, /LIVE_FLOW_STAGES = \['registration', 'waiting', 'task_round_1', 'ceremony_end', 'task_round_2', 'banquet', 'group_game'\]/);
+  assert.match(admin, /第一轮任务提交和伙伴配对会重新开放，但第二轮任务仍保持关闭/);
+  assert.match(admin, /系统会结束第一轮、处理尚未配对的最终角色，并一次性发放第二轮任务/);
+  assert.match(admin, /宾客将进入婚宴阶段/);
 });
 
 test('stage changes use an in-page confirmation instead of a fragile browser dialog', async () => {
@@ -45,7 +46,7 @@ test('stage changes use an in-page confirmation instead of a fragile browser dia
   assert.match(admin, /切换失败：\{stageError\}/);
   assert.doesNotMatch(stageFlow, /window\.confirm/);
   assert.match(admin, /role="alert" aria-live="assertive"/);
-  assert.match(admin, /确认开启第二阶段/);
+  assert.match(admin, /确认发放第二轮任务/);
   assert.match(styles, /\.stage-confirmation/);
 });
 

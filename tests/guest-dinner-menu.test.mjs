@@ -5,7 +5,7 @@ import test from 'node:test';
 test('the dinner menu is available only from dinner onward and opens accessibly', async () => {
   const page = await readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8');
 
-  assert.match(page, /const DINNER_MENU_STAGES = new Set\(\['task_round_2', 'group_game', 'voting', 'results'\]\)/);
+  assert.match(page, /const DINNER_MENU_STAGES = new Set\(\['task_round_2', 'banquet', 'group_game', 'voting', 'results'\]\)/);
   assert.match(page, /dinnerMenuVisible && <button[^>]+className="dinner-menu-entry"[^>]+aria-haspopup="dialog"/);
   assert.match(page, /role="dialog" aria-modal="true" aria-labelledby="dinner-menu-title"/);
   assert.match(page, /src="\/wedding-dinner-menu\.jpg"/);

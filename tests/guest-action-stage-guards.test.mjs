@@ -12,9 +12,11 @@ test('phase-one submissions open before and after the ceremony but pause during 
   assert.equal(isTaskActionOpenAtStage('task_round_1', 'task_round_1'), false);
   assert.equal(isTaskActionOpenAtStage('task_round_1', 'ceremony_end'), true);
   assert.equal(isTaskActionOpenAtStage('task_round_1', 'task_round_2'), true);
+  assert.equal(isTaskActionOpenAtStage('task_round_1', 'banquet'), true);
   assert.equal(isTaskActionOpenAtStage('task_round_1', 'group_game'), true);
   assert.equal(isTaskActionOpenAtStage('task_round_2', 'task_round_1'), false);
   assert.equal(isTaskActionOpenAtStage('task_round_2', 'ceremony_end'), false);
+  assert.equal(isTaskActionOpenAtStage('task_round_2', 'banquet'), true);
   assert.equal(isTaskActionOpenAtStage('task_round_2', 'group_game'), true);
   assert.equal(isTaskActionOpenAtStage('group_game', 'group_game'), true);
   assert.equal(isTaskActionOpenAtStage('task_round_1', 'voting'), false);
@@ -27,6 +29,7 @@ test('phase-one submissions open before and after the ceremony but pause during 
   assert.equal(isPhaseOneInteractionOpenAtStage('task_round_1'), false);
   assert.equal(isPhaseOneInteractionOpenAtStage('ceremony_end'), true);
   assert.equal(isPhaseOneInteractionOpenAtStage('task_round_2'), true);
+  assert.equal(isPhaseOneInteractionOpenAtStage('banquet'), true);
   assert.equal(isTaskPausedDuringCeremony('task_round_1', 'task_round_1'), true);
   assert.equal(isTaskPausedDuringCeremony('task_round_2', 'task_round_1'), false);
 });
