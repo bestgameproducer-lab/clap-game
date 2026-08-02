@@ -42,6 +42,7 @@ function ensureHostDatabaseError(error: { message: string } | null, fallback: st
   if (error.message.includes('team_clue_settlement_stage_not_ready')) throw new ApiError(409, '请先切换到团队挑战，再结算团队积分与线索');
   if (error.message.includes('team_clues_not_settled')) throw new ApiError(409, '请先结算团队积分并自动发放线索，再开启最终投票');
   if (error.message.includes('team_scores_already_settled')) throw new ApiError(409, '团队积分已经结算，不能继续加分');
+  if (error.message.includes('DELETE requires a WHERE clause')) throw new ApiError(409, '第二轮派发被数据库安全规则拦截，请刷新后重试；本次没有写入部分任务');
   if (error.message.includes('voting_not_started')) throw new ApiError(409, '请先发起最终投票，再进行结算');
   throw new Error(`${fallback}: ${error.message}`);
 }
