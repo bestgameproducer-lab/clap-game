@@ -309,34 +309,24 @@ export default function GuestPage() {
     };
   }, [load, restoreInvitationAccess]);
 
-  useEffect(() => {
-    if (!secretReaderOpen) return;
-    const usesFullPagePrivateView = data?.guest.role === 'spy' && !data.game?.results_visible;
-    const previousOverflow = document.body.style.overflow;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSecretReaderOpen(false);
-    };
-    if (!usesFullPagePrivateView) document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [secretReaderOpen, data?.guest.role, data?.game?.results_visible]);
+  const usesFullPagePrivateView = data?.guest.role === 'spy' && !data.game?.results_visible;
+  const pageScrollLocked = dinnerMenuOpen || (secretReaderOpen && !usesFullPagePrivateView);
 
   useEffect(() => {
-    if (!dinnerMenuOpen) return;
-    const previousOverflow = document.body.style.overflow;
+    document.body.classList.toggle('modal-scroll-locked', pageScrollLocked);
+    return () => document.body.classList.remove('modal-scroll-locked');
+  }, [pageScrollLocked]);
+
+  useEffect(() => {
+    if (!secretReaderOpen && !dinnerMenuOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setDinnerMenuOpen(false);
+      if (event.key !== 'Escape') return;
+      setSecretReaderOpen(false);
+      setDinnerMenuOpen(false);
     };
-    document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [dinnerMenuOpen]);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [secretReaderOpen, dinnerMenuOpen]);
 
   useLiveRefresh(async () => { if (!manualRefreshRef.current) await load(); }, undefined, Boolean(data));
 

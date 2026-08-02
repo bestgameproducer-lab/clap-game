@@ -12,7 +12,7 @@ test('the dinner menu is available only from dinner onward and opens accessibly'
   assert.match(page, /Minestrone soup with basil pistou/);
   assert.match(page, /清晰文字版 · 上下滑动查看全部菜品/);
   assert.doesNotMatch(page, /<img src="\/wedding-dinner-menu\.jpg"/);
-  assert.match(page, /if \(event\.key === 'Escape'\) setDinnerMenuOpen\(false\)/);
+  assert.match(page, /if \(event\.key !== 'Escape'\) return;[\s\S]*setDinnerMenuOpen\(false\)/);
 });
 
 test('the dinner menu remains available in the weak-network cache', async () => {
