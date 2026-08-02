@@ -34,7 +34,7 @@ test('long private content opens in a scrollable reader with an explicit privacy
   assert.match(page, /隐藏并关闭/);
   assert.match(page, /document\.visibilityState === 'hidden'/);
   assert.match(page, /window\.addEventListener\('blur', handleWindowBlur\)/);
-  assert.match(page, /document\.body\.style\.overflow = 'hidden'/);
+  assert.match(page, /classList\.toggle\('modal-scroll-locked', pageScrollLocked\)/);
   assert.match(css, /\.secret-reader-dialog\{[^}]*grid-template-rows:auto minmax\(0,1fr\) auto/);
   assert.match(css, /\.secret-reader-content\{[^}]*overflow-y:auto/);
   assert.match(css, /\.secret-reader-content\{[^}]*touch-action:pan-y/);
