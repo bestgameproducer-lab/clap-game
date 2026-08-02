@@ -14,8 +14,8 @@ test('published results expose a complete public ranking even when the live scor
   assert.match(publicData, /findUndetectedTricksterIds/);
 });
 
-test('guest finale links to the complete ranking and explains the correct-vote point', () => {
-  assert.match(guestPage, /投对恶作剧者获得 1 点个人积分/);
+test('guest finale links to the complete ranking and explains the correct-vote points', () => {
+  assert.match(guestPage, /投对恶作剧者获得 2 点个人积分/);
   assert.match(guestPage, /href="\/scoreboard">查看全员最终积分排名/);
 });
 
