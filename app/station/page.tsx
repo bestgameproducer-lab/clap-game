@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { compressTaskEvidence } from '@/lib/client-image';
+import { gameStageCopy } from '@/lib/game-stages';
 import { StaffLogoutButton } from '../staff-logout-button';
 import { useLiveRefresh } from '@/lib/use-live-refresh';
 
@@ -50,10 +51,10 @@ export default function StationPage() {
       try { window.sessionStorage.setItem(STATION_CACHE_KEY, JSON.stringify(body)); } catch {}
       setOffline(false); setError('');
       const firstPendingGuestId = body.assignments?.find((assignment: Assignment) => ['submitted', 'rejected'].includes(assignment.status))?.guest_id;
-      setGuestId((current) => current || firstPendingGuestId || body.guests?.[0]?.id || '');
+      setGuestId((current) => body.guests?.some((guest: Guest) => guest.id === current) ? current : firstPendingGuestId || body.guests?.[0]?.id || '');
       const preferredTask = body.tasks?.find((task: Task) => task.category === 'hidden') || body.tasks?.[0];
-      setTaskId((current) => current || preferredTask?.id || '');
-      setClueId((current) => current || body.clues?.[0]?.id || '');
+      setTaskId((current) => body.tasks?.some((task: Task) => task.id === current) ? current : preferredTask?.id || '');
+      setClueId((current) => body.clues?.some((clue: { id: string }) => clue.id === current) ? current : body.clues?.[0]?.id || '');
     } catch (cause) {
       if (requestId !== loadRequestRef.current) return;
       setOffline(true); setError(cause instanceof Error ? cause.message : '任务站数据加载失败');
@@ -63,10 +64,10 @@ export default function StationPage() {
           const parsed = JSON.parse(cached) as StationData;
           setData((current) => current ?? parsed);
           const firstPendingGuestId = parsed.assignments?.find((assignment) => ['submitted', 'rejected'].includes(assignment.status))?.guest_id;
-          setGuestId((current) => current || firstPendingGuestId || parsed.guests?.[0]?.id || '');
+          setGuestId((current) => parsed.guests?.some((guest) => guest.id === current) ? current : firstPendingGuestId || parsed.guests?.[0]?.id || '');
           const preferredTask = parsed.tasks?.find((task) => task.category === 'hidden') || parsed.tasks?.[0];
-          setTaskId((current) => current || preferredTask?.id || '');
-          setClueId((current) => current || parsed.clues?.[0]?.id || '');
+          setTaskId((current) => parsed.tasks?.some((task) => task.id === current) ? current : preferredTask?.id || '');
+          setClueId((current) => parsed.clues?.some((clue) => clue.id === current) ? current : parsed.clues?.[0]?.id || '');
         }
       } catch { try { window.sessionStorage.removeItem(STATION_CACHE_KEY); } catch {} }
     } finally { if (interactive) setSyncing(false); }
@@ -95,6 +96,7 @@ export default function StationPage() {
     try {
       const response = await fetch('/api/admin-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const result = await responseBody(response);
+      if (response.status === 401) { try { window.sessionStorage.removeItem(STATION_CACHE_KEY); } catch {} setData(null); }
       if (!response.ok) throw new Error(result.error || '操作失败');
       setMessage(success); await load(); return true;
     } catch (cause) { setOffline(!navigator.onLine); setError(cause instanceof Error ? cause.message : '操作失败'); return false; }
@@ -141,6 +143,7 @@ export default function StationPage() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assignmentId }),
       });
       const uploadInfo = await responseBody(authorization);
+      if (authorization.status === 401) { try { window.sessionStorage.removeItem(STATION_CACHE_KEY); } catch {} setData(null); }
       if (!authorization.ok) throw new Error(uploadInfo.error || '无法准备照片上传');
       const upload = await fetch(uploadInfo.signedUrl, {
         method: 'PUT', headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' }, body: image,
@@ -151,6 +154,7 @@ export default function StationPage() {
         body: JSON.stringify({ assignmentId, path: uploadInfo.path }),
       });
       const confirmationBody = await responseBody(confirmation);
+      if (confirmation.status === 401) { try { window.sessionStorage.removeItem(STATION_CACHE_KEY); } catch {} setData(null); }
       if (!confirmation.ok) throw new Error(confirmationBody.error || '照片确认失败，请重试');
       setMessage('工作人员验证照片已安全保存。');
       await load();
@@ -168,6 +172,7 @@ export default function StationPage() {
         method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assignmentId }),
       });
       const body = await responseBody(response);
+      if (response.status === 401) { try { window.sessionStorage.removeItem(STATION_CACHE_KEY); } catch {} setData(null); }
       if (!response.ok) throw new Error(body.error || '删除照片失败');
       setMessage('验证照片已删除。');
       await load();
@@ -199,10 +204,10 @@ export default function StationPage() {
     }
   }
 
-  if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">CUPID STATION</div><div className="heart-mark">♡</div><h1>丘比特<br/>任务站</h1><p className="lead">核验任务、发放线索和隐藏奖励。</p><form onSubmit={login}><label htmlFor="station-password">管理员密码</label><input id="station-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required/><button disabled={busy}>{busy ? '登录中…' : '进入任务站'}</button>{error && <div className="notice error">{error}</div>}</form></section></main>;
+  if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">CUPID STATION</div><div className="heart-mark">♡</div><h1>丘比特<br/>任务站</h1><p className="lead">核验任务、发放线索和隐藏奖励。</p><form onSubmit={login}><label htmlFor="station-password">管理员密码</label><input id="station-password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required/><button disabled={busy}>{busy ? '登录中…' : '进入任务站'}</button>{error && <div className="notice error">{error}</div>}</form></section></main>;
 
   return <main className="station-shell">
-    <header className="station-hero"><div><div className="eyebrow">REDEMPTION DESK</div><h1>丘比特任务站</h1><p>当前阶段：{data.game?.stage || '未知'} · 本页面不显示任何隐藏身份</p></div><div className="host-links"><a href="/admin">主办方后台</a><a href="/host">主持人流程台</a><StaffLogoutButton clearSessionStorageKeys={[STATION_CACHE_KEY]}/></div></header>
+    <header className="station-hero"><div><div className="eyebrow">REDEMPTION DESK</div><h1>丘比特任务站</h1><p>当前流程：{data.game ? gameStageCopy(data.game.stage).label : '尚未读取'} · 本页面不显示任何隐藏身份</p></div><div className="host-links"><a href="/admin">主办方后台</a><a href="/host">主持人流程台</a><StaffLogoutButton clearSessionStorageKeys={[STATION_CACHE_KEY]}/></div></header>
     {offline && <div className="connection-banner offline" role="status"><span>离线只读 · 可查看最近同步的宾客与任务文字，验证照片可能需要联网；所有记录操作已禁用</span><button className="mini-button" disabled={syncing} onClick={() => void load(true)}>{syncing ? '重连中…' : '重新连接'}</button></div>}
     {message && <div className="notice success sticky-notice">{message}</div>}{error && <div className="notice error sticky-notice">{error}</div>}
     <div className="station-layout">
@@ -233,8 +238,8 @@ export default function StationPage() {
           </article>
           <details className="station-more-tools"><summary><span><strong>更多现场操作</strong><small>兑换实体卡、派发特别任务、线索与人工积分</small></span><b aria-hidden="true">＋</b></summary><div className="station-tools">
             <form className="section-card redemption-code-card" onSubmit={(event) => { event.preventDefault(); void action({ type: 'redeemHiddenTaskCode', guestId: guest.id, code: hiddenCode }, `隐藏任务卡已兑换给 ${guest.name}`).then((ok) => { if (ok) setHiddenCode(''); }); }}><small>PHYSICAL CARD</small><h2>兑换隐藏任务卡</h2><p className="muted">输入宾客找到的实体卡代码。每张卡全场只能领取一次，任务会自动进入其手机。</p>{!['task_round_2', 'banquet', 'group_game'].includes(data.game?.stage ?? '') && <div className="notice">请在婚宴前奏、婚宴或团队挑战环节开放实体卡兑换。</div>}<label htmlFor="hidden-task-code">隐藏任务码</label><input id="hidden-task-code" className="redemption-code-input" value={hiddenCode} onChange={(event) => setHiddenCode(event.target.value.toUpperCase())} autoCapitalize="characters" autoComplete="off" spellCheck={false} placeholder="CUPID-XXXX-XXXX" required/><button disabled={busy || offline || !guest.drawn_at || !hiddenCode.trim() || !['task_round_2', 'banquet', 'group_game'].includes(data.game?.stage ?? '')}>{offline ? '联网后可兑换' : !['task_round_2', 'banquet', 'group_game'].includes(data.game?.stage ?? '') ? '当前环节不可兑换' : guest.drawn_at ? `兑换给 ${guest.name}` : '宾客抽卡后才能兑换'}</button></form>
-            <form className="section-card" onSubmit={(event) => { event.preventDefault(); void action({ type: 'assignTask', guestId: guest.id, taskId }, '新任务已发放'); }}><small>HIDDEN REWARD</small><h2>发放特别任务</h2><select value={taskId} onChange={(event) => setTaskId(event.target.value)}>{hiddenTasks.map((task) => <option key={task.id} value={task.id}>{CATEGORY_LABELS[task.category]} · {task.title} · {task.points} 分</option>)}</select><button disabled={busy || offline || !taskId}>{offline ? '联网后可发放' : `发放给 ${guest.name}`}</button></form>
-            <form className="section-card" onSubmit={(event) => { event.preventDefault(); void action({ type: 'grantClue', guestId: guest.id, clueId }, '私人线索已发放'); }}><small>PRIVATE CLUE</small><h2>发放线索</h2><select value={clueId} onChange={(event) => setClueId(event.target.value)}>{clueGroups.map((group) => <optgroup key={group} label={group}>{data.clues.filter((clue) => (clue.group_name || '通用线索') === group).map((clue) => <option key={clue.id} value={clue.id}>{clue.title}</option>)}</optgroup>)}</select><button disabled={busy || offline || !clueId}>{offline ? '联网后可发放' : `发放给 ${guest.name}`}</button></form>
+            <form className="section-card" onSubmit={(event) => { event.preventDefault(); void action({ type: 'assignTask', guestId: guest.id, taskId }, '新任务已发放'); }}><small>HIDDEN REWARD</small><h2>发放特别任务</h2>{hiddenTasks.length ? <><label htmlFor="station-special-task">选择已启用任务</label><select id="station-special-task" value={taskId} onChange={(event) => setTaskId(event.target.value)}>{hiddenTasks.map((task) => <option key={task.id} value={task.id}>{CATEGORY_LABELS[task.category]} · {task.title} · {task.points} 分</option>)}</select></> : <div className="tool-empty-state"><strong>当前没有可派发的特别任务</strong><span>请由主办方先在任务库启用相应任务。</span></div>}<button disabled={busy || offline || !taskId}>{offline ? '联网后可发放' : `发放给 ${guest.name}`}</button></form>
+            <form className="section-card" onSubmit={(event) => { event.preventDefault(); void action({ type: 'grantClue', guestId: guest.id, clueId }, '私人线索已发放'); }}><small>PRIVATE CLUE</small><h2>发放线索</h2>{data.clues.length ? <><label htmlFor="station-private-clue">选择已启用线索</label><select id="station-private-clue" value={clueId} onChange={(event) => setClueId(event.target.value)}>{clueGroups.map((group) => <optgroup key={group} label={group}>{data.clues.filter((clue) => (clue.group_name || '通用线索') === group).map((clue) => <option key={clue.id} value={clue.id}>{clue.title}</option>)}</optgroup>)}</select></> : <div className="tool-empty-state"><strong>当前没有可发放线索</strong><span>线索需要主办方在婚礼设置中根据现场情况创建。</span></div>}<button disabled={busy || offline || !clueId}>{offline ? '联网后可发放' : `发放给 ${guest.name}`}</button></form>
             <form className="section-card" onSubmit={(event) => { event.preventDefault(); void action({ type: 'adjustPoints', guestId: guest.id, amount: Number(pointAmount), reason: pointReason }, '积分已补记').then((ok) => { if (ok) setPointAmount(''); }); }}><small>MANUAL REWARD</small><h2>补记积分</h2><input aria-label="积分变化" type="number" min={-1000} max={1000} value={pointAmount} onChange={(event) => setPointAmount(event.target.value)} placeholder="例如 1 或 3" required/><input aria-label="积分原因" value={pointReason} onChange={(event) => setPointReason(event.target.value)} maxLength={200} required/><button disabled={busy || offline || !pointAmount || !pointReason.trim()}>{offline ? '联网后可保存' : '保存积分'}</button></form>
           </div></details>
         </>}

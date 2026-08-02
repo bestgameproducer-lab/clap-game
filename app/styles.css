@@ -164,6 +164,7 @@ button.text-button { background: transparent; color: #76665e; padding: 8px; text
 .evidence-controls button { justify-self:start; width:auto; margin:0; }
 .evidence-controls small { color:#8a6d5e; }
 .empty-state { padding: 24px 12px; text-align: center; color: #95877e; background: #faf6f2; border-radius: 14px; }
+.tool-empty-state{display:grid;gap:4px;margin:10px 0;padding:13px 14px;border:1px dashed #d9c6bb;border-radius:14px;background:#faf5f1;color:#68564e}.tool-empty-state strong{font-size:13px}.tool-empty-state span{color:#8a766c;font-size:11px;line-height:1.55}
 .clue { background: #f5eee8; padding: 14px; border-radius: 14px; margin-top: 8px; line-height: 1.5; }
 .clue strong { display: block; color: #634a40; margin-bottom: 4px; }
 .clue p { margin: 0; color: #74675f; }
