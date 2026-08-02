@@ -10,6 +10,9 @@ test('settled team clues reach every drawn phase-two teammate, including story r
   assert.match(migration, /recipient\.phase_two_eligible/);
   assert.match(migration, /on conflict\(guest_id,clue_id\) do nothing/);
   assert.doesNotMatch(migration.slice(migration.indexOf('with settled_team_clues'), migration.indexOf('-- The trickster signal mission')), /eligible_for_secret_role|role<>'spy'|id<>v_spy_id/);
+  assert.match(migration, /create or replace function enforce_secret_clue_guest_eligibility/);
+  assert.match(migration, /participation_mode='ACTIVE_PLAYER'[\s\S]+phase_two_eligible[\s\S]+team in \('海岛组','沙漠组'\)/);
+  assert.match(migration, /raise exception using errcode='P0001',message='guest_not_secret_clue_eligible'/);
 });
 
 test('trickster signal mission survives act one cleanup without restoring trickster points', () => {
