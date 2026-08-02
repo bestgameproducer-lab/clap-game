@@ -30,6 +30,34 @@ begin
 end;
 $migration$;
 
+-- The original table guard predates phase two and only admits guests who were
+-- eligible for a random secret role. Keep that protection for ordinary manual
+-- grants, while also admitting drawn competitive players who explicitly
+-- participate in phase two. Honor guests and principals remain excluded.
+create or replace function enforce_secret_clue_guest_eligibility()
+returns trigger language plpgsql set search_path=public as $$
+begin
+  if not exists(
+    select 1 from guests
+    where id=new.guest_id and active and (
+      eligible_for_secret_role
+      or (
+        participation_mode='ACTIVE_PLAYER'
+        and drawn_at is not null
+        and phase_two_eligible
+        and team in ('海岛组','沙漠组')
+      )
+    )
+  ) then
+    raise exception using errcode='P0001',message='guest_not_secret_clue_eligible';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function enforce_secret_clue_guest_eligibility()
+  from public,anon,authenticated;
+
 -- A live settlement may already have happened. Each team already has a known,
 -- auditable selected clue set in guest_clues; copy only that exact set to any
 -- missing drawn phase-two teammate. No clue content or new selection is made.
