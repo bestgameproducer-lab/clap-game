@@ -77,9 +77,9 @@ export function buildWeddingPreflight(input: {
   const items: PreflightItem[] = [
     item('game-state', '核心流程状态可用', input.hasGameState ? '数据库流程状态已读取' : '无法读取 game_state', input.hasGameState),
     item('invitation-code', '正式邀请码已设置', input.invitationCodeRotated ? '已由主办方安全更新' : '仍是公开示例码或尚未在后台确认', input.invitationCodeRotated),
-    item('guest-roster', '32 位宾客名单与三组结构', `${invitedGuests.length} 位可登录 · 家人组 ${familyGuests.length} 人 · 第二阶段 ${competitiveGuests.length} 人`, invitedGuests.length === 32 && familyGuests.length === 10 && competitiveGuests.length === 20),
+    item('guest-roster', '32 位宾客名单与三组结构', `${invitedGuests.length} 位可登录 · 家人组 ${familyGuests.length} 人 · 第二轮竞技玩家 ${competitiveGuests.length} 人`, invitedGuests.length === 32 && familyGuests.length === 10 && competitiveGuests.length === 20),
     item('draw-capacity', '竞技组容量没有冲突', teamSummary.map((team) => `${team.team} ${team.total}/10`).join(' · '), capacityValid),
-    item('official-missions', '第一阶段任务、分值与人数正确', `${officialMissionCount}/${officialMissionCodes.length} 项符合定稿${unexpectedPhaseOneTasks.length ? ` · 另有 ${unexpectedPhaseOneTasks.length} 项非定稿任务仍启用` : ''}`, officialMissionCount === officialMissionCodes.length && unexpectedPhaseOneTasks.length === 0),
+    item('official-missions', '第一轮任务、分值与人数正确', `${officialMissionCount}/${officialMissionCodes.length} 项符合定稿${unexpectedPhaseOneTasks.length ? ` · 另有 ${unexpectedPhaseOneTasks.length} 项非定稿任务仍启用` : ''}`, officialMissionCount === officialMissionCodes.length && unexpectedPhaseOneTasks.length === 0),
     item('story-cast', '固定职务与随机图案池正确', `誓词 ${storyCounts.OFFICIANT} · 戒指 ${storyCounts.RING_KEEPER} · 应援 ${storyCounts.GROOM_CHEERLEADER + storyCounts.BRIDE_CHEERLEADER} · 已预设爱心 ${storyCounts.HEART_HOLDER}/5 · 已预设星星 ${storyCounts.STAR_HOLDER}/5`, storyCastReady),
     item('upgrade-pool', '升级任务池充足', `${activeTasks.filter((task) => task.category === 'upgrade').length} 项启用（建议至少 5 项）`, activeTasks.filter((task) => task.category === 'upgrade').length >= 5),
     item('group-pool', '团队任务池已配置', `${activeTasks.filter((task) => task.category === 'group').length} 项启用`, activeTasks.some((task) => task.category === 'group')),

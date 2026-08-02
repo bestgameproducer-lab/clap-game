@@ -162,7 +162,7 @@ export async function POST(request: Request) {
     } else if (type === 'configurePhaseTwoProfile') {
       await configurePhaseTwoProfile({
         guestId: requiredUuid(body.guestId, '宾客 ID'),
-        primaryMission: body.primaryMission ? requiredEnum(body.primaryMission, '第二阶段主任务', PHASE_TWO_PRIMARY_MISSIONS) : null,
+        primaryMission: body.primaryMission ? requiredEnum(body.primaryMission, '第二轮主任务', PHASE_TWO_PRIMARY_MISSIONS) : null,
         extraVote: requiredBoolean(body.extraVote, '额外投票权'),
         superLucky: requiredBoolean(body.superLucky, '超级幸运星'),
         isCaptain: requiredBoolean(body.isCaptain, '队长身份'),

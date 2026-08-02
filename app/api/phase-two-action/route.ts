@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     assertSameOrigin(request);
     const guestId = await requireGuest();
     const body = await readJsonObject(request);
-    const action = requiredEnum(body.action, '第二阶段操作', ['dilemma', 'copy'] as const);
+    const action = requiredEnum(body.action, '第二轮任务操作', ['dilemma', 'copy'] as const);
     if (action === 'dilemma') {
       await submitPhaseTwoDilemma(guestId, requiredEnum(body.choice, '秘密选择', DILEMMA_CHOICES));
     } else {
