@@ -82,7 +82,7 @@ NEXT_PUBLIC_WEDDING_TITLE=婚礼页面标题
 
 - 每位使用 App 的宾客都有抽卡动作；卡片本身和保留按钮都可以触发抽取。
 - 七位荣誉家人登录并抽“荣誉惊喜卡”，不领取普通秘密任务、隐藏身份或秘密线索。金星澄、陈安道、金紫洋从第一阶段起显示为家人组，但前两位仍领取戒指任务，金紫洋仍领取普通第一阶段任务；全部家人均排除在第二阶段任务外。
-- 新郎 Zimin Jin、新娘 Anrong 是 `PRINCIPAL`，保留专属惊喜内容，不进入普通秘密任务池。
+- 新郎金紫民 Zimin Jin、新娘陈安融 Anrong 是 `PRINCIPAL`，保留专属惊喜内容，不进入普通秘密任务池。
 - Yifan Yu 是誓词引导人；Andao Chen 与 Xingcheng Jin 是戒指守护者。固定剧情职务通过抽卡动画揭晓，但不进入恶作剧者池。
 - 秘密身份默认隐藏。普通身份可“按住查看”，松手立即盖住；长内容另有可滚动的“展开查看/再次隐藏”。切后台、锁屏或离开页面时必须自动盖住。
 - 所有人都必须看到“不要告诉别人身份、阵营或任务”的明确提示。
@@ -136,7 +136,7 @@ NEXT_PUBLIC_WEDDING_TITLE=婚礼页面标题
 
 关键分类：
 
-- 新人：Anrong（新娘）、Zimin Jin（新郎）
+- 新人：陈安融 Anrong（新娘）、金紫民 Zimin Jin（新郎）
 - 固定仪式角色：Yifan Yu（誓词引导人）、Andao Chen 和 Xingcheng Jin（送戒指）
 - 荣誉家人：Danying Yang、Liying Jin、Jianjun Jin、Xiaofeng Jin、Wei Jin、Huimin Xu、Gang Yao
 - Xingcheng Jin、Andao Chen、Ziyang Jin 也属于家人组；前两位领取戒指任务，Ziyang Jin 参加第一阶段普通任务，三人均不进入第二阶段
