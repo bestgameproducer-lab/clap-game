@@ -10,7 +10,7 @@ const admin = await read('app/admin/page.tsx');
 test('both act-two dilemmas are secret and show the complete payoff matrix', () => {
   assert.match(migration, /双方都选爱：各得 3 分[\s\S]*P2-HEART-001/);
   assert.match(migration, /双方都选同行：各得 3 分[\s\S]*P2-STAR-001/);
-  assert.match(guest, /必须秘密选择 · 不能商量/);
+  assert.match(guest, /积分规则 · 必须秘密选择，不能商量/);
   assert.match(guest, /你 0 分 · 伙伴 5 分/);
   assert.match(guest, /你 5 分 · 伙伴 0 分/);
 });

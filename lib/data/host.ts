@@ -34,6 +34,18 @@ function ensureHostDatabaseError(error: { message: string } | null, fallback: st
   if (error.message.includes('guest_not_personal_score_eligible')) throw new ApiError(409, '这位宾客目前不能获得个人积分');
   if (error.message.includes('guest_not_found')) throw new ApiError(404, '找不到这位宾客');
   if (error.message.includes('invalid_team')) throw new ApiError(400, '组别不正确');
+  if (error.message.includes('use_voting_controls')) throw new ApiError(409, '投票和身份揭晓必须使用下方专用按钮，不能从婚礼环节直接跳转');
+  if (error.message.includes('symbol_pairing_count_invalid')) throw new ApiError(409, '爱心和星星都必须各有五位玩家完成抽卡');
+  if (error.message.includes('symbol_pairing_state_invalid') || error.message.includes('symbol_finalization_incomplete')) throw new ApiError(409, '爱心或星星配对状态异常，请让主控核对联盟记录');
+  if (error.message.includes('symbol_fragment_distribution_invalid')) throw new ApiError(409, '爱心或星星的左右图案数量异常，无法自动完成最终配对');
+  if (error.message.includes('symbol_auto_pair_conflict')) throw new ApiError(409, '自动补齐伙伴配对发生冲突，请刷新后重试');
+  if (error.message.includes('symbol_final_player_missing')) throw new ApiError(409, '爱心或星星没有留下可升级的最后一位玩家，请让主控核对名单');
+  if (error.message.includes('phase_two_roster_not_ready')) throw new ApiError(409, '第二轮任务需要海岛组和沙漠组各有 10 位玩家完成抽卡');
+  if (error.message.includes('phase_two_trickster_count_invalid')) throw new ApiError(409, '海岛组和沙漠组必须各有一位已抽卡的恶作剧者');
+  if (error.message.includes('phase_two_relationship_roles_not_ready')) throw new ApiError(409, '爱心或星星角色尚未完成结算，请刷新后重试');
+  if (error.message.includes('phase_two_yirui_speech_unavailable')) throw new ApiError(409, '固定晚宴致辞玩家尚未完成抽卡，暂时不能发放第二轮任务');
+  if (error.message.includes('phase_two_extra_vote_unavailable') || error.message.includes('phase_two_lucky_unavailable')) throw new ApiError(409, '第二轮能力卡名额不足，请让主控核对竞技组名单');
+  if (error.message.includes('phase_two_coverage_invalid') || error.message.includes('phase_two_team_coverage_invalid') || error.message.includes('phase_two_assignment_count_invalid')) throw new ApiError(409, '第二轮任务覆盖校验失败，本次没有写入部分任务，请让主控核对配置');
   if (error.message.includes('voting_stage_not_ready')) throw new ApiError(409, '请先在主持人流程台切换到团队挑战，再开启最终投票');
   if (error.message.includes('no_drawn_guests')) throw new ApiError(409, '尚无宾客完成抽卡，不能开启最终投票');
   if (error.message.includes('phase_two_team_scores_missing')) throw new ApiError(409, '请先记录海岛组或沙漠组的团队成绩，再开启最终投票');

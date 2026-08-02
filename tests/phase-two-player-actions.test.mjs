@@ -58,7 +58,7 @@ test('guest task cards expose explicit locked, waiting, settled, and offline sta
 });
 
 test('star dilemma explains the full payoff matrix before either choice is submitted', () => {
-  assert.match(guestPage, /必须秘密选择 · 不能商量/);
+  assert.match(guestPage, /积分规则 · 必须秘密选择，不能商量/);
   assert.match(guestPage, /const cooperative = isHeart \? '爱' : '同行'/);
   assert.match(guestPage, /const selfish = isHeart \? '恨' : '独占'/);
   assert.match(guestPage, /各得 3 分/);
