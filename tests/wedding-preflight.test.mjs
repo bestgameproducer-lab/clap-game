@@ -31,12 +31,8 @@ function completeFixture() {
     { id: 'group', active: true, role_scope: 'all', category: 'group', stage: 'group_game' },
     ...Array.from({ length: 4 }, (_, index) => ({ id: `hidden-${index}`, active: true, role_scope: 'all', category: 'hidden', stage: 'task_round_2' })),
   ];
-  const clues = WEDDING_TEAMS.flatMap((team) => Array.from({ length: 2 }, () => ({ active: true, spy_guest_id: null, team_scope: team })));
   return {
-    guests, tasks, clues,
-    hiddenTaskCodes: Array.from({ length: 4 }, (_, index) => ({ task_id: `hidden-${index}` })),
-    hostSegments: Array.from({ length: 7 }, () => ({ ready: true, active: true, stage: 'group_game' })),
-    resourceWallets: WEDDING_TEAMS.map((team) => ({ team })), hasGameState: true, invitationCodeRotated: true,
+    guests, tasks, hasGameState: true, invitationCodeRotated: true,
   };
 }
 
@@ -44,7 +40,9 @@ test('a complete 32-person rehearsal configuration passes every preflight gate',
   const result = buildWeddingPreflight(completeFixture());
   assert.equal(result.ready, true);
   assert.equal(result.blockedCount, 0);
-  assert.ok(result.items.length >= 10);
+  assert.deepEqual(result.items.map((item) => item.id), [
+    'game-state', 'invitation-code', 'guest-roster', 'draw-capacity', 'official-missions', 'story-cast',
+  ]);
 });
 
 test('preflight blocks role capacity conflicts before card drawing', () => {
@@ -74,26 +72,22 @@ test('preflight allows random heart and star casting but blocks incomplete fixed
   assert.equal(result.items.find((item) => item.id === 'official-missions')?.status, 'blocked');
 });
 
-test('preflight blocks fixed setup gaps while allowing team clues to be created live', () => {
+test('preflight ignores optional live content that does not block the wedding opening', () => {
   const fixture = completeFixture();
-  fixture.hiddenTaskCodes.pop();
   fixture.clues = [];
-  fixture.hostSegments[0].ready = false;
-  fixture.resourceWallets.pop();
+  fixture.hiddenTaskCodes = [];
+  fixture.hostSegments = [];
+  fixture.resourceWallets = [];
   const result = buildWeddingPreflight(fixture);
-  for (const id of ['hidden-cards', 'host-content', 'resource-wallets']) {
-    assert.equal(result.items.find((item) => item.id === id)?.status, 'blocked');
-  }
-  assert.equal(result.items.find((item) => item.id === 'team-clues')?.status, 'ready');
+  assert.equal(result.ready, true);
+  assert.equal(result.items.some((item) => ['upgrade-pool', 'group-pool', 'hidden-cards', 'team-clues', 'host-content', 'resource-wallets'].includes(item.id)), false);
 });
 
-test('the admin data layer supplies explicit protected inputs to the preflight builder', async () => {
+test('the admin data layer keeps the opening check limited to core wedding setup', async () => {
   const source = await readFile(new URL('../lib/data/admin.ts', import.meta.url), 'utf8');
-  assert.match(source, /from\('host_segments'\)\.select\('id,title,stage,ready,active'\)/);
-  assert.match(source, /from\('team_resources'\)\.select\('team,balance,updated_at'\)/);
   assert.match(source, /preflight: buildWeddingPreflight/);
   assert.match(source, /invitationCodeRotated: Boolean\(results\[5\]\.data\?\.invitation_code_updated_at\)/);
-  assert.doesNotMatch(source, /from\('host_segments'\)\.select\('\*'\)/);
+  assert.match(source, /buildWeddingPreflight\(\{ guests, tasks, hasGameState:/);
 });
 
 test('baseline migration brings the physical hidden-card pool to four', async () => {

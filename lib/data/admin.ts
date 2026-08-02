@@ -135,7 +135,7 @@ export async function getAdminDashboardData() {
     hiddenTaskCodes: results[13].data ?? [],
     hostSegments,
     resourceWallets,
-    preflight: buildWeddingPreflight({ guests, tasks, clues, hiddenTaskCodes, hostSegments, resourceWallets, hasGameState: Boolean(results[5].data), invitationCodeRotated: Boolean(results[5].data?.invitation_code_updated_at) }),
+    preflight: buildWeddingPreflight({ guests, tasks, hasGameState: Boolean(results[5].data), invitationCodeRotated: Boolean(results[5].data?.invitation_code_updated_at) }),
     rehearsalResetPreview: results[16].data ?? {},
     heartSlots: results[17].data ?? [],
     playerRelationships: results[18].data ?? [],
