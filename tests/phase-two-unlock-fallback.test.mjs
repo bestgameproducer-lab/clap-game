@@ -29,5 +29,6 @@ test('phase-two transition errors are translated into actionable admin messages'
     'phase_two_relationship_roles_not_ready',
     'phase_two_yirui_speech_unavailable',
     'phase_two_coverage_invalid',
+    'DELETE requires a WHERE clause',
   ]) assert.match(adminData, new RegExp(code));
 });
