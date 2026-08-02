@@ -42,12 +42,14 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
     if (error.message.includes('symbol_pairing_state_invalid') || error.message.includes('symbol_finalization_incomplete')) throw new ApiError(409, '爱心或星星配对状态异常，请先在主持人界面核对联盟记录');
     if (error.message.includes('symbol_fragment_distribution_invalid')) throw new ApiError(409, '爱心或星星的左右图案数量异常，系统无法自动完成最终配对');
     if (error.message.includes('symbol_auto_pair_conflict')) throw new ApiError(409, '自动补齐伙伴配对时发生冲突，请刷新后重试');
+    if (error.message.includes('symbol_final_player_missing')) throw new ApiError(409, '爱心或星星没有留下可升级的最后一位玩家；请核对图案持有者名单');
     if (error.message.includes('phase_two_roster_not_ready')) throw new ApiError(409, '第二轮任务需要海岛组和沙漠组各有 10 位玩家完成抽卡');
     if (error.message.includes('phase_two_trickster_count_invalid')) throw new ApiError(409, '第二轮任务需要海岛组和沙漠组各有一位恶作剧者');
     if (error.message.includes('phase_two_relationship_roles_not_ready')) throw new ApiError(409, '爱心或星星角色尚未完成结算，请刷新后重试');
     if (error.message.includes('phase_two_yirui_speech_unavailable')) throw new ApiError(409, '固定晚宴致辞玩家尚未完成抽卡，暂时不能发放第二轮任务');
     if (error.message.includes('phase_two_extra_vote_unavailable') || error.message.includes('phase_two_lucky_unavailable')) throw new ApiError(409, '第二轮能力卡名额不足，请核对竞技组名单');
     if (error.message.includes('phase_two_coverage_invalid') || error.message.includes('phase_two_team_coverage_invalid') || error.message.includes('phase_two_assignment_count_invalid')) throw new ApiError(409, '第二轮任务覆盖校验失败，未写入任何任务，请联系管理员检查配置');
+    if (error.message.includes('phase_two_safe_update_patch_failed') || error.message.includes('phase_two_runtime_cleanup_safe_update_patch_failed')) throw new ApiError(409, '第二轮数据库安全修复尚未生效，请联系管理员完成最新部署后重试');
     if (error.message.includes('DELETE requires a WHERE clause')) throw new ApiError(409, '第二轮派发被数据库安全规则拦截，请刷新后重试；本次没有写入部分任务');
     if (error.message.includes('assignment_already_completed')) throw new ApiError(409, '已经完成并计分的任务不能直接改派；如需纠错请调整积分并保留审计记录');
     if (error.message.includes('ceremony_assignment_not_found')) throw new ApiError(404, '找不到这项仪式任务');
