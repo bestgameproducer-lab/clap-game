@@ -104,6 +104,26 @@ test('宾客真实主页可浏览任务、团队积分并支持桌面滚动', as
 test('首次登录宾客完成婚礼自拍后才能进入游戏', async ({ page }) => {
   let avatarConfirmed = false;
   let uploadedAvatarSignature = null;
+  await page.addInitScript(() => {
+    const getUserMedia = async () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 16; canvas.height = 16;
+      const context = canvas.getContext('2d');
+      const paintFrame = () => {
+        context.fillStyle = '#ff0000'; context.fillRect(0, 0, 8, 16);
+        context.fillStyle = '#0000ff'; context.fillRect(8, 0, 8, 16);
+      };
+      paintFrame();
+      const stream = canvas.captureStream(10);
+      stream.getVideoTracks()[0]?.requestFrame?.();
+      window.setInterval(paintFrame, 100);
+      return stream;
+    };
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia },
+    });
+  });
   await page.route('**/api/guest-me', (route) => route.fulfill({
     json: { ...guestData, guest: { ...guest, avatar_path: avatarConfirmed ? guest.avatar_path : null, avatar_uploaded_at: avatarConfirmed ? guest.avatar_uploaded_at : null, avatar_url: avatarConfirmed ? guest.avatar_url : null } },
   }));
@@ -124,10 +144,11 @@ test('首次登录宾客完成婚礼自拍后才能进入游戏', async ({ page 
   });
   await page.goto('/guest');
   await expect(page.getByRole('heading', { name: /拍一张开心的/ })).toBeVisible();
-  await page.locator('#guest-avatar-photo').setInputFiles({
-    name: 'selfie.svg', mimeType: 'image/svg+xml',
-    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="2" height="4" fill="#ff0000"/><rect x="2" width="2" height="4" fill="#0000ff"/></svg>'),
-  });
+  await page.getByRole('button', { name: /打开自拍相机/ }).click();
+  const liveCamera = page.getByLabel('实时自拍取景画面');
+  await expect(liveCamera).toBeVisible();
+  await expect.poll(() => liveCamera.evaluate((video) => video.videoWidth)).toBeGreaterThan(0);
+  await page.getByRole('button', { name: '拍下这张' }).click();
   const previewImage = page.getByRole('img', { name: '待上传的婚礼自拍预览' });
   await expect(previewImage).toBeVisible();
   const readPreviewSides = () => previewImage.evaluate((image) => {

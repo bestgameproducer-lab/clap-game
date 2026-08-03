@@ -17,11 +17,12 @@ test('guest avatars use a private forward-only storage migration', async () => {
 });
 
 test('avatar upload is authenticated, same-origin, compressed, and server-confirmed', async () => {
-  const [route, data, client, page] = await Promise.all([
+  const [route, data, client, page, config] = await Promise.all([
     read('app/api/guest-avatar/route.ts'),
     read('lib/data/avatar.ts'),
     read('lib/client-image.ts'),
     read('app/guest/page.tsx'),
+    read('next.config.mjs'),
   ]);
   assert.equal((route.match(/const guestId = await requireGuest\(\)/g) ?? []).length, 2);
   assert.equal((route.match(/assertSameOrigin\(request\)/g) ?? []).length, 2);
@@ -43,7 +44,17 @@ test('avatar upload is authenticated, same-origin, compressed, and server-confir
   assert.match(page, /'x-upsert': 'true'/);
   assert.match(page, /setAvatarImage\(image\)[\s\S]*setAvatarPreview\(URL\.createObjectURL\(image\)\)/);
   assert.match(page, /body: avatarImage/);
-  assert.match(page, /prepareAvatar\(file: File \| null, mirrorHorizontally = true\)/);
+  assert.match(page, /prepareAvatar\(file: File \| null, mirrorHorizontally = false\)/);
+  assert.match(client, /export async function captureSelfieFrame/);
+  const cameraCapture = client.slice(client.indexOf('export async function captureSelfieFrame'));
+  assert.match(cameraCapture, /context\.translate\(AVATAR_DIMENSION, 0\)/);
+  assert.match(cameraCapture, /context\.scale\(-1, 1\)/);
+  assert.match(page, /navigator\.mediaDevices\.getUserMedia/);
+  assert.match(page, /facingMode: 'user'/);
+  assert.match(page, /aria-label="实时自拍取景画面"/);
+  assert.match(page, /画面里看到什么，拍下后就是什么方向/);
+  assert.match(page, /void prepareAvatar\(file, false\)/);
+  assert.match(config, /camera=\(self\)/);
   assert.match(page, /照片左右反了？点此翻转/);
   assert.match(page, /prepareAvatar\(avatarSourceFile, !avatarMirrored\)/);
 });
