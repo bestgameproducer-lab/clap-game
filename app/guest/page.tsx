@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { compressTaskEvidence } from '@/lib/client-image';
+import { compressProfileAvatar, compressTaskEvidence } from '@/lib/client-image';
 import { isPhaseOneInteractionOpenAtStage, isTaskActionOpenAtStage, isTaskPausedDuringCeremony, isTaskWaitingForStage } from '@/lib/game-rules';
 import { gameStageCopy } from '@/lib/game-stages';
 import { isPlayerCode, normalizePlayerCode } from '@/lib/player-code';
@@ -20,7 +20,7 @@ const PENDING_COPY_MESSAGE = '命运复制目标已锁定';
 const DINNER_MENU_STAGES = new Set(['task_round_2', 'banquet', 'group_game', 'voting', 'results']);
 
 type RegistrationGuest = { id: string; name: string; loginName: string; hasPassword: boolean };
-type PlayerDirectoryEntry = { name: string; playerCode: string };
+type PlayerDirectoryEntry = { name: string; playerCode: string; avatarUrl: string | null };
 type SecretCard = { team: string; role: string; storyRole: string; task: { id: string; title: string; description: string; verificationMethod: string; points: number }; drawnAt: string };
 type ConnectionRelationshipType = 'CUPID_ALLIANCE' | 'STAR_ALLIANCE' | 'TRICKSTER_CONNECTION';
 type PendingNotice =
@@ -33,7 +33,7 @@ type PendingNotice =
 type AwakeningKind = 'LONELY_CUPID' | 'GUIDING_STAR';
 type ContentNotice = { title: string; detail: string; signature: string; variant?: 'awakening'; awakeningKind?: AwakeningKind };
 type GuestData = {
-  guest: { id: string; name: string; team: string; role: string; is_hidden_spy: boolean; points: number; drawn_at: string | null; special_card_revealed_at: string | null; participation_mode: 'ACTIVE_PLAYER' | 'HONOR_GUEST' | 'PRINCIPAL'; relationship: string; story_role: string; eligible_for_mission: boolean; eligible_for_secret_role: boolean; eligible_for_personal_score: boolean; special_card_title: string; special_card_body: string; player_code: string; unlocked_role: string };
+  guest: { id: string; name: string; team: string; role: string; is_hidden_spy: boolean; points: number; drawn_at: string | null; special_card_revealed_at: string | null; participation_mode: 'ACTIVE_PLAYER' | 'HONOR_GUEST' | 'PRINCIPAL'; relationship: string; story_role: string; eligible_for_mission: boolean; eligible_for_secret_role: boolean; eligible_for_personal_score: boolean; special_card_title: string; special_card_body: string; player_code: string; unlocked_role: string; avatar_path: string | null; avatar_uploaded_at: string | null; avatar_url: string | null };
   assignments: Array<{ id: string; status: string; is_initial: boolean; completion_rank: number | null; early_bonus_points: number; reward_task_id: string | null; reward_clue_id: string | null; completion_note: string; verification_note: string; verified_at: string | null; evidence_uploaded_at: string | null; evidence_url: string | null; rejection_reason: string | null; task: { title: string; description: string; verification_method: string; points: number; category: string; stage: string; mission_code: string | null; mechanic: string; score_policy: string } }>;
   clues: Array<{ id: string; title: string; content: string; groupName: string }>;
   game: { registration_open: boolean; stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null; task_catalog_mode: 'demo' | 'live'; trickster_max_attempts: number; phase_one_completed_at: string | null } | null;
@@ -175,6 +175,10 @@ export default function GuestPage() {
   const [expandedAssignments, setExpandedAssignments] = useState<Record<string, boolean>>({});
   const [completedMissionsOpen, setCompletedMissionsOpen] = useState(false);
   const [playerCodeCopied, setPlayerCodeCopied] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState('');
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
   const loadRequestRef = useRef(0);
   const manualRefreshRef = useRef(false);
   const refreshNoticeTimerRef = useRef<number | null>(null);
@@ -368,6 +372,10 @@ export default function GuestPage() {
     if (refreshNoticeTimerRef.current !== null) window.clearTimeout(refreshNoticeTimerRef.current);
   }, []);
 
+  useEffect(() => () => {
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+  }, [avatarPreview]);
+
   async function refreshManually() {
     if (manualRefreshRef.current) return;
     manualRefreshRef.current = true;
@@ -498,6 +506,32 @@ export default function GuestPage() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '照片上传失败');
     } finally { setEvidenceBusyId(null); }
+  }
+
+  async function uploadAvatar() {
+    if (!avatarFile) return;
+    setAvatarBusy(true); setError(''); setMessage('');
+    try {
+      const image = await compressProfileAvatar(avatarFile);
+      const authorization = await fetch('/api/guest-avatar', { method: 'POST' });
+      const uploadInfo = await authorization.json();
+      if (!authorization.ok) throw new Error(uploadInfo.error || '无法准备头像上传');
+      const upload = await fetch(uploadInfo.signedUrl, {
+        method: 'PUT', headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' }, body: image,
+      });
+      if (!upload.ok) throw new Error('头像上传失败，请检查网络后重试');
+      const confirmation = await fetch('/api/guest-avatar', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: uploadInfo.path }),
+      });
+      const confirmationBody = await confirmation.json();
+      if (!confirmation.ok) throw new Error(confirmationBody.error || '头像确认失败，请重试');
+      setAvatarFile(null);
+      setAvatarPreview('');
+      await load();
+      setAvatarEditorOpen(false);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '头像上传失败');
+    } finally { setAvatarBusy(false); }
   }
 
   async function removeEvidence(assignmentId: string) {
@@ -658,7 +692,6 @@ export default function GuestPage() {
     setPlayerDirectoryOpen(true);
     setPlayerDirectorySearch('');
     setPlayerDirectoryError('');
-    if (playerDirectory) return;
     setPlayerDirectoryLoading(true);
     try {
       const response = await fetch('/api/player-directory', { cache: 'no-store' });
@@ -694,10 +727,10 @@ export default function GuestPage() {
   }, [guests, search]);
   const playerDirectoryMatches = useMemo(() => {
     const term = playerDirectorySearch.trim().toLocaleLowerCase('zh-CN');
-    if (!term || !playerDirectory) return [];
+    if (!playerDirectory) return [];
     return playerDirectory
-      .filter((player) => player.name.toLocaleLowerCase('zh-CN').includes(term))
-      .slice(0, 8);
+      .filter((player) => !term || player.name.toLocaleLowerCase('zh-CN').includes(term))
+      .slice(0, 40);
   }, [playerDirectory, playerDirectorySearch]);
 
   if (checking || deviceAccessChecking) return <main className="welcome-shell"><section className="welcome-card"><div className="heart-mark">♡</div><h1>正在打开婚礼任务</h1><p>丘比特正在确认你的身份…</p></section></main>;
@@ -732,6 +765,31 @@ export default function GuestPage() {
         <button disabled={busy || claimCode.length !== 4 || (!selectedGuest.hasPassword && claimCodeConfirm.length !== 4)}>{busy ? (selectedGuest.hasPassword ? '登录中…' : '设置中…') : (selectedGuest.hasPassword ? '登录我的身份' : '设置密码 · 开始抽卡')}</button>
         <button type="button" className="text-button" onClick={() => { setSelectedGuest(null); setError(''); }}>返回宾客名单</button>
       </form>}
+    </section>
+  </main>;
+
+  if (!data.guest.avatar_url || avatarEditorOpen) return <main className="avatar-setup-shell">
+    <section className="avatar-setup-card">
+      <div className="eyebrow">ONE HAPPY MOMENT</div>
+      <div className="avatar-step-row"><span>1</span><i/><span>2</span><i/><span>3</span><i/><span className="active">4</span></div>
+      <h1>{data.guest.avatar_url ? <>更新你的<br/>婚礼头像</> : <>拍一张开心的<br/>婚礼自拍</>}</h1>
+      <p>{data.guest.avatar_url ? '重新拍摄后会替换现在的头像，玩家编号和游戏进度都不会改变。' : '这张照片会成为你的玩家头像，让其他宾客在编号验证列表里更容易认出你。'}</p>
+      {error && <div className="notice error" role="alert">{error}</div>}
+      <label className={`avatar-capture ${avatarPreview || data.guest.avatar_url ? 'has-photo' : ''}`} htmlFor="guest-avatar-photo">
+        {avatarPreview ? <img src={avatarPreview} alt="待上传的婚礼自拍预览"/> : data.guest.avatar_url ? <img src={data.guest.avatar_url} alt="当前玩家头像"/> : <><span aria-hidden="true">☺</span><strong>轻触拍摄自拍</strong><small>请尽量正脸、光线明亮，只拍你自己</small></>}
+      </label>
+      <input id="guest-avatar-photo" className="avatar-file-input" type="file" accept="image/*" capture="user" disabled={avatarBusy} onChange={(event) => {
+        const file = event.currentTarget.files?.[0] ?? null;
+        event.currentTarget.value = '';
+        if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+        setAvatarFile(file);
+        setAvatarPreview(file ? URL.createObjectURL(file) : '');
+        setError('');
+      }}/>
+      <button type="button" disabled={!avatarFile || avatarBusy} onClick={() => void uploadAvatar()}>{avatarBusy ? '正在整理你的头像…' : avatarPreview ? '就用这张 · 进入婚礼游戏' : '请先拍一张自拍'}</button>
+      <small className="avatar-privacy">头像保存在私密相册，只向已登录的婚礼宾客短时展示；不会显示你的分组、身份或任务。</small>
+      {data.guest.avatar_url && <button type="button" className="text-button" disabled={avatarBusy} onClick={() => { setAvatarEditorOpen(false); setAvatarFile(null); setAvatarPreview(''); setError(''); }}>保留原头像 · 返回游戏</button>}
+      <button type="button" className="text-button" disabled={avatarBusy || busy} onClick={logout}>退出此身份</button>
     </section>
   </main>;
 
@@ -942,8 +1000,8 @@ export default function GuestPage() {
   return <main className={`dashboard-shell ${usesTricksterFacade && secretReaderOpen ? 'trickster-dashboard-revealed' : ''}`}>
     <section className={`mission-hero ${usesTricksterFacade && secretReaderOpen ? 'trickster-real-hero' : ''}`}>
       <div className="eyebrow">丘比特的婚礼考验</div>
-      <div className="hero-line"><div><span className="team-chip">{isHonorGuest ? data.guest.special_card_title || '亲爱的家人' : data.guest.team}</span><h1>{data.guest.name}</h1></div><button type="button" className="score-orb" aria-label={`查看我的积分流水，当前 ${data.guest.points} 分`} onClick={() => setScoreLedgerOpen(true)}><strong>{data.guest.points}</strong><small>积分明细</small></button></div>
-      <div className="hero-player-code"><div><small>我的玩家编号</small><strong>{data.guest.player_code}</strong></div><div className="hero-code-actions"><button type="button" className={playerCodeCopied ? 'copied' : ''} onClick={() => { void navigator.clipboard?.writeText(data.guest.player_code); setPlayerCodeCopied(true); window.setTimeout(() => setPlayerCodeCopied(false), 1800); }}>{playerCodeCopied ? '已复制 ✓' : '复制'}</button><button type="button" onClick={() => void openPlayerDirectory()}>查询他人</button></div></div>
+      <div className="hero-line"><div className="guest-hero-profile"><button type="button" className="guest-avatar-button" aria-label="更新我的玩家头像" onClick={() => setAvatarEditorOpen(true)}><img src={data.guest.avatar_url} alt="我的玩家头像"/></button><div><span className="team-chip">{isHonorGuest ? data.guest.special_card_title || '亲爱的家人' : data.guest.team}</span><h1>{data.guest.name}</h1></div></div><button type="button" className="score-orb" aria-label={`查看我的积分流水，当前 ${data.guest.points} 分`} onClick={() => setScoreLedgerOpen(true)}><strong>{data.guest.points}</strong><small>积分明细</small></button></div>
+      <div className="hero-player-code"><div><small>我的玩家编号</small><strong>{data.guest.player_code}</strong></div><div className="hero-code-actions"><button type="button" className={playerCodeCopied ? 'copied' : ''} onClick={() => { void navigator.clipboard?.writeText(data.guest.player_code); setPlayerCodeCopied(true); window.setTimeout(() => setPlayerCodeCopied(false), 1800); }}>{playerCodeCopied ? '已复制 ✓' : '复制'}</button><button type="button" onClick={() => void openPlayerDirectory()}>宾客列表</button></div></div>
       <div className={`identity-strip ${identityVisible || (usesTricksterFacade && secretReaderOpen) ? 'visible' : 'concealed'} ${isTrickster && identityVisible && !data.game?.results_visible && (!usesTricksterFacade || secretReaderOpen) ? 'trickster-identity' : ''} ${usesTricksterFacade && secretReaderOpen ? 'trickster-real-identity' : ''}`}>
         <div className="identity-strip-heading">
           <small>{usesTricksterFacade && secretReaderOpen ? '真实身份视图' : hasPublicIdentity ? '你的公开身份' : '你的秘密身份'}</small>
@@ -991,7 +1049,7 @@ export default function GuestPage() {
       </section>
     </div>}
     {scoreLedgerOpen && <div className="score-ledger-backdrop" role="presentation"><section className="score-ledger-dialog" role="dialog" aria-modal="true" aria-labelledby="score-ledger-title"><header><div><small>MY POINTS</small><h2 id="score-ledger-title">我的积分流水</h2></div><button type="button" aria-label="关闭积分流水" onClick={() => setScoreLedgerOpen(false)}>×</button></header><div className="score-ledger-total"><span>当前积分</span><strong>{data.guest.points}</strong></div><div className="score-ledger-list">{pointLedger.length === 0 ? <p className="empty-state">积分尚未产生，完成任务后会显示在这里。</p> : pointLedger.map((entry) => <article key={entry.id}><div><strong>{entry.label}</strong><small>{new Date(entry.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small></div><b className={entry.amount < 0 ? 'negative' : ''}>{entry.amount > 0 ? '+' : ''}{entry.amount}</b></article>)}</div><footer><small>这里只显示个人积分；团队环节可查看团队实时积分。</small><button type="button" onClick={() => setScoreLedgerOpen(false)}>看清楚了 · 关闭</button></footer></section></div>}
-    {playerDirectoryOpen && <div className="player-directory-backdrop" role="presentation"><section className="player-directory-dialog" role="dialog" aria-modal="true" aria-labelledby="player-directory-title"><header><div><small>PLAYER DIRECTORY</small><h2 id="player-directory-title">查询玩家编号</h2></div><button type="button" aria-label="关闭玩家编号查询" onClick={() => setPlayerDirectoryOpen(false)}>×</button></header><div className="player-directory-content"><p>输入对方姓名进行查询。这里只显示姓名和编号，不会公开分组、身份或任务。</p><label htmlFor="player-directory-search">宾客姓名</label><input id="player-directory-search" value={playerDirectorySearch} onChange={(event) => setPlayerDirectorySearch(event.target.value)} placeholder="输入中文名或英文名" autoComplete="off" autoFocus/>{playerDirectoryLoading ? <div className="directory-state">正在读取婚礼宾客名单…</div> : playerDirectoryError ? <div className="directory-state error"><span>{playerDirectoryError}</span><button type="button" onClick={() => { setPlayerDirectory(null); void openPlayerDirectory(); }}>重新查询</button></div> : !playerDirectorySearch.trim() ? <div className="directory-state">请先输入姓名，编号不会整表公开显示。</div> : playerDirectoryMatches.length === 0 ? <div className="directory-state">没有找到匹配姓名，请确认对方登记时使用的姓名。</div> : <div className="player-directory-results">{playerDirectoryMatches.map((player) => <article key={player.playerCode}><div><strong>{player.name}</strong><span>{player.playerCode}</span></div><button type="button" className={directoryCopiedCode === player.playerCode ? 'copied' : ''} onClick={() => { void navigator.clipboard?.writeText(player.playerCode); setDirectoryCopiedCode(player.playerCode); window.setTimeout(() => setDirectoryCopiedCode(''), 1800); }}>{directoryCopiedCode === player.playerCode ? '已复制 ✓' : '复制编号'}</button></article>)}</div>}<aside><strong>提交次数提醒</strong><span>为避免连续猜号，每位玩家每 10 分钟最多提交 3 次编号。查询和复制不计入次数。</span></aside></div><footer><button type="button" onClick={() => setPlayerDirectoryOpen(false)}>查好了 · 返回游戏</button></footer></section></div>}
+    {playerDirectoryOpen && <div className="player-directory-backdrop" role="presentation"><section className="player-directory-dialog" role="dialog" aria-modal="true" aria-labelledby="player-directory-title"><header><div><small>PLAYER DIRECTORY</small><h2 id="player-directory-title">宾客验证列表</h2></div><button type="button" aria-label="关闭宾客验证列表" onClick={() => setPlayerDirectoryOpen(false)}>×</button></header><div className="player-directory-content"><p>通过头像和姓名找到对方，再复制玩家编号进行任务验证。这里只显示头像、姓名和编号。</p><label htmlFor="player-directory-search">搜索宾客</label><input id="player-directory-search" value={playerDirectorySearch} onChange={(event) => setPlayerDirectorySearch(event.target.value)} placeholder="输入中文名或英文名" autoComplete="off"/>{playerDirectoryLoading ? <div className="directory-state">正在读取婚礼宾客名单…</div> : playerDirectoryError ? <div className="directory-state error"><span>{playerDirectoryError}</span><button type="button" onClick={() => { setPlayerDirectory(null); void openPlayerDirectory(); }}>重新加载</button></div> : playerDirectoryMatches.length === 0 ? <div className="directory-state">没有找到匹配姓名，请确认对方登记时使用的姓名。</div> : <div className="player-directory-results">{playerDirectoryMatches.map((player) => <article key={player.playerCode}>{player.avatarUrl ? <img src={player.avatarUrl} alt={`${player.name}的玩家头像`} loading="lazy"/> : <span className="directory-avatar-fallback" aria-hidden="true">{player.name.trim().slice(0, 1)}</span>}<div><strong>{player.name}</strong><span>{player.playerCode}</span></div><button type="button" className={directoryCopiedCode === player.playerCode ? 'copied' : ''} onClick={() => { void navigator.clipboard?.writeText(player.playerCode); setDirectoryCopiedCode(player.playerCode); window.setTimeout(() => setDirectoryCopiedCode(''), 1800); }}>{directoryCopiedCode === player.playerCode ? '已复制 ✓' : '复制编号'}</button></article>)}</div>}<aside><strong>验证前请确认是本人</strong><span>头像只用于婚礼现场辨认。每位玩家每 10 分钟最多提交 3 次编号；查看和复制不计次数。</span></aside></div><footer><button type="button" onClick={() => setPlayerDirectoryOpen(false)}>找到了 · 返回游戏</button></footer></section></div>}
     {dinnerMenuOpen && <div className="dinner-menu-backdrop" role="presentation"><section className="dinner-menu-dialog" role="dialog" aria-modal="true" aria-labelledby="dinner-menu-title"><header><div><small>ZIMIN &amp; ANRONG</small><h2 id="dinner-menu-title">今日晚宴菜单</h2></div><button type="button" aria-label="关闭今日菜单" onClick={() => setDinnerMenuOpen(false)}>×</button></header><div className="dinner-menu-scroll"><div className="dinner-menu-card"><div className="dinner-menu-monogram" aria-hidden="true">a<sub>Z</sub></div><p className="dinner-menu-kicker">THE MENU</p><section><small>STARTER · 前菜</small><h3>Minestrone soup with basil pistou</h3><p>意式蔬菜汤配青酱</p></section><section><small>FIRST COURSE · 头盘</small><h3>Tuna Tartare</h3><p>金枪鱼塔塔</p><p>裙带菜 · 毛豆 · 萝卜 · 水芹沙拉</p><p>日式酱汁 · 中式白菜 · 芝麻籽</p></section><section><small>MAIN PLATE · 主菜</small><h3>Grilled Stockyard beef sirloin</h3><p>炭烤西冷牛排</p><p>碳烤洋葱 · 烤蘑菇</p><p>芝麻菜 · 阿根廷香草酱 · 柠檬</p></section><section><small>DESSERT · 甜点</small><h3>Vanilla mascarpone, poached pears</h3><p>香草马斯卡彭 · 慢煮梨</p><p>咖啡 · 茶与精致小点</p></section><time dateTime="2026-08-22">08 · 22 · 2026</time></div></div><footer><span>清晰文字版 · 上下滑动查看全部菜品</span><button type="button" onClick={() => setDinnerMenuOpen(false)}>看完菜单 · 返回游戏</button></footer></section></div>}
     {contentNotice && <div className={`new-content-backdrop ${contentNotice.variant === 'awakening' ? 'awakening' : ''}`}><section className={`new-content-dialog ${contentNotice.variant === 'awakening' ? `awakening ${contentNotice.awakeningKind === 'GUIDING_STAR' ? 'star' : 'heart'}` : ''}`} role="dialog" aria-modal="true" aria-labelledby="new-content-title"><header><span>{contentNotice.variant === 'awakening' ? 'DESTINY AWAKENED' : 'NEW ACTIVITY'}</span><button type="button" aria-label="关闭新活动提示" onClick={acknowledgeContentNotice}>×</button></header>{contentNotice.variant === 'awakening' && <div className="awakening-symbol" aria-hidden="true"><span>{contentNotice.awakeningKind === 'GUIDING_STAR' ? '★' : '♥'}</span><i>✦</i><i>✧</i><i>✦</i></div>}<strong id="new-content-title">{contentNotice.title}</strong><p>{contentNotice.detail}</p><button type="button" onClick={acknowledgeContentNotice}>{contentNotice.variant === 'awakening' ? '接受我的新命运 · 查看能力' : '知道了 · 查看更新'}</button></section></div>}
   </main>;

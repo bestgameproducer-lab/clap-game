@@ -4,6 +4,7 @@ import { buildGuestPointLedger, buildGuestTeamScores } from '../guest-score-core
 import { isAssignmentVisibleAtStage } from '../game-rules';
 import { buildPublishedTeamResults } from '../result-core';
 import { getSupabaseAdmin } from '../supabase';
+import { signAvatarPaths } from './avatar';
 import { signEvidencePaths } from './evidence';
 
 async function consumePlayerCodeAttempt(guestId: string) {
@@ -16,14 +17,15 @@ async function consumePlayerCodeAttempt(guestId: string) {
 export async function getPlayerCodeDirectory(guestId: string) {
   const { data, error } = await getSupabaseAdmin()
     .from('guests')
-    .select('id,name,player_code')
+    .select('id,name,player_code,avatar_path')
     .eq('active', true)
     .eq('uses_app', true)
     .not('drawn_at', 'is', null)
     .neq('id', guestId)
     .order('name');
   if (error) throw new Error(`Unable to load player code directory: ${error.message}`);
-  return (data ?? []).map((guest) => ({ name: guest.name, playerCode: guest.player_code }));
+  const signedGuests = await signAvatarPaths(data ?? []);
+  return signedGuests.map((guest) => ({ name: guest.name, playerCode: guest.player_code, avatarUrl: guest.avatar_url }));
 }
 
 export async function submitGuestAssignment(assignmentId: string, guestId: string, completionNote: string) {
@@ -169,11 +171,12 @@ export async function respondAssignmentMutualConfirmation(confirmationId: string
 export async function getGuestView(guestId: string) {
   const db = getSupabaseAdmin();
   const [{ data: guest, error: guestError }, { data: game, error: gameError }] = await Promise.all([
-    db.from('guests').select('id,name,team,role,is_hidden_spy,points,drawn_at,special_card_revealed_at,participation_mode,relationship,story_role,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,special_card_title,special_card_body,player_code,unlocked_role').eq('id', guestId).single(),
+    db.from('guests').select('id,name,team,role,is_hidden_spy,points,drawn_at,special_card_revealed_at,participation_mode,relationship,story_role,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,special_card_title,special_card_body,player_code,unlocked_role,avatar_path,avatar_uploaded_at').eq('id', guestId).single(),
     db.from('game_state').select('registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note,task_catalog_mode,trickster_max_attempts,phase_one_completed_at').eq('id', 1).single(),
   ]);
   if (guestError || !guest) throw new ApiError(401, '登录已失效');
   if (gameError || !game) throw new Error(`Unable to load game state: ${gameError?.message ?? 'missing row'}`);
+  const [signedGuest] = await signAvatarPaths([guest]);
   const teamScoresVisible = ['group_game', 'voting', 'results'].includes(game.stage);
   const [pointLedgerResult, teamPointResult] = await Promise.all([
     db.from('points_ledger').select('id,assignment_id,amount,reason,created_at').eq('guest_id', guestId).order('created_at', { ascending: false }).order('id', { ascending: false }),
@@ -186,7 +189,7 @@ export async function getGuestView(guestId: string) {
   }
   if (guest.participation_mode !== 'ACTIVE_PLAYER') {
     return {
-      guest, assignments: [], clues: [], game, candidates: [], existingVote: null, results: null,
+      guest: signedGuest, assignments: [], clues: [], game, candidates: [], existingVote: null, results: null,
       pointLedger: buildGuestPointLedger(pointLedgerResult.data ?? [], [], game.results_visible),
       teamScores: teamScoresVisible ? buildGuestTeamScores(teamPointResult.data ?? []) : [],
     };
@@ -272,7 +275,7 @@ export async function getGuestView(guestId: string) {
     };
   });
   return {
-    guest,
+    guest: signedGuest,
     assignments: signedVisibleAssignments,
     pointLedger: buildGuestPointLedger(pointLedgerResult.data ?? [], results[0].data ?? [], game.results_visible),
     teamScores: teamScoresVisible ? buildGuestTeamScores(teamPointResult.data ?? []) : [],
