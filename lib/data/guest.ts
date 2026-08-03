@@ -126,7 +126,7 @@ export async function requestGuestConnection(guestId: string, targetCode: string
   if (error?.message.includes('symbol_pending_conflict')) throw new ApiError(409, '你或对方已有一项待处理的配对邀请');
   if (error?.message.includes('trickster_connection_stage_closed')) throw new ApiError(409, '当前环节暂停或已关闭秘密确认；仪式前、仪式结束后至最终投票前开放');
   if (error?.message.includes('trickster_connection_forbidden')) throw new ApiError(403, '当前身份不能使用这项秘密确认');
-  if (error?.message.includes('trickster_attempt_limit')) throw new ApiError(409, '本阶段的试探机会已经用完');
+  if (error?.message.includes('trickster_attempt_limit')) throw new ApiError(409, '整场婚礼的 5 次验证机会已经用完');
   if (error) throw new Error(`Unable to request player connection: ${error.message}`);
   return data as { relationshipType: string; status: 'NO_MATCH' | 'PENDING' | 'ACTIVE'; maxAttempts: number };
 }
