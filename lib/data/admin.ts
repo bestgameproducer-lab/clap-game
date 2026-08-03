@@ -4,6 +4,7 @@ import { createHiddenTaskCode, hashHiddenTaskCode } from '../hidden-task-code';
 import { getSupabaseAdmin } from '../supabase';
 import { buildWeddingPreflight } from '../preflight';
 import { signEvidencePaths } from './evidence';
+import { compareWeddingGuests } from '../wedding-roster-order';
 
 function ensureNoDatabaseError(error: { message: string } | null, fallback: string): void {
   if (error) {
@@ -116,7 +117,7 @@ export async function getAdminDashboardData() {
   ]);
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`Unable to load admin data: ${error.message}`);
-  const guests = results[0].data ?? [];
+  const guests = [...(results[0].data ?? [])].sort(compareWeddingGuests);
   const tasks = results[2].data ?? [];
   const clues = results[6].data ?? [];
   const hiddenTaskCodes = results[13].data ?? [];
@@ -150,7 +151,7 @@ export async function getPrintableMissionCards() {
     const task = Array.isArray(assignment.task) ? assignment.task[0] : assignment.task;
     return [assignment.guest_id, task ?? null];
   }));
-  return (guests ?? []).map((guest) => ({ ...guest, task: taskByGuest.get(guest.id) ?? null }));
+  return [...(guests ?? [])].sort(compareWeddingGuests).map((guest) => ({ ...guest, task: taskByGuest.get(guest.id) ?? null }));
 }
 
 export async function approveAssignment(assignmentId: string, actor: string, reason: string) {

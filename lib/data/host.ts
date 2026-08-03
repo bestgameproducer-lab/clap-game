@@ -2,6 +2,7 @@ import 'server-only';
 import { ApiError } from '../errors';
 import { buildPublicScoreboard } from '../scoreboard-core';
 import { getSupabaseAdmin } from '../supabase';
+import { compareWeddingGuests } from '../wedding-roster-order';
 
 export type HostSegmentInput = {
   id: string | null;
@@ -72,8 +73,9 @@ export async function getHostDashboardData() {
   ]);
   const error = guests.error ?? teamPoints.error ?? personalPoints.error ?? game.error ?? votes.error ?? assignments.error ?? clues.error;
   if (error) throw new Error(`Unable to load host data: ${error.message}`);
+  const orderedGuests = [...(guests.data ?? [])].sort(compareWeddingGuests);
   const votingRound = game.data?.voting_round ?? 0;
-  const eligibleGuests = (guests.data ?? [])
+  const eligibleGuests = orderedGuests
     .filter((guest) => guest.eligible_for_personal_score)
     .map((guest) => ({
       id: guest.id,
@@ -84,7 +86,7 @@ export async function getHostDashboardData() {
     }));
   const rankings = buildPublicScoreboard(eligibleGuests, assignments.data ?? [], [], teamPoints.data ?? []);
   return {
-    guests: guests.data ?? [], teamPoints: teamPoints.data ?? [], personalPoints: personalPoints.data ?? [],
+    guests: orderedGuests, teamPoints: teamPoints.data ?? [], personalPoints: personalPoints.data ?? [],
     game: game.data,
     voteCount: (votes.data ?? []).filter((vote) => vote.voting_round === votingRound).length,
     teamClueCounts: Object.fromEntries(['海岛组', '沙漠组'].map((team) => [team,
