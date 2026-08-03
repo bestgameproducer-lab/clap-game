@@ -291,15 +291,21 @@ export async function resetRehearsalData(input: { confirmation: string; backupCo
     p_actor: actor,
   });
   ensureNoDatabaseError(error, 'Unable to reset rehearsal data');
-  const { data: resetRecord, error: resetRecordError } = await db.from('rehearsal_resets').select('evidence_paths').eq('event_key', input.eventKey).single();
-  if (resetRecordError) throw new Error(`Unable to load pending evidence cleanup: ${resetRecordError.message}`);
+  const { data: resetRecord, error: resetRecordError } = await db.from('rehearsal_resets').select('evidence_paths,avatar_paths').eq('event_key', input.eventKey).single();
+  if (resetRecordError) throw new Error(`Unable to load pending photo cleanup: ${resetRecordError.message}`);
   const storedEvidencePaths = Array.isArray(resetRecord.evidence_paths)
     ? resetRecord.evidence_paths.filter((path): path is string => typeof path === 'string')
     : [];
   const evidencePaths: string[] = [...new Set(storedEvidencePaths)];
+  const storedAvatarPaths = Array.isArray(resetRecord.avatar_paths)
+    ? resetRecord.avatar_paths.filter((path): path is string => typeof path === 'string')
+    : [];
+  const avatarPaths: string[] = [...new Set(storedAvatarPaths)];
 
   let evidenceCleanupPending = false;
+  let avatarCleanupPending = false;
   let removedEvidence = 0;
+  let removedAvatars = 0;
   const pendingEvidencePaths: string[] = [];
   for (let index = 0; index < evidencePaths.length; index += 100) {
     const batch = evidencePaths.slice(index, index + 100);
@@ -312,9 +318,23 @@ export async function resetRehearsalData(input: { confirmation: string; backupCo
       removedEvidence += batch.length;
     }
   }
+  const pendingAvatarPaths: string[] = [];
+  for (let index = 0; index < avatarPaths.length; index += 100) {
+    const batch = avatarPaths.slice(index, index + 100);
+    const { error: cleanupError } = await db.storage.from('guest-avatars').remove(batch);
+    if (cleanupError) {
+      avatarCleanupPending = true;
+      pendingAvatarPaths.push(...batch);
+      await db.from('audit_log').insert({ actor, action: 'rehearsal.avatar_cleanup_pending', target_type: 'storage_bucket', target_id: 'guest-avatars', details: { count: batch.length } });
+    } else {
+      removedAvatars += batch.length;
+    }
+  }
   const { error: pendingUpdateError } = await db.from('rehearsal_resets').update({ evidence_paths: pendingEvidencePaths }).eq('event_key', input.eventKey);
   if (pendingUpdateError) evidenceCleanupPending = true;
-  return { summary: data as Record<string, number | boolean>, removedEvidence, evidenceCleanupPending };
+  const { error: avatarPendingUpdateError } = await db.from('rehearsal_resets').update({ avatar_paths: pendingAvatarPaths }).eq('event_key', input.eventKey);
+  if (avatarPendingUpdateError) avatarCleanupPending = true;
+  return { summary: data as Record<string, number | boolean>, removedEvidence, removedAvatars, evidenceCleanupPending, avatarCleanupPending };
 }
 
 export async function grantClueToGuest(guestId: string, clueId: string, actor: string) {
