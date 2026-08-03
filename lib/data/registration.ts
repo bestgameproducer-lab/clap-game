@@ -20,6 +20,7 @@ export async function listRegistrationGuests(invitationCode: string) {
   if (invitationError) mapRegistrationError(invitationError.message);
 
   const permittedIds = (permittedGuests ?? []).map((guest: { id: string }) => guest.id);
+  const permittedOrder = new Map<string, number>(permittedIds.map((id: string, index: number): [string, number] => [id, index]));
   const { data: game, error: gameError } = await db.from('game_state').select('registration_open').eq('id', 1).single();
   if (gameError || !game) throw new Error(`Unable to load registration state: ${gameError?.message ?? 'missing row'}`);
   if (permittedIds.length === 0) return { guests: [], registrationOpen: game.registration_open };
@@ -28,12 +29,11 @@ export async function listRegistrationGuests(invitationCode: string) {
     .from('guests')
     .select('id,name,login_name,claim_code_hash')
     .in('id', permittedIds)
-    .eq('active', true)
-    .order('name');
+    .eq('active', true);
   if (error) throw new Error(`Unable to load registration guests: ${error.message}`);
   return {
     registrationOpen: game.registration_open,
-    guests: (data ?? []).map((guest) => ({
+    guests: (data ?? []).sort((a, b) => (permittedOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (permittedOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER)).map((guest) => ({
       id: guest.id,
       name: guest.name,
       loginName: guest.login_name,
