@@ -6,14 +6,14 @@ const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('后台主入口按婚礼操作顺序命名', async () => {
   const admin = await read('app/admin/page.tsx');
-  const panels = admin.slice(admin.indexOf('const ADMIN_PANELS'), admin.indexOf('const PRIMARY_ADMIN_PANELS'));
+  const panels = admin.slice(admin.indexOf('const PRIMARY_ADMIN_PANELS'), admin.indexOf('const ACTION_LABELS'));
 
-  const preparation = panels.indexOf("shortLabel: '开场准备'");
-  const guests = panels.indexOf("shortLabel: '宾客管理'");
-  const live = panels.indexOf("shortLabel: '现场流程'");
-  const review = panels.indexOf("shortLabel: '审核任务'");
-  const finale = panels.indexOf("shortLabel: '终局结算'");
-  assert.ok(preparation >= 0 && guests > preparation && live > guests && review > live && finale > review);
+  const opening = panels.indexOf("label: '开场与宾客'");
+  const live = panels.indexOf("label: '现场执行'");
+  const finale = panels.indexOf("label: '终局结算'");
+  const settings = panels.indexOf("label: '婚礼设置'");
+  assert.ok(opening >= 0 && live > opening && finale > live && settings > finale);
+  assert.equal((panels.match(/^\s+\{ id:/gm) || []).length, 4);
 });
 
 test('标题状态徽标根据内容自动展开而不强制圆形', async () => {

@@ -11,13 +11,14 @@ test('admin console opens focused modules instead of one continuous page', async
     readFile(stylesUrl, 'utf8'),
   ]);
 
-  for (const panel of ['开场准备', '现场流程', '宾客管理', '婚礼设置', '审核任务', '终局结算', '数据与清场']) {
+  for (const panel of ['开场与宾客', '现场执行', '婚礼设置', '任务审核', '终局结算', '安全、备份与清场']) {
     assert.match(page, new RegExp(panel));
   }
-  assert.match(page, /const \[activePanel, setActivePanel\] = useState<AdminPanel>\('home'\)/);
+  assert.match(page, /const \[activePanel, setActivePanel\] = useState<AdminPanel>\('guests'\)/);
   assert.match(page, /主办方后台功能入口/);
+  assert.match(page, /现场执行功能/);
   assert.match(styles, /\.admin-panel-tabs/);
-  assert.match(styles, /\.launchpad-grid/);
+  assert.match(styles, /\.admin-section-tabs/);
 });
 
 test('the data module clearly exposes the full rehearsal cleanup boundary', async () => {

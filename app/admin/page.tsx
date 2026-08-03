@@ -25,17 +25,13 @@ const PHASE_TWO_MISSION_LABELS: Record<string, string> = {
 const CEREMONY_STATUS_LABELS: Record<string, string> = { LOCKED: '尚未开放', AVAILABLE: '等待沟通', BRIEFED: '流程已沟通', RING_RECEIVED: '已领取戒指', IN_PROGRESS: '进行中', DELIVERED: '已送达', COMPLETED: '已完成' };
 const CATEGORY_LABELS: Record<string, string> = { standard: '普通任务', ceremony: '仪式任务', group: '团队任务', upgrade: '升级任务', hidden: '隐藏任务' };
 const DEFAULT_VERIFICATION_METHOD = '向任务站工作人员说明完成过程；如任务涉及照片或合影，请出示对应照片。';
-type AdminPanel = 'home' | 'live' | 'guests' | 'content' | 'review' | 'finale' | 'data';
-const ADMIN_PANELS: Array<{ id: AdminPanel; label: string; shortLabel: string }> = [
-  { id: 'home', label: '开场准备', shortLabel: '开场准备' },
-  { id: 'guests', label: '宾客管理', shortLabel: '宾客管理' },
-  { id: 'live', label: '现场流程', shortLabel: '现场流程' },
-  { id: 'review', label: '审核任务', shortLabel: '审核任务' },
-  { id: 'finale', label: '终局结算', shortLabel: '终局结算' },
-  { id: 'content', label: '婚礼设置', shortLabel: '婚礼设置' },
-  { id: 'data', label: '数据与清场', shortLabel: '清场' },
+type AdminPanel = 'live' | 'guests' | 'content' | 'review' | 'finale' | 'data';
+const PRIMARY_ADMIN_PANELS: Array<{ id: AdminPanel; label: string }> = [
+  { id: 'guests', label: '开场与宾客' },
+  { id: 'live', label: '现场执行' },
+  { id: 'finale', label: '终局结算' },
+  { id: 'content', label: '婚礼设置' },
 ];
-const PRIMARY_ADMIN_PANELS = ADMIN_PANELS.filter((panel) => panel.id !== 'data');
 const ACTION_LABELS: Record<string, string> = {
   'assignment.approve': '审核通过', 'assignment.reject': '退回任务', 'assignment.create': '派发任务',
   'guest.points_adjust': '调整积分', 'guest.profile_configure': '配置身份', 'guest.claim_reset': '重置密码',
@@ -94,7 +90,7 @@ async function responseBody(response: Response) {
 export default function AdminPage() {
   const [password, setPassword] = useState('');
   const [data, setData] = useState<AdminData | null>(null);
-  const [activePanel, setActivePanel] = useState<AdminPanel>('home');
+  const [activePanel, setActivePanel] = useState<AdminPanel>('guests');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -492,13 +488,8 @@ export default function AdminPage() {
     && teamSettlementChecks.every((check) => check.spies === 1 && check.clues >= 2);
   const teamSettlementStatus = `${competitiveDrawn}/20 人已抽卡 · ${teamSettlementChecks.map((check) => `${check.team}：恶作剧者 ${check.spies}/1、线索 ${check.clues}/2`).join(' · ')}`;
   const finaleActive = Boolean(data.game?.voting_open || data.game?.results_visible || ['voting', 'results'].includes(data.game?.stage || ''));
-  const activePrimaryPanel: AdminPanel = activePanel === 'data' ? 'home' : activePanel;
+  const activePrimaryPanel: AdminPanel = activePanel === 'review' ? 'live' : activePanel === 'data' ? 'content' : activePanel;
   const preparedAwards = data.awards.filter((award) => award.published && Boolean(award.winner_guest_id || award.winner_team)).length;
-  const finaleLaunchStatus = data.game?.results_visible
-    ? '已公布并结算'
-    : data.game?.voting_open
-      ? `${data.votes.length} 票已提交`
-      : '待开启投票';
   const resetControlsClosed = !data.game?.registration_open && !data.game?.voting_open && !data.game?.scoreboard_visible;
   const resetPreview = data.rehearsalResetPreview;
   const rehearsalDataCount = resetPreview.claimed_guests + resetPreview.drawn_guests + resetPreview.assignments + resetPreview.votes
@@ -522,31 +513,20 @@ export default function AdminPage() {
     <section className="admin-hero"><div><div className="eyebrow">LIVE CONTROL</div><h1>婚礼游戏控制台</h1><p>{claimed}/{activeGuests.length} 位宾客已认领 · {data.submissions.length} 项待审核</p></div><div className="admin-hero-actions"><a href="/station">任务站</a><a href="/host">主持人流程台</a><StaffLogoutButton/><div className="live-dot">LIVE</div></div></section>
     {message && <div className="notice success sticky-notice">{message}</div>}{error && <div className="notice error sticky-notice">{error}</div>}
 
-    <nav className="admin-panel-tabs" aria-label="主办方后台功能入口">{PRIMARY_ADMIN_PANELS.map((panel) => <button type="button" key={panel.id} className={activePrimaryPanel === panel.id ? 'active' : ''} aria-current={activePrimaryPanel === panel.id ? 'page' : undefined} onClick={() => openPanel(panel.id)}><span>{panel.shortLabel}</span></button>)}</nav>
+    <nav className="admin-panel-tabs" aria-label="主办方后台功能入口">{PRIMARY_ADMIN_PANELS.map((panel) => <button type="button" key={panel.id} className={activePrimaryPanel === panel.id ? 'active' : ''} aria-current={activePrimaryPanel === panel.id ? 'page' : undefined} onClick={() => openPanel(panel.id)}><span>{panel.label}</span></button>)}</nav>
 
-    {activePanel === 'home' && <section className="admin-launchpad" aria-labelledby="admin-launchpad-title">
-      <div className="wedding-health" aria-label="婚礼日系统状态">
-        <div className="wedding-health-heading"><div><small>WEDDING DAY STATUS</small><strong>婚礼日状态</strong></div><span className="health-online"><i aria-hidden="true"/>系统在线</span></div>
-        <div className="wedding-health-grid">
-          <div><small>当前流程</small><strong>{gameStageCopy(data.game?.stage).title}</strong></div>
-          <div><small>宾客进度</small><strong>{claimed}/{activeGuests.length} 认领 · {drawn}/{activeGuests.length} 抽卡</strong></div>
-          <div><small>待处理</small><strong>{data.submissions.length} 项任务 · {data.votes.length} 票</strong></div>
-          <div><small>最近同步</small><strong>{new Date(data.health.checkedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</strong></div>
-        </div>
-        <p>数据库已连接 · 部署 {data.health.deploymentVersion.slice(0, 12)}</p>
-      </div>
-      <div className={`admin-guidance-card ${adminGuidance.tone}`}><div><small>现场指挥</small><strong>{adminGuidance.label}</strong><p>{adminGuidance.detail}</p></div><button type="button" onClick={() => openPanel(adminGuidance.panel)}>{adminGuidance.action}<span aria-hidden="true">→</span></button></div>
-      <div className="launchpad-heading"><div><small>CONTROL CENTER</small><h2 id="admin-launchpad-title">今天要管理什么？</h2></div><p>每次只进入一个模块，避免在手机上反复长距离滚动。</p></div>
-      <div className="launchpad-grid launchpad-primary">
-        <button type="button" onClick={() => openPanel('guests')}><span className="launchpad-index">01</span><strong>宾客管理</strong><small>查看头像、注册、抽卡、分组与积分状态</small><b className={claimed < activeGuests.length ? 'needs-attention' : ''}>{claimed}/{activeGuests.length} 已认领 →</b></button>
-        <button type="button" onClick={() => openPanel('live')}><span className="launchpad-index">02</span><strong>现场流程</strong><small>切换阶段、开放注册与控制大屏</small><b>{STAGES.find(([value]) => value === data.game?.stage)?.[1] || '未设置'} →</b></button>
-        <button type="button" onClick={() => openPanel('review')}><span className="launchpad-index">03</span><strong>审核任务</strong><small>核验宾客提交，通过后自动加分</small><b className={data.submissions.length ? 'needs-attention' : ''}>{data.submissions.length} 项待处理 →</b></button>
-        <button type="button" onClick={() => openPanel('finale')}><span className="launchpad-index">04</span><strong>终局结算</strong><small>配置奖项、管理投票并公布结果</small><b>{finaleLaunchStatus} →</b></button>
-        <button type="button" onClick={() => openPanel('content')}><span className="launchpad-index">05</span><strong>婚礼设置</strong><small>管理任务、团队线索与现场内容</small><b>{activeClues.length} 条线索 →</b></button>
-      </div>
-      <details className="admin-advanced-tools admin-setup-links"><summary>安全与清场工具</summary><div className="launchpad-grid"><button type="button" className="launchpad-danger" onClick={() => openPanel('data')}><span className="launchpad-index">A</span><strong>安全、备份与清场</strong><small>更换管理员密码、导出数据或清空彩排记录</small><b className={rehearsalDataCount ? 'needs-attention' : ''}>{rehearsalDataCount ? `${rehearsalDataCount} 条运行记录` : '当前已清场'} →</b></button></div></details>
-    </section>}
     {activePanel === 'data' && <section className="section-card"><div className="section-heading"><div><small>SECURITY</small><h2>管理员密码</h2></div><span className="ready-badge">加密保存</span></div><p className="muted">此密码同时用于主办方控制台、主持人台和任务站。更换后会立即退出所有工作人员设备；系统不会显示或导出密码。</p><form onSubmit={rotateStaffPassword}><label htmlFor="admin-password-new">新管理员密码</label><input id="admin-password-new" type="password" autoComplete="new-password" minLength={12} maxLength={128} value={adminPasswordForm.password} onChange={(event) => setAdminPasswordForm({ ...adminPasswordForm, password: event.target.value })} required/><p className="field-help">12–128 位，必须同时包含字母和数字。</p><label htmlFor="admin-password-confirm">再次输入</label><input id="admin-password-confirm" type="password" autoComplete="new-password" minLength={12} maxLength={128} value={adminPasswordForm.confirm} onChange={(event) => setAdminPasswordForm({ ...adminPasswordForm, confirm: event.target.value })} required/><button disabled={busy || adminPasswordForm.password.length < 12 || adminPasswordForm.password !== adminPasswordForm.confirm}>{busy ? '正在更新…' : '更换管理员密码并退出所有设备'}</button></form></section>}
+
+    {activePanel === 'guests' && <><div className="wedding-health opening-health" aria-label="婚礼日系统状态">
+      <div className="wedding-health-heading"><div><small>OPENING STATUS</small><strong>开场与宾客状态</strong></div><span className="health-online"><i aria-hidden="true"/>系统在线</span></div>
+      <div className="wedding-health-grid">
+        <div><small>当前流程</small><strong>{gameStageCopy(data.game?.stage).title}</strong></div>
+        <div><small>宾客进度</small><strong>{claimed}/{activeGuests.length} 认领 · {drawn}/{activeGuests.length} 抽卡</strong></div>
+        <div><small>待处理</small><strong>{data.submissions.length} 项任务 · {data.votes.length} 票</strong></div>
+        <div><small>最近同步</small><strong>{new Date(data.health.checkedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</strong></div>
+      </div>
+      <p>数据库已连接 · 部署 {data.health.deploymentVersion.slice(0, 12)}</p>
+    </div><div className={`admin-guidance-card ${adminGuidance.tone}`}><div><small>现场指挥</small><strong>{adminGuidance.label}</strong><p>{adminGuidance.detail}</p></div><button type="button" onClick={() => openPanel(adminGuidance.panel)}>{adminGuidance.action}<span aria-hidden="true">→</span></button></div></>}
 
     {activePanel === 'guests' && <details className="admin-advanced-tools readiness-details" open={!data.preflight.ready}><summary>开场检查 · {data.preflight.ready ? `${passedPreflightItems.length} 项已通过` : `${pendingPreflightItems.length} 项需要处理`}</summary><section className="section-card readiness-card">
       <div className="section-heading"><div><small>OPENING CHECK</small><h2>{data.preflight.ready ? '开场条件已满足' : '只处理这些事项'}</h2></div><span className={data.preflight.ready ? 'ready-badge' : 'warning-badge'}>{data.preflight.ready ? '可以开场' : `${pendingPreflightItems.length} 项`}</span></div>
@@ -555,6 +535,8 @@ export default function AdminPage() {
       <details className="readiness-passed-details"><summary>查看已通过的 {passedPreflightItems.length} 项</summary><div className="readiness-list">{passedPreflightItems.map((item) => <div key={item.id} className="ready"><b aria-hidden="true">✓</b><p><strong>{item.label}</strong><small>{item.detail}</small></p></div>)}</div></details>
       {!data.preflight.ready && <p className="readiness-help">只需处理上方事项；已通过的检查无需现场操作。</p>}
     </section></details>}
+
+    {(activePanel === 'live' || activePanel === 'review') && <nav className="admin-section-tabs" aria-label="现场执行功能"><button type="button" className={activePanel === 'live' ? 'active' : ''} aria-current={activePanel === 'live' ? 'page' : undefined} onClick={() => openPanel('live')}><strong>流程控制</strong><small>切换环节与现场状态</small></button><button type="button" className={activePanel === 'review' ? 'active' : ''} aria-current={activePanel === 'review' ? 'page' : undefined} onClick={() => openPanel('review')}><strong>任务审核</strong><small>{data.submissions.length} 项待处理</small></button></nav>}
 
     {activePanel === 'live' && <>
     <section className="admin-grid">
@@ -597,7 +579,7 @@ export default function AdminPage() {
       </div>}
     </section></details></>}
 
-    {activePanel === 'content' && <><section className="admin-grid">
+    {activePanel === 'content' && <><section className="section-card settings-safety-shortcut"><div><small>SECURITY &amp; DATA</small><strong>安全、备份与清场</strong><p>更换管理员密码、导出数据或在正式开始前清空彩排记录。</p></div><button type="button" className="secondary" onClick={() => openPanel('data')}>{rehearsalDataCount ? `${rehearsalDataCount} 条运行记录 · 进入管理` : '当前已清场 · 进入管理'} →</button></section><section className="admin-grid">
       <article className="section-card">
         <div className="section-heading"><div><small>TASK LIBRARY</small><h2>任务库管理</h2></div><span>{data.tasks.filter((task) => task.active).length}/{data.tasks.length} 启用</span></div>
         <a className="text-link" href="/admin/cards" target="_blank" rel="noreferrer">打开可打印宾客卡片 ↗</a>

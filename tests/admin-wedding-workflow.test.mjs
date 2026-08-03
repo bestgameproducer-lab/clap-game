@@ -4,26 +4,20 @@ import test from 'node:test';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('首页入口遵循婚礼现场的操作顺序', async () => {
+test('四个主入口按婚礼现场顺序合并功能', async () => {
   const admin = await read('app/admin/page.tsx');
-  const launchpad = admin.slice(admin.indexOf('launchpad-grid launchpad-primary'), admin.indexOf('admin-advanced-tools admin-setup-links'));
+  const navigation = admin.slice(admin.indexOf('const PRIMARY_ADMIN_PANELS'), admin.indexOf('const ACTION_LABELS'));
 
-  const preparation = launchpad.indexOf("openPanel('guests')");
-  const live = launchpad.indexOf("openPanel('live')");
-  const review = launchpad.indexOf("openPanel('review')");
-  const finale = launchpad.indexOf("openPanel('finale')");
-  const settings = launchpad.indexOf("openPanel('content')");
-  assert.ok(preparation >= 0 && live > preparation && review > live && finale > review && settings > finale);
-  assert.match(launchpad, /01[\s\S]*宾客管理/);
-  assert.match(launchpad, /02[\s\S]*现场流程/);
-  assert.match(launchpad, /03[\s\S]*审核任务/);
-  assert.match(launchpad, /04[\s\S]*终局结算/);
-  assert.match(launchpad, /05[\s\S]*婚礼设置/);
+  assert.match(navigation, /开场与宾客[\s\S]*现场执行[\s\S]*终局结算[\s\S]*婚礼设置/);
+  assert.match(admin, /className="admin-section-tabs"[\s\S]*流程控制[\s\S]*任务审核/);
+  assert.match(admin, /activePanel === 'review' \? 'live'/);
+  assert.match(admin, /activePanel === 'data' \? 'content'/);
 });
 
 test('现场流程不再混入终局操作', async () => {
   const admin = await read('app/admin/page.tsx');
-  const live = admin.slice(admin.indexOf("activePanel === 'live'"), admin.indexOf("activePanel === 'review'"));
+  const liveStart = admin.indexOf("{activePanel === 'live' && <>");
+  const live = admin.slice(liveStart, admin.indexOf("{activePanel === 'review' &&", liveStart));
 
   assert.doesNotMatch(live, /onClick=\{toggleVoting\}/);
   assert.doesNotMatch(live, /onClick=\{toggleResults\}/);
