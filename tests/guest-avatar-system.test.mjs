@@ -76,6 +76,20 @@ test('the admin guest manager receives private signed avatars and reports real p
   assert.match(styles, /\.guest-management-toolbar/);
 });
 
+test('space-heavy admin guest controls are collapsed by default', async () => {
+  const [adminPage, styles] = await Promise.all([
+    read('app/admin/page.tsx'),
+    read('app/styles.css'),
+  ]);
+
+  assert.match(adminPage, /<details className="section-card admin-collapsible-card registration-control-card">/);
+  assert.match(adminPage, /<details className="nested-action-details"><summary>更换共享邀请码<\/summary>/);
+  assert.match(adminPage, /<details className="guest-directory-details"><summary><span>查看宾客明细<\/span>/);
+  assert.doesNotMatch(adminPage, /<details className="(?:section-card admin-collapsible-card registration-control-card|nested-action-details|guest-directory-details)" open/);
+  assert.match(styles, /\.admin-collapsible-card\[open\]>summary:after/);
+  assert.match(styles, /\.guest-directory-details\[open\]>summary:after/);
+});
+
 test('registration consistently presents four steps before and during selfie setup', async () => {
   const page = await read('app/guest/page.tsx');
   assert.match(page, /className="step-row" aria-label="注册共四步"[\s\S]*<span>4<\/span>/);

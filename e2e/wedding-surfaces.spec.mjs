@@ -134,7 +134,19 @@ test('主控四个主入口及现场二级入口均可进入', async ({ page }) 
   }
   await expect(page.getByText('开场检查')).toBeVisible();
   await expect(page.getByRole('heading', { name: '宾客注册与游戏进度' })).toBeVisible();
+  const guestDirectory = page.locator('details.guest-directory-details');
+  await expect(guestDirectory).not.toHaveAttribute('open', '');
+  await guestDirectory.getByText('查看宾客明细', { exact: true }).click();
+  await expect(page.getByLabel('搜索宾客')).toBeVisible();
   await primaryNavigation.getByRole('button', { name: '现场执行', exact: true }).click();
+  const registrationControls = page.locator('details.registration-control-card');
+  await expect(registrationControls).not.toHaveAttribute('open', '');
+  await registrationControls.getByText('宾客注册', { exact: true }).click();
+  await expect(registrationControls.getByRole('button', { name: /注册/ })).toBeVisible();
+  const invitationControls = registrationControls.locator('details.nested-action-details');
+  await expect(invitationControls).not.toHaveAttribute('open', '');
+  await invitationControls.getByText('更换共享邀请码', { exact: true }).click();
+  await expect(registrationControls.getByLabel('新邀请码')).toBeVisible();
   const liveNavigation = page.getByRole('navigation', { name: '现场执行功能' });
   await liveNavigation.getByRole('button', { name: /任务审核/ }).click();
   await expect(page.getByRole('heading', { name: '待审核任务' })).toBeVisible();
