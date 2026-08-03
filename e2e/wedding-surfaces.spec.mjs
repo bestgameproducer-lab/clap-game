@@ -91,6 +91,11 @@ test('宾客真实主页可浏览任务、团队积分并支持桌面滚动', as
   await expect(page.getByRole('img', { name: '另一位宾客的玩家头像' })).toBeVisible();
   await expect(page.getByText('H2XK')).toBeVisible();
   await page.getByRole('button', { name: '找到了 · 返回游戏' }).click();
+  await page.getByRole('button', { name: /查看今日菜单/ }).click();
+  const menuImage = page.getByRole('img', { name: /婚宴菜单/ });
+  await expect(menuImage).toBeVisible();
+  await expect.poll(() => menuImage.evaluate((image) => image.naturalWidth)).toBe(2728);
+  await page.getByRole('button', { name: '看完菜单 · 返回游戏' }).click();
   await page.mouse.wheel(0, 700);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
   expect(errors).toEqual([]);
