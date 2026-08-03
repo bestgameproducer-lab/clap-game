@@ -14,7 +14,7 @@ test('首页入口遵循婚礼现场的操作顺序', async () => {
   const finale = launchpad.indexOf("openPanel('finale')");
   const settings = launchpad.indexOf("openPanel('content')");
   assert.ok(preparation >= 0 && live > preparation && review > live && finale > review && settings > finale);
-  assert.match(launchpad, /01[\s\S]*开场准备/);
+  assert.match(launchpad, /01[\s\S]*宾客管理/);
   assert.match(launchpad, /02[\s\S]*现场流程/);
   assert.match(launchpad, /03[\s\S]*审核任务/);
   assert.match(launchpad, /04[\s\S]*终局结算/);
