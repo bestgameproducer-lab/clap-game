@@ -143,6 +143,18 @@ export async function rejectGuestConnection(guestId: string, relationshipId: str
   if (error) throw new Error(`Unable to reject player connection: ${error.message}`);
 }
 
+export async function acceptGuestConnection(guestId: string, relationshipId: string) {
+  const { data, error } = await getSupabaseAdmin().rpc('accept_player_connection', {
+    p_guest_id: guestId, p_relationship_id: relationshipId,
+  });
+  if (error?.message.includes('relationship_not_found')) throw new ApiError(404, '找不到这项配对邀请');
+  if (error?.message.includes('relationship_forbidden')) throw new ApiError(403, '不能处理其他玩家的配对邀请');
+  if (error?.message.includes('relationship_not_accepting') || error?.message.includes('relationship_already_confirmed')) throw new ApiError(409, '这项邀请已经处理，请刷新查看');
+  if (error?.message.includes('symbol_connection_stage_closed') || error?.message.includes('trickster_connection_stage_closed')) throw new ApiError(409, '当前环节已经关闭伙伴确认');
+  if (error) throw new Error(`Unable to accept player connection: ${error.message}`);
+  return data as { relationshipType: string; status: 'ACTIVE' };
+}
+
 export async function requestAssignmentMutualConfirmation(assignmentId: string, guestId: string, targetCode: string) {
   await consumePlayerCodeAttempt(guestId);
   const { error } = await getSupabaseAdmin().rpc('request_assignment_mutual_confirmation', {
@@ -172,7 +184,7 @@ export async function getGuestView(guestId: string) {
   const db = getSupabaseAdmin();
   const [{ data: guest, error: guestError }, { data: game, error: gameError }] = await Promise.all([
     db.from('guests').select('id,name,team,role,is_hidden_spy,points,drawn_at,special_card_revealed_at,participation_mode,relationship,story_role,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,special_card_title,special_card_body,player_code,unlocked_role,avatar_path,avatar_uploaded_at').eq('id', guestId).single(),
-    db.from('game_state').select('registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note,task_catalog_mode,trickster_max_attempts,phase_one_completed_at').eq('id', 1).single(),
+    db.from('game_state').select('registration_open,stage,voting_open,voting_round,results_visible,scoreboard_visible,phase_note,task_catalog_mode,trickster_max_attempts,phase_one_completed_at,team_score_snapshot').eq('id', 1).single(),
   ]);
   if (guestError || !guest) throw new ApiError(401, '登录已失效');
   if (gameError || !game) throw new Error(`Unable to load game state: ${gameError?.message ?? 'missing row'}`);
@@ -191,7 +203,7 @@ export async function getGuestView(guestId: string) {
     return {
       guest: signedGuest, assignments: [], clues: [], game, candidates: [], existingVote: null, results: null,
       pointLedger: buildGuestPointLedger(pointLedgerResult.data ?? [], [], game.results_visible),
-      teamScores: teamScoresVisible ? buildGuestTeamScores(teamPointResult.data ?? []) : [],
+      teamScores: [],
     };
   }
   const results = await Promise.all([
@@ -278,7 +290,7 @@ export async function getGuestView(guestId: string) {
     guest: signedGuest,
     assignments: signedVisibleAssignments,
     pointLedger: buildGuestPointLedger(pointLedgerResult.data ?? [], results[0].data ?? [], game.results_visible),
-    teamScores: teamScoresVisible ? buildGuestTeamScores(teamPointResult.data ?? []) : [],
+    teamScores: teamScoresVisible ? buildGuestTeamScores(teamPointResult.data ?? [], game.team_score_snapshot) : [],
     clues: (results[1].data ?? []).map((item: { id: string; clue: { title: string; content: string; group_name: string } | { title: string; content: string; group_name: string }[] | null }) => ({
       id: item.id,
       title: Array.isArray(item.clue) ? item.clue[0]?.title : item.clue?.title,
@@ -327,6 +339,11 @@ export async function getGuestView(guestId: string) {
       phaseOnePointsSnapshot: phaseTwoProfile.primary_mission === 'SUPER_LUCKY' ? phaseTwoProfile.phase_one_points_snapshot : null,
       luckySettled: Boolean(phaseTwoProfile.lucky_bonus_settled_at),
       captainSettled: Boolean(phaseTwoProfile.captain_bonus_settled_at),
+      originVerified: phaseTwoProfile.primary_mission === 'TEAM_CAPTAIN'
+        ? symbolPairing?.symbol === 'STAR' && symbolPairing.status === 'UNPAIRED_FINAL'
+        : phaseTwoProfile.primary_mission === 'COPY_SCORE'
+          ? symbolPairing?.symbol === 'HEART' && symbolPairing.status === 'UNPAIRED_FINAL'
+          : true,
       dilemma: dilemma ? (() => {
         const isA = dilemma.player_a_id === guestId;
         const settled = Boolean(dilemma.settled_at);

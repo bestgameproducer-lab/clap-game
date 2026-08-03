@@ -44,6 +44,7 @@ function ensureHostDatabaseError(error: { message: string } | null, fallback: st
   if (error.message.includes('phase_two_roster_not_ready')) throw new ApiError(409, '第二轮任务需要海岛组和沙漠组各有 10 位玩家完成抽卡');
   if (error.message.includes('phase_two_trickster_count_invalid')) throw new ApiError(409, '海岛组和沙漠组必须各有一位已抽卡的恶作剧者');
   if (error.message.includes('phase_two_relationship_roles_not_ready')) throw new ApiError(409, '爱心或星星角色尚未完成结算，请刷新后重试');
+  if (error.message.includes('guiding_star_origin_invalid') || error.message.includes('lonely_cupid_origin_invalid')) throw new ApiError(409, '第二轮觉醒角色与第一轮爱心/星星结果不一致，本次没有写入部分任务；请让主控核对第一轮配对记录');
   if (error.message.includes('phase_two_yirui_speech_unavailable')) throw new ApiError(409, '固定晚宴致辞玩家尚未完成抽卡，暂时不能发放第二轮任务');
   if (error.message.includes('phase_two_extra_vote_unavailable') || error.message.includes('phase_two_lucky_unavailable')) throw new ApiError(409, '第二轮能力卡名额不足，请让主控核对竞技组名单');
   if (error.message.includes('phase_two_coverage_invalid') || error.message.includes('phase_two_team_coverage_invalid') || error.message.includes('phase_two_assignment_count_invalid')) throw new ApiError(409, '第二轮任务覆盖校验失败，本次没有写入部分任务，请让主控核对配置');
@@ -66,7 +67,7 @@ export async function getHostDashboardData() {
     db.from('guests').select('id,name,team,role,is_hidden_spy,points,participation_mode,special_card_title,eligible_for_personal_score,drawn_at').eq('active', true).eq('uses_app', true).order('team').order('name'),
     db.from('team_points_ledger').select('id,team,amount,reason,created_at').order('created_at', { ascending: false }),
     db.from('points_ledger').select('id,guest_id,amount,reason,created_at,guest:guests(id,name)').is('assignment_id', null).order('created_at', { ascending: false }).limit(50),
-    db.from('game_state').select('stage,voting_open,voting_round,results_visible,team_clues_settled_at').eq('id', 1).single(),
+    db.from('game_state').select('stage,voting_open,voting_round,results_visible,team_clues_settled_at,team_score_snapshot').eq('id', 1).single(),
     db.from('votes').select('id,voting_round'),
     db.from('assignments').select('guest_id,status').eq('status', 'approved'),
     db.from('clues').select('team_scope,active').eq('active', true).in('team_scope', ['海岛组', '沙漠组']),
@@ -76,7 +77,7 @@ export async function getHostDashboardData() {
   const orderedGuests = [...(guests.data ?? [])].sort(compareWeddingGuests);
   const votingRound = game.data?.voting_round ?? 0;
   const eligibleGuests = orderedGuests
-    .filter((guest) => guest.eligible_for_personal_score)
+    .filter((guest) => guest.eligible_for_personal_score && ['海岛组', '沙漠组'].includes(guest.team))
     .map((guest) => ({
       id: guest.id,
       name: guest.name,
@@ -84,7 +85,10 @@ export async function getHostDashboardData() {
       points: guest.points,
       countsForTeam: guest.participation_mode === 'ACTIVE_PLAYER',
     }));
-  const rankings = buildPublicScoreboard(eligibleGuests, assignments.data ?? [], [], teamPoints.data ?? []);
+  const frozenTeamPoints = game.data?.team_score_snapshot && typeof game.data.team_score_snapshot === 'object'
+    ? Object.entries(game.data.team_score_snapshot as Record<string, unknown>).map(([team, amount]) => ({ team, amount: Number(amount) || 0 }))
+    : teamPoints.data ?? [];
+  const rankings = buildPublicScoreboard(eligibleGuests, assignments.data ?? [], [], frozenTeamPoints);
   return {
     guests: orderedGuests, teamPoints: teamPoints.data ?? [], personalPoints: personalPoints.data ?? [],
     game: game.data,

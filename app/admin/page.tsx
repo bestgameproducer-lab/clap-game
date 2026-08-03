@@ -81,7 +81,7 @@ type AdminData = {
   phaseTwoProfiles: Array<{ guest_id: string; team: string; primary_mission: string | null; extra_vote: boolean; super_lucky: boolean; is_captain: boolean; interaction_theme: string; unlocked_at: string | null }>;
   preflight: { ready: boolean; blockedCount: number; items: Array<{ id: string; label: string; detail: string; status: 'ready' | 'warning' | 'blocked' }> };
   rehearsalResetPreview: { claimed_guests: number; drawn_guests: number; assignments: number; evidence_files: number; avatar_files: number; votes: number; guest_clues: number; personal_ledger_entries: number; team_ledger_entries: number; spy_ledger_entries: number; resource_ledger_entries: number; registration_open: boolean; voting_open: boolean; scoreboard_visible: boolean };
-  game: { registration_open: boolean; stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null; display_title: string | null; display_body: string | null; public_clue: string | null; timer_ends_at: string | null; invitation_code_updated_at: string | null; task_catalog_mode: 'demo' | 'live'; trickster_max_attempts: number; phase_one_completed_at: string | null; team_clues_settled_at: string | null; updated_at: string } | null;
+  game: { registration_open: boolean; stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null; display_title: string | null; display_body: string | null; public_clue: string | null; timer_ends_at: string | null; invitation_code_updated_at: string | null; task_catalog_mode: 'demo' | 'live'; trickster_max_attempts: number; phase_one_completed_at: string | null; team_clues_settled_at: string | null; team_score_snapshot: Record<string, number> | null; updated_at: string } | null;
 };
 
 async function responseBody(response: Response) {
@@ -479,7 +479,7 @@ export default function AdminPage() {
   const issuedHiddenTaskIds = new Set(data.hiddenTaskCodes.map((code) => code.task_id));
   const readyHiddenTaskCards = activeHiddenTasks.filter((task) => issuedHiddenTaskIds.has(task.id)).length;
   const clueGroups = Array.from(new Set(activeClues.map((clue) => clue.group_name || '身份线索'))).sort((a, b) => a.localeCompare(b, 'zh-CN'));
-  const teamTotals = TEAMS.map((teamName) => ({ team: teamName, points: data.teamPointLedger.filter((entry) => entry.team === teamName).reduce((sum, entry) => sum + entry.amount, 0) }));
+  const teamTotals = TEAMS.map((teamName) => ({ team: teamName, points: data.game?.team_score_snapshot && data.game.team_clues_settled_at ? Number(data.game.team_score_snapshot[teamName] ?? 0) : data.teamPointLedger.filter((entry) => entry.team === teamName).reduce((sum, entry) => sum + entry.amount, 0) }));
   const competitiveDrawn = activeGuests.filter((guest) => guest.phase_two_eligible && guest.drawn_at).length;
   const teamSettlementChecks = TEAMS.map((teamName) => ({
     team: teamName,

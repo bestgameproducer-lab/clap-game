@@ -10,7 +10,7 @@ test('双向确认完成后清除等待对方的顶部提示', async () => {
   assert.match(source, /const PENDING_CONNECTION_MESSAGE = '你的编号确认已提交，等待对方输入你的玩家编号。';/);
   assert.match(source, /relationship\.type === pendingNotice\.relationshipType[\s\S]*relationship\.status === 'PENDING'[\s\S]*relationship\.confirmedByMe/);
   assert.match(source, /if \(message !== expectedMessage \|\| !stillWaiting\) \{\s*setMessage\(''\);\s*setPendingNotice\(null\);/);
-  assert.match(source, /await load\(\);\s*setPendingNotice\(status === 'PENDING' \? \{ kind: 'CONNECTION', relationshipType \} : null\);\s*setMessage\(/);
+  assert.match(source, /await load\(\);\s*setPendingNotice\(status === 'PENDING' \? \{ kind: 'CONNECTION', relationshipType \} : null\);[\s\S]*setConnectionFeedback/);
 });
 
 test('等待型顶部提示在对应任务完成或结算后清除', async () => {

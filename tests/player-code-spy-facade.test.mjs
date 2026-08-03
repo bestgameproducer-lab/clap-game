@@ -20,7 +20,7 @@ test('a trickster dashboard replaces facade content with true content in place',
     readFile(stylesUrl, 'utf8'),
   ]);
 
-  assert.match(page, /data\.guest\.role === 'spy' && !data\.game\?\.results_visible/);
+  assert.match(page, /const isTricksterGuest = data\.guest\.role === 'spy'/);
   assert.match(page, /data\.assignments\.filter\(\(assignment\) => assignment\.task\.category !== 'hidden'\)/);
   assert.match(page, /data\.assignments\.filter\(\(assignment\) => assignment\.task\.category === 'hidden'\)/);
   assert.match(page, /nextData\.guest\.role === 'spy' && assignment\.task\.category === 'hidden'/);
@@ -30,7 +30,7 @@ test('a trickster dashboard replaces facade content with true content in place',
   assert.match(page, /const identityRevealRole = usesTricksterFacade \? role : dashboardRole/);
   assert.match(page, /identityVisible \? <><strong>\{identityRevealRole\.title\}<\/strong><p>\{identityRevealRole\.note\}<\/p>/);
   assert.match(page, /isTrickster && identityVisible && !data\.game\?\.results_visible && \(!usesTricksterFacade \|\| secretReaderOpen\) \? 'trickster-identity'/);
-  assert.match(page, /usesTricksterFacade && secretReaderOpen \? trueTricksterAssignments : facadeAssignments/);
+  assert.match(page, /isTricksterGuest && secretReaderOpen \? trueTricksterAssignments : facadeAssignments/);
   assert.match(page, /<details className="mission-item"/);
   assert.doesNotMatch(page, /trickster-dossier-inline|openTricksterDossier/);
   assert.match(page, /setSecretReaderOpen\(true\)/);

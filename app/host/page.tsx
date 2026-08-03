@@ -28,7 +28,7 @@ type HostData = {
   guests: Guest[];
   teamPoints: Array<{ id: number; team: string; amount: number; reason: string; created_at: string }>;
   personalPoints: Array<{ id: string; guest_id: string; amount: number; reason: string; created_at: string; guest: { id: string; name: string } | null }>;
-  game: { stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; team_clues_settled_at: string | null } | null;
+  game: { stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; team_clues_settled_at: string | null; team_score_snapshot: Record<string, number> | null } | null;
   voteCount: number;
   teamClueCounts: Record<string, number>;
   rankings: {
@@ -168,7 +168,7 @@ export default function HostPage() {
   }, [data?.guests, guestSearch]);
   const effectiveGuestId = filteredGuests.some((guest) => guest.id === guestForm.guestId) ? guestForm.guestId : filteredGuests[0]?.id || '';
   const selectedGuest = data?.guests.find((guest) => guest.id === effectiveGuestId) ?? null;
-  const teamTotals = TEAMS.map((team) => ({ team, points: (data?.teamPoints ?? []).filter((entry) => entry.team === team).reduce((sum, entry) => sum + entry.amount, 0) }));
+  const teamTotals = TEAMS.map((team) => ({ team, points: data?.game?.team_score_snapshot && data.game.team_clues_settled_at ? Number(data.game.team_score_snapshot[team] ?? 0) : (data?.teamPoints ?? []).filter((entry) => entry.team === team).reduce((sum, entry) => sum + entry.amount, 0) }));
   const competitiveDrawn = (data?.guests ?? []).filter((guest) => TEAMS.includes(guest.team as typeof TEAMS[number]) && guest.drawn_at).length;
   const teamSettlementChecks = TEAMS.map((team) => ({
     team,
