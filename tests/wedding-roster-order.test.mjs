@@ -12,9 +12,11 @@ test('shared staff ordering puts the couple first, followed by wedding groups', 
     /team === '家人组'\) return 3/,
     /team === '海岛组'\) return 4/,
     /team === '沙漠组'\) return 5/,
-    /localeCompare\(b\.name, 'zh-CN'\)/,
+    /weddingRosterNameSortKey\(a\)\.localeCompare\(weddingRosterNameSortKey\(b\), 'zh-CN'\)/,
   ]) assert.match(helper, expectation);
   assert.match(helper, /Number\(a\.active === false\) - Number\(b\.active === false\)/);
+  assert.match(helper, /name\.startsWith\('姚刚'\)/);
+  assert.match(helper, /name\.startsWith\('金晓峰'\)/);
 });
 
 test('registration roster applies the same forward-only order', async () => {
@@ -26,6 +28,15 @@ test('registration roster applies the same forward-only order', async () => {
   assert.match(migration, /g\.team='海岛组' then 4/);
   assert.match(migration, /g\.team='沙漠组' then 5/);
   assert.match(migration, /g\.active and g\.uses_app/);
+  assert.doesNotMatch(migration, /delete from|truncate|drop table|update guests/i);
+});
+
+test('the forward-only family adjustment exchanges only Gang Yao and Xiaofeng Jin', async () => {
+  const migration = await read('../supabase/migrations/202608020007_swap_family_roster_positions.sql');
+  assert.match(migration, /g\.team='家人组' and g\.name like '姚刚%'/);
+  assert.match(migration, /regexp_replace\(g\.name,'\^姚刚','金晓峰'\)/);
+  assert.match(migration, /g\.team='家人组' and g\.name like '金晓峰%'/);
+  assert.match(migration, /regexp_replace\(g\.name,'\^金晓峰','姚刚'\)/);
   assert.doesNotMatch(migration, /delete from|truncate|drop table|update guests/i);
 });
 
