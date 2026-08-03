@@ -1,7 +1,7 @@
 // Bump the worker URL/cache together whenever the public shell behavior changes.
 // This release intentionally replaces the pre-private-reader worker so mobile
 // in-app browsers cannot keep serving the old trickster interface.
-const CACHE_NAME = 'wedding-public-shell-v6-dinner-menu';
+const CACHE_NAME = 'wedding-public-shell-v7-neutral-dilemma';
 const APP_PATHS = ['/guest', '/scoreboard'];
 const MANIFEST_PATH = '/manifest.webmanifest';
 const PUBLIC_ASSET_PATHS = ['/wedding-dinner-menu.jpg'];

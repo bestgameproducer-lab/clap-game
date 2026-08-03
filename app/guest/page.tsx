@@ -395,7 +395,7 @@ export default function GuestPage() {
       window.location.reload();
     };
     window.navigator.serviceWorker.addEventListener('controllerchange', refreshForNewVersion);
-    window.navigator.serviceWorker.register('/sw.js?v=6-dinner-menu', { scope: '/', updateViaCache: 'none' })
+    window.navigator.serviceWorker.register('/sw.js?v=7-neutral-dilemma', { scope: '/', updateViaCache: 'none' })
       .then(async (registration) => {
         const checkForUpdate = () => {
           if (active && document.visibilityState === 'visible') void registration.update();
