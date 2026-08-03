@@ -65,4 +65,5 @@ test('star dilemma explains the full payoff matrix before either choice is submi
   assert.match(guestPage, /你 0 分 · 伙伴 5 分/);
   assert.match(guestPage, /你 5 分 · 伙伴 0 分/);
   assert.match(guestPage, /各得 1 分/);
+  assert.doesNotMatch(guestPage, /合作更稳|可能拿到 5 分|只能各得 1 分/);
 });

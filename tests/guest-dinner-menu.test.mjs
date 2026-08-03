@@ -19,8 +19,8 @@ test('the dinner menu remains available in the weak-network cache', async () => 
   const page = await readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8');
   const worker = await readFile(new URL('../public/sw.js', import.meta.url), 'utf8');
 
-  assert.match(page, /\/sw\.js\?v=6-dinner-menu/);
-  assert.match(worker, /wedding-public-shell-v6-dinner-menu/);
+  assert.match(page, /\/sw\.js\?v=7-neutral-dilemma/);
+  assert.match(worker, /wedding-public-shell-v7-neutral-dilemma/);
   assert.match(worker, /PUBLIC_ASSET_PATHS = \['\/wedding-dinner-menu\.jpg'\]/);
   assert.match(worker, /PUBLIC_ASSET_PATHS\.includes\(url\.pathname\)/);
 });
