@@ -7,6 +7,7 @@ import { signEvidencePaths } from './evidence';
 import { signAvatarPaths } from './avatar';
 import { compareWeddingGuests } from '../wedding-roster-order';
 import { DEPLOYMENT_VERSION } from '../deployment';
+import { buildPublicScoreboard, findUndetectedTricksterIds } from '../scoreboard-core';
 
 function ensureNoDatabaseError(error: { message: string } | null, fallback: string): void {
   if (error) {
@@ -124,6 +125,25 @@ export async function getAdminDashboardData() {
   const tasks = results[2].data ?? [];
   const clues = results[6].data ?? [];
   const hiddenTaskCodes = results[13].data ?? [];
+  const game = results[5].data;
+  const currentRoundVotes = (results[4].data ?? []).filter((vote) => vote.voting_round === (game?.voting_round ?? 0)).map((vote) => ({
+    voter_guest_id: vote.voter_guest_id,
+    target_guest_id: vote.target_guest_id,
+    vote_weight: vote.vote_weight,
+    voter: Array.isArray(vote.voter) ? vote.voter[0] ?? null : vote.voter,
+  }));
+  const rankingGuests = guests.filter((guest) => guest.eligible_for_personal_score && guest.drawn_at && ['海岛组', '沙漠组'].includes(guest.team)).map((guest) => ({
+    id: guest.id, name: guest.name, team: guest.team, points: guest.points, countsForTeam: true,
+  }));
+  const tricksters = guests.filter((guest) => guest.drawn_at && (guest.role === 'spy' || guest.is_hidden_spy) && ['海岛组', '沙漠组'].includes(guest.team));
+  const undetectedTricksterIds = game?.results_visible ? findUndetectedTricksterIds(rankingGuests, currentRoundVotes, tricksters) : new Set<string>();
+  const frozenTeamPoints = game?.team_score_snapshot && typeof game.team_score_snapshot === 'object'
+    ? Object.entries(game.team_score_snapshot as Record<string, unknown>).map(([team, amount]) => ({ team, amount: Number(amount) || 0 }))
+    : results[10].data ?? [];
+  const rankings = buildPublicScoreboard(rankingGuests, results[1].data ?? [], currentRoundVotes, frozenTeamPoints, {
+    leaderLimit: game?.results_visible ? rankingGuests.length : 10,
+    priorityGuestIds: undetectedTricksterIds,
+  });
   return {
     health: {
       database: 'online' as const,
@@ -132,8 +152,8 @@ export async function getAdminDashboardData() {
     },
     guests, assignments: await signEvidencePaths(results[1].data ?? []), tasks,
     submissions: await signEvidencePaths(results[3].data ?? []),
-    votes: (results[4].data ?? []).filter((vote) => vote.voting_round === (results[5].data?.voting_round ?? 0)),
-    game: results[5].data,
+    votes: (results[4].data ?? []).filter((vote) => vote.voting_round === (game?.voting_round ?? 0)),
+    game,
     clues, guestClues: results[7].data ?? [],
     pointLedger: results[8].data ?? [], auditLog: results[9].data ?? [], teamPointLedger: results[10].data ?? [], awards: results[11].data ?? [],
     resultRewards: results[12].data ?? [],
@@ -145,6 +165,11 @@ export async function getAdminDashboardData() {
     allianceClues: results[17].data ?? [],
     symbolPairings: results[18].data ?? [],
     phaseTwoProfiles: results[19].data ?? [],
+    rankings: { personal: rankings.leaders, teams: rankings.teams },
+    finale: {
+      tricksters: game?.results_visible ? tricksters.map((guest) => ({ id: guest.id, name: guest.name, team: guest.team, escaped: undetectedTricksterIds.has(guest.id) })) : [],
+      voteCounts: game?.results_visible ? rankings.voteCounts : [],
+    },
   };
 }
 

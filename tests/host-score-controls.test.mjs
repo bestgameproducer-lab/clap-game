@@ -51,9 +51,10 @@ test('host data is an explicit private operations DTO', () => {
   assert.match(data, /select\('id,team,amount,reason,created_at'\)/);
   assert.match(data, /select\('id,guest_id,amount,reason,created_at,guest:guests\(id,name\)'\)/);
   assert.match(data, /select\('stage,voting_open,voting_round,results_visible,team_clues_settled_at,team_score_snapshot'\)/);
-  assert.match(data, /select\('id,voting_round'\)/);
+  assert.match(data, /select\('id,voting_round,voter_guest_id,target_guest_id,vote_weight/);
   const scoreDto = data.slice(data.indexOf('export async function getHostDashboardData'), data.indexOf('export async function adjustHostTeamPoints'));
-  assert.doesNotMatch(scoreDto, /correct_answer|host_notes|team_resources|voter_guest_id|target_guest_id|vote_weight/);
+  assert.match(scoreDto, /voteCounts: game\.data\?\.results_visible \? rankings\.voteCounts : \[\]/);
+  assert.doesNotMatch(scoreDto, /correct_answer|host_notes|team_resources/);
 });
 
 test('host finale mutations reuse the server-authoritative idempotent settlement boundary', () => {
