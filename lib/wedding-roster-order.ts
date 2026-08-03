@@ -18,9 +18,18 @@ function weddingRosterRank(guest: WeddingRosterGuest): number {
   return 6;
 }
 
+function weddingRosterNameSortKey(guest: WeddingRosterGuest): string {
+  if (guest.team !== '家人组') return guest.name;
+
+  // Preserve the established family-name order, with these two seats exchanged.
+  if (guest.name.startsWith('姚刚')) return guest.name.replace(/^姚刚/, '金晓峰');
+  if (guest.name.startsWith('金晓峰')) return guest.name.replace(/^金晓峰/, '姚刚');
+  return guest.name;
+}
+
 export function compareWeddingGuests(a: WeddingRosterGuest, b: WeddingRosterGuest): number {
   const activeOrder = Number(a.active === false) - Number(b.active === false);
   if (activeOrder !== 0) return activeOrder;
   return weddingRosterRank(a) - weddingRosterRank(b)
-    || a.name.localeCompare(b.name, 'zh-CN');
+    || weddingRosterNameSortKey(a).localeCompare(weddingRosterNameSortKey(b), 'zh-CN');
 }
