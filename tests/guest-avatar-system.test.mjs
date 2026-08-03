@@ -63,8 +63,8 @@ test('the admin guest manager receives private signed avatars and reports real p
 
   assert.match(adminData, /avatar_path,avatar_uploaded_at/);
   assert.match(adminData, /signAvatarPaths/);
-  assert.match(adminPage, /shortLabel: '宾客管理'/);
-  assert.match(adminPage, /PRIMARY_ADMIN_PANELS = ADMIN_PANELS\.filter\(\(panel\) => panel\.id !== 'data'\)/);
+  assert.match(adminPage, /label: '开场与宾客'/);
+  assert.match(adminPage, /const PRIMARY_ADMIN_PANELS:[\s\S]*label: '婚礼设置'/);
   assert.match(adminPage, /\{claimed\}\/\{activeGuests\.length\} 已认领/);
   assert.match(adminPage, /\{avatarCount\}[\s\S]*已上传头像/);
   assert.match(adminPage, /\{drawn\}[\s\S]*已完成抽卡/);

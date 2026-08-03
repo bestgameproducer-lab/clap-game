@@ -119,22 +119,25 @@ test('首次登录宾客完成婚礼自拍后才能进入游戏', async ({ page 
   await expect(page.getByRole('heading', { name: '我的秘密任务' })).toBeVisible();
 });
 
-test('主控首页显示健康状态且六个主要模块均可进入', async ({ page }) => {
+test('主控四个主入口及现场二级入口均可进入', async ({ page }) => {
   const errors = collectPageErrors(page);
   await page.route('**/api/admin-data', (route) => route.fulfill({ json: adminData }));
   await page.goto('/admin');
 
-  await expect(page.getByText('婚礼日状态')).toBeVisible();
+  await expect(page.getByText('开场与宾客状态')).toBeVisible();
   await expect(page.getByText('系统在线')).toBeVisible();
   await expect(page.getByText(/部署 e2e-rehears/)).toBeVisible();
 
   const primaryNavigation = page.locator('.admin-panel-tabs');
-  for (const label of ['宾客管理', '现场流程', '审核任务', '终局结算', '婚礼设置', '开场准备']) {
+  for (const label of ['现场执行', '终局结算', '婚礼设置', '开场与宾客']) {
     await primaryNavigation.getByRole('button', { name: label, exact: true }).click();
   }
-  await page.locator('.launchpad-primary').getByRole('button', { name: /宾客管理/ }).click();
   await expect(page.getByText('开场检查')).toBeVisible();
   await expect(page.getByRole('heading', { name: '宾客注册与游戏进度' })).toBeVisible();
+  await primaryNavigation.getByRole('button', { name: '现场执行', exact: true }).click();
+  const liveNavigation = page.getByRole('navigation', { name: '现场执行功能' });
+  await liveNavigation.getByRole('button', { name: /任务审核/ }).click();
+  await expect(page.getByRole('heading', { name: '待审核任务' })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
