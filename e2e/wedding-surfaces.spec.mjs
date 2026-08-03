@@ -58,6 +58,7 @@ const adminData = {
   assignments: [], tasks: [], clues: [], submissions: [], votes: [], pointLedger: [], auditLog: [], awards: [],
   teamPointLedger: [], resultRewards: [], hiddenTaskCodes: [], heartSlots: [], playerRelationships: [],
   allianceClues: [], symbolPairings: [], phaseTwoProfiles: [], game,
+  rankings: { personal: [], teams: [] }, finale: { tricksters: [], voteCounts: [] },
   preflight: { ready: true, blockedCount: 0, items: [{ id: 'roster', label: '宾客名单', detail: '已完成', status: 'ready' }] },
   rehearsalResetPreview: emptyResetPreview,
 };
@@ -66,6 +67,7 @@ const hostData = {
   guests: [{ ...guest, special_card_title: '' }], teamPoints: [], personalPoints: [],
   game: { stage: 'group_game', voting_open: false, voting_round: 0, results_visible: false, team_clues_settled_at: null },
   voteCount: 0, teamClueCounts: { 海岛组: 0, 沙漠组: 0 }, rankings: { personal: [], teams: [] },
+  finale: { tricksters: [], voteCounts: [] },
 };
 
 function collectPageErrors(page) {
@@ -242,6 +244,46 @@ test('主持人可以进入团队、个人和流程控制台', async ({ page }) 
   await expect(page.getByRole('heading', { name: '给宾客个人加分' })).toBeVisible();
   await page.getByRole('button', { name: '流程控制', exact: true }).click();
   await expect(page.getByRole('heading', { name: '婚礼流程控制' })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('主控、主持人与公开大屏显示完整终局排名和实名投票来源', async ({ page }) => {
+  const errors = collectPageErrors(page);
+  const personal = Array.from({ length: 20 }, (_, index) => ({
+    id: `final-${index + 1}`, name: `宾客${index + 1}`, team: index % 2 ? '海岛组' : '沙漠组',
+    points: 20 - index, completedTasks: 2, undetectedTrickster: index === 0,
+  }));
+  const finale = {
+    tricksters: [{ id: 'final-1', name: '宾客1', team: '沙漠组', escaped: true }, { id: 'final-2', name: '宾客2', team: '海岛组', escaped: false }],
+    voteCounts: [{ id: 'final-1', name: '宾客1', team: '沙漠组', votes: 3, voters: [
+      { id: 'voter-a', name: '投票者A', team: '沙漠组', votes: 2 }, { id: 'voter-b', name: '投票者B', team: '沙漠组', votes: 1 },
+    ] }],
+  };
+  const finalGame = { ...game, stage: 'results', voting_round: 1, results_visible: true, scoreboard_visible: true, team_clues_settled_at: '2026-08-01T14:30:00.000Z', team_score_snapshot: { 海岛组: 13, 沙漠组: 20 } };
+
+  await page.route('**/api/public-scoreboard', (route) => route.fulfill({ json: {
+    visible: true, stage: 'results', resultsVisible: true, displayTitle: null, displayBody: null, publicClue: null,
+    timerEndsAt: null, updatedAt: finalGame.updated_at, teams: [], leaders: personal, voteCounts: finale.voteCounts,
+    revealedRoles: finale.tricksters.map((item) => ({ ...item, role: 'spy', is_hidden_spy: false })), awards: [],
+  } }));
+  await page.goto('/scoreboard');
+  await expect(page.getByRole('heading', { name: '恶作剧者揭晓' })).toBeVisible();
+  await expect(page.getByText('成功逃脱 · 完美伪装')).toBeVisible();
+  await expect(page.getByText('投票者A（2票）、投票者B')).toBeVisible();
+  await expect(page.getByText('婚礼守护者')).toHaveCount(0);
+
+  await page.route('**/api/host-data', (route) => route.fulfill({ json: { ...hostData, game: finalGame, voteCount: 2, rankings: { personal, teams: [] }, finale } }));
+  await page.goto('/host');
+  await page.getByRole('button', { name: '流程控制', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '完整最终积分排名' })).toBeVisible();
+  await expect(page.getByText('宾客20')).toBeVisible();
+
+  await page.route('**/api/admin-data', (route) => route.fulfill({ json: { ...adminData, game: finalGame, rankings: { personal, teams: [] }, finale } }));
+  await page.goto('/admin');
+  await page.locator('.admin-panel-tabs').getByRole('button', { name: '终局结算', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '完整最终个人积分排名' })).toBeVisible();
+  await expect(page.getByText('投票者A（2票）、投票者B')).toBeVisible();
+  await expect(page.getByText('宾客20')).toBeVisible();
   expect(errors).toEqual([]);
 });
 

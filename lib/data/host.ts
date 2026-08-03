@@ -1,6 +1,6 @@
 import 'server-only';
 import { ApiError } from '../errors';
-import { buildPublicScoreboard } from '../scoreboard-core';
+import { buildPublicScoreboard, findUndetectedTricksterIds } from '../scoreboard-core';
 import { getSupabaseAdmin } from '../supabase';
 import { compareWeddingGuests } from '../wedding-roster-order';
 
@@ -68,7 +68,7 @@ export async function getHostDashboardData() {
     db.from('team_points_ledger').select('id,team,amount,reason,created_at').order('created_at', { ascending: false }),
     db.from('points_ledger').select('id,guest_id,amount,reason,created_at,guest:guests(id,name)').is('assignment_id', null).order('created_at', { ascending: false }).limit(50),
     db.from('game_state').select('stage,voting_open,voting_round,results_visible,team_clues_settled_at,team_score_snapshot').eq('id', 1).single(),
-    db.from('votes').select('id,voting_round'),
+    db.from('votes').select('id,voting_round,voter_guest_id,target_guest_id,vote_weight,voter:guests!votes_voter_guest_id_fkey(id,name,team)'),
     db.from('assignments').select('guest_id,status').eq('status', 'approved'),
     db.from('clues').select('team_scope,active').eq('active', true).in('team_scope', ['海岛组', '沙漠组']),
   ]);
@@ -77,7 +77,7 @@ export async function getHostDashboardData() {
   const orderedGuests = [...(guests.data ?? [])].sort(compareWeddingGuests);
   const votingRound = game.data?.voting_round ?? 0;
   const eligibleGuests = orderedGuests
-    .filter((guest) => guest.eligible_for_personal_score && ['海岛组', '沙漠组'].includes(guest.team))
+    .filter((guest) => guest.eligible_for_personal_score && guest.drawn_at && ['海岛组', '沙漠组'].includes(guest.team))
     .map((guest) => ({
       id: guest.id,
       name: guest.name,
@@ -88,14 +88,31 @@ export async function getHostDashboardData() {
   const frozenTeamPoints = game.data?.team_score_snapshot && typeof game.data.team_score_snapshot === 'object'
     ? Object.entries(game.data.team_score_snapshot as Record<string, unknown>).map(([team, amount]) => ({ team, amount: Number(amount) || 0 }))
     : teamPoints.data ?? [];
-  const rankings = buildPublicScoreboard(eligibleGuests, assignments.data ?? [], [], frozenTeamPoints);
+  const roundVotes = (votes.data ?? []).filter((vote) => vote.voting_round === votingRound).map((vote) => ({
+    voter_guest_id: vote.voter_guest_id,
+    target_guest_id: vote.target_guest_id,
+    vote_weight: vote.vote_weight,
+    voter: Array.isArray(vote.voter) ? vote.voter[0] ?? null : vote.voter,
+  }));
+  const tricksters = orderedGuests.filter((guest) => guest.drawn_at && (guest.role === 'spy' || guest.is_hidden_spy) && ['海岛组', '沙漠组'].includes(guest.team));
+  const undetectedTricksterIds = game.data?.results_visible
+    ? findUndetectedTricksterIds(eligibleGuests, roundVotes, tricksters)
+    : new Set<string>();
+  const rankings = buildPublicScoreboard(eligibleGuests, assignments.data ?? [], roundVotes, frozenTeamPoints, {
+    leaderLimit: game.data?.results_visible ? eligibleGuests.length : 10,
+    priorityGuestIds: undetectedTricksterIds,
+  });
   return {
     guests: orderedGuests, teamPoints: teamPoints.data ?? [], personalPoints: personalPoints.data ?? [],
     game: game.data,
-    voteCount: (votes.data ?? []).filter((vote) => vote.voting_round === votingRound).length,
+    voteCount: roundVotes.length,
     teamClueCounts: Object.fromEntries(['海岛组', '沙漠组'].map((team) => [team,
       (clues.data ?? []).filter((clue) => clue.team_scope === team).length])),
     rankings: { personal: rankings.leaders, teams: rankings.teams },
+    finale: {
+      tricksters: game.data?.results_visible ? tricksters.map((guest) => ({ id: guest.id, name: guest.name, team: guest.team, escaped: undetectedTricksterIds.has(guest.id) })) : [],
+      voteCounts: game.data?.results_visible ? rankings.voteCounts : [],
+    },
   };
 }
 

@@ -15,16 +15,18 @@ test('host data endpoint requires administrator authorization', async () => {
   assert.match(source, /getHostDashboardData/);
 });
 
-test('authenticated host data returns an explicit private roster without credentials', async () => {
+test('authenticated host data returns private finale ballots without credentials', async () => {
   const source = await readFile(new URL('../lib/data/host.ts', import.meta.url), 'utf8');
   const scoreDto = source.slice(source.indexOf('export async function getHostDashboardData'), source.indexOf('export async function adjustHostTeamPoints'));
   assert.match(scoreDto, /select\('id,name,team,role,is_hidden_spy,points,participation_mode,special_card_title,eligible_for_personal_score,drawn_at'\)/);
-  assert.doesNotMatch(scoreDto, /voter_guest_id|pin_hash|hidden_role|claim_code_hash|password_hash/);
+  assert.match(scoreDto, /voter_guest_id,target_guest_id,vote_weight/);
+  assert.doesNotMatch(scoreDto, /pin_hash|hidden_role|claim_code_hash|password_hash/);
 });
 
-test('host page exposes the private roster but not ballots or run-of-show answers', async () => {
+test('host page exposes finale ballots only in the result section and no run-of-show answers', async () => {
   const source = await readFile(new URL('../app/host/page.tsx', import.meta.url), 'utf8');
-  assert.doesNotMatch(source, /voteCounts|揭晓票数|correct_answer|host_notes|流程题库/);
+  assert.match(source, /data\.finale\.voteCounts/);
+  assert.doesNotMatch(source, /correct_answer|host_notes|流程题库/);
   assert.match(source, /全员总览/);
   assert.match(source, /恶作剧者/);
 });
@@ -38,7 +40,8 @@ test('host finale exposes personal and team rankings after result publication', 
   assert.match(dataSource, /rankings: \{ personal: rankings\.leaders, teams: rankings\.teams \}/);
   assert.match(page, /data\.game\?\.results_visible/);
   assert.match(page, /最终积分排名/);
-  assert.match(page, /个人积分 TOP/);
+  assert.match(page, /完整个人积分排名/);
+  assert.match(page, /data\.rankings\.personal\.length/);
 });
 
 test('database publish function copies only public segment fields', async () => {

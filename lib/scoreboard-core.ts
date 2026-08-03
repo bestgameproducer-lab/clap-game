@@ -1,6 +1,11 @@
 export type ScoreboardGuest = { id: string; name: string; team: string; points: number; countsForTeam?: boolean };
 export type ScoreboardAssignment = { guest_id: string; status: string };
-export type ScoreboardVote = { target_guest_id: string; vote_weight?: number };
+export type ScoreboardVote = {
+  target_guest_id: string;
+  vote_weight?: number;
+  voter_guest_id?: string;
+  voter?: { id?: string; name: string; team?: string } | null;
+};
 export type ScoreboardTeamPoint = { team: string; amount: number };
 export type ScoreboardOptions = {
   leaderLimit?: number;
@@ -38,7 +43,19 @@ export function buildPublicScoreboard(
   }
 
   const votesByGuest = new Map<string, number>();
+  const votersByGuest = new Map<string, Array<{ id: string; name: string; team: string; votes: number }>>();
   for (const vote of votes) votesByGuest.set(vote.target_guest_id, (votesByGuest.get(vote.target_guest_id) ?? 0) + (vote.vote_weight ?? 1));
+  for (const vote of votes) {
+    if (!vote.voter?.name) continue;
+    const voters = votersByGuest.get(vote.target_guest_id) ?? [];
+    voters.push({
+      id: vote.voter.id || vote.voter_guest_id || vote.voter.name,
+      name: vote.voter.name,
+      team: vote.voter.team || '',
+      votes: vote.vote_weight ?? 1,
+    });
+    votersByGuest.set(vote.target_guest_id, voters);
+  }
 
   const teams = new Map<string, { team: string; points: number; guests: number; completedTasks: number }>();
   for (const guest of guests) {
@@ -63,7 +80,13 @@ export function buildPublicScoreboard(
       .slice(0, options.leaderLimit ?? 10)
       .map((guest) => ({ ...guest, undetectedTrickster: options.priorityGuestIds?.has(guest.id) ?? false })),
     voteCounts: guests
-      .map((guest) => ({ id: guest.id, name: guest.name, team: guest.team, votes: votesByGuest.get(guest.id) ?? 0 }))
+      .map((guest) => ({
+        id: guest.id,
+        name: guest.name,
+        team: guest.team,
+        votes: votesByGuest.get(guest.id) ?? 0,
+        voters: (votersByGuest.get(guest.id) ?? []).sort((a, b) => b.votes - a.votes || a.name.localeCompare(b.name)),
+      }))
       .filter((guest) => guest.votes > 0)
       .sort((a, b) => b.votes - a.votes || a.name.localeCompare(b.name)),
   };

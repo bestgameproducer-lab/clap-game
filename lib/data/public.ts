@@ -19,7 +19,7 @@ export async function getPublicScoreboard() {
   const [guestResult, assignmentResult, voteResult, teamPointResult] = await Promise.all([
     db.from('guests').select('id,name,team,points,participation_mode').eq('eligible_for_personal_score', true).in('team', ['海岛组', '沙漠组']).not('drawn_at', 'is', null).order('name'),
     db.from('assignments').select('guest_id,status').eq('status', 'approved'),
-    db.from('votes').select('target_guest_id,vote_weight').eq('voting_round', game.voting_round),
+    db.from('votes').select('voter_guest_id,target_guest_id,vote_weight,voter:guests!votes_voter_guest_id_fkey(id,name,team)').eq('voting_round', game.voting_round),
     db.from('team_points_ledger').select('team,amount'),
   ]);
   const error = guestResult.error ?? assignmentResult.error ?? voteResult.error ?? teamPointResult.error;
@@ -36,7 +36,7 @@ export async function getPublicScoreboard() {
   let awards: Array<{ id: string; title: string; winnerName: string; winnerTeam: string | null; reason: string }> = [];
   if (game.results_visible) {
     const [roleResult, awardResult] = await Promise.all([
-      db.from('guests').select('id,name,team,role,is_hidden_spy').in('role', ['spy', 'helper']).in('team', ['海岛组', '沙漠组']).not('drawn_at', 'is', null).order('team').order('name'),
+      db.from('guests').select('id,name,team,role,is_hidden_spy').or('role.eq.spy,is_hidden_spy.eq.true').in('team', ['海岛组', '沙漠组']).not('drawn_at', 'is', null).order('team').order('name'),
       db.from('awards').select('id,title,winner_team,reason,winner:guests(name,team)').eq('published', true).order('sort_order').order('created_at'),
     ]);
     const revealError = roleResult.error ?? awardResult.error;
@@ -48,13 +48,19 @@ export async function getPublicScoreboard() {
     });
   }
 
+  const scoreboardVotes = (voteResult.data ?? []).map((vote) => ({
+    voter_guest_id: vote.voter_guest_id,
+    target_guest_id: vote.target_guest_id,
+    vote_weight: vote.vote_weight,
+    voter: Array.isArray(vote.voter) ? vote.voter[0] ?? null : vote.voter,
+  }));
   const undetectedTricksterIds = game.results_visible
-    ? findUndetectedTricksterIds(scoreboardGuests, voteResult.data ?? [], revealedRoles.filter((guest) => guest.role === 'spy'))
+    ? findUndetectedTricksterIds(scoreboardGuests, scoreboardVotes, revealedRoles)
     : new Set<string>();
   const scoreboard = buildPublicScoreboard(
     scoreboardGuests,
     assignmentResult.data ?? [],
-    voteResult.data ?? [],
+    scoreboardVotes,
     game.team_score_snapshot && typeof game.team_score_snapshot === 'object'
       ? Object.entries(game.team_score_snapshot as Record<string, unknown>).map(([team, amount]) => ({ team, amount: Number(amount) || 0 }))
       : teamPointResult.data ?? [],
@@ -76,7 +82,10 @@ export async function getPublicScoreboard() {
     teams: scoreboard.teams,
     leaders: ['registration', 'waiting', 'task_round_1'].includes(game.stage) ? [] : scoreboard.leaders,
     voteCounts: game.results_visible ? scoreboard.voteCounts : [],
-    revealedRoles,
+    revealedRoles: game.results_visible ? revealedRoles.map((guest) => ({
+      ...guest,
+      escaped: undetectedTricksterIds.has(guest.id),
+    })) : [],
     awards,
   };
 }

@@ -46,7 +46,7 @@ test('current guest, admin, and public views are scoped to the active voting rou
     readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8'),
   ]);
   assert.match(guestData, /eq\('voting_round', game\.voting_round\)/);
-  assert.match(adminData, /vote\.voting_round === \(results\[5\]\.data\?\.voting_round \?\? 0\)/);
+  assert.match(adminData, /vote\.voting_round === \(game\?\.voting_round \?\? 0\)/);
   assert.match(publicData, /eq\('voting_round', game\.voting_round\)/);
   assert.match(guestPage, /每人只有一次机会/);
   assert.match(guestPage, /Boolean\(data\.existingVote\)/);
