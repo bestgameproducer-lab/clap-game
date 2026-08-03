@@ -103,6 +103,7 @@ test('宾客真实主页可浏览任务、团队积分并支持桌面滚动', as
 
 test('首次登录宾客完成婚礼自拍后才能进入游戏', async ({ page }) => {
   let avatarConfirmed = false;
+  let uploadedAvatarSignature = null;
   await page.route('**/api/guest-me', (route) => route.fulfill({
     json: { ...guestData, guest: { ...guest, avatar_path: avatarConfirmed ? guest.avatar_path : null, avatar_uploaded_at: avatarConfirmed ? guest.avatar_uploaded_at : null, avatar_url: avatarConfirmed ? guest.avatar_url : null } },
   }));
@@ -112,14 +113,34 @@ test('首次登录宾客完成婚礼自拍后才能进入游戏', async ({ page 
     avatarConfirmed = true;
     return route.fulfill({ json: { uploadedAt: '2026-08-01T11:30:00.000Z' } });
   });
-  await page.route('**/api/e2e-avatar-upload', (route) => route.fulfill({ json: { ok: true } }));
+  await page.route('**/api/e2e-avatar-upload', (route) => {
+    const bytes = route.request().postDataBuffer();
+    uploadedAvatarSignature = bytes ? {
+      size: bytes.length,
+      head: [...bytes.subarray(0, 16)],
+      tail: [...bytes.subarray(Math.max(0, bytes.length - 16))],
+    } : null;
+    return route.fulfill({ json: { ok: true } });
+  });
   await page.goto('/guest');
   await expect(page.getByRole('heading', { name: /拍一张开心的/ })).toBeVisible();
   await page.locator('#guest-avatar-photo').setInputFiles({
     name: 'selfie.png', mimeType: 'image/png',
     buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
   });
+  const previewImage = page.getByRole('img', { name: '待上传的婚礼自拍预览' });
+  await expect(previewImage).toBeVisible();
+  const approvedAvatarSignature = await previewImage.evaluate(async (image) => {
+    const bytes = new Uint8Array(await (await fetch(image.src)).arrayBuffer());
+    return {
+      size: bytes.length,
+      head: [...bytes.slice(0, 16)],
+      tail: [...bytes.slice(Math.max(0, bytes.length - 16))],
+    };
+  });
   await page.getByRole('button', { name: '就用这张 · 进入婚礼游戏' }).click();
+  await expect.poll(() => uploadedAvatarSignature).not.toBeNull();
+  expect(uploadedAvatarSignature).toEqual(approvedAvatarSignature);
   await expect(page.getByText('测试宾客')).toBeVisible();
   await expect(page.getByRole('heading', { name: '我的秘密任务' })).toBeVisible();
 });

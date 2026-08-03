@@ -19,15 +19,7 @@ type LoadedBrowserImage = {
   dispose: () => void;
 };
 
-async function loadBrowserImage(file: File): Promise<LoadedBrowserImage> {
-  if (typeof createImageBitmap === 'function') {
-    try {
-      const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-      return { source: bitmap, width: bitmap.width, height: bitmap.height, dispose: () => bitmap.close() };
-    } catch {
-      // Older WeChat and Safari engines fall back to the decoded <img> below.
-    }
-  }
+function loadBrowserImageElement(file: File): Promise<LoadedBrowserImage> {
   return new Promise<LoadedBrowserImage>((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const image = new Image();
@@ -38,6 +30,18 @@ async function loadBrowserImage(file: File): Promise<LoadedBrowserImage> {
     image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('无法读取这张照片，请使用 JPG、PNG 或 WebP 图片')); };
     image.src = url;
   });
+}
+
+async function loadBrowserImage(file: File): Promise<LoadedBrowserImage> {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      return { source: bitmap, width: bitmap.width, height: bitmap.height, dispose: () => bitmap.close() };
+    } catch {
+      // Older WeChat and Safari engines fall back to the decoded <img> below.
+    }
+  }
+  return loadBrowserImageElement(file);
 }
 
 export async function compressTaskEvidence(file: File) {
@@ -67,7 +71,11 @@ export async function compressTaskEvidence(file: File) {
 
 export async function compressProfileAvatar(file: File) {
   if (!file.type.startsWith('image/')) throw new Error('请选择照片文件');
-  const image = await loadBrowserImage(file);
+  // The capture preview is rendered through an <img>. Use that exact decoder
+  // for the uploaded avatar too: some iOS/WeChat builds interpret mirrored EXIF
+  // orientations differently in createImageBitmap, making the saved result flip
+  // after the guest has already approved the preview.
+  const image = await loadBrowserImageElement(file);
   try {
     const sourceSize = Math.min(image.width, image.height);
     const sourceX = Math.max(0, Math.round((image.width - sourceSize) / 2));
