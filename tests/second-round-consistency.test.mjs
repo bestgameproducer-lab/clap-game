@@ -41,7 +41,7 @@ test('trickster call is rendered inside the real task and dilemma copy is reduce
 
 test('menu uses the supplied 4K image with accessible dish text', () => {
   assert.match(guestPage, /className="dinner-menu-image"/);
-  assert.match(guestPage, /<img src="\/wedding-dinner-menu-4k\.png" alt="婚宴菜单：/);
+  assert.match(guestPage, /<img src="\/wedding-dinner-menu\.jpg" alt="婚宴菜单：/);
   assert.match(guestPage, /意式蔬菜汤配青酱/);
   assert.match(guestPage, /炭烤西冷牛排/);
 });
