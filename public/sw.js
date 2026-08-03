@@ -4,7 +4,7 @@ const DEPLOYMENT_VERSION = new URL(self.location.href).searchParams.get('v') || 
 const CACHE_NAME = `wedding-public-shell-${DEPLOYMENT_VERSION}`;
 const APP_PATHS = ['/guest', '/scoreboard'];
 const MANIFEST_PATH = '/manifest.webmanifest';
-const PUBLIC_ASSET_PATHS = ['/wedding-dinner-menu.jpg'];
+const PUBLIC_ASSET_PATHS = ['/wedding-dinner-menu-4k.png'];
 
 async function cachePublicShells() {
   const cache = await caches.open(CACHE_NAME);
