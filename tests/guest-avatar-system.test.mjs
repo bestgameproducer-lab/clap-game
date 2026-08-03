@@ -31,6 +31,9 @@ test('avatar upload is authenticated, same-origin, compressed, and server-confir
   assert.match(client, /export async function compressProfileAvatar/);
   assert.match(client, /AVATAR_DIMENSION = 720/);
   assert.match(client, /createImageBitmap\(file, \{ imageOrientation: 'from-image' \}\)/);
+  const avatarCompressor = client.slice(client.indexOf('export async function compressProfileAvatar'));
+  assert.match(avatarCompressor, /const image = await loadBrowserImageElement\(file\)/);
+  assert.doesNotMatch(avatarCompressor, /const image = await loadBrowserImage\(file\)/);
   assert.doesNotMatch(client, /scale\(-1|scaleX\(-1/);
   assert.match(page, /capture="user"/);
   assert.match(page, /if \(!data\.guest\.avatar_url \|\| avatarEditorOpen\) return/);
@@ -38,6 +41,8 @@ test('avatar upload is authenticated, same-origin, compressed, and server-confir
   assert.match(page, /拍一张开心的/);
   assert.match(page, /fetch\('\/api\/guest-avatar', \{ method: 'POST' \}\)/);
   assert.match(page, /'x-upsert': 'true'/);
+  assert.match(page, /setAvatarImage\(image\)[\s\S]*setAvatarPreview\(URL\.createObjectURL\(image\)\)/);
+  assert.match(page, /body: avatarImage/);
 });
 
 test('home destination signature is optically centered', async () => {

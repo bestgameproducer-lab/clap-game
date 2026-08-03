@@ -176,9 +176,10 @@ export default function GuestPage() {
   const [expandedAssignments, setExpandedAssignments] = useState<Record<string, boolean>>({});
   const [completedMissionsOpen, setCompletedMissionsOpen] = useState(false);
   const [playerCodeCopied, setPlayerCodeCopied] = useState(false);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarImage, setAvatarImage] = useState<Blob | null>(null);
   const [avatarPreview, setAvatarPreview] = useState('');
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarPreparing, setAvatarPreparing] = useState(false);
   const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
   const loadRequestRef = useRef(0);
   const manualRefreshRef = useRef(false);
@@ -510,15 +511,14 @@ export default function GuestPage() {
   }
 
   async function uploadAvatar() {
-    if (!avatarFile) return;
+    if (!avatarImage) return;
     setAvatarBusy(true); setError(''); setMessage('');
     try {
-      const image = await compressProfileAvatar(avatarFile);
       const authorization = await fetch('/api/guest-avatar', { method: 'POST' });
       const uploadInfo = await authorization.json();
       if (!authorization.ok) throw new Error(uploadInfo.error || '无法准备头像上传');
       const upload = await fetch(uploadInfo.signedUrl, {
-        method: 'PUT', headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' }, body: image,
+        method: 'PUT', headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' }, body: avatarImage,
       });
       if (!upload.ok) throw new Error('头像上传失败，请检查网络后重试');
       const confirmation = await fetch('/api/guest-avatar', {
@@ -526,13 +526,29 @@ export default function GuestPage() {
       });
       const confirmationBody = await confirmation.json();
       if (!confirmation.ok) throw new Error(confirmationBody.error || '头像确认失败，请重试');
-      setAvatarFile(null);
+      setAvatarImage(null);
       setAvatarPreview('');
       await load();
       setAvatarEditorOpen(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '头像上传失败');
     } finally { setAvatarBusy(false); }
+  }
+
+  async function prepareAvatar(file: File | null) {
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    setAvatarPreview(''); setAvatarImage(null); setError('');
+    if (!file) return;
+    setAvatarPreparing(true);
+    try {
+      const image = await compressProfileAvatar(file);
+      setAvatarImage(image);
+      // Preview the exact JPEG that will be uploaded, so direction and crop
+      // cannot change after the guest presses the confirmation button.
+      setAvatarPreview(URL.createObjectURL(image));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '头像处理失败，请重新拍摄');
+    } finally { setAvatarPreparing(false); }
   }
 
   async function removeEvidence(assignmentId: string) {
@@ -779,18 +795,15 @@ export default function GuestPage() {
       <label className={`avatar-capture ${avatarPreview || data.guest.avatar_url ? 'has-photo' : ''}`} htmlFor="guest-avatar-photo">
         {avatarPreview ? <img src={avatarPreview} alt="待上传的婚礼自拍预览"/> : data.guest.avatar_url ? <img src={data.guest.avatar_url} alt="当前玩家头像"/> : <><span aria-hidden="true">☺</span><strong>轻触拍摄自拍</strong><small>请尽量正脸、光线明亮，只拍你自己</small></>}
       </label>
-      <input id="guest-avatar-photo" className="avatar-file-input" type="file" accept="image/*" capture="user" disabled={avatarBusy} onChange={(event) => {
+      <input id="guest-avatar-photo" className="avatar-file-input" type="file" accept="image/*" capture="user" disabled={avatarBusy || avatarPreparing} onChange={(event) => {
         const file = event.currentTarget.files?.[0] ?? null;
         event.currentTarget.value = '';
-        if (avatarPreview) URL.revokeObjectURL(avatarPreview);
-        setAvatarFile(file);
-        setAvatarPreview(file ? URL.createObjectURL(file) : '');
-        setError('');
+        void prepareAvatar(file);
       }}/>
-      <button type="button" disabled={!avatarFile || avatarBusy} onClick={() => void uploadAvatar()}>{avatarBusy ? '正在整理你的头像…' : avatarPreview ? '就用这张 · 进入婚礼游戏' : '请先拍一张自拍'}</button>
+      <button type="button" disabled={!avatarImage || avatarBusy || avatarPreparing} onClick={() => void uploadAvatar()}>{avatarPreparing ? '正在保持照片方向…' : avatarBusy ? '正在上传你的头像…' : avatarPreview ? '就用这张 · 进入婚礼游戏' : '请先拍一张自拍'}</button>
       <small className="avatar-privacy">头像保存在私密相册，只向已登录的婚礼宾客短时展示；不会显示你的分组、身份或任务。</small>
-      {data.guest.avatar_url && <button type="button" className="text-button" disabled={avatarBusy} onClick={() => { setAvatarEditorOpen(false); setAvatarFile(null); setAvatarPreview(''); setError(''); }}>保留原头像 · 返回游戏</button>}
-      <button type="button" className="text-button" disabled={avatarBusy || busy} onClick={logout}>退出此身份</button>
+      {data.guest.avatar_url && <button type="button" className="text-button" disabled={avatarBusy || avatarPreparing} onClick={() => { setAvatarEditorOpen(false); setAvatarImage(null); setAvatarPreview(''); setError(''); }}>保留原头像 · 返回游戏</button>}
+      <button type="button" className="text-button" disabled={avatarBusy || avatarPreparing || busy} onClick={logout}>退出此身份</button>
     </section>
   </main>;
 
