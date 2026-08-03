@@ -125,11 +125,32 @@ test('首次登录宾客完成婚礼自拍后才能进入游戏', async ({ page 
   await page.goto('/guest');
   await expect(page.getByRole('heading', { name: /拍一张开心的/ })).toBeVisible();
   await page.locator('#guest-avatar-photo').setInputFiles({
-    name: 'selfie.png', mimeType: 'image/png',
-    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
+    name: 'selfie.svg', mimeType: 'image/svg+xml',
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="2" height="4" fill="#ff0000"/><rect x="2" width="2" height="4" fill="#0000ff"/></svg>'),
   });
   const previewImage = page.getByRole('img', { name: '待上传的婚礼自拍预览' });
   await expect(previewImage).toBeVisible();
+  const readPreviewSides = () => previewImage.evaluate((image) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+    const context = canvas.getContext('2d');
+    context.drawImage(image, 0, 0);
+    return {
+      left: [...context.getImageData(Math.floor(canvas.width * 0.25), Math.floor(canvas.height / 2), 1, 1).data],
+      right: [...context.getImageData(Math.floor(canvas.width * 0.75), Math.floor(canvas.height / 2), 1, 1).data],
+    };
+  });
+  const mirroredSides = await readPreviewSides();
+  expect(mirroredSides.left[2]).toBeGreaterThan(mirroredSides.left[0]);
+  expect(mirroredSides.right[0]).toBeGreaterThan(mirroredSides.right[2]);
+  const firstPreviewUrl = await previewImage.getAttribute('src');
+  await page.getByRole('button', { name: '照片左右反了？点此翻转' }).click();
+  await expect.poll(() => previewImage.getAttribute('src')).not.toBe(firstPreviewUrl);
+  const originalSides = await readPreviewSides();
+  expect(originalSides.left[0]).toBeGreaterThan(originalSides.left[2]);
+  expect(originalSides.right[2]).toBeGreaterThan(originalSides.right[0]);
+  await page.getByRole('button', { name: '照片左右反了？点此翻转' }).click();
+  await expect.poll(async () => (await previewImage.getAttribute('src')) !== firstPreviewUrl && (await readPreviewSides()).left[2] > (await readPreviewSides()).left[0]).toBe(true);
   const approvedAvatarSignature = await previewImage.evaluate(async (image) => {
     const bytes = new Uint8Array(await (await fetch(image.src)).arrayBuffer());
     return {

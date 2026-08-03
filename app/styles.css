@@ -392,6 +392,7 @@ button.mini-button { width:auto; margin:0; padding:6px 8px; font-size:11px; back
 .avatar-registration-progress{margin:14px 0 18px}
 .avatar-capture{width:min(270px,76vw);aspect-ratio:1;display:grid;place-items:center;align-content:center;gap:8px;margin:14px auto 16px;overflow:hidden;border:1px dashed #bc9886;border-radius:50%;background:linear-gradient(145deg,#f5e9e2,#ead9cf);color:#805747;cursor:pointer;box-shadow:inset 0 0 0 9px rgba(255,255,255,.52)}
 .avatar-capture>span{width:62px;height:62px;display:grid;place-items:center;border-radius:50%;background:rgba(255,255,255,.72);font:500 34px Georgia,serif}.avatar-capture strong{font-size:15px}.avatar-capture small{max-width:180px;color:#8a766b;font-size:11px;line-height:1.5}.avatar-capture.has-photo{border-style:solid;background:#ead9cf}.avatar-capture img{width:100%;height:100%;object-fit:cover}
+.avatar-flip-button{width:auto!important;margin:-5px auto 12px!important;padding:7px 12px!important;border:1px solid #d8c2b6!important;border-radius:999px!important;background:#fffaf6!important;color:#79594b!important;font-size:12px!important;text-decoration:none!important}
 .avatar-file-input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .avatar-setup-card>button:not(.text-button){width:100%;margin:0}.avatar-privacy{display:block;margin:12px auto 4px;color:#918178;font-size:10px;line-height:1.55}.avatar-setup-card .text-button{margin-top:5px}
 

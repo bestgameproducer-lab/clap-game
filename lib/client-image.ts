@@ -69,7 +69,7 @@ export async function compressTaskEvidence(file: File) {
   throw new Error('照片仍然过大，请截图后重新上传，或直接到任务站出示');
 }
 
-export async function compressProfileAvatar(file: File) {
+export async function compressProfileAvatar(file: File, mirrorHorizontally = false) {
   if (!file.type.startsWith('image/')) throw new Error('请选择照片文件');
   // The capture preview is rendered through an <img>. Use that exact decoder
   // for the uploaded avatar too: some iOS/WeChat builds interpret mirrored EXIF
@@ -85,6 +85,10 @@ export async function compressProfileAvatar(file: File) {
     canvas.height = AVATAR_DIMENSION;
     const context = canvas.getContext('2d');
     if (!context) throw new Error('当前浏览器无法处理头像，请换一台手机重试');
+    if (mirrorHorizontally) {
+      context.translate(AVATAR_DIMENSION, 0);
+      context.scale(-1, 1);
+    }
     context.drawImage(image.source, sourceX, sourceY, sourceSize, sourceSize, 0, 0, AVATAR_DIMENSION, AVATAR_DIMENSION);
     for (const quality of [0.82, 0.72, 0.62, 0.52]) {
       const blob = await canvasBlob(canvas, quality);

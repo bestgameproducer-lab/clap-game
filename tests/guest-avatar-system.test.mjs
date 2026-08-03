@@ -34,7 +34,7 @@ test('avatar upload is authenticated, same-origin, compressed, and server-confir
   const avatarCompressor = client.slice(client.indexOf('export async function compressProfileAvatar'));
   assert.match(avatarCompressor, /const image = await loadBrowserImageElement\(file\)/);
   assert.doesNotMatch(avatarCompressor, /const image = await loadBrowserImage\(file\)/);
-  assert.doesNotMatch(client, /scale\(-1|scaleX\(-1/);
+  assert.match(avatarCompressor, /if \(mirrorHorizontally\)[\s\S]*context\.translate\(AVATAR_DIMENSION, 0\)[\s\S]*context\.scale\(-1, 1\)/);
   assert.match(page, /capture="user"/);
   assert.match(page, /if \(!data\.guest\.avatar_url \|\| avatarEditorOpen\) return/);
   assert.match(page, /aria-label="更新我的玩家头像"/);
@@ -43,6 +43,9 @@ test('avatar upload is authenticated, same-origin, compressed, and server-confir
   assert.match(page, /'x-upsert': 'true'/);
   assert.match(page, /setAvatarImage\(image\)[\s\S]*setAvatarPreview\(URL\.createObjectURL\(image\)\)/);
   assert.match(page, /body: avatarImage/);
+  assert.match(page, /prepareAvatar\(file: File \| null, mirrorHorizontally = true\)/);
+  assert.match(page, /照片左右反了？点此翻转/);
+  assert.match(page, /prepareAvatar\(avatarSourceFile, !avatarMirrored\)/);
 });
 
 test('home destination signature is optically centered', async () => {
