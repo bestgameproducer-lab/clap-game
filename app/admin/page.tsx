@@ -7,6 +7,7 @@ import { parseGuestRosterText } from '@/lib/guest-roster-import';
 import { GAME_STAGE_OPTIONS, gameStageCopy } from '@/lib/game-stages';
 import { recommendedTaskPoints } from '@/lib/task-points';
 import { useLiveRefresh } from '@/lib/use-live-refresh';
+import { WeddingSignature } from '../wedding-signature';
 
 const STAGES = GAME_STAGE_OPTIONS;
 const LIVE_FLOW_STAGES = ['registration', 'waiting', 'task_round_1', 'ceremony_end', 'task_round_2', 'banquet', 'group_game'] as const;
@@ -446,7 +447,7 @@ export default function AdminPage() {
     finally { setBusy(false); }
   }
 
-  if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">ORGANIZER ONLY</div><div className="heart-mark">♡</div><h1>主办方<br/>控制台</h1><p className="lead">管理婚礼流程、审核任务与揭晓结果。</p><form onSubmit={login}><label htmlFor="admin-password">管理员密码</label><input id="admin-password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required/><p className="login-note">连续输错五次后，该设备暂停登录十五分钟。</p><button disabled={busy}>{busy ? '登录中…' : '进入控制台'}</button>{error && <div className="notice error">{error}</div>}</form></section></main>;
+  if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">ORGANIZER ONLY</div><WeddingSignature compact/><div className="heart-mark">♡</div><h1>主办方<br/>控制台</h1><p className="lead">管理婚礼流程、审核任务与揭晓结果。</p><div className="staff-privacy-note">仅限主办方使用 · 请勿在宾客可见的屏幕上打开</div><form onSubmit={login}><label htmlFor="admin-password">管理员密码</label><input id="admin-password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required/><p className="login-note">连续输错五次后，该设备暂停登录十五分钟。</p><button disabled={busy}>{busy ? '登录中…' : '进入控制台'}</button>{error && <div className="notice error" role="alert">{error}</div>}</form></section></main>;
 
   const activeGuests = data.guests.filter((guest) => guest.active);
   const activeClues = data.clues.filter((clue) => clue.active);
@@ -510,7 +511,7 @@ export default function AdminPage() {
             : { label: `当前：${STAGES.find(([value]) => value === data.game?.stage)?.[1] || '尚未设置流程'}`, detail: '根据现场进度切换下一环节；宾客端会自动同步。', action: '管理现场流程', panel: 'live' as AdminPanel, tone: 'active' };
 
   return <main className="admin-shell">
-    <section className="admin-hero"><div><div className="eyebrow">LIVE CONTROL</div><h1>婚礼游戏控制台</h1><p>{claimed}/{activeGuests.length} 位宾客已认领 · {data.submissions.length} 项待审核</p></div><div className="admin-hero-actions"><a href="/station">任务站</a><a href="/host">主持人流程台</a><StaffLogoutButton/><div className="live-dot">LIVE</div></div></section>
+    <section className="admin-hero"><div><div className="eyebrow">LIVE CONTROL</div><WeddingSignature inverse compact/><h1>婚礼游戏控制台</h1><p>{claimed}/{activeGuests.length} 位宾客已认领 · {data.submissions.length} 项待审核</p></div><div className="admin-hero-actions"><a href="/station">任务站</a><a href="/host">主持人流程台</a><StaffLogoutButton/><div className="live-dot">LIVE</div></div></section>
     {message && <div className="notice success sticky-notice">{message}</div>}{error && <div className="notice error sticky-notice">{error}</div>}
 
     <nav className="admin-panel-tabs" aria-label="主办方后台功能入口">{PRIMARY_ADMIN_PANELS.map((panel) => <button type="button" key={panel.id} className={activePrimaryPanel === panel.id ? 'active' : ''} aria-current={activePrimaryPanel === panel.id ? 'page' : undefined} onClick={() => openPanel(panel.id)}><span>{panel.label}</span></button>)}</nav>

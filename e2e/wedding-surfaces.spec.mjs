@@ -172,3 +172,26 @@ test('主持人可以进入团队、个人和流程控制台', async ({ page }) 
   await expect(page.getByRole('heading', { name: '婚礼流程控制' })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('工作人员入口在窄屏保持完整并提示隐藏信息边界', async ({ page }) => {
+  for (const [path, heading, privacyCopy] of [
+    ['/admin', /主办方.*控制台/, '仅限主办方使用'],
+    ['/host', /主持人.*流程台/, '包含隐藏身份'],
+    ['/station', /丘比特.*任务站/, '面向工作人员'],
+  ]) {
+    await page.route(`**/api/${path === '/admin' ? 'admin-data' : path === '/host' ? 'host-data' : 'station-data'}`, (route) => route.fulfill({ status: 401, json: { error: 'unauthorized' } }));
+    await page.goto(path);
+    await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+    await expect(page.getByLabel(/婚礼地点与日期/)).toBeVisible();
+    await expect(page.getByText(privacyCopy, { exact: false })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  }
+});
+
+test('大屏正常加载时不显示错误重连操作', async ({ page }) => {
+  await page.route('**/api/public-scoreboard', () => new Promise(() => {}));
+  await page.goto('/scoreboard');
+  await expect(page.getByRole('heading', { name: '丘比特正在统计' })).toBeVisible();
+  await expect(page.getByLabel(/婚礼地点与日期/)).toBeVisible();
+  await expect(page.getByRole('button', { name: '重新连接' })).toHaveCount(0);
+});
