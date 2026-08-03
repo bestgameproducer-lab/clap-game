@@ -5,6 +5,7 @@ import test from 'node:test';
 const baseMigration = await readFile(new URL('../supabase/migrations/202607290028_safe_rehearsal_reset.sql', import.meta.url), 'utf8');
 const fixMigration = await readFile(new URL('../supabase/migrations/202607300002_fix_rehearsal_reset.sql', import.meta.url), 'utf8');
 const safeUpdateMigration = await readFile(new URL('../supabase/migrations/202607300007_fix_reset_safe_update.sql', import.meta.url), 'utf8');
+const avatarResetMigration = await readFile(new URL('../supabase/migrations/202608030001_reset_guest_avatars_with_rehearsal.sql', import.meta.url), 'utf8');
 const migration = `${baseMigration}\n${fixMigration}\n${safeUpdateMigration}`;
 const adminData = await readFile(new URL('../lib/data/admin.ts', import.meta.url), 'utf8');
 const adminRoute = await readFile(new URL('../app/api/admin-action/route.ts', import.meta.url), 'utf8');
@@ -104,11 +105,27 @@ test('linked private evidence is removed after the transactional database reset'
   assert.match(migration, /evidence_paths text\[\] not null default '\{\}'::text\[\]/);
   assert.match(migration, /array_agg\(evidence_path order by evidence_path\)/);
   const rpc = adminData.indexOf("rpc('reset_rehearsal_data'");
-  const query = adminData.indexOf("from('rehearsal_resets').select('evidence_paths')", rpc);
+  const query = adminData.indexOf("from('rehearsal_resets').select('evidence_paths,avatar_paths')", rpc);
   const remove = adminData.indexOf("storage.from('task-evidence').remove(batch)", rpc);
   assert.ok(rpc >= 0 && query > rpc && remove > query);
   assert.match(adminData, /update\(\{ evidence_paths: pendingEvidencePaths \}\)/);
   assert.match(adminData, /rehearsal\.evidence_cleanup_pending/);
+});
+
+test('rehearsal reset clears avatar links transactionally and retries private object cleanup', () => {
+  assert.match(avatarResetMigration, /add column if not exists avatar_paths text\[\] not null default '\{\}'::text\[\]/);
+  assert.match(avatarResetMigration, /'avatar_files',\(select count\(\*\) from guests where avatar_path is not null\)/);
+  assert.match(avatarResetMigration, /before insert on rehearsal_resets/);
+  assert.match(avatarResetMigration, /update guests\s+set avatar_path=null,avatar_uploaded_at=null\s+where avatar_path is not null/);
+  assert.match(avatarResetMigration, /avatar_uploaded_at is null or avatar_uploaded_at<=v_reset_at/);
+  assert.doesNotMatch(avatarResetMigration, /delete from guests|truncate|drop table guests/);
+  assert.match(adminData, /select\('evidence_paths,avatar_paths'\)/);
+  assert.match(adminData, /storage\.from\('guest-avatars'\)\.remove\(batch\)/);
+  assert.match(adminData, /rehearsal\.avatar_cleanup_pending/);
+  assert.match(adminData, /update\(\{ avatar_paths: pendingAvatarPaths \}\)/);
+  assert.match(adminPage, /result\.evidenceCleanupPending \|\| result\.avatarCleanupPending/);
+  assert.match(adminPage, /删除 \$\{removedPhotos\} 张私密照片/);
+  assert.match(adminPage, /\{resetPreview\.avatar_files\}<\/strong><span>宾客自拍/);
 });
 
 test('mobile admin UI presents preview, export acknowledgement, typed phrase, and final confirmation', () => {

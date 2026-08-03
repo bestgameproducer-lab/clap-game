@@ -46,7 +46,7 @@ const guestData = {
 };
 
 const emptyResetPreview = {
-  claimed_guests: 0, drawn_guests: 0, assignments: 0, evidence_files: 0, votes: 0,
+  claimed_guests: 0, drawn_guests: 0, assignments: 0, evidence_files: 0, avatar_files: 0, votes: 0,
   guest_clues: 0, personal_ledger_entries: 0, team_ledger_entries: 0,
   spy_ledger_entries: 0, resource_ledger_entries: 0, registration_open: false,
   voting_open: false, scoreboard_visible: false,
