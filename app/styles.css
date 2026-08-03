@@ -34,6 +34,7 @@ th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #eadfd6; 
 .welcome-card:before { content: ''; position: absolute; width: 180px; height: 180px; border: 1px solid rgba(143,101,75,.14); border-radius: 50%; right: -92px; top: -80px; box-shadow: 0 0 0 22px rgba(143,101,75,.035); }
 .eyebrow { color: #98745e; font-size: 11px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; }
 .wedding-signature{display:flex;align-items:center;gap:9px;width:max-content;max-width:100%;margin:9px 0 0;color:#866453;font-size:9px;font-weight:850;letter-spacing:.15em;text-transform:uppercase;white-space:nowrap}.wedding-signature i{width:24px;height:1px;background:currentColor;opacity:.42}.wedding-signature time{font:inherit}.wedding-signature.inverse{color:#e3c5b9}.wedding-signature.compact{margin-top:6px;font-size:8px;letter-spacing:.13em}.wedding-signature.compact i{width:16px}
+.home-hero .wedding-signature{margin-left:auto;margin-right:auto}
 .heart-mark { font-family: Georgia,serif; color: #b17a72; font-size: 50px; line-height: 1; margin: 18px 0 8px; }
 .welcome-card h1 { font-family: Georgia,'Noto Serif SC',serif; font-weight: 500; font-size: clamp(40px,11vw,58px); line-height: 1.08; margin: 0; color: #3d312b; }
 .admin-login h1{font-size:clamp(38px,10vw,54px);overflow-wrap:anywhere}.staff-privacy-note{margin:-8px 0 14px;padding:10px 12px;border-left:3px solid #a77b68;border-radius:0 10px 10px 0;background:#f4ebe5;color:#745f55;font-size:11px;line-height:1.55}

@@ -30,12 +30,19 @@ test('avatar upload is authenticated, same-origin, compressed, and server-confir
   assert.match(data, /createSignedUrls\(paths, AVATAR_URL_TTL_SECONDS\)/);
   assert.match(client, /export async function compressProfileAvatar/);
   assert.match(client, /AVATAR_DIMENSION = 720/);
+  assert.match(client, /createImageBitmap\(file, \{ imageOrientation: 'from-image' \}\)/);
+  assert.doesNotMatch(client, /scale\(-1|scaleX\(-1/);
   assert.match(page, /capture="user"/);
   assert.match(page, /if \(!data\.guest\.avatar_url \|\| avatarEditorOpen\) return/);
   assert.match(page, /aria-label="更新我的玩家头像"/);
   assert.match(page, /拍一张开心的/);
   assert.match(page, /fetch\('\/api\/guest-avatar', \{ method: 'POST' \}\)/);
   assert.match(page, /'x-upsert': 'true'/);
+});
+
+test('home destination signature is optically centered', async () => {
+  const styles = await read('app/styles.css');
+  assert.match(styles, /\.home-hero \.wedding-signature\{margin-left:auto;margin-right:auto\}/);
 });
 
 test('avatar directory never exposes game-private guest fields', async () => {
