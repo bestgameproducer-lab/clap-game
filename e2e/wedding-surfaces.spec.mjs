@@ -74,12 +74,20 @@ function collectPageErrors(page) {
   return errors;
 }
 
+async function acknowledgeGuestActivity(page) {
+  const notice = page.getByRole('dialog').filter({ hasText: /欢迎回到婚礼任务|新的活动|任务收到更新|命运/ });
+  if (await notice.isVisible().catch(() => false)) {
+    await notice.getByRole('button', { name: /知道了 · 查看更新|接受我的新命运 · 查看能力/ }).click();
+  }
+}
+
 test('宾客真实主页可浏览任务、团队积分并支持桌面滚动', async ({ page }) => {
   const errors = collectPageErrors(page);
   await page.route('**/api/guest-me', (route) => route.fulfill({ json: guestData }));
   await page.route('**/api/registration/guests', (route) => route.fulfill({ json: { guests: [], registrationOpen: false } }));
   await page.route('**/api/player-directory', (route) => route.fulfill({ json: { players: [{ name: '另一位宾客', playerCode: 'H2XK', avatarUrl: guest.avatar_url }] } }));
   await page.goto('/guest');
+  await acknowledgeGuestActivity(page);
 
   await expect(page.getByText('测试宾客')).toBeVisible();
   await expect(page.getByRole('heading', { name: '我的秘密任务' })).toBeVisible();
@@ -143,6 +151,7 @@ test('首次登录宾客完成婚礼自拍后才能进入游戏', async ({ page 
     return route.fulfill({ json: { ok: true } });
   });
   await page.goto('/guest');
+  await acknowledgeGuestActivity(page);
   await expect(page.getByRole('heading', { name: /拍一张开心的/ })).toBeVisible();
   await page.getByRole('button', { name: /打开自拍相机/ }).click();
   const liveCamera = page.getByLabel('实时自拍取景画面');
