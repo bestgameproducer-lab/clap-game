@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { gameStageCopy } from '@/lib/game-stages';
 import { useLiveRefresh } from '@/lib/use-live-refresh';
+import { SERVICE_WORKER_URL } from '@/lib/deployment';
 
 type ScoreboardData = {
   visible: boolean;
@@ -75,7 +76,7 @@ export default function ScoreboardPage() {
   useEffect(() => {
     if (!('serviceWorker' in window.navigator)) return;
     let active = true;
-    window.navigator.serviceWorker.register('/sw.js?v=7-neutral-dilemma', { scope: '/', updateViaCache: 'none' })
+    window.navigator.serviceWorker.register(SERVICE_WORKER_URL, { scope: '/', updateViaCache: 'none' })
       .then(async (registration) => {
         await registration.update();
         await window.navigator.serviceWorker.ready;

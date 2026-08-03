@@ -1,7 +1,7 @@
-// Bump the worker URL/cache together whenever the public shell behavior changes.
-// This release intentionally replaces the pre-private-reader worker so mobile
-// in-app browsers cannot keep serving the old trickster interface.
-const CACHE_NAME = 'wedding-public-shell-v7-neutral-dilemma';
+// The deployment version is supplied in the worker URL. Every production
+// deployment therefore receives a fresh shell cache without a manual version bump.
+const DEPLOYMENT_VERSION = new URL(self.location.href).searchParams.get('v') || 'local-dev';
+const CACHE_NAME = `wedding-public-shell-${DEPLOYMENT_VERSION}`;
 const APP_PATHS = ['/guest', '/scoreboard'];
 const MANIFEST_PATH = '/manifest.webmanifest';
 const PUBLIC_ASSET_PATHS = ['/wedding-dinner-menu.jpg'];

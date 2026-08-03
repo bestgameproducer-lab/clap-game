@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '../supabase';
 import { buildWeddingPreflight } from '../preflight';
 import { signEvidencePaths } from './evidence';
 import { compareWeddingGuests } from '../wedding-roster-order';
+import { DEPLOYMENT_VERSION } from '../deployment';
 
 function ensureNoDatabaseError(error: { message: string } | null, fallback: string): void {
   if (error) {
@@ -122,6 +123,11 @@ export async function getAdminDashboardData() {
   const clues = results[6].data ?? [];
   const hiddenTaskCodes = results[13].data ?? [];
   return {
+    health: {
+      database: 'online' as const,
+      checkedAt: new Date().toISOString(),
+      deploymentVersion: DEPLOYMENT_VERSION,
+    },
     guests, assignments: await signEvidencePaths(results[1].data ?? []), tasks,
     submissions: await signEvidencePaths(results[3].data ?? []),
     votes: (results[4].data ?? []).filter((vote) => vote.voting_round === (results[5].data?.voting_round ?? 0)),

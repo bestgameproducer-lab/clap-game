@@ -141,8 +141,11 @@ NEXT_PUBLIC_WEDDING_TITLE=我们的婚礼秘密任务
 ```bash
 npm run typecheck
 npm test
+npm run test:e2e
 npm run build
 ```
+
+`npm run test:e2e` 会在隔离的模拟数据上，以桌面和手机尺寸打开真实宾客页、主控台与主持人台；不会连接或改写生产数据库。Pull Request 也会自动运行这套浏览器彩排。
 
 生产环境缺少 Supabase 配置或 12 位管理员密码时，服务器会拒绝启动相关功能。宾客和工作人员会话均使用随机令牌，数据库只保存不可逆哈希。不要在生产环境使用示例中的占位值。
 
@@ -150,7 +153,7 @@ npm run build
 
 任务站也会把最近一次同步的宾客、任务和线索临时保存在当前标签页的 `sessionStorage` 中。断网时工作人员仍可按姓名查找并核对文字记录，但任务核验、派发、兑换、发线索和积分补记全部禁用；验证照片的短时链接可能需要联网。恢复网络后页面会自动同步，也可手动重连；安全退出或工作人员会话失效时会清除副本。
 
-婚礼前准备、当天流程与故障恢复请参阅 [`docs/wedding-day-runbook.md`](docs/wedding-day-runbook.md)，人工验收项目请参阅 [`docs/acceptance-checklist.md`](docs/acceptance-checklist.md)。
+婚礼前准备、当天流程与故障恢复请参阅 [`docs/wedding-day-runbook.md`](docs/wedding-day-runbook.md)，人工验收项目请参阅 [`docs/acceptance-checklist.md`](docs/acceptance-checklist.md)。主控首页的“婚礼日状态”会集中显示数据库连接、部署版本、当前流程、宾客进度和待处理数量；现场发现版本不一致时应先刷新，不要继续操作旧页面。
 
 ## 当前 MVP 的边界
 
