@@ -26,6 +26,8 @@ const guest = {
   participation_mode: 'ACTIVE_PLAYER', relationship: '', story_role: 'NONE',
   eligible_for_mission: true, eligible_for_secret_role: true, eligible_for_personal_score: true,
   special_card_title: '', special_card_body: '', player_code: 'K7M4', unlocked_role: '',
+  avatar_path: 'guest-1/avatar.jpg', avatar_uploaded_at: '2026-08-01T11:30:00.000Z',
+  avatar_url: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="80"%3E%3Crect width="80" height="80" fill="%23eadbd2"/%3E%3C/svg%3E',
 };
 
 const task = {
@@ -76,15 +78,45 @@ test('宾客真实主页可浏览任务、团队积分并支持桌面滚动', as
   const errors = collectPageErrors(page);
   await page.route('**/api/guest-me', (route) => route.fulfill({ json: guestData }));
   await page.route('**/api/registration/guests', (route) => route.fulfill({ json: { guests: [], registrationOpen: false } }));
+  await page.route('**/api/player-directory', (route) => route.fulfill({ json: { players: [{ name: '另一位宾客', playerCode: 'H2XK', avatarUrl: guest.avatar_url }] } }));
   await page.goto('/guest');
 
   await expect(page.getByText('测试宾客')).toBeVisible();
   await expect(page.getByRole('heading', { name: '我的秘密任务' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '更新我的玩家头像' })).toBeVisible();
   await expect(page.locator('#guest-missions').getByText('拍摄一张新郎新娘同框的照片', { exact: true })).toBeVisible();
   await expect(page.getByText('团队实时积分')).toBeVisible();
+  await page.getByRole('button', { name: '宾客列表' }).click();
+  await expect(page.getByRole('heading', { name: '宾客验证列表' })).toBeVisible();
+  await expect(page.getByRole('img', { name: '另一位宾客的玩家头像' })).toBeVisible();
+  await expect(page.getByText('H2XK')).toBeVisible();
+  await page.getByRole('button', { name: '找到了 · 返回游戏' }).click();
   await page.mouse.wheel(0, 700);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
   expect(errors).toEqual([]);
+});
+
+test('首次登录宾客完成婚礼自拍后才能进入游戏', async ({ page }) => {
+  let avatarConfirmed = false;
+  await page.route('**/api/guest-me', (route) => route.fulfill({
+    json: { ...guestData, guest: { ...guest, avatar_path: avatarConfirmed ? guest.avatar_path : null, avatar_uploaded_at: avatarConfirmed ? guest.avatar_uploaded_at : null, avatar_url: avatarConfirmed ? guest.avatar_url : null } },
+  }));
+  await page.route('**/api/registration/guests', (route) => route.fulfill({ json: { guests: [], registrationOpen: false } }));
+  await page.route('**/api/guest-avatar', async (route) => {
+    if (route.request().method() === 'POST') return route.fulfill({ json: { path: 'guest-1/avatar.jpg', signedUrl: '/api/e2e-avatar-upload' } });
+    avatarConfirmed = true;
+    return route.fulfill({ json: { uploadedAt: '2026-08-01T11:30:00.000Z' } });
+  });
+  await page.route('**/api/e2e-avatar-upload', (route) => route.fulfill({ json: { ok: true } }));
+  await page.goto('/guest');
+  await expect(page.getByRole('heading', { name: /拍一张开心的/ })).toBeVisible();
+  await page.locator('#guest-avatar-photo').setInputFiles({
+    name: 'selfie.png', mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
+  });
+  await page.getByRole('button', { name: '就用这张 · 进入婚礼游戏' }).click();
+  await expect(page.getByText('测试宾客')).toBeVisible();
+  await expect(page.getByRole('heading', { name: '我的秘密任务' })).toBeVisible();
 });
 
 test('主控首页显示健康状态且五个主要模块均可进入', async ({ page }) => {
