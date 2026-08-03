@@ -42,10 +42,10 @@ test('the live console promotes wedding settings and collapses only safety tools
   ]);
 
   assert.match(admin, /PRIMARY_ADMIN_PANELS/);
-  assert.match(admin, /\['home', 'review', 'live', 'finale', 'content'\]/);
+  assert.match(admin, /PRIMARY_ADMIN_PANELS = ADMIN_PANELS\.filter\(\(panel\) => panel\.id !== 'data'\)/);
   assert.match(admin, /安全与清场工具/);
   assert.match(admin, /高级操作：预设身份、派发任务、线索与人工积分/);
   assert.doesNotMatch(admin, /高级操作：恶作剧者私密积分/);
-  assert.match(styles, /\.admin-panel-tabs\{[^}]*repeat\(5,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.admin-panel-tabs\{[^}]*repeat\(6,minmax\(0,1fr\)\)/);
   assert.match(styles, /\.approval-row \{[^}]*grid-template-columns:minmax\(0,1fr\)/);
 });

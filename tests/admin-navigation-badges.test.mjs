@@ -9,10 +9,11 @@ test('后台主入口按婚礼操作顺序命名', async () => {
   const panels = admin.slice(admin.indexOf('const ADMIN_PANELS'), admin.indexOf('const PRIMARY_ADMIN_PANELS'));
 
   const preparation = panels.indexOf("shortLabel: '开场准备'");
+  const guests = panels.indexOf("shortLabel: '宾客管理'");
   const live = panels.indexOf("shortLabel: '现场流程'");
   const review = panels.indexOf("shortLabel: '审核任务'");
   const finale = panels.indexOf("shortLabel: '终局结算'");
-  assert.ok(preparation >= 0 && live > preparation && review > live && finale > review);
+  assert.ok(preparation >= 0 && guests > preparation && live > guests && review > live && finale > review);
 });
 
 test('标题状态徽标根据内容自动展开而不强制圆形', async () => {

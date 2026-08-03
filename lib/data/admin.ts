@@ -4,6 +4,7 @@ import { createHiddenTaskCode, hashHiddenTaskCode } from '../hidden-task-code';
 import { getSupabaseAdmin } from '../supabase';
 import { buildWeddingPreflight } from '../preflight';
 import { signEvidencePaths } from './evidence';
+import { signAvatarPaths } from './avatar';
 import { compareWeddingGuests } from '../wedding-roster-order';
 import { DEPLOYMENT_VERSION } from '../deployment';
 
@@ -95,7 +96,7 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
 export async function getAdminDashboardData() {
   const db = getSupabaseAdmin();
   const results = await Promise.all([
-    db.from('guests').select('id,name,login_name,team,role,is_hidden_spy,points,claimed_at,drawn_at,team_locked,role_locked,table_label,is_elder,ceremony_eligible,active,staff_notes,participation_mode,relationship,story_role,uses_app,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,phase_two_eligible,special_card_title,special_card_body,player_code,unlocked_role,created_at').order('active', { ascending: false }).order('team').order('name'),
+    db.from('guests').select('id,name,login_name,team,role,is_hidden_spy,points,claimed_at,drawn_at,team_locked,role_locked,table_label,is_elder,ceremony_eligible,active,staff_notes,participation_mode,relationship,story_role,uses_app,eligible_for_mission,eligible_for_secret_role,eligible_for_personal_score,phase_two_eligible,special_card_title,special_card_body,player_code,unlocked_role,avatar_path,avatar_uploaded_at,created_at').order('active', { ascending: false }).order('team').order('name'),
     db.from('assignments').select('id,guest_id,task_id,status,is_initial,completion_rank,early_bonus_points,reward_task_id,reward_clue_id,completion_note,verification_note,verified_by,verified_at,evidence_path,evidence_uploaded_at,submitted_at,approved_at,rejected_at,rejection_reason,cancelled_at,ceremony_status,ring_variant,replaced_by_assignment_id,replacement_for_assignment_id,created_at,guest:guests(id,name),task:tasks!assignments_task_id_fkey(id,title,description,verification_method,points,category,stage,mission_code)'),
     db.from('tasks').select('id,title,description,verification_method,points,role_scope,category,stage,active,grants_hidden_spy,is_demo,story_role_scope,mission_code,mechanic,score_policy,assignment_mode,verification_type,max_assignments,created_at').order('stage').order('title'),
     db.from('assignments').select('id,status,completion_note,evidence_path,evidence_uploaded_at,submitted_at,guest:guests(id,name),task:tasks!assignments_task_id_fkey(id,title,verification_method,points)').eq('status', 'submitted'),
@@ -118,7 +119,7 @@ export async function getAdminDashboardData() {
   ]);
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`Unable to load admin data: ${error.message}`);
-  const guests = [...(results[0].data ?? [])].sort(compareWeddingGuests);
+  const guests = await signAvatarPaths([...(results[0].data ?? [])].sort(compareWeddingGuests));
   const tasks = results[2].data ?? [];
   const clues = results[6].data ?? [];
   const hiddenTaskCodes = results[13].data ?? [];

@@ -54,6 +54,28 @@ test('the dashboard avatar remains prominent beside the guest name', async () =>
   assert.match(styles, /@media\(max-width:420px\)\{\.guest-hero-profile\{gap:12px\}\.guest-avatar-button\{width:70px;height:70px;min-width:70px/);
 });
 
+test('the admin guest manager receives private signed avatars and reports real progress', async () => {
+  const [adminData, adminPage, styles] = await Promise.all([
+    read('lib/data/admin.ts'),
+    read('app/admin/page.tsx'),
+    read('app/styles.css'),
+  ]);
+
+  assert.match(adminData, /avatar_path,avatar_uploaded_at/);
+  assert.match(adminData, /signAvatarPaths/);
+  assert.match(adminPage, /shortLabel: '宾客管理'/);
+  assert.match(adminPage, /PRIMARY_ADMIN_PANELS = ADMIN_PANELS\.filter\(\(panel\) => panel\.id !== 'data'\)/);
+  assert.match(adminPage, /\{claimed\}\/\{activeGuests\.length\} 已认领/);
+  assert.match(adminPage, /\{avatarCount\}[\s\S]*已上传头像/);
+  assert.match(adminPage, /\{drawn\}[\s\S]*已完成抽卡/);
+  assert.match(adminPage, /guest\.avatar_url \? <img className="guest-avatar"/);
+  assert.match(adminPage, /guest-progress-search/);
+  assert.match(adminPage, /guest-progress-filter/);
+  assert.doesNotMatch(adminPage, /\{activeGuests\.length\}\/\{data\.guests\.length\}/);
+  assert.match(styles, /\.guest-progress-summary/);
+  assert.match(styles, /\.guest-management-toolbar/);
+});
+
 test('registration consistently presents four steps before and during selfie setup', async () => {
   const page = await read('app/guest/page.tsx');
   assert.match(page, /className="step-row" aria-label="注册共四步"[\s\S]*<span>4<\/span>/);
