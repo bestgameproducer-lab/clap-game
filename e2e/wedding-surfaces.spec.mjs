@@ -29,9 +29,9 @@ const guest = {
 };
 
 const task = {
-  title: '和第一次见面的朋友合影', description: '找到一位今天第一次见面的宾客，互相介绍后合影。',
+  title: '拍摄一张新郎新娘同框的照片', description: '在不打扰婚礼流程的前提下，捕捉一张新郎和新娘同时入镜的照片。',
   verification_method: '向任务站出示合影。', points: 2, category: 'standard', stage: 'task_round_1',
-  mission_code: 'P1-PHOTO-NEW', mechanic: 'PHOTO', score_policy: 'STANDARD',
+  mission_code: 'P1-SOCIAL-002', mechanic: 'PHOTO', score_policy: 'STANDARD',
 };
 
 const guestData = {
@@ -80,6 +80,7 @@ test('宾客真实主页可浏览任务、团队积分并支持桌面滚动', as
 
   await expect(page.getByText('测试宾客')).toBeVisible();
   await expect(page.getByRole('heading', { name: '我的秘密任务' })).toBeVisible();
+  await expect(page.locator('#guest-missions').getByText('拍摄一张新郎新娘同框的照片', { exact: true })).toBeVisible();
   await expect(page.getByText('团队实时积分')).toBeVisible();
   await page.mouse.wheel(0, 700);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
