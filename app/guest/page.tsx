@@ -177,6 +177,8 @@ export default function GuestPage() {
   const [completedMissionsOpen, setCompletedMissionsOpen] = useState(false);
   const [playerCodeCopied, setPlayerCodeCopied] = useState(false);
   const [avatarImage, setAvatarImage] = useState<Blob | null>(null);
+  const [avatarSourceFile, setAvatarSourceFile] = useState<File | null>(null);
+  const [avatarMirrored, setAvatarMirrored] = useState(true);
   const [avatarPreview, setAvatarPreview] = useState('');
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [avatarPreparing, setAvatarPreparing] = useState(false);
@@ -527,6 +529,7 @@ export default function GuestPage() {
       const confirmationBody = await confirmation.json();
       if (!confirmation.ok) throw new Error(confirmationBody.error || '头像确认失败，请重试');
       setAvatarImage(null);
+      setAvatarSourceFile(null);
       setAvatarPreview('');
       await load();
       setAvatarEditorOpen(false);
@@ -535,13 +538,15 @@ export default function GuestPage() {
     } finally { setAvatarBusy(false); }
   }
 
-  async function prepareAvatar(file: File | null) {
+  async function prepareAvatar(file: File | null, mirrorHorizontally = true) {
     if (avatarPreview) URL.revokeObjectURL(avatarPreview);
     setAvatarPreview(''); setAvatarImage(null); setError('');
+    setAvatarSourceFile(file);
+    setAvatarMirrored(mirrorHorizontally);
     if (!file) return;
     setAvatarPreparing(true);
     try {
-      const image = await compressProfileAvatar(file);
+      const image = await compressProfileAvatar(file, mirrorHorizontally);
       setAvatarImage(image);
       // Preview the exact JPEG that will be uploaded, so direction and crop
       // cannot change after the guest presses the confirmation button.
@@ -800,9 +805,10 @@ export default function GuestPage() {
         event.currentTarget.value = '';
         void prepareAvatar(file);
       }}/>
+      {avatarPreview && <button type="button" className="text-button avatar-flip-button" disabled={avatarBusy || avatarPreparing || !avatarSourceFile} onClick={() => void prepareAvatar(avatarSourceFile, !avatarMirrored)}>照片左右反了？点此翻转</button>}
       <button type="button" disabled={!avatarImage || avatarBusy || avatarPreparing} onClick={() => void uploadAvatar()}>{avatarPreparing ? '正在保持照片方向…' : avatarBusy ? '正在上传你的头像…' : avatarPreview ? '就用这张 · 进入婚礼游戏' : '请先拍一张自拍'}</button>
-      <small className="avatar-privacy">头像保存在私密相册，只向已登录的婚礼宾客短时展示；不会显示你的分组、身份或任务。</small>
-      {data.guest.avatar_url && <button type="button" className="text-button" disabled={avatarBusy || avatarPreparing} onClick={() => { setAvatarEditorOpen(false); setAvatarImage(null); setAvatarPreview(''); setError(''); }}>保留原头像 · 返回游戏</button>}
+      <small className="avatar-privacy">默认保持前置摄像头取景时看到的左右方向。头像保存在私密相册，只向已登录的婚礼宾客短时展示。</small>
+      {data.guest.avatar_url && <button type="button" className="text-button" disabled={avatarBusy || avatarPreparing} onClick={() => { setAvatarEditorOpen(false); setAvatarImage(null); setAvatarSourceFile(null); setAvatarPreview(''); setError(''); }}>保留原头像 · 返回游戏</button>}
       <button type="button" className="text-button" disabled={avatarBusy || avatarPreparing || busy} onClick={logout}>退出此身份</button>
     </section>
   </main>;
