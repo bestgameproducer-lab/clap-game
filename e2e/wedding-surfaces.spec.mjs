@@ -161,17 +161,17 @@ test('首次登录宾客完成婚礼自拍后才能进入游戏', async ({ page 
       right: [...context.getImageData(Math.floor(canvas.width * 0.75), Math.floor(canvas.height / 2), 1, 1).data],
     };
   });
-  const mirroredSides = await readPreviewSides();
-  expect(mirroredSides.left[2]).toBeGreaterThan(mirroredSides.left[0]);
-  expect(mirroredSides.right[0]).toBeGreaterThan(mirroredSides.right[2]);
-  const firstPreviewUrl = await previewImage.getAttribute('src');
-  await page.getByRole('button', { name: '照片左右反了？点此翻转' }).click();
-  await expect.poll(() => previewImage.getAttribute('src')).not.toBe(firstPreviewUrl);
   const originalSides = await readPreviewSides();
   expect(originalSides.left[0]).toBeGreaterThan(originalSides.left[2]);
   expect(originalSides.right[2]).toBeGreaterThan(originalSides.right[0]);
+  const firstPreviewUrl = await previewImage.getAttribute('src');
   await page.getByRole('button', { name: '照片左右反了？点此翻转' }).click();
-  await expect.poll(async () => (await previewImage.getAttribute('src')) !== firstPreviewUrl && (await readPreviewSides()).left[2] > (await readPreviewSides()).left[0]).toBe(true);
+  await expect.poll(() => previewImage.getAttribute('src')).not.toBe(firstPreviewUrl);
+  const mirroredSides = await readPreviewSides();
+  expect(mirroredSides.left[2]).toBeGreaterThan(mirroredSides.left[0]);
+  expect(mirroredSides.right[0]).toBeGreaterThan(mirroredSides.right[2]);
+  await page.getByRole('button', { name: '照片左右反了？点此翻转' }).click();
+  await expect.poll(async () => (await previewImage.getAttribute('src')) !== firstPreviewUrl && (await readPreviewSides()).left[0] > (await readPreviewSides()).left[2]).toBe(true);
   const approvedAvatarSignature = await previewImage.evaluate(async (image) => {
     const bytes = new Uint8Array(await (await fetch(image.src)).arrayBuffer());
     return {
