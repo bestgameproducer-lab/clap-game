@@ -8,6 +8,7 @@ import { gameStageCopy } from '@/lib/game-stages';
 import { isPlayerCode, normalizePlayerCode } from '@/lib/player-code';
 import { useLiveRefresh } from '@/lib/use-live-refresh';
 import { SERVICE_WORKER_URL } from '@/lib/deployment';
+import { WeddingSignature } from '../wedding-signature';
 
 const GUEST_CACHE_KEY = 'wedding-guest-session-cache-v1';
 const ACTIVITY_ACK_KEY = 'wedding-guest-activity-ack-v1';
@@ -737,7 +738,7 @@ export default function GuestPage() {
 
   if (!data) return <main className="welcome-shell">
     <section className={`welcome-card ${guests ? 'compact-registration' : ''}`}>
-      <div className="eyebrow">ZIMIN &amp; ANRONG</div><div className="heart-mark">♡</div>
+      <div className="eyebrow">ZIMIN &amp; ANRONG</div><WeddingSignature compact/><div className="heart-mark">♡</div>
       <h1>丘比特的<br/>婚礼考验</h1>
       <p className="lead">从你来到婚礼现场的这一刻起，故事已经开始。</p>
       <div className="step-row" aria-label="注册共四步"><span className={!guests ? 'active' : 'done'}>1</span><i/><span className={guests && !selectedGuest ? 'active' : selectedGuest ? 'done' : ''}>2</span><i/><span className={selectedGuest ? 'active' : ''}>3</span><i/><span>4</span></div>

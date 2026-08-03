@@ -5,6 +5,7 @@ import { StaffLogoutButton } from '../staff-logout-button';
 import { createEventKey } from '@/lib/event-key';
 import { GAME_STAGE_OPTIONS, gameStageCopy } from '@/lib/game-stages';
 import { useLiveRefresh } from '@/lib/use-live-refresh';
+import { WeddingSignature } from '../wedding-signature';
 
 const TEAMS = ['海岛组', '沙漠组'] as const;
 const HOST_CACHE_KEY = 'wedding-host-score-cache-v2';
@@ -200,10 +201,10 @@ export default function HostPage() {
     window.requestAnimationFrame(() => document.querySelector('.host-score-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 
-  if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">HOST ONLY</div><div className="heart-mark">♡</div><h1>主持人<br/>流程台</h1><p className="lead">查看全员分组、积分和恶作剧者，并处理现场加分。</p><form onSubmit={login}><label htmlFor="host-password">管理员密码</label><input id="host-password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required/><button disabled={busy}>{busy ? '登录中…' : '进入主持人流程台'}</button>{error && <div className="notice error">{error}</div>}</form></section></main>;
+  if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">HOST ONLY</div><WeddingSignature compact/><div className="heart-mark">♡</div><h1>主持人<br/>流程台</h1><p className="lead">查看全员分组、积分和恶作剧者，并处理现场加分。</p><div className="staff-privacy-note">包含隐藏身份 · 仅限主持人与主办方查看</div><form onSubmit={login}><label htmlFor="host-password">管理员密码</label><input id="host-password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required/><button disabled={busy}>{busy ? '登录中…' : '进入主持人流程台'}</button>{error && <div className="notice error" role="alert">{error}</div>}</form></section></main>;
 
   return <main className="host-shell host-score-shell">
-    <header className="host-hero host-score-hero"><div><div className="eyebrow">LIVE HOST DESK</div><h1>主持人流程台</h1><p>身份信息仅供主持人与主办方现场查看，请勿投屏。</p></div><StaffLogoutButton clearSessionStorageKeys={HOST_CACHE_KEYS}/></header>
+    <header className="host-hero host-score-hero"><div><div className="eyebrow">LIVE HOST DESK</div><WeddingSignature inverse compact/><h1>主持人流程台</h1><p>身份信息仅供主持人与主办方现场查看，请勿投屏。</p></div><StaffLogoutButton clearSessionStorageKeys={HOST_CACHE_KEYS}/></header>
     {offline && <div className="connection-banner offline" role="status"><span>离线只读 · 加分功能暂时停用</span><button className="mini-button" disabled={syncing} onClick={() => void load(true)}>{syncing ? '重连中…' : '重新连接'}</button></div>}
     {message && <div className="notice success sticky-notice" role="status">{message}</div>}
     {error && <div className="notice error sticky-notice" role="alert">{error}</div>}

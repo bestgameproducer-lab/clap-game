@@ -5,6 +5,7 @@ import { compressTaskEvidence } from '@/lib/client-image';
 import { gameStageCopy } from '@/lib/game-stages';
 import { StaffLogoutButton } from '../staff-logout-button';
 import { useLiveRefresh } from '@/lib/use-live-refresh';
+import { WeddingSignature } from '../wedding-signature';
 
 const STATUS_LABELS: Record<string, string> = { assigned: '进行中', submitted: '待核验', approved: '已完成', rejected: '已退回' };
 const CATEGORY_LABELS: Record<string, string> = { standard: '普通', ceremony: '仪式', group: '团队', upgrade: '升级', hidden: '隐藏' };
@@ -204,7 +205,7 @@ export default function StationPage() {
     }
   }
 
-  if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">CUPID STATION</div><div className="heart-mark">♡</div><h1>丘比特<br/>任务站</h1><p className="lead">核验任务、发放线索和隐藏奖励。</p><form onSubmit={login}><label htmlFor="station-password">管理员密码</label><input id="station-password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required/><button disabled={busy}>{busy ? '登录中…' : '进入任务站'}</button>{error && <div className="notice error">{error}</div>}</form></section></main>;
+  if (!data) return <main className="welcome-shell"><section className="welcome-card admin-login"><div className="eyebrow">CUPID STATION</div><WeddingSignature compact/><div className="heart-mark">♡</div><h1>丘比特<br/>任务站</h1><p className="lead">核验任务、发放线索和隐藏奖励。</p><div className="staff-privacy-note">面向工作人员 · 核验时请避免让宾客看到他人的任务</div><form onSubmit={login}><label htmlFor="station-password">管理员密码</label><input id="station-password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required/><button disabled={busy}>{busy ? '登录中…' : '进入任务站'}</button>{error && <div className="notice error" role="alert">{error}</div>}</form></section></main>;
 
   return <main className="station-shell">
     <header className="station-hero"><div><div className="eyebrow">REDEMPTION DESK</div><h1>丘比特任务站</h1><p>当前流程：{data.game ? gameStageCopy(data.game.stage).label : '尚未读取'} · 本页面不显示任何隐藏身份</p></div><div className="host-links"><a href="/admin">主办方后台</a><a href="/host">主持人流程台</a><StaffLogoutButton clearSessionStorageKeys={[STATION_CACHE_KEY]}/></div></header>

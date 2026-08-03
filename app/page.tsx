@@ -1,8 +1,11 @@
+import { WeddingSignature } from './wedding-signature';
+
 export default function Home() {
   const title = process.env.NEXT_PUBLIC_WEDDING_TITLE || 'Our Wedding Mission';
   return <main className="home-shell">
     <section className="home-hero">
       <div className="eyebrow">YOU ARE INVITED TO PLAY</div>
+      <WeddingSignature/>
       <div className="rings">♡</div>
       <p className="home-kicker">一场贯穿婚礼的秘密冒险</p>
       <h1>{title}</h1>
