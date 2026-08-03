@@ -740,7 +740,7 @@ export default function GuestPage() {
       <div className="eyebrow">ZIMIN &amp; ANRONG</div><div className="heart-mark">♡</div>
       <h1>丘比特的<br/>婚礼考验</h1>
       <p className="lead">从你来到婚礼现场的这一刻起，故事已经开始。</p>
-      <div className="step-row"><span className={!guests ? 'active' : 'done'}>1</span><i/><span className={guests && !selectedGuest ? 'active' : selectedGuest ? 'done' : ''}>2</span><i/><span className={selectedGuest ? 'active' : ''}>3</span></div>
+      <div className="step-row" aria-label="注册共四步"><span className={!guests ? 'active' : 'done'}>1</span><i/><span className={guests && !selectedGuest ? 'active' : selectedGuest ? 'done' : ''}>2</span><i/><span className={selectedGuest ? 'active' : ''}>3</span><i/><span>4</span></div>
       {error && <div className="notice error">{error}</div>}
       {!guests && <form onSubmit={unlockInvitation}>
         <div className="step-copy"><strong>打开婚礼入口</strong><small>请输入请柬上的共享邀请码</small></div>
@@ -762,7 +762,7 @@ export default function GuestPage() {
         <input id="claim-code" className="claim-code-input" type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} autoComplete={selectedGuest.hasPassword ? 'current-password' : 'new-password'} value={claimCode} onChange={(event) => setClaimCode(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="••••" required/>
         {!selectedGuest.hasPassword && <><label htmlFor="claim-code-confirm">再次输入密码</label><input id="claim-code-confirm" className="claim-code-input" type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} autoComplete="new-password" value={claimCodeConfirm} onChange={(event) => setClaimCodeConfirm(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="••••" required/></>}
         <p className="login-note">请记住这个密码。忘记后可联系主办方在后台重置。</p>
-        <button disabled={busy || claimCode.length !== 4 || (!selectedGuest.hasPassword && claimCodeConfirm.length !== 4)}>{busy ? (selectedGuest.hasPassword ? '登录中…' : '设置中…') : (selectedGuest.hasPassword ? '登录我的身份' : '设置密码 · 开始抽卡')}</button>
+        <button disabled={busy || claimCode.length !== 4 || (!selectedGuest.hasPassword && claimCodeConfirm.length !== 4)}>{busy ? (selectedGuest.hasPassword ? '登录中…' : '设置中…') : (selectedGuest.hasPassword ? '登录我的身份' : '设置密码 · 下一步')}</button>
         <button type="button" className="text-button" onClick={() => { setSelectedGuest(null); setError(''); }}>返回宾客名单</button>
       </form>}
     </section>
@@ -771,7 +771,7 @@ export default function GuestPage() {
   if (!data.guest.avatar_url || avatarEditorOpen) return <main className="avatar-setup-shell">
     <section className="avatar-setup-card">
       <div className="eyebrow">ONE HAPPY MOMENT</div>
-      <div className="avatar-step-row"><span>1</span><i/><span>2</span><i/><span>3</span><i/><span className="active">4</span></div>
+      <div className="step-row avatar-registration-progress" aria-label="注册共四步，当前第四步"><span className="done">1</span><i/><span className="done">2</span><i/><span className="done">3</span><i/><span className="active">4</span></div>
       <h1>{data.guest.avatar_url ? <>更新你的<br/>婚礼头像</> : <>拍一张开心的<br/>婚礼自拍</>}</h1>
       <p>{data.guest.avatar_url ? '重新拍摄后会替换现在的头像，玩家编号和游戏进度都不会改变。' : '这张照片会成为你的玩家头像，让其他宾客在编号验证列表里更容易认出你。'}</p>
       {error && <div className="notice error" role="alert">{error}</div>}
