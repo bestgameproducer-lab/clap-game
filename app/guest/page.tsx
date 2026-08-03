@@ -7,6 +7,7 @@ import { isPhaseOneInteractionOpenAtStage, isTaskActionOpenAtStage, isTaskPaused
 import { gameStageCopy } from '@/lib/game-stages';
 import { isPlayerCode, normalizePlayerCode } from '@/lib/player-code';
 import { useLiveRefresh } from '@/lib/use-live-refresh';
+import { SERVICE_WORKER_URL } from '@/lib/deployment';
 
 const GUEST_CACHE_KEY = 'wedding-guest-session-cache-v1';
 const ACTIVITY_ACK_KEY = 'wedding-guest-activity-ack-v1';
@@ -395,7 +396,7 @@ export default function GuestPage() {
       window.location.reload();
     };
     window.navigator.serviceWorker.addEventListener('controllerchange', refreshForNewVersion);
-    window.navigator.serviceWorker.register('/sw.js?v=7-neutral-dilemma', { scope: '/', updateViaCache: 'none' })
+    window.navigator.serviceWorker.register(SERVICE_WORKER_URL, { scope: '/', updateViaCache: 'none' })
       .then(async (registration) => {
         const checkForUpdate = () => {
           if (active && document.visibilityState === 'visible') void registration.update();

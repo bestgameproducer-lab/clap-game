@@ -15,7 +15,7 @@ test('service worker caches only public app shells and static assets', async () 
 
 test('guest page registers offline shell without persisting private data to local storage', async () => {
   const source = await readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8');
-  assert.match(source, /serviceWorker\.register\('\/sw\.js\?v=7-neutral-dilemma'/);
+  assert.match(source, /serviceWorker\.register\(SERVICE_WORKER_URL/);
   assert.match(source, /updateViaCache: 'none'/);
   assert.match(source, /addEventListener\('pageshow', checkForUpdate\)/);
   assert.match(source, /addEventListener\('visibilitychange', checkForUpdate\)/);
@@ -28,10 +28,19 @@ test('guest page registers offline shell without persisting private data to loca
 });
 
 test('service worker script is served without stale HTTP caching and with root scope', async () => {
-  const source = await readFile(new URL('../next.config.mjs', import.meta.url), 'utf8');
+  const [source, worker, deployment] = await Promise.all([
+    readFile(new URL('../next.config.mjs', import.meta.url), 'utf8'),
+    readFile(new URL('../public/sw.js', import.meta.url), 'utf8'),
+    readFile(new URL('../lib/deployment.ts', import.meta.url), 'utf8'),
+  ]);
   assert.match(source, /source: '\/sw\.js'/);
   assert.match(source, /no-cache, no-store, must-revalidate/);
   assert.match(source, /Service-Worker-Allowed/);
+  assert.match(source, /VERCEL_GIT_COMMIT_SHA/);
+  assert.match(deployment, /SERVICE_WORKER_URL = `\/sw\.js\?v=\$\{encodeURIComponent\(DEPLOYMENT_VERSION\)\}`/);
+  assert.match(worker, /new URL\(self\.location\.href\)\.searchParams\.get\('v'\)/);
+  assert.match(worker, /`wedding-public-shell-\$\{DEPLOYMENT_VERSION\}`/);
+  assert.doesNotMatch(worker, /v\d+-neutral-dilemma/);
 });
 
 test('public scoreboard keeps a timestamped tab-only snapshot and reports stale state', async () => {
@@ -40,7 +49,7 @@ test('public scoreboard keeps a timestamped tab-only snapshot and reports stale 
   assert.match(source, /window\.sessionStorage\.getItem\(SCOREBOARD_CACHE_KEY\)/);
   assert.doesNotMatch(source, /localStorage\.setItem\(SCOREBOARD_CACHE_KEY/);
   assert.match(source, /window\.localStorage\.removeItem\('wedding-scoreboard-cache'\)/);
-  assert.match(source, /serviceWorker\.register\('\/sw\.js\?v=7-neutral-dilemma'/);
+  assert.match(source, /serviceWorker\.register\(SERVICE_WORKER_URL/);
   assert.match(source, /updateViaCache: 'none'/);
   assert.match(source, /window\.addEventListener\('offline', disconnect\)/);
   assert.match(source, /最近同步 \{lastSyncLabel\}/);

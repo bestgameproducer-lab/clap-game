@@ -64,6 +64,7 @@ type Task = { id: string; title: string; description: string; verification_metho
 type Clue = { id: string; title: string; content: string; group_name: string; team_scope: typeof TEAMS[number] | null; active: boolean; spy_guest_id: string | null; level: number; spy?: { id: string; name: string; team: string } };
 type HiddenTaskCode = { id: string; task_id: string; issued_by: string; issued_at: string; claimed_by: string | null; claimed_at: string | null; assignment_id: string | null; task?: { id: string; title: string; active: boolean }; guest?: { id: string; name: string } };
 type AdminData = {
+  health: { database: 'online'; checkedAt: string; deploymentVersion: string };
   guests: Guest[];
   assignments: Array<{ id: string; guest_id: string; status: string; rejection_reason: string | null; ceremony_status: string | null; ring_variant: 'GROOM_RING' | 'BRIDE_RING' | null; replaced_by_assignment_id: string | null; replacement_for_assignment_id: string | null; guest?: { id: string; name: string }; task?: Task }>;
   tasks: Task[];
@@ -83,7 +84,7 @@ type AdminData = {
   phaseTwoProfiles: Array<{ guest_id: string; team: string; primary_mission: string | null; extra_vote: boolean; super_lucky: boolean; is_captain: boolean; interaction_theme: string; unlocked_at: string | null }>;
   preflight: { ready: boolean; blockedCount: number; items: Array<{ id: string; label: string; detail: string; status: 'ready' | 'warning' | 'blocked' }> };
   rehearsalResetPreview: { claimed_guests: number; drawn_guests: number; assignments: number; evidence_files: number; votes: number; guest_clues: number; personal_ledger_entries: number; team_ledger_entries: number; spy_ledger_entries: number; resource_ledger_entries: number; registration_open: boolean; voting_open: boolean; scoreboard_visible: boolean };
-  game: { registration_open: boolean; stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null; display_title: string | null; display_body: string | null; public_clue: string | null; timer_ends_at: string | null; invitation_code_updated_at: string | null; task_catalog_mode: 'demo' | 'live'; trickster_max_attempts: number; phase_one_completed_at: string | null; team_clues_settled_at: string | null } | null;
+  game: { registration_open: boolean; stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; scoreboard_visible: boolean; phase_note: string | null; display_title: string | null; display_body: string | null; public_clue: string | null; timer_ends_at: string | null; invitation_code_updated_at: string | null; task_catalog_mode: 'demo' | 'live'; trickster_max_attempts: number; phase_one_completed_at: string | null; team_clues_settled_at: string | null; updated_at: string } | null;
 };
 
 async function responseBody(response: Response) {
@@ -511,6 +512,16 @@ export default function AdminPage() {
     <nav className="admin-panel-tabs" aria-label="主办方后台功能入口">{PRIMARY_ADMIN_PANELS.map((panel) => <button type="button" key={panel.id} className={activePrimaryPanel === panel.id ? 'active' : ''} aria-current={activePrimaryPanel === panel.id ? 'page' : undefined} onClick={() => openPanel(panel.id)}><span>{panel.shortLabel}</span></button>)}</nav>
 
     {activePanel === 'home' && <section className="admin-launchpad" aria-labelledby="admin-launchpad-title">
+      <div className="wedding-health" aria-label="婚礼日系统状态">
+        <div className="wedding-health-heading"><div><small>WEDDING DAY STATUS</small><strong>婚礼日状态</strong></div><span className="health-online"><i aria-hidden="true"/>系统在线</span></div>
+        <div className="wedding-health-grid">
+          <div><small>当前流程</small><strong>{gameStageCopy(data.game?.stage).title}</strong></div>
+          <div><small>宾客进度</small><strong>{claimed}/{activeGuests.length} 认领 · {drawn}/{activeGuests.length} 抽卡</strong></div>
+          <div><small>待处理</small><strong>{data.submissions.length} 项任务 · {data.votes.length} 票</strong></div>
+          <div><small>最近同步</small><strong>{new Date(data.health.checkedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</strong></div>
+        </div>
+        <p>数据库已连接 · 部署 {data.health.deploymentVersion.slice(0, 12)}</p>
+      </div>
       <div className={`admin-guidance-card ${adminGuidance.tone}`}><div><small>现场指挥</small><strong>{adminGuidance.label}</strong><p>{adminGuidance.detail}</p></div><button type="button" onClick={() => openPanel(adminGuidance.panel)}>{adminGuidance.action}<span aria-hidden="true">→</span></button></div>
       <div className="launchpad-heading"><div><small>CONTROL CENTER</small><h2 id="admin-launchpad-title">今天要管理什么？</h2></div><p>每次只进入一个模块，避免在手机上反复长距离滚动。</p></div>
       <div className="launchpad-grid launchpad-primary">

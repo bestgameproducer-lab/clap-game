@@ -3,10 +3,16 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const deploymentVersion = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12)
+  || process.env.WEDDING_BUILD_ID
+  || `local-${process.env.npm_package_version || 'dev'}`;
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: __dirname,
+  env: {
+    NEXT_PUBLIC_DEPLOYMENT_VERSION: deploymentVersion,
+  },
   async headers() {
     return [{
       source: '/sw.js',
