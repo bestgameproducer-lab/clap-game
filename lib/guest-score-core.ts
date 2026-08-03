@@ -39,7 +39,13 @@ export function buildGuestPointLedger(
   }));
 }
 
-export function buildGuestTeamScores(entries: GuestTeamPointEntry[]) {
+export function buildGuestTeamScores(entries: GuestTeamPointEntry[], snapshot?: unknown) {
+  if (snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot)) {
+    const frozen = snapshot as Record<string, unknown>;
+    return COMPETITIVE_TEAMS
+      .map((team) => ({ team, points: Number.isFinite(Number(frozen[team])) ? Number(frozen[team]) : 0 }))
+      .sort((a, b) => b.points - a.points || a.team.localeCompare(b.team));
+  }
   const totals = new Map<string, number>(COMPETITIVE_TEAMS.map((team) => [team, 0]));
   for (const entry of entries) {
     if (totals.has(entry.team)) totals.set(entry.team, (totals.get(entry.team) ?? 0) + entry.amount);

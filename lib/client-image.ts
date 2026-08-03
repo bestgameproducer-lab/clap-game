@@ -114,11 +114,8 @@ export async function captureSelfieFrame(video: HTMLVideoElement) {
   canvas.height = AVATAR_DIMENSION;
   const context = canvas.getContext('2d');
   if (!context) throw new Error('当前浏览器无法保存相机画面，请改用系统相机');
-  // The live front-camera video is intentionally mirrored in CSS. Apply the
-  // same transform to the captured pixels so the saved avatar is exactly what
-  // the guest saw when pressing the shutter.
-  context.translate(AVATAR_DIMENSION, 0);
-  context.scale(-1, 1);
+  // Keep the camera sensor's native orientation. Mirroring the preview or the
+  // encoded JPEG makes text, clothing and the final avatar appear reversed.
   context.drawImage(video, sourceX, sourceY, sourceSize, sourceSize, 0, 0, AVATAR_DIMENSION, AVATAR_DIMENSION);
   return canvasBlob(canvas, 0.82);
 }

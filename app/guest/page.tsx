@@ -11,7 +11,7 @@ import { SERVICE_WORKER_URL } from '@/lib/deployment';
 import { WeddingSignature } from '../wedding-signature';
 
 const GUEST_CACHE_KEY = 'wedding-guest-session-cache-v1';
-const ACTIVITY_ACK_KEY = 'wedding-guest-activity-ack-v1';
+const ACTIVITY_ACK_KEY = 'wedding-guest-activity-ack-v2';
 const PENDING_CONNECTION_MESSAGE = '你的编号确认已提交，等待对方输入你的玩家编号。';
 const PENDING_ASSIGNMENT_MESSAGE = '任务已送到丘比特任务站，等待主办方确认。';
 const PENDING_VOTE_MESSAGE = '投票已提交并锁定。结果公布后会自动结算侦探积分。';
@@ -33,6 +33,8 @@ type PendingNotice =
   | { kind: 'PHASE_TWO_COPY' };
 type AwakeningKind = 'LONELY_CUPID' | 'GUIDING_STAR';
 type ContentNotice = { title: string; detail: string; signature: string; variant?: 'awakening'; awakeningKind?: AwakeningKind };
+type ActivitySnapshot = { guestId: string; stage: string; phaseNote: string; awakeningKey: string; assignmentIds: string[]; assignmentStatuses: Record<string, string>; clueIds: string[]; confirmationIds: string[] };
+type ConnectionFeedback = { kind: 'error' | 'success'; text: string };
 type GuestData = {
   guest: { id: string; name: string; team: string; role: string; is_hidden_spy: boolean; points: number; drawn_at: string | null; special_card_revealed_at: string | null; participation_mode: 'ACTIVE_PLAYER' | 'HONOR_GUEST' | 'PRINCIPAL'; relationship: string; story_role: string; eligible_for_mission: boolean; eligible_for_secret_role: boolean; eligible_for_personal_score: boolean; special_card_title: string; special_card_body: string; player_code: string; unlocked_role: string; avatar_path: string | null; avatar_uploaded_at: string | null; avatar_url: string | null };
   assignments: Array<{ id: string; status: string; is_initial: boolean; completion_rank: number | null; early_bonus_points: number; reward_task_id: string | null; reward_clue_id: string | null; completion_note: string; verification_note: string; verified_at: string | null; evidence_uploaded_at: string | null; evidence_url: string | null; rejection_reason: string | null; task: { title: string; description: string; verification_method: string; points: number; category: string; stage: string; mission_code: string | null; mechanic: string; score_policy: string } }>;
@@ -68,6 +70,7 @@ type GuestData = {
     phaseOnePointsSnapshot: number | null;
     luckySettled: boolean;
     captainSettled: boolean;
+    originVerified: boolean;
     dilemma: null | { allianceType: 'HEART' | 'STAR'; submitted: boolean; settled: boolean; myChoice: string | null; partnerChoice: string | null; myPoints: number | null; partnerPoints: number | null };
     copyChoice: null | { targetGuestId: string; targetName: string; targetTeam: string; settledPoints: number | null; settled: boolean };
     copyCandidates: Array<{ id: string; name: string; team: string }>;
@@ -116,7 +119,7 @@ function activityFingerprint(value: string) {
 }
 
 function phaseTwoAwakening(data: GuestData): Omit<ContentNotice, 'signature'> | null {
-  if (!data.phaseTwo?.unlockedAt || !['task_round_2', 'banquet', 'group_game', 'voting', 'results'].includes(data.game?.stage ?? '')) return null;
+  if (!data.phaseTwo?.unlockedAt || !data.phaseTwo.originVerified || !['task_round_2', 'banquet', 'group_game', 'voting', 'results'].includes(data.game?.stage ?? '')) return null;
   if (data.phaseTwo.mission === 'COPY_SCORE' && data.guest.unlocked_role === 'LONELY_CUPID') return {
     title: '原来，你从未被遗忘',
     detail: '第一幕没有找到爱心另一半，并不是失败。丘比特刻意留下了你，让你成为「孤单丘比特」。现在，你可以选择一名竞技玩家；最终揭晓时，你会复制他在第二幕获得的个人积分。',
@@ -170,6 +173,7 @@ export default function GuestPage() {
   const [completionNotes, setCompletionNotes] = useState<Record<string, string>>({});
   const [evidenceBusyId, setEvidenceBusyId] = useState<string | null>(null);
   const [connectionTargetCode, setConnectionTargetCode] = useState('');
+  const [connectionFeedback, setConnectionFeedback] = useState<Partial<Record<ConnectionRelationshipType, ConnectionFeedback>>>({});
   const [mutualTargetCodes, setMutualTargetCodes] = useState<Record<string, string>>({});
   const [phaseTwoDilemmaChoice, setPhaseTwoDilemmaChoice] = useState('');
   const [phaseTwoCopyTarget, setPhaseTwoCopyTarget] = useState('');
@@ -190,7 +194,7 @@ export default function GuestPage() {
   const loadRequestRef = useRef(0);
   const manualRefreshRef = useRef(false);
   const refreshNoticeTimerRef = useRef<number | null>(null);
-  const contentSnapshotRef = useRef<null | { guestId: string; stage: string; phaseNote: string; awakeningKey: string; assignmentIds: string[]; assignmentStatuses: Record<string, string>; clueIds: string[]; confirmationIds: string[] }>(null);
+  const contentSnapshotRef = useRef<ActivitySnapshot | null>(null);
 
   const load = useCallback(async () => {
     const requestId = ++loadRequestRef.current;
@@ -238,13 +242,28 @@ export default function GuestPage() {
         } else {
           try {
             const guestKey = activityFingerprint(nextSnapshot.guestId);
-            const saved = JSON.parse(window.localStorage.getItem(ACTIVITY_ACK_KEY) || 'null') as { guestKey?: string; signature?: string } | null;
+            const saved = JSON.parse(window.localStorage.getItem(ACTIVITY_ACK_KEY) || 'null') as { guestKey?: string; signature?: string; stage?: string; assignmentKey?: string; clueKey?: string; confirmationKey?: string; awakeningKey?: string } | null;
+            const assignmentKey = activityFingerprint(JSON.stringify([nextSnapshot.assignmentIds, nextSnapshot.assignmentStatuses]));
+            const clueKey = activityFingerprint(JSON.stringify(nextSnapshot.clueIds));
+            const confirmationKey = activityFingerprint(JSON.stringify(nextSnapshot.confirmationIds));
             if (awakening && (!saved || saved.guestKey !== guestKey || saved.signature !== activitySignature)) {
               nextNotice = { ...awakening, signature: activitySignature };
             } else if (saved?.guestKey === guestKey && saved.signature && saved.signature !== activitySignature) {
-              nextNotice = { title: '你离开期间有新的活动', detail: '任务、线索或婚礼环节已有更新，请查看最新内容。', signature: activitySignature };
+              if (saved.stage && saved.stage !== nextSnapshot.stage) {
+                const stageCopy = gameStageCopy(nextSnapshot.stage);
+                nextNotice = { title: `已进入「${stageCopy.label}」`, detail: nextSnapshot.phaseNote || stageCopy.note, signature: activitySignature };
+              } else if (saved.assignmentKey && saved.assignmentKey !== assignmentKey) {
+                nextNotice = { title: '你的任务收到更新', detail: '任务内容或完成状态已经变化，请查看最新任务。', signature: activitySignature };
+              } else if (saved.clueKey && saved.clueKey !== clueKey) {
+                nextNotice = { title: '一条新的秘密线索已经解锁', detail: '请进入线索区查看新内容。', signature: activitySignature };
+              } else if (saved.confirmationKey && saved.confirmationKey !== confirmationKey) {
+                nextNotice = { title: '你收到了一项伙伴确认请求', detail: '请打开相关任务直接接受或拒绝。', signature: activitySignature };
+              } else nextNotice = { title: '你离开期间有新的活动', detail: '任务、线索或婚礼环节已有更新，请查看最新内容。', signature: activitySignature };
             } else if (!saved || saved.guestKey !== guestKey) {
-              window.localStorage.setItem(ACTIVITY_ACK_KEY, JSON.stringify({ guestKey, signature: activitySignature }));
+              nextNotice = nextData.guest.drawn_at
+                ? { title: '欢迎回到婚礼任务', detail: `${gameStageCopy(nextSnapshot.stage).label} · 请查看当前任务与现场提示。`, signature: activitySignature }
+                : null;
+              if (!nextNotice) window.localStorage.setItem(ACTIVITY_ACK_KEY, JSON.stringify({ guestKey, signature: activitySignature, stage: nextSnapshot.stage, assignmentKey, clueKey, confirmationKey, awakeningKey: nextSnapshot.awakeningKey }));
             }
           } catch {}
         }
@@ -652,7 +671,15 @@ export default function GuestPage() {
   function acknowledgeContentNotice() {
     if (contentNotice && data?.guest.id) {
       try {
-        window.localStorage.setItem(ACTIVITY_ACK_KEY, JSON.stringify({ guestKey: activityFingerprint(data.guest.id), signature: contentNotice.signature }));
+        const snapshot = contentSnapshotRef.current;
+        window.localStorage.setItem(ACTIVITY_ACK_KEY, JSON.stringify({
+          guestKey: activityFingerprint(data.guest.id), signature: contentNotice.signature,
+          stage: snapshot?.stage,
+          assignmentKey: activityFingerprint(JSON.stringify([snapshot?.assignmentIds ?? [], snapshot?.assignmentStatuses ?? {}])),
+          clueKey: activityFingerprint(JSON.stringify(snapshot?.clueIds ?? [])),
+          confirmationKey: activityFingerprint(JSON.stringify(snapshot?.confirmationIds ?? [])),
+          awakeningKey: snapshot?.awakeningKey ?? '',
+        }));
       } catch {}
     }
     setContentNotice(null);
@@ -720,7 +747,7 @@ export default function GuestPage() {
   }
 
   async function connectPlayer(relationshipType: ConnectionRelationshipType) {
-    setBusy(true); setError(''); setMessage('');
+    setBusy(true); setError(''); setMessage(''); setConnectionFeedback((current) => ({ ...current, [relationshipType]: undefined }));
     try {
       const response = await fetch('/api/guest-connection', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -732,12 +759,29 @@ export default function GuestPage() {
       setConnectionTargetCode('');
       await load();
       setPendingNotice(status === 'PENDING' ? { kind: 'CONNECTION', relationshipType } : null);
-      setMessage(status === 'ACTIVE'
+      const text = status === 'ACTIVE'
         ? relationshipType === 'CUPID_ALLIANCE' ? '双向确认成功，丘比特联盟已经成立。' : relationshipType === 'STAR_ALLIANCE' ? '双向确认成功，星光联盟已经成立。' : '暗号双向确认成功，你已经找到一位同伴。'
         : status === 'NO_MATCH' ? '这次验证没有匹配。请保持自然，你还可以继续尝试验证。'
-        : PENDING_CONNECTION_MESSAGE);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : '编号确认失败'); }
+        : PENDING_CONNECTION_MESSAGE;
+      setConnectionFeedback((current) => ({ ...current, [relationshipType]: { kind: 'success', text } }));
+    } catch (cause) { setConnectionFeedback((current) => ({ ...current, [relationshipType]: { kind: 'error', text: cause instanceof Error ? cause.message : '编号确认失败' } })); }
     finally { setBusy(false); }
+  }
+
+  async function acceptConnection(relationshipId: string, relationshipType: ConnectionRelationshipType) {
+    setBusy(true); setConnectionFeedback((current) => ({ ...current, [relationshipType]: undefined }));
+    try {
+      const response = await fetch('/api/accept-connection', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ relationshipId }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || '接受邀请失败');
+      await load();
+      setPendingNotice(null);
+      setConnectionFeedback((current) => ({ ...current, [relationshipType]: { kind: 'success', text: relationshipType === 'TRICKSTER_CONNECTION' ? '暗号双向确认成功，你已经找到一位同伴。' : relationshipType === 'STAR_ALLIANCE' ? '星光联盟已经成立。' : '丘比特联盟已经成立。' } }));
+    } catch (cause) {
+      setConnectionFeedback((current) => ({ ...current, [relationshipType]: { kind: 'error', text: cause instanceof Error ? cause.message : '接受邀请失败' } }));
+    } finally { setBusy(false); }
   }
 
   async function rejectConnection(relationshipId: string) {
@@ -860,15 +904,20 @@ export default function GuestPage() {
       {error && <div className="notice error" role="alert">{error}</div>}
       {avatarCameraOpen ? <div className="avatar-camera-live"><video ref={avatarVideoRef} autoPlay muted playsInline aria-label="实时自拍取景画面"/><div><button type="button" disabled={avatarPreparing} onClick={() => void captureAvatarFromCamera()}>拍下这张</button><button type="button" className="text-button" disabled={avatarPreparing} onClick={stopAvatarCamera}>取消</button></div></div> : avatarPreview ? <div className="avatar-capture has-photo"><img src={avatarPreview} alt="待上传的婚礼自拍预览"/></div> : data.guest.avatar_url ? <div className="avatar-capture has-photo"><img src={data.guest.avatar_url} alt="当前玩家头像"/></div> : <button type="button" className="avatar-capture avatar-camera-trigger" disabled={avatarCameraBusy} onClick={() => void openAvatarCamera()}><span aria-hidden="true">☺</span><strong>{avatarCameraBusy ? '正在打开相机…' : '打开自拍相机'}</strong><small>画面里看到什么，拍下后就是什么方向</small></button>}
       {!avatarCameraOpen && !avatarPreview && data.guest.avatar_url && <button type="button" className="secondary" disabled={avatarCameraBusy} onClick={() => void openAvatarCamera()}>{avatarCameraBusy ? '正在打开相机…' : '重新打开自拍相机'}</button>}
-      <input id="guest-avatar-photo" className="avatar-file-input" type="file" accept="image/*" capture="user" disabled={avatarBusy || avatarPreparing} onChange={(event) => {
+      <input id="guest-avatar-camera-photo" className="avatar-file-input" type="file" accept="image/*" capture="user" disabled={avatarBusy || avatarPreparing} onChange={(event) => {
         const file = event.currentTarget.files?.[0] ?? null;
         event.currentTarget.value = '';
         void prepareAvatar(file, false);
       }}/>
-      {!avatarCameraOpen && <label className="text-button avatar-file-fallback" htmlFor="guest-avatar-photo">网页相机打不开？使用系统相机或相册</label>}
+      <input id="guest-avatar-library-photo" className="avatar-file-input" type="file" accept="image/*" disabled={avatarBusy || avatarPreparing} onChange={(event) => {
+        const file = event.currentTarget.files?.[0] ?? null;
+        event.currentTarget.value = '';
+        void prepareAvatar(file, false);
+      }}/>
+      {!avatarCameraOpen && <div className="avatar-file-fallbacks"><label className="text-button avatar-file-fallback" htmlFor="guest-avatar-camera-photo">使用系统相机</label><label className="text-button avatar-file-fallback" htmlFor="guest-avatar-library-photo">从相册选择</label></div>}
       {avatarPreview && <button type="button" className="text-button avatar-flip-button" disabled={avatarBusy || avatarPreparing || !avatarSourceFile} onClick={() => void prepareAvatar(avatarSourceFile, !avatarMirrored)}>照片左右反了？点此翻转</button>}
       <button type="button" disabled={!avatarImage || avatarBusy || avatarPreparing} onClick={() => void uploadAvatar()}>{avatarPreparing ? '正在保持照片方向…' : avatarBusy ? '正在上传你的头像…' : avatarPreview ? '就用这张 · 进入婚礼游戏' : '请先拍一张自拍'}</button>
-      <small className="avatar-privacy">网页相机直接保存取景画面，不再猜测手机的镜像设置。头像只向已登录的婚礼宾客短时展示。</small>
+      <small className="avatar-privacy">自拍按相机原始方向保存，不会自动镜像。头像只向已登录的婚礼宾客短时展示。</small>
       {data.guest.avatar_url && <button type="button" className="text-button" disabled={avatarBusy || avatarPreparing} onClick={() => { stopAvatarCamera(); setAvatarEditorOpen(false); setAvatarImage(null); setAvatarSourceFile(null); setAvatarPreview(''); setError(''); }}>保留原头像 · 返回游戏</button>}
       <button type="button" className="text-button" disabled={avatarBusy || avatarPreparing || busy} onClick={() => { stopAvatarCamera(); void logout(); }}>退出此身份</button>
     </section>
@@ -954,14 +1003,15 @@ export default function GuestPage() {
   const missionStory = data.missionStory;
   const tricksterRelationship = missionStory?.relationships.find((relationship) => relationship.type === 'TRICKSTER_CONNECTION');
   const phaseOneInteractionsOpen = isPhaseOneInteractionOpenAtStage(data.game?.stage);
-  const canUseTricksterSignal = data.guest.role === 'spy' && phaseOneInteractionsOpen;
-  const usesTricksterFacade = data.guest.role === 'spy' && !data.game?.results_visible;
+  const canUseTricksterSignal = data.guest.role === 'spy' && ['task_round_1', 'ceremony_end', 'task_round_2', 'banquet', 'group_game'].includes(data.game?.stage ?? '');
+  const isTricksterGuest = data.guest.role === 'spy';
+  const usesTricksterFacade = isTricksterGuest && !data.game?.results_visible;
   const dashboardRole = usesTricksterFacade && !secretReaderOpen ? ROLE_LABELS.guest : role;
   const identityRevealRole = usesTricksterFacade ? role : dashboardRole;
-  const trueTricksterAssignments = usesTricksterFacade ? data.assignments.filter((assignment) => assignment.task.category === 'hidden') : [];
-  const facadeAssignments = usesTricksterFacade ? data.assignments.filter((assignment) => assignment.task.category !== 'hidden') : data.assignments;
-  const allDashboardAssignments = usesTricksterFacade && secretReaderOpen ? trueTricksterAssignments : facadeAssignments;
-  const readerAssignments = usesTricksterFacade ? trueTricksterAssignments : data.assignments;
+  const trueTricksterAssignments = isTricksterGuest ? data.assignments.filter((assignment) => assignment.task.category === 'hidden') : [];
+  const facadeAssignments = isTricksterGuest ? data.assignments.filter((assignment) => assignment.task.category !== 'hidden') : data.assignments;
+  const allDashboardAssignments = isTricksterGuest && secretReaderOpen ? trueTricksterAssignments : facadeAssignments;
+  const readerAssignments = isTricksterGuest ? trueTricksterAssignments : data.assignments;
   const openAssignments = allDashboardAssignments.filter((assignment) => !['approved', 'cancelled'].includes(assignment.status));
   const completedAssignments = allDashboardAssignments.filter((assignment) => ['approved', 'cancelled'].includes(assignment.status));
   const dashboardAssignments = completedMissionsOpen || openAssignments.length === 0 ? allDashboardAssignments : openAssignments;
@@ -1027,12 +1077,17 @@ export default function GuestPage() {
     const symbolGlyph = isStarTask ? '★' : '♥';
     const awakeningRevealed = Boolean(data?.phaseTwo?.unlockedAt && ['task_round_2', 'banquet', 'group_game', 'voting', 'results'].includes(data.game?.stage ?? ''));
     const inputId = `symbol-partner-code-${assignment.id}`;
+    const feedback = connectionFeedback[relationshipType];
+    const incoming = relationship?.status === 'PENDING' && !relationship.confirmedByMe && relationship.confirmedByPartner;
     return <section className={`inline-symbol-pairing ${isStarTask ? 'star' : 'heart'}`} aria-label={isStarTask ? '星星伙伴配对' : '爱心伙伴配对'}>
       <div className={`symbol-fragment-stage ${isStarTask ? 'star' : 'heart'} ${isPaired ? 'merged' : ''}`} role="img" aria-label={isPaired ? `左右两半${symbolName}已经合并成完整${symbolName}` : `你持有${fragmentLabel}`}>
         {isPaired ? <><span className="symbol-merge-half left" aria-hidden="true">{symbolGlyph}</span><span className="symbol-merge-half right" aria-hidden="true">{symbolGlyph}</span><span className="symbol-merge-glow" aria-hidden="true">{isStarTask ? '✦' : '♡'}</span></> : <span className={`symbol-own-fragment ${pairing.fragmentSide?.toLowerCase() ?? 'unknown'}`} aria-hidden="true">{symbolGlyph}</span>}
         <div><small>{isPaired ? `${isStarTask ? 'STAR' : 'HEART'} MATCH COMPLETE` : `你的${symbolName}碎片`}</small><strong>{isPaired ? `完整${symbolName}` : fragmentLabel}</strong><p>{isPaired ? `两半${isStarTask ? '星光' : '爱心'}已经合二为一` : `寻找持有${counterpartLabel}的玩家`}</p></div>
       </div>
-      {pairing.status === 'UNPAIRED_FINAL' ? awakeningRevealed ? <div className="story-unlock lonely awakened"><strong>{isStarTask ? '领航星已经觉醒' : '孤单丘比特已经觉醒'}</strong><p>{isStarTask ? '第一幕落单的星光没有消失，而是在第二幕成为所有人的方向。查看新任务了解你的带队能力。' : '第一幕没有完成配对并不是失败，而是丘比特留给你的伏笔。查看新任务，选择你要复制的命运。'}</p></div> : <div className="story-unlock unresolved"><strong>配对没有完成</strong><p>你没能在第一幕找到另一半。先保留这张未完成的命运卡——丘比特还没有说出最后的答案。</p></div> : isPaired ? <div className="story-unlock"><strong>{isStarTask ? '星光联盟' : '丘比特联盟'}已成立</strong><p>你与 {relationship.partnerName} 已完成双向确认。</p></div> : <div className="connection-form"><label htmlFor={inputId}>对方的玩家编号</label><div><input id={inputId} value={connectionTargetCode} onChange={(event) => setConnectionTargetCode(normalizePlayerCode(event.target.value))} maxLength={5} placeholder="例如 K7M4" autoCapitalize="characters" autoCorrect="off" spellCheck={false}/><button disabled={busy || offline || !phaseOneInteractionsOpen || !isPlayerCode(connectionTargetCode)} onClick={() => void connectPlayer(relationshipType)}>{isStarTask ? '邀请另一半星星' : '邀请爱心伙伴'}</button></div><p className="player-code-attempt-note">每 10 分钟最多提交 3 次；不确定时请先用页面顶部查询编号。</p>{relationship?.status === 'PENDING' && <div className="pending-connection"><p>{relationship.confirmedByMe ? `已提交，等待 ${relationship.partnerName} 输入你的编号。` : `${relationship.partnerName} 邀请你配对；输入对方编号即可接受。`}</p><button type="button" className="text-button" disabled={busy || offline} onClick={() => void rejectConnection(relationship.id)}>拒绝这项邀请</button></div>}</div>}
+      {pairing.status === 'UNPAIRED_FINAL' ? awakeningRevealed ? <div className="story-unlock lonely awakened"><strong>{isStarTask ? '领航星已经觉醒' : '孤单丘比特已经觉醒'}</strong><p>{isStarTask ? '第一幕落单的星光没有消失，而是在第二幕成为所有人的方向。查看新任务了解你的带队能力。' : '第一幕没有完成配对并不是失败，而是丘比特留给你的伏笔。查看新任务，选择你要复制的命运。'}</p></div> : <div className="story-unlock unresolved"><strong>配对没有完成</strong><p>你没能在第一幕找到另一半。先保留这张未完成的命运卡——丘比特还没有说出最后的答案。</p></div> : isPaired ? <div className="story-unlock"><strong>{isStarTask ? '星光联盟' : '丘比特联盟'}已成立</strong><p>你与 {relationship.partnerName} 已完成双向确认。</p></div> : <div className="connection-form">
+        {incoming ? <div className="pending-connection"><p><strong>{relationship.partnerName}</strong> 已邀请你组成{isStarTask ? '星光联盟' : '丘比特联盟'}，无需再次输入编号。</p><div><button type="button" disabled={busy || offline || !phaseOneInteractionsOpen} onClick={() => void acceptConnection(relationship.id, relationshipType)}>接受邀请</button><button type="button" className="text-button" disabled={busy || offline} onClick={() => void rejectConnection(relationship.id)}>拒绝</button></div></div> : <><div className="inline-connection-toolbar"><label htmlFor={inputId}>对方的玩家编号</label><button type="button" className="inline-directory-button" onClick={() => void openPlayerDirectory()}>查询玩家</button></div><div><input id={inputId} value={connectionTargetCode} onChange={(event) => { setConnectionTargetCode(normalizePlayerCode(event.target.value)); setConnectionFeedback((current) => ({ ...current, [relationshipType]: undefined })); }} maxLength={5} placeholder="例如 K7M4" autoCapitalize="characters" autoCorrect="off" spellCheck={false}/><button disabled={busy || offline || !phaseOneInteractionsOpen || !isPlayerCode(connectionTargetCode)} onClick={() => void connectPlayer(relationshipType)}>{isStarTask ? '邀请另一半星星' : '邀请爱心伙伴'}</button></div><p className="player-code-attempt-note">每 10 分钟最多提交 3 次；不确定时可先查询玩家。</p>{relationship?.status === 'PENDING' && relationship.confirmedByMe && <div className="pending-connection"><p>已提交，等待 {relationship.partnerName} 接受邀请。</p></div>}</>}
+        {feedback && <div className={`inline-feedback ${feedback.kind}`} role={feedback.kind === 'error' ? 'alert' : 'status'}><span>{feedback.text}</span><button type="button" aria-label="关闭提示" onClick={() => setConnectionFeedback((current) => ({ ...current, [relationshipType]: undefined }))}>×</button></div>}
+      </div>}
     </section>;
   }
 
@@ -1074,14 +1129,16 @@ export default function GuestPage() {
   }
 
   function renderTricksterSignal(assignment: GuestData['assignments'][number]) {
-    if (!usesTricksterFacade || !secretReaderOpen || !missionStory || assignment.task.mechanic !== 'TRICKSTER_SIGNAL') return null;
-    return <section className="story-connection-card trickster trickster-mission-action"><div className="signal-script"><small>暗号问句</small><strong>你今天早上吃了什么？</strong><small>正确回答</small><strong>吃了仙人掌。</strong></div>{!canUseTricksterSignal ? <p className="trickster-waiting-note">秘密确认入口当前已经关闭。</p> : tricksterRelationship?.status === 'ACTIVE' ? <div className="story-unlock"><strong>已找到同伴</strong><p>你和 {tricksterRelationship.partnerName} 已完成双向确认。继续隐藏身份。</p></div> : <div className="connection-form"><label htmlFor={`trickster-partner-code-${assignment.id}`}>暗号匹配后，输入对方玩家编号</label><div><input id={`trickster-partner-code-${assignment.id}`} value={connectionTargetCode} onChange={(event) => setConnectionTargetCode(normalizePlayerCode(event.target.value))} maxLength={5} placeholder="例如 K7M4" autoCapitalize="characters" autoCorrect="off" spellCheck={false}/><button disabled={busy || offline || missionStory.tricksterAttemptsUsed >= missionStory.tricksterMaxAttempts || !isPlayerCode(connectionTargetCode)} onClick={() => void connectPlayer('TRICKSTER_CONNECTION')}>秘密确认</button></div>{tricksterRelationship?.status === 'PENDING' && <p>{tricksterRelationship.confirmedByMe ? `已提交，等待 ${tricksterRelationship.partnerName} 输入你的编号。` : `${tricksterRelationship.partnerName} 已通过暗号找到你，请输入对方编号。`}</p>}<p>整场婚礼最多尝试 {missionStory.tricksterMaxAttempts} 次验证。不要直接暴露身份。</p></div>}</section>;
+    if (!isTricksterGuest || !secretReaderOpen || !missionStory || assignment.task.mechanic !== 'TRICKSTER_SIGNAL') return null;
+    const feedback = connectionFeedback.TRICKSTER_CONNECTION;
+    const incoming = tricksterRelationship?.status === 'PENDING' && !tricksterRelationship.confirmedByMe && tricksterRelationship.confirmedByPartner;
+    return <section className="story-connection-card trickster trickster-mission-action"><div className="signal-script"><small>暗号问句</small><strong>你今天早上吃了什么？</strong><small>正确回答</small><strong>吃了仙人掌。</strong></div>{!canUseTricksterSignal ? <p className="trickster-waiting-note">秘密确认入口当前已经关闭。</p> : tricksterRelationship?.status === 'ACTIVE' ? <div className="story-unlock"><strong>已找到同伴</strong><p>你和 {tricksterRelationship.partnerName} 已完成双向确认。继续隐藏身份。</p></div> : <div className="connection-form">{incoming ? <div className="pending-connection"><p><strong>{tricksterRelationship.partnerName}</strong> 已通过暗号找到你，无需再次输入编号。</p><div><button type="button" disabled={busy || offline} onClick={() => void acceptConnection(tricksterRelationship.id, 'TRICKSTER_CONNECTION')}>确认是同伴</button><button type="button" className="text-button" disabled={busy || offline} onClick={() => void rejectConnection(tricksterRelationship.id)}>不是同伴</button></div></div> : <><div className="inline-connection-toolbar"><label htmlFor={`trickster-partner-code-${assignment.id}`}>暗号匹配后，输入对方玩家编号</label><button type="button" className="inline-directory-button" onClick={() => void openPlayerDirectory()}>查询玩家</button></div><div><input id={`trickster-partner-code-${assignment.id}`} value={connectionTargetCode} onChange={(event) => { setConnectionTargetCode(normalizePlayerCode(event.target.value)); setConnectionFeedback((current) => ({ ...current, TRICKSTER_CONNECTION: undefined })); }} maxLength={5} placeholder="例如 K7M4" autoCapitalize="characters" autoCorrect="off" spellCheck={false}/><button disabled={busy || offline || missionStory.tricksterAttemptsUsed >= missionStory.tricksterMaxAttempts || !isPlayerCode(connectionTargetCode)} onClick={() => void connectPlayer('TRICKSTER_CONNECTION')}>秘密确认</button></div>{tricksterRelationship?.status === 'PENDING' && tricksterRelationship.confirmedByMe && <p>已提交，等待 {tricksterRelationship.partnerName} 接受。</p>}<p>最多尝试 {missionStory.tricksterMaxAttempts} 次验证。</p></>}{feedback && <div className={`inline-feedback ${feedback.kind}`} role={feedback.kind === 'error' ? 'alert' : 'status'}><span>{feedback.text}</span><button type="button" aria-label="关闭提示" onClick={() => setConnectionFeedback((current) => ({ ...current, TRICKSTER_CONNECTION: undefined }))}>×</button></div>}</div>}</section>;
   }
 
   return <main className={`dashboard-shell ${usesTricksterFacade && secretReaderOpen ? 'trickster-dashboard-revealed' : ''}`}>
     <section className={`mission-hero ${usesTricksterFacade && secretReaderOpen ? 'trickster-real-hero' : ''}`}>
       <div className="eyebrow">丘比特的婚礼考验</div>
-      <div className="hero-line"><div className="guest-hero-profile"><button type="button" className="guest-avatar-button" aria-label="更新我的玩家头像" onClick={() => setAvatarEditorOpen(true)}><img src={data.guest.avatar_url} alt="我的玩家头像"/></button><div><span className="team-chip">{isHonorGuest ? data.guest.special_card_title || '亲爱的家人' : data.guest.team}</span><h1>{data.guest.name}</h1></div></div><button type="button" className="score-orb" aria-label={`查看我的积分流水，当前 ${data.guest.points} 分`} onClick={() => setScoreLedgerOpen(true)}><strong>{data.guest.points}</strong><small>积分明细</small></button></div>
+      <div className="hero-line"><div className="guest-hero-profile"><button type="button" className="guest-avatar-button" aria-label="更新我的玩家头像" onClick={() => setAvatarEditorOpen(true)}><img src={data.guest.avatar_url} alt="我的玩家头像"/></button><div><span className="team-chip">{isHonorGuest ? data.guest.special_card_title || '亲爱的家人' : data.guest.team}</span><h1>{data.guest.name}</h1></div></div>{!isHonorGuest && <button type="button" className="score-orb" aria-label={`查看我的积分流水，当前 ${data.guest.points} 分`} onClick={() => setScoreLedgerOpen(true)}><strong>{data.guest.points}</strong><small>积分明细</small></button>}</div>
       <div className="hero-player-code"><div><small>我的玩家编号</small><strong>{data.guest.player_code}</strong></div><div className="hero-code-actions"><button type="button" className={playerCodeCopied ? 'copied' : ''} onClick={() => { void navigator.clipboard?.writeText(data.guest.player_code); setPlayerCodeCopied(true); window.setTimeout(() => setPlayerCodeCopied(false), 1800); }}>{playerCodeCopied ? '已复制 ✓' : '复制'}</button><button type="button" onClick={() => void openPlayerDirectory()}>宾客列表</button></div></div>
       <div className={`identity-strip ${identityVisible || (usesTricksterFacade && secretReaderOpen) ? 'visible' : 'concealed'} ${isTrickster && identityVisible && !data.game?.results_visible && (!usesTricksterFacade || secretReaderOpen) ? 'trickster-identity' : ''} ${usesTricksterFacade && secretReaderOpen ? 'trickster-real-identity' : ''}`}>
         <div className="identity-strip-heading">
@@ -1098,10 +1155,11 @@ export default function GuestPage() {
       <div className="stage-card" id="guest-stage"><small>当前婚礼环节</small><strong>{stage.label}</strong><p className="stage-default-prompt">{stage.note}</p>{data.game?.phase_note && <div className="stage-live-note"><b>主办方最新提示</b><span>{data.game.phase_note}</span></div>}{dinnerMenuVisible && <button type="button" className="dinner-menu-entry" aria-haspopup="dialog" onClick={() => setDinnerMenuOpen(true)}><span aria-hidden="true">♧</span><span><small>DINNER MENU</small><strong>查看今日菜单</strong></span><b aria-hidden="true">→</b></button>}</div>
     </section>
     {offline && <div className="connection-banner offline" role="status">离线只读模式 · 已显示最近同步的任务，提交和投票暂不可用</div>}
-    {message && <div className="notice success" aria-live="polite">{message}</div>}{error && <div className="notice error" aria-live="polite">{error}</div>}
+    {message && <div className="notice success dismissible" aria-live="polite"><span>{message}</span><button type="button" className="notice-dismiss" aria-label="关闭提示" onClick={() => setMessage('')}>×</button></div>}{error && <div className="notice error dismissible" aria-live="polite"><span>{error}</span><button type="button" className="notice-dismiss" aria-label="关闭提示" onClick={() => setError('')}>×</button></div>}
     {usesTricksterFacade && secretReaderOpen && <section className="trickster-real-mode-banner" aria-live="polite"><div><small>TRUE VIEW ACTIVE</small><strong>真实界面已展开</strong><p>页面内容已原地替换为真正信息。切换应用、锁屏或离开页面时会自动恢复伪装。</p></div><button type="button" onClick={() => setSecretReaderOpen(false)}>隐藏并恢复伪装</button></section>}
     {isActivePlayer && <section className={`guest-primary-action ${primaryAction.tone}`} aria-label="现在请做"><div><small>现在请做</small><strong>{primaryAction.label}</strong><p>{primaryAction.detail}</p></div><button type="button" onClick={focusPrimaryAction}>{primaryAction.button}<span aria-hidden="true">→</span></button></section>}
-    {isActivePlayer && data.phaseTwo?.isCaptain && data.phaseTwo.unlockedAt && <section className="captain-public-note"><small>LEADING STAR</small><strong>你是本队的领航星队长</strong><p>这是可以公开的身份。你可以主动告诉队友，并在团队环节组织协作。</p></section>}
+    {isActivePlayer && data.phaseTwo?.isCaptain && data.phaseTwo.unlockedAt && data.phaseTwo.originVerified && <section className="captain-public-note"><small>LEADING STAR</small><strong>你是本队的领航星队长</strong><p>这是可以公开的身份。你可以主动告诉队友，并在团队环节组织协作。</p></section>}
+    {isActivePlayer && isTricksterGuest && secretReaderOpen && data.phaseTwo?.unlockedAt && trueTricksterAssignments.some((assignment) => assignment.status === 'approved') && <section className="section-card trickster-power-note"><small>SECRET POWER UNLOCKED</small><strong>额外一票已经解锁</strong><p>你已完成恶作剧者任务。最终投票时仍只选择一位玩家，但系统会将你的选择按 2 票计算；身份揭晓前请继续保密。</p></section>}
     {isActivePlayer && data.game?.stage === 'task_round_1' && <div className="connection-banner ceremony-pause" role="status">婚礼仪式进行中 · 照片上传、任务提交和玩家确认暂时暂停，仪式结束后会自动恢复。</div>}
     {teamScores.length > 0 && <section className="section-card guest-team-score-card"><div className="section-heading"><div><small>TEAM SCORE</small><h2>团队实时积分</h2></div><span>LIVE</span></div><p className="muted">团队环节已开放，分数会随主持人现场计分自动更新。</p><div className="guest-team-score-grid">{teamScores.map((team, index) => <article className={team.team === data.guest.team ? 'mine' : ''} key={team.team}><small>第 {index + 1} 名</small><strong>{team.team}</strong><b>{team.points} 分</b>{team.team === data.guest.team && <span>我的团队</span>}</article>)}</div></section>}
     {rankedReward && <section className="reward-banner"><small>EARLY COMPLETION HONOR</small><strong>你是第 {rankedReward.completion_rank} 位完成首轮任务的宾客</strong><p>{rankedReward.reward_task_id && rankedReward.reward_clue_id ? `升级任务、${rankedReward.early_bonus_points ? '额外 1 分和' : ''}一条秘密线索已经发放。` : rankedReward.reward_task_id ? '升级任务已经发放，将在第二轮开放。' : '你的首轮任务已经记录。'}</p></section>}
