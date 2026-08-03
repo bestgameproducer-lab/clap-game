@@ -99,3 +99,26 @@ export async function compressProfileAvatar(file: File, mirrorHorizontally = fal
   }
   throw new Error('头像仍然过大，请截图后重新上传');
 }
+
+export async function captureSelfieFrame(video: HTMLVideoElement) {
+  const sourceWidth = video.videoWidth;
+  const sourceHeight = video.videoHeight;
+  if (!sourceWidth || !sourceHeight || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+    throw new Error('相机画面还没准备好，请稍等一秒再拍');
+  }
+  const sourceSize = Math.min(sourceWidth, sourceHeight);
+  const sourceX = Math.max(0, Math.round((sourceWidth - sourceSize) / 2));
+  const sourceY = Math.max(0, Math.round((sourceHeight - sourceSize) / 2));
+  const canvas = document.createElement('canvas');
+  canvas.width = AVATAR_DIMENSION;
+  canvas.height = AVATAR_DIMENSION;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('当前浏览器无法保存相机画面，请改用系统相机');
+  // The live front-camera video is intentionally mirrored in CSS. Apply the
+  // same transform to the captured pixels so the saved avatar is exactly what
+  // the guest saw when pressing the shutter.
+  context.translate(AVATAR_DIMENSION, 0);
+  context.scale(-1, 1);
+  context.drawImage(video, sourceX, sourceY, sourceSize, sourceSize, 0, 0, AVATAR_DIMENSION, AVATAR_DIMENSION);
+  return canvasBlob(canvas, 0.82);
+}
