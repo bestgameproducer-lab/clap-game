@@ -53,3 +53,12 @@ test('the dashboard avatar remains prominent beside the guest name', async () =>
   assert.match(styles, /\.guest-avatar-button\{[^}]*width:76px;height:76px;min-width:76px/);
   assert.match(styles, /@media\(max-width:420px\)\{\.guest-hero-profile\{gap:12px\}\.guest-avatar-button\{width:70px;height:70px;min-width:70px/);
 });
+
+test('registration consistently presents four steps before and during selfie setup', async () => {
+  const page = await read('app/guest/page.tsx');
+  assert.match(page, /className="step-row" aria-label="注册共四步"[\s\S]*<span>4<\/span>/);
+  assert.match(page, /className="step-row avatar-registration-progress" aria-label="注册共四步，当前第四步"/);
+  assert.match(page, /<span className="done">1<\/span>[\s\S]*<span className="done">3<\/span>[\s\S]*<span className="active">4<\/span>/);
+  assert.match(page, /设置密码 · 下一步/);
+  assert.doesNotMatch(page, /设置密码 · 开始抽卡|avatar-step-row/);
+});
