@@ -58,6 +58,14 @@ test('trickster signals start in phase one and use the configurable five-attempt
   assert.match(route, /assertSameOrigin\(request\)/);
   assert.match(route, /const guestId = await requireGuest\(\)/);
   assert.match(route, /requiredPlayerCode\(body\.targetCode\)/);
+  const guestPage = await readFile(guestPageUrl, 'utf8');
+  const runbook = await readFile(new URL('../docs/wedding-day-runbook.md', import.meta.url), 'utf8');
+  const acceptance = await readFile(new URL('../docs/acceptance-checklist.md', import.meta.url), 'utf8');
+  assert.match(guestPage, /整场婚礼最多尝试 \{missionStory\.tricksterMaxAttempts\} 次验证。不要直接暴露身份。/);
+  assert.doesNotMatch(guestPage, /最多试探 \{missionStory\.tricksterMaxAttempts\} 位宾客|不要连续询问/);
+  assert.match(runbook, /整场最多进行 5 次软件验证/);
+  assert.match(acceptance, /最多提交 5 次软件验证/);
+  assert.doesNotMatch(`${runbook}\n${acceptance}`, /最多试探三|最多试探五|不同宾客/);
 });
 
 test('alliance fragments and relationship details stay in authenticated DTOs', async () => {
