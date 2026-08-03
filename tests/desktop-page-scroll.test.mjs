@@ -9,8 +9,14 @@ const [guestPage, css] = await Promise.all([
 
 test('desktop pages keep native wheel and trackpad scrolling outside modal views', () => {
   assert.match(css, /html \{[^}]*overflow-y:auto/);
-  assert.match(css, /body \{[^}]*overscroll-behavior-y: auto;[^}]*touch-action:pan-y/);
+  assert.match(css, /body \{[^}]*overscroll-behavior-y: auto;[^}]*touch-action:pan-x pan-y pinch-zoom/);
   assert.match(css, /body:not\(\.modal-scroll-locked\) \{ overflow-y:auto!important; \}/);
+});
+
+test('menu and modal controls remain accessible on touch screens', () => {
+  assert.match(css, /\.dinner-menu-scroll \{[^}]*touch-action:pan-x pan-y pinch-zoom/);
+  assert.match(css, /\.score-ledger-dialog>header button,[\s\S]*\.new-content-dialog header button \{[\s\S]*min-width:44px;[\s\S]*min-height:44px/);
+  assert.match(css, /\.dinner-menu-dialog>footer span,[\s\S]*\.score-ledger-dialog>footer small \{[\s\S]*font-size:11px/);
 });
 
 test('guest modal scroll locking is explicit and always cleaned up', () => {
