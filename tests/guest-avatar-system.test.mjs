@@ -47,3 +47,9 @@ test('avatar directory never exposes game-private guest fields', async () => {
   assert.match(directory, /\.not\('drawn_at', 'is', null\)/);
   assert.match(directory, /\.neq\('id', guestId\)/);
 });
+
+test('the dashboard avatar remains prominent beside the guest name', async () => {
+  const styles = await read('app/styles.css');
+  assert.match(styles, /\.guest-avatar-button\{[^}]*width:76px;height:76px;min-width:76px/);
+  assert.match(styles, /@media\(max-width:420px\)\{\.guest-hero-profile\{gap:12px\}\.guest-avatar-button\{width:70px;height:70px;min-width:70px/);
+});
