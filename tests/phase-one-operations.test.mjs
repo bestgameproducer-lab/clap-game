@@ -21,6 +21,8 @@ test('social missions support bounded mutual confirmation with atomic completion
   assert.match(guestPage, /renderMutualConfirmation\(assignment\)/);
   assert.match(guestPage, /className="inline-mutual-confirmation"/);
   assert.match(guestPage, /输入玩家编号/);
+  assert.match(guestPage, /assignment\.task\.mission_code !== 'P1-SOCIAL-001'/);
+  assert.match(guestPage, /选择或拍摄新郎新娘同框照片/);
   assert.match(guestPage, /📷 一起自拍/);
   assert.match(guestPage, /选择或拍摄合影/);
   assert.doesNotMatch(guestPage, /<h2>请新朋友确认<\/h2>/);
