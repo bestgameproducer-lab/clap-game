@@ -77,13 +77,13 @@ export async function getHostDashboardData() {
   const orderedGuests = [...(guests.data ?? [])].sort(compareWeddingGuests);
   const votingRound = game.data?.voting_round ?? 0;
   const eligibleGuests = orderedGuests
-    .filter((guest) => guest.eligible_for_personal_score && guest.drawn_at && ['海岛组', '沙漠组'].includes(guest.team))
+    .filter((guest) => guest.eligible_for_personal_score && guest.drawn_at)
     .map((guest) => ({
       id: guest.id,
       name: guest.name,
-      team: guest.participation_mode === 'HONOR_GUEST' ? '荣誉宾客' : guest.team,
+      team: guest.team,
       points: guest.points,
-      countsForTeam: guest.participation_mode === 'ACTIVE_PLAYER',
+      countsForTeam: guest.participation_mode === 'ACTIVE_PLAYER' && ['海岛组', '沙漠组'].includes(guest.team),
     }));
   const frozenTeamPoints = game.data?.team_score_snapshot && typeof game.data.team_score_snapshot === 'object'
     ? Object.entries(game.data.team_score_snapshot as Record<string, unknown>).map(([team, amount]) => ({ team, amount: Number(amount) || 0 }))

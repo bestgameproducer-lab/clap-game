@@ -17,7 +17,7 @@ export async function getPublicScoreboard() {
   }
 
   const [guestResult, assignmentResult, voteResult, teamPointResult] = await Promise.all([
-    db.from('guests').select('id,name,team,points,participation_mode').eq('eligible_for_personal_score', true).in('team', ['海岛组', '沙漠组']).not('drawn_at', 'is', null).order('name'),
+    db.from('guests').select('id,name,team,points,participation_mode').eq('active', true).eq('eligible_for_personal_score', true).not('drawn_at', 'is', null).order('name'),
     db.from('assignments').select('guest_id,status').eq('status', 'approved'),
     db.from('votes').select('voter_guest_id,target_guest_id,vote_weight,voter:guests!votes_voter_guest_id_fkey(id,name,team)').eq('voting_round', game.voting_round),
     db.from('team_points_ledger').select('team,amount'),
@@ -28,9 +28,9 @@ export async function getPublicScoreboard() {
   const scoreboardGuests = (guestResult.data ?? []).map((guest) => ({
     id: guest.id,
     name: guest.name,
-    team: guest.participation_mode === 'HONOR_GUEST' ? '荣誉宾客' : guest.team,
+    team: guest.team,
     points: guest.points,
-    countsForTeam: guest.participation_mode === 'ACTIVE_PLAYER',
+    countsForTeam: guest.participation_mode === 'ACTIVE_PLAYER' && ['海岛组', '沙漠组'].includes(guest.team),
   }));
   let revealedRoles: Array<{ id: string; name: string; team: string; role: string; is_hidden_spy: boolean }> = [];
   let awards: Array<{ id: string; title: string; winnerName: string; winnerTeam: string | null; reason: string }> = [];
