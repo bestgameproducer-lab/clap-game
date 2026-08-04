@@ -272,6 +272,28 @@ test('主控、主持人与公开大屏显示完整终局排名和实名投票�
   await expect(page.getByText('投票者A（2票）、投票者B')).toBeVisible();
   await expect(page.getByText('婚礼守护者')).toHaveCount(0);
 
+  await page.route('**/api/guest-me', (route) => route.fulfill({ json: {
+    ...guestData,
+    game: finalGame,
+    existingVote: 'final-1',
+    results: {
+      tricksters: finale.tricksters,
+      voteCounts: finale.voteCounts,
+      votedTargetId: 'final-1',
+      votedTargetName: '宾客1',
+      voteCorrect: true,
+      bonusPoints: 2,
+    },
+  } }));
+  await page.goto('/guest');
+  await acknowledgeGuestActivity(page);
+  const guestReveal = page.locator('.reveal-card');
+  await expect(guestReveal.getByRole('heading', { name: '恶作剧者揭晓' })).toBeVisible();
+  await expect(guestReveal.getByText('成功逃脱', { exact: true })).toBeVisible();
+  await expect(guestReveal.getByText('投票者A（2票）、投票者B')).toBeVisible();
+  await expect(guestReveal.getByText('婚礼守护者', { exact: true })).toHaveCount(0);
+  await expect(guestReveal.getByRole('link', { name: '查看全员最终积分排名' })).toHaveAttribute('href', '/scoreboard');
+
   await page.route('**/api/host-data', (route) => route.fulfill({ json: { ...hostData, game: finalGame, voteCount: 2, rankings: { personal, teams: [] }, finale } }));
   await page.goto('/host');
   await page.getByRole('button', { name: '流程控制', exact: true }).click();
