@@ -229,6 +229,17 @@ test('主控四个主入口及现场二级入口均可进入', async ({ page }) 
   const liveNavigation = page.getByRole('navigation', { name: '现场执行功能' });
   await liveNavigation.getByRole('button', { name: /任务审核/ }).click();
   await expect(page.getByRole('heading', { name: '待审核任务' })).toBeVisible();
+  await primaryNavigation.getByRole('button', { name: '婚礼设置', exact: true }).click();
+  const settingModules = page.locator('details.settings-module-card');
+  await expect(settingModules).toHaveCount(4);
+  for (const title of ['任务库管理', '团队线索库', '自由图案配对', '隐藏任务实体卡']) {
+    const module = settingModules.filter({ hasText: title });
+    await expect(module).not.toHaveAttribute('open', '');
+  }
+  const taskLibrary = settingModules.filter({ hasText: '任务库管理' });
+  await taskLibrary.getByText('任务库管理', { exact: true }).click();
+  await expect(taskLibrary).toHaveAttribute('open', '');
+  await expect(taskLibrary.getByLabel('选择任务或新建')).toBeVisible();
   expect(errors).toEqual([]);
 });
 
