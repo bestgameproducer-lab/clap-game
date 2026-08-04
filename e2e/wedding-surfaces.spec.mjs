@@ -111,6 +111,43 @@ test('宾客真实主页可浏览任务、团队积分并支持桌面滚动', as
   expect(errors).toEqual([]);
 });
 
+test('恶作剧者完成真正任务后在真实界面看到已生效的额外一票', async ({ page }) => {
+  const errors = collectPageErrors(page);
+  const tricksterData = {
+    ...guestData,
+    guest: { ...guest, role: 'spy', name: '测试恶作剧者' },
+    assignments: [{
+      ...guestData.assignments[0],
+      id: 'trickster-signal-assignment',
+      status: 'approved',
+      task: {
+        title: '寻找恶作剧者同伴', description: '使用秘密暗号寻找同伴。', verification_method: '恶作剧者双方确认。',
+        points: 0, category: 'hidden', stage: 'task_round_1', mission_code: 'P1-TRICKSTER-001', mechanic: 'TRICKSTER_SIGNAL', score_policy: 'NO_PERSONAL',
+      },
+    }],
+    missionStory: {
+      ...guestData.missionStory,
+      relationships: [{ id: 'trickster-connection', type: 'TRICKSTER_CONNECTION', status: 'ACTIVE', partnerName: '另一位恶作剧者', confirmedByMe: true, confirmedByPartner: true, activatedAt: '2026-08-01T13:00:00.000Z' }],
+    },
+    phaseTwo: {
+      mission: 'TRICKSTER', extraVote: false, superLucky: false, isCaptain: false,
+      unlockedAt: '2026-08-01T13:30:00.000Z', phaseOnePointsSnapshot: 0,
+      luckySettled: false, captainSettled: false, originVerified: true,
+      dilemma: null, copyChoice: null, copyCandidates: [],
+    },
+  };
+  await page.route('**/api/guest-me', (route) => route.fulfill({ json: tricksterData }));
+  await page.route('**/api/registration/guests', (route) => route.fulfill({ json: { guests: [], registrationOpen: false } }));
+  await page.goto('/guest');
+  await acknowledgeGuestActivity(page);
+
+  await expect(page.getByText('额外一票已解锁')).toHaveCount(0);
+  await page.getByRole('button', { name: '展开查看' }).click();
+  await expect(page.getByText('额外一票已解锁', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/系统会立即将你的选择按 2 票保存/)).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test('首次登录宾客完成婚礼自拍后才能进入游戏', async ({ page }) => {
   let avatarConfirmed = false;
   let uploadedAvatarSignature = null;
