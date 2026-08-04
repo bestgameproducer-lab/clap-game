@@ -132,8 +132,9 @@ export async function getAdminDashboardData() {
     vote_weight: vote.vote_weight,
     voter: Array.isArray(vote.voter) ? vote.voter[0] ?? null : vote.voter,
   }));
-  const rankingGuests = guests.filter((guest) => guest.eligible_for_personal_score && guest.drawn_at && ['海岛组', '沙漠组'].includes(guest.team)).map((guest) => ({
-    id: guest.id, name: guest.name, team: guest.team, points: guest.points, countsForTeam: true,
+  const rankingGuests = guests.filter((guest) => guest.active && guest.eligible_for_personal_score && guest.drawn_at).map((guest) => ({
+    id: guest.id, name: guest.name, team: guest.team, points: guest.points,
+    countsForTeam: guest.participation_mode === 'ACTIVE_PLAYER' && ['海岛组', '沙漠组'].includes(guest.team),
   }));
   const tricksters = guests.filter((guest) => guest.drawn_at && (guest.role === 'spy' || guest.is_hidden_spy) && ['海岛组', '沙漠组'].includes(guest.team));
   const undetectedTricksterIds = game?.results_visible ? findUndetectedTricksterIds(rankingGuests, currentRoundVotes, tricksters) : new Set<string>();

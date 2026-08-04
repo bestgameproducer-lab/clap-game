@@ -249,10 +249,10 @@ test('主持人可以进入团队、个人和流程控制台', async ({ page }) 
 
 test('主控、主持人与公开大屏显示完整终局排名和实名投票来源', async ({ page }) => {
   const errors = collectPageErrors(page);
-  const personal = Array.from({ length: 20 }, (_, index) => ({
+  const personal = [...Array.from({ length: 20 }, (_, index) => ({
     id: `final-${index + 1}`, name: `宾客${index + 1}`, team: index % 2 ? '海岛组' : '沙漠组',
     points: 20 - index, completedTasks: 2, undetectedTrickster: index === 0,
-  }));
+  })), { id: 'family-final', name: '家人嘉宾', team: '家人组', points: 7, completedTasks: 1, undetectedTrickster: false }];
   const finale = {
     tricksters: [{ id: 'final-1', name: '宾客1', team: '沙漠组', escaped: true }, { id: 'final-2', name: '宾客2', team: '海岛组', escaped: false }],
     voteCounts: [{ id: 'final-1', name: '宾客1', team: '沙漠组', votes: 3, voters: [
@@ -271,6 +271,8 @@ test('主控、主持人与公开大屏显示完整终局排名和实名投票�
   await expect(page.getByText('成功逃脱 · 完美伪装')).toBeVisible();
   await expect(page.getByText('投票者A（2票）、投票者B')).toBeVisible();
   await expect(page.getByText('婚礼守护者')).toHaveCount(0);
+  await expect(page.getByText('家人嘉宾', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '家人组' })).toHaveCount(0);
 
   await page.route('**/api/guest-me', (route) => route.fulfill({ json: {
     ...guestData,
@@ -299,6 +301,7 @@ test('主控、主持人与公开大屏显示完整终局排名和实名投票�
   await page.getByRole('button', { name: '流程控制', exact: true }).click();
   await expect(page.getByRole('heading', { name: '完整最终积分排名' })).toBeVisible();
   await expect(page.getByText('宾客20')).toBeVisible();
+  await expect(page.getByText('家人嘉宾', { exact: true })).toBeVisible();
 
   await page.route('**/api/admin-data', (route) => route.fulfill({ json: { ...adminData, game: finalGame, rankings: { personal, teams: [] }, finale } }));
   await page.goto('/admin');
@@ -306,6 +309,7 @@ test('主控、主持人与公开大屏显示完整终局排名和实名投票�
   await expect(page.getByRole('heading', { name: '完整最终个人积分排名' })).toBeVisible();
   await expect(page.getByText('投票者A（2票）、投票者B')).toBeVisible();
   await expect(page.getByText('宾客20')).toBeVisible();
+  await expect(page.getByText('家人嘉宾', { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
 

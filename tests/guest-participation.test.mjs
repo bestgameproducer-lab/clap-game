@@ -56,8 +56,9 @@ test('honor guests draw a dedicated family surprise instead of a random task', a
   assert.match(revealRoute, /assertSameOrigin\(request\)/);
   assert.match(revealRoute, /await requireGuest\(\)/);
   assert.match(guestData, /reveal_honor_special_card/);
-  assert.match(publicData, /eligible_for_personal_score', true\)\.in\('team', \['海岛组', '沙漠组'\]\)\.not\('drawn_at', 'is', null\)/);
-  assert.match(publicData, /guest\.participation_mode === 'HONOR_GUEST' \? '荣誉宾客'/);
+  assert.match(publicData, /eq\('active', true\)\.eq\('eligible_for_personal_score', true\)\.not\('drawn_at', 'is', null\)/);
+  assert.match(publicData, /team: guest\.team/);
+  assert.match(publicData, /countsForTeam: guest\.participation_mode === 'ACTIVE_PLAYER' && \['海岛组', '沙漠组'\]\.includes\(guest\.team\)/);
   assert.match(guestData, /participation_mode !== 'ACTIVE_PLAYER'/);
 });
 

@@ -61,13 +61,13 @@ test('counts an exclusive extra-vote card as two votes after reveal', () => {
 
 test('honor guests can rank personally without creating a placeholder team', () => {
   const result = buildPublicScoreboard([
-    { id: 'family', name: 'Family', team: '荣誉宾客', points: 8, countsForTeam: false },
+    { id: 'family', name: 'Family', team: '家人组', points: 8, countsForTeam: false },
     { id: 'player', name: 'Player', team: '玫瑰组', points: 2 },
   ], [], []);
 
   assert.equal(result.leaders[0].name, 'Family');
-  assert.equal(result.leaders[0].team, '荣誉宾客');
-  assert.equal(result.teams.some((team) => team.team === '荣誉宾客'), false);
+  assert.equal(result.leaders[0].team, '家人组');
+  assert.equal(result.teams.some((team) => team.team === '家人组'), false);
   assert.deepEqual(result.teams[0], { team: '玫瑰组', points: 0, guests: 1, completedTasks: 0 });
 });
 
