@@ -2,10 +2,10 @@ import 'server-only';
 import { ApiError } from '../errors';
 import { buildGuestPointLedger, buildGuestTeamScores } from '../guest-score-core';
 import { isAssignmentVisibleAtStage } from '../game-rules';
-import { buildPublishedTeamResults } from '../result-core';
 import { getSupabaseAdmin } from '../supabase';
 import { signAvatarPaths } from './avatar';
 import { signEvidencePaths } from './evidence';
+import { getPublicScoreboard } from './public';
 
 async function consumePlayerCodeAttempt(guestId: string) {
   const { data, error } = await getSupabaseAdmin().rpc('consume_player_code_attempt', { p_guest_id: guestId });
@@ -233,23 +233,36 @@ export async function getGuestView(guestId: string) {
   });
   const signedVisibleAssignments = await signEvidencePaths(visibleAssignments);
   let publishedResults: null | {
-    teamMembers: Array<{ id: string; name: string; role: string; is_hidden_spy: boolean }>;
+    tricksters: Array<{ id: string; name: string; team: string; escaped: boolean }>;
+    voteCounts: Array<{ id: string; name: string; team: string; votes: number; voters: Array<{ id: string; name: string; team: string; votes: number }> }>;
     votedTargetId: string | null;
     votedTargetName: string | null;
     voteCorrect: boolean | null;
     bonusPoints: number;
   } = null;
   if (game.results_visible) {
-    const [{ data: teamMembers, error: revealError }, { data: rewards, error: rewardError }] = await Promise.all([
-      db.from('guests').select('id,name,role,is_hidden_spy').eq('team', guest.team).not('drawn_at', 'is', null).order('name'),
+    const [{ data: rewards, error: rewardError }, publicScoreboard] = await Promise.all([
       db.from('result_rewards').select('amount').eq('guest_id', guestId),
+      getPublicScoreboard(),
     ]);
-    if (revealError || rewardError) throw new Error(`Unable to load published results: ${revealError?.message ?? rewardError?.message}`);
+    if (rewardError) throw new Error(`Unable to load published results: ${rewardError.message}`);
     const votedTargetId = results[3].data?.target_guest_id ?? null;
-    const baseResults = buildPublishedTeamResults(teamMembers ?? [], votedTargetId, true);
-    if (!baseResults) throw new Error('Unable to build published results');
+    const votedTarget = publicScoreboard.revealedRoles.find((candidate) => candidate.id === votedTargetId) ?? null;
     publishedResults = {
-      ...baseResults,
+      tricksters: publicScoreboard.revealedRoles.map((candidate) => ({
+        id: candidate.id,
+        name: candidate.name,
+        team: candidate.team,
+        escaped: candidate.escaped,
+      })),
+      voteCounts: publicScoreboard.voteCounts,
+      votedTargetId,
+      votedTargetName: votedTargetId
+        ? publicScoreboard.voteCounts.find((candidate) => candidate.id === votedTargetId)?.name
+          ?? publicScoreboard.revealedRoles.find((candidate) => candidate.id === votedTargetId)?.name
+          ?? '已投票宾客'
+        : null,
+      voteCorrect: votedTargetId ? Boolean(votedTarget) : null,
       bonusPoints: (rewards ?? []).reduce((sum, reward) => sum + reward.amount, 0),
     };
   }
