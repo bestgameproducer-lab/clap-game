@@ -47,12 +47,14 @@ test('avatar upload is authenticated, same-origin, compressed, and server-confir
   assert.match(page, /prepareAvatar\(file: File \| null, mirrorHorizontally = false\)/);
   assert.match(client, /export async function captureSelfieFrame/);
   const cameraCapture = client.slice(client.indexOf('export async function captureSelfieFrame'));
-  assert.doesNotMatch(cameraCapture, /context\.translate\(AVATAR_DIMENSION, 0\)/);
-  assert.doesNotMatch(cameraCapture, /context\.scale\(-1, 1\)/);
+  assert.match(cameraCapture, /context\.translate\(AVATAR_DIMENSION, 0\)/);
+  assert.match(cameraCapture, /context\.scale\(-1, 1\)/);
   assert.match(page, /navigator\.mediaDevices\.getUserMedia/);
   assert.match(page, /facingMode: 'user'/);
   assert.match(page, /aria-label="实时自拍取景画面"/);
-  assert.match(page, /自拍按相机原始方向保存，不会自动镜像/);
+  assert.match(page, /网页自拍会保持取景时看到的方向/);
+  assert.match(page, /aria-label="重新拍摄婚礼自拍"/);
+  assert.match(page, /async function retakeAvatar\(\)[\s\S]*await openAvatarCamera\(\)/);
   assert.match(page, /从相册选择/);
   assert.match(page, /void prepareAvatar\(file, false\)/);
   assert.match(config, /camera=\(self\)/);
