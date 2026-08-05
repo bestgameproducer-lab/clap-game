@@ -8,7 +8,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test tests/*.test.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:review": "node scripts/run-wedding-review-pack.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.0",

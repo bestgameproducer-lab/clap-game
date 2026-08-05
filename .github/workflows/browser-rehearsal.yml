@@ -19,3 +19,12 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run test:e2e
+      - run: npm run test:e2e:review
+      - name: Upload wedding review screenshot pack
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wedding-review-pack-${{ github.run_number }}
+          path: artifacts/wedding-review-pack/
+          if-no-files-found: warn
+          retention-days: 30
