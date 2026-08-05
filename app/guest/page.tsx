@@ -619,6 +619,12 @@ export default function GuestPage() {
     } finally { setAvatarCameraBusy(false); }
   }
 
+  async function retakeAvatar() {
+    // Keep the approved draft until a replacement frame is actually captured.
+    // If camera permission fails or the guest cancels, the existing photo stays.
+    await openAvatarCamera();
+  }
+
   async function captureAvatarFromCamera() {
     const video = avatarVideoRef.current;
     if (!video) return;
@@ -903,7 +909,7 @@ export default function GuestPage() {
       <h1>{data.guest.avatar_url ? <>更新你的<br/>婚礼头像</> : <>拍一张开心的<br/>婚礼自拍</>}</h1>
       <p>{data.guest.avatar_url ? '重新拍摄后会替换现在的头像，玩家编号和游戏进度都不会改变。' : '这张照片会成为你的玩家头像，让其他宾客在编号验证列表里更容易认出你。'}</p>
       {error && <div className="notice error" role="alert">{error}</div>}
-      {avatarCameraOpen ? <div className="avatar-camera-live"><video ref={avatarVideoRef} autoPlay muted playsInline aria-label="实时自拍取景画面"/><div><button type="button" disabled={avatarPreparing} onClick={() => void captureAvatarFromCamera()}>拍下这张</button><button type="button" className="text-button" disabled={avatarPreparing} onClick={stopAvatarCamera}>取消</button></div></div> : avatarPreview ? <div className="avatar-capture has-photo"><img src={avatarPreview} alt="待上传的婚礼自拍预览"/></div> : data.guest.avatar_url ? <div className="avatar-capture has-photo"><img src={data.guest.avatar_url} alt="当前玩家头像"/></div> : <button type="button" className="avatar-capture avatar-camera-trigger" disabled={avatarCameraBusy} onClick={() => void openAvatarCamera()}><span aria-hidden="true">☺</span><strong>{avatarCameraBusy ? '正在打开相机…' : '打开自拍相机'}</strong><small>画面里看到什么，拍下后就是什么方向</small></button>}
+      {avatarCameraOpen ? <div className="avatar-camera-live"><video ref={avatarVideoRef} autoPlay muted playsInline aria-label="实时自拍取景画面"/><div><button type="button" disabled={avatarPreparing} onClick={() => void captureAvatarFromCamera()}>拍下这张</button><button type="button" className="text-button" disabled={avatarPreparing} onClick={stopAvatarCamera}>取消</button></div></div> : avatarPreview ? <button type="button" className="avatar-capture has-photo avatar-retake-trigger" disabled={avatarBusy || avatarPreparing || avatarCameraBusy} aria-label="重新拍摄婚礼自拍" onClick={() => void retakeAvatar()}><img src={avatarPreview} alt="待上传的婚礼自拍预览"/><span>轻触重新拍摄</span></button> : data.guest.avatar_url ? <div className="avatar-capture has-photo"><img src={data.guest.avatar_url} alt="当前玩家头像"/></div> : <button type="button" className="avatar-capture avatar-camera-trigger" disabled={avatarCameraBusy} onClick={() => void openAvatarCamera()}><span aria-hidden="true">☺</span><strong>{avatarCameraBusy ? '正在打开相机…' : '打开自拍相机'}</strong><small>像照镜子一样取景，拍下后保持相同方向</small></button>}
       {!avatarCameraOpen && !avatarPreview && data.guest.avatar_url && <button type="button" className="secondary" disabled={avatarCameraBusy} onClick={() => void openAvatarCamera()}>{avatarCameraBusy ? '正在打开相机…' : '重新打开自拍相机'}</button>}
       <input id="guest-avatar-camera-photo" className="avatar-file-input" type="file" accept="image/*" capture="user" disabled={avatarBusy || avatarPreparing} onChange={(event) => {
         const file = event.currentTarget.files?.[0] ?? null;
@@ -916,9 +922,10 @@ export default function GuestPage() {
         void prepareAvatar(file, false);
       }}/>
       {!avatarCameraOpen && <div className="avatar-file-fallbacks"><label className="text-button avatar-file-fallback" htmlFor="guest-avatar-camera-photo">使用系统相机</label><label className="text-button avatar-file-fallback" htmlFor="guest-avatar-library-photo">从相册选择</label></div>}
+      {avatarPreview && <button type="button" className="secondary avatar-retake-button" disabled={avatarBusy || avatarPreparing || avatarCameraBusy} onClick={() => void retakeAvatar()}>{avatarCameraBusy ? '正在重新打开相机…' : '重新拍摄'}</button>}
       {avatarPreview && <button type="button" className="text-button avatar-flip-button" disabled={avatarBusy || avatarPreparing || !avatarSourceFile} onClick={() => void prepareAvatar(avatarSourceFile, !avatarMirrored)}>照片左右反了？点此翻转</button>}
       <button type="button" disabled={!avatarImage || avatarBusy || avatarPreparing} onClick={() => void uploadAvatar()}>{avatarPreparing ? '正在保持照片方向…' : avatarBusy ? '正在上传你的头像…' : avatarPreview ? '就用这张 · 进入婚礼游戏' : '请先拍一张自拍'}</button>
-      <small className="avatar-privacy">自拍按相机原始方向保存，不会自动镜像。头像只向已登录的婚礼宾客短时展示。</small>
+      <small className="avatar-privacy">网页自拍会保持取景时看到的方向；系统相机和相册照片以确认预览为准。头像只向已登录的婚礼宾客短时展示。</small>
       {data.guest.avatar_url && <button type="button" className="text-button" disabled={avatarBusy || avatarPreparing} onClick={() => { stopAvatarCamera(); setAvatarEditorOpen(false); setAvatarImage(null); setAvatarSourceFile(null); setAvatarPreview(''); setError(''); }}>保留原头像 · 返回游戏</button>}
       <button type="button" className="text-button" disabled={avatarBusy || avatarPreparing || busy} onClick={() => { stopAvatarCamera(); void logout(); }}>退出此身份</button>
     </section>
