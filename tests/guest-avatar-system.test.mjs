@@ -36,7 +36,8 @@ test('avatar upload is authenticated, same-origin, compressed, and server-confir
   assert.match(avatarCompressor, /const image = await loadBrowserImageElement\(file\)/);
   assert.doesNotMatch(avatarCompressor, /const image = await loadBrowserImage\(file\)/);
   assert.match(avatarCompressor, /if \(mirrorHorizontally\)[\s\S]*context\.translate\(AVATAR_DIMENSION, 0\)[\s\S]*context\.scale\(-1, 1\)/);
-  assert.match(page, /capture="user"/);
+  assert.doesNotMatch(page, /capture="user"/);
+  assert.doesNotMatch(page, /使用系统相机/);
   assert.match(page, /if \(!data\.guest\.avatar_url \|\| avatarEditorOpen\) return/);
   assert.match(page, /aria-label="更新我的玩家头像"/);
   assert.match(page, /拍一张开心的/);
@@ -53,6 +54,7 @@ test('avatar upload is authenticated, same-origin, compressed, and server-confir
   assert.match(page, /facingMode: 'user'/);
   assert.match(page, /aria-label="实时自拍取景画面"/);
   assert.match(page, /网页自拍会保持取景时看到的方向/);
+  assert.match(page, /相册照片以确认预览为准/);
   assert.match(page, /aria-label="重新拍摄婚礼自拍"/);
   assert.match(page, /async function retakeAvatar\(\)[\s\S]*await openAvatarCamera\(\)/);
   assert.match(page, /从相册选择/);

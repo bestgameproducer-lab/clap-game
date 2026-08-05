@@ -113,7 +113,7 @@ export async function captureSelfieFrame(video: HTMLVideoElement) {
   canvas.width = AVATAR_DIMENSION;
   canvas.height = AVATAR_DIMENSION;
   const context = canvas.getContext('2d');
-  if (!context) throw new Error('当前浏览器无法保存相机画面，请改用系统相机');
+  if (!context) throw new Error('当前浏览器无法保存相机画面，请从相册选择照片');
   // Front-camera preview is intentionally mirrored so positioning feels like a
   // familiar selfie camera. Canvas does not inherit the video's CSS transform,
   // so mirror the encoded pixels once as well: the approved JPEG then matches
