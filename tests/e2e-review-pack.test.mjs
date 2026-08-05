@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const [packageJson, workflow, baseConfig, reviewConfig, reviewSpec, runner, indexBuilder, gitignore] = await Promise.all([
+const [packageJson, workflow, baseConfig, reviewConfig, reviewSpec, runner, indexBuilder, mobileBuilder, gitignore] = await Promise.all([
   readFile(new URL('../package.json', import.meta.url), 'utf8'),
   readFile(new URL('../.github/workflows/browser-rehearsal.yml', import.meta.url), 'utf8'),
   readFile(new URL('../playwright.config.mjs', import.meta.url), 'utf8'),
@@ -10,6 +10,7 @@ const [packageJson, workflow, baseConfig, reviewConfig, reviewSpec, runner, inde
   readFile(new URL('../e2e/wedding-review-pack.spec.mjs', import.meta.url), 'utf8'),
   readFile(new URL('../scripts/run-wedding-review-pack.mjs', import.meta.url), 'utf8'),
   readFile(new URL('../scripts/build-wedding-review-index.mjs', import.meta.url), 'utf8'),
+  readFile(new URL('../scripts/build-wedding-review-mobile.mjs', import.meta.url), 'utf8'),
   readFile(new URL('../.gitignore', import.meta.url), 'utf8'),
 ]);
 
@@ -33,6 +34,11 @@ test('完整婚礼彩排生成可下载且不接触生产数据的截图验收�
   assert.match(indexBuilder, /index\.html/);
   assert.match(indexBuilder, /README\.md/);
   assert.match(indexBuilder, /left\.order - right\.order/);
+  assert.match(indexBuilder, /打开手机 PDF/);
+  assert.match(indexBuilder, /thumbs\//);
+  assert.match(runner, /build-wedding-review-mobile\.mjs/);
+  assert.match(mobileBuilder, /wedding-review-mobile\.pdf/);
+  assert.match(mobileBuilder, /page\.pdf/);
   assert.match(workflow, /actions\/upload-artifact@v4/);
   assert.match(workflow, /wedding-review-pack-\$\{\{ github\.run_number \}\}/);
   assert.match(gitignore, /artifacts\/wedding-review-pack\//);

@@ -51,6 +51,12 @@ const testResult = spawnSync(runner, ['playwright', 'test', '--config=playwright
 });
 if (testResult.status !== 0) process.exit(testResult.status ?? 1);
 
+const mobileResult = spawnSync(process.execPath, ['scripts/build-wedding-review-mobile.mjs', outputDirectory], {
+  cwd: repositoryRoot,
+  stdio: 'inherit',
+});
+if (mobileResult.status !== 0) process.exit(mobileResult.status ?? 1);
+
 const indexResult = spawnSync(process.execPath, ['scripts/build-wedding-review-index.mjs', outputDirectory], {
   cwd: repositoryRoot,
   stdio: 'inherit',
