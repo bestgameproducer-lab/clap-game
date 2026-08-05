@@ -20,6 +20,7 @@ test('完整婚礼彩排生成可下载且不接触生产数据的截图验收�
   assert.match(reviewConfig, /review-desktop/);
   assert.match(baseConfig, /testIgnore: 'wedding-review-pack\.spec\.mjs'/);
   assert.match(reviewConfig, /testIgnore: \[\]/);
+  assert.match(reviewConfig, /timeout: 90_000/);
   for (const screenshot of [
     '01-home-invitation', '02-invitation-gate', '03-guest-roster', '04-create-pin',
     '05-selfie-required', '06-card-draw-ready', '07-card-revealed', '08-round-one-task',
