@@ -6,3 +6,5 @@ node_modules
 .local/
 playwright-report/
 test-results/
+artifacts/wedding-review-pack/
+artifacts/wedding-review-pack.zip

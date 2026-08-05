@@ -2,6 +2,8 @@
 
 每项用真实手机完成；涉及秘密身份时由两名测试者互相观察是否会泄露。
 
+自动化视觉复核：运行 `npm run test:e2e:review` 会使用隔离测试数据生成 `artifacts/wedding-review-pack/`。打开其中的 `index.html` 可按婚礼时间线审阅宾客端、主控端、主持人端、任务站和公开终局截图；该流程不会连接或修改生产 Supabase。Pull Request 的 Browser rehearsal 也会上传同名截图包，保留 30 天。
+
 ## 宾客入口
 
 - [ ] 邀请码错误时看不到宾客名单。
