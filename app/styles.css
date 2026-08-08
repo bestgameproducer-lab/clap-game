@@ -61,6 +61,7 @@ th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #eadfd6; 
 .reward-banner small { color:#98755f; font-size:10px; font-weight:900; letter-spacing:.15em; }
 .reward-banner strong { margin:5px 0; font:500 20px Georgia,'Noto Serif SC',serif; }
 .reward-banner p { margin:0; color:#83736a; font-size:12px; }
+.reward-banner button{width:auto;min-height:34px;margin:12px 0 0;padding:8px 13px;background:#765044;font-size:11px;box-shadow:none}.reward-chip{display:flex;align-items:center;gap:9px;width:100%;min-height:0;margin:12px 0 0;padding:10px 13px;border:1px solid rgba(121,88,70,.14);border-radius:999px;background:rgba(255,252,248,.9);color:#6b5144;box-shadow:0 7px 20px rgba(74,53,39,.05);text-align:left}.reward-chip>span:first-child{display:grid;width:25px;height:25px;flex:0 0 auto;place-items:center;border:1px solid #d8bd91;border-radius:50%;background:#f8efe1;color:#9a7448}.reward-chip>span:nth-child(2){min-width:0;flex:1;font-size:11px;font-weight:750}.reward-chip>b{color:#98755f;font-size:10px}
 .guest-list { display: grid; gap: 8px; max-height: 330px; overflow: auto; padding: 4px 2px; margin-top: 10px; }
 button.guest-choice { margin: 0; border-radius: 15px; background: #f5eee8; color: #443832; padding: 12px 14px; justify-content: space-between; }
 .guest-choice span { text-align: left; }

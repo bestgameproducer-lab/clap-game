@@ -12,6 +12,7 @@ import { WeddingSignature } from '../wedding-signature';
 
 const GUEST_CACHE_KEY = 'wedding-guest-session-cache-v1';
 const ACTIVITY_ACK_KEY = 'wedding-guest-activity-ack-v2';
+const REWARD_ACK_KEY = 'wedding-guest-reward-ack-v1';
 const PENDING_CONNECTION_MESSAGE = '邀请已提交，等待对方打开页面接受。对方不需要再次输入你的编号。';
 const PENDING_ASSIGNMENT_MESSAGE = '任务已送到丘比特任务站，等待主办方确认。';
 const PENDING_VOTE_MESSAGE = '投票已提交并锁定。结果公布后会自动结算侦探积分。';
@@ -214,6 +215,7 @@ export default function GuestPage() {
   const [phaseTwoCopyTarget, setPhaseTwoCopyTarget] = useState('');
   const [expandedAssignments, setExpandedAssignments] = useState<Record<string, boolean>>({});
   const [completedMissionsOpen, setCompletedMissionsOpen] = useState(false);
+  const [rewardAcknowledged, setRewardAcknowledged] = useState(false);
   const [playerCodeCopied, setPlayerCodeCopied] = useState(false);
   const [avatarImage, setAvatarImage] = useState<Blob | null>(null);
   const [avatarSourceFile, setAvatarSourceFile] = useState<File | null>(null);
@@ -230,6 +232,16 @@ export default function GuestPage() {
   const manualRefreshRef = useRef(false);
   const refreshNoticeTimerRef = useRef<number | null>(null);
   const contentSnapshotRef = useRef<ActivitySnapshot | null>(null);
+
+  useEffect(() => {
+    const reward = data?.assignments.find((assignment) => assignment.is_initial && assignment.completion_rank !== null && assignment.completion_rank >= 1 && assignment.completion_rank <= 3 && assignment.early_bonus_points > 0);
+    if (!data || !reward) {
+      setRewardAcknowledged(false);
+      return;
+    }
+    const rewardKey = activityFingerprint(`${data.guest.id}:${reward.id}:${reward.completion_rank}`);
+    setRewardAcknowledged(window.localStorage.getItem(REWARD_ACK_KEY) === rewardKey);
+  }, [data]);
 
   const load = useCallback(async () => {
     const requestId = ++loadRequestRef.current;
@@ -1046,6 +1058,7 @@ export default function GuestPage() {
     ? { title: '丘比特的暗线恶作剧者', note: '你的阵营已经改变。请继续伪装成普通宾客，直到最终揭晓。' }
     : ROLE_LABELS[data.guest.role] ?? ROLE_LABELS.guest;
   const rankedReward = data.assignments.find((assignment) => assignment.is_initial && assignment.completion_rank !== null && assignment.completion_rank >= 1 && assignment.completion_rank <= 3 && assignment.early_bonus_points > 0);
+  const rankedRewardKey = rankedReward ? activityFingerprint(`${data.guest.id}:${rankedReward.id}:${rankedReward.completion_rank}`) : '';
   const missionStory = data.missionStory;
   const tricksterRelationship = missionStory?.relationships.find((relationship) => relationship.type === 'TRICKSTER_CONNECTION');
   const phaseOneInteractionsOpen = isPhaseOneInteractionOpenAtStage(data.game?.stage);
@@ -1224,7 +1237,8 @@ export default function GuestPage() {
     {isActivePlayer && isTricksterGuest && secretReaderOpen && tricksterSignalCompleted && <section className={`section-card trickster-power-note ${tricksterExtraVoteUnlocked ? 'active' : 'pending'}`} aria-live="polite"><small>{tricksterExtraVoteUnlocked ? 'SECRET POWER UNLOCKED' : 'SECRET POWER ACQUIRED'}</small><strong>{tricksterExtraVoteUnlocked ? '额外一票已解锁' : '真正任务完成 · 能力已获得'}</strong><p>{tricksterExtraVoteUnlocked ? '最终投票时仍只选择一位玩家，系统会立即将你的选择按 2 票保存；身份揭晓前请继续保密。' : '你已经找到恶作剧者同伴。婚宴前奏开启第二轮后，额外一票会自动解锁；身份揭晓前请继续保密。'}</p></section>}
     {isActivePlayer && data.game?.stage === 'task_round_1' && <div className="connection-banner ceremony-pause" role="status">婚礼仪式进行中 · 照片上传、任务提交和玩家确认暂时暂停，仪式结束后会自动恢复。</div>}
     {teamScores.length > 0 && <section className="section-card guest-team-score-card"><div className="section-heading"><div><small>TEAM SCORE</small><h2>团队实时积分</h2></div><span>LIVE</span></div><div className="guest-team-score-grid">{teamScores.map((team, index) => <article className={team.team === data.guest.team ? 'mine' : ''} key={team.team}><small>第 {index + 1} 名</small><strong>{team.team}</strong><b>{team.points} 分</b>{team.team === data.guest.team && <span>我的团队</span>}</article>)}</div><small className="team-score-sync-note">主持人现场计分后自动更新</small></section>}
-    {rankedReward && <section className="reward-banner"><small>EARLY COMPLETION HONOR</small><strong>你是第 {rankedReward.completion_rank} 位完成首轮任务的宾客</strong><p>抢先完成奖励：额外 1 分已经计入你的个人积分。</p></section>}
+    {rankedReward && !rewardAcknowledged && <section className="reward-banner" aria-live="polite"><small>EARLY COMPLETION HONOR</small><strong>你是第 {rankedReward.completion_rank} 位完成首轮任务的宾客</strong><p>抢先完成奖励：额外 1 分已经计入你的个人积分。</p><button type="button" onClick={() => { window.localStorage.setItem(REWARD_ACK_KEY, rankedRewardKey); setRewardAcknowledged(true); }}>收下这份荣誉</button></section>}
+    {rankedReward && rewardAcknowledged && <button type="button" className="reward-chip" onClick={() => setRewardAcknowledged(false)}><span aria-hidden="true">✦</span><span>第 {rankedReward.completion_rank} 位完成首轮任务</span><b>查看</b></button>}
     {isHonorGuest && <section className="section-card honor-participation-card"><div className="section-heading"><div><small>FAMILY PARTICIPATION</small><h2>家人参与区</h2></div><span>♡</span></div><p>你可以和大家一起参加现场互动，获得的个人积分会显示在上方并进入个人积分榜。</p><div className="honor-boundary-note"><strong>轻松参与</strong><span>系统不会向你发放秘密任务、隐藏阵营或秘密线索。</span></div></section>}
     {isActivePlayer && missionStory?.mutualConfirmations.some((confirmation) => confirmation.direction === 'INCOMING' && confirmation.status === 'PENDING') && <section className="section-card mutual-confirmation-card" id="guest-confirmations"><div className="section-heading"><div><small>FRIEND CONFIRMATION</small><h2>好友确认请求</h2></div><span>待处理</span></div>{missionStory.mutualConfirmations.filter((confirmation) => confirmation.direction === 'INCOMING' && confirmation.status === 'PENDING').map((confirmation) => <div className="approval-row" key={confirmation.id}><div className="approval-copy"><strong>{confirmation.otherGuestName}</strong><p>对方表示你们今天第一次见面，并已完成互相介绍。请按真实情况确认。</p></div><div className="approval-actions"><button disabled={busy || offline || !phaseOneInteractionsOpen} onClick={() => void respondMutualConfirmation(confirmation.id, true)}>确实完成</button><button className="danger" disabled={busy || offline || !phaseOneInteractionsOpen} onClick={() => void respondMutualConfirmation(confirmation.id, false)}>不符合</button></div></div>)}</section>}
     {isActivePlayer && <section className={`section-card guest-missions-card ${usesTricksterFacade && secretReaderOpen ? 'trickster-real-missions' : ''}`} id="guest-missions"><div className="section-heading"><div><small>{usesTricksterFacade && secretReaderOpen ? 'TRUE MISSIONS' : 'SECRET MISSIONS'}</small><h2>{usesTricksterFacade && secretReaderOpen ? '恶作剧者真正任务' : '我的秘密任务'}</h2></div><span>{openAssignments.length} 待处理</span></div>
