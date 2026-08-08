@@ -50,7 +50,8 @@ function ensureHostDatabaseError(error: { message: string } | null, fallback: st
   if (error.message.includes('phase_two_coverage_invalid') || error.message.includes('phase_two_team_coverage_invalid') || error.message.includes('phase_two_assignment_count_invalid')) throw new ApiError(409, '第二轮任务覆盖校验失败，本次没有写入部分任务，请让主控核对配置');
   if (error.message.includes('voting_stage_not_ready')) throw new ApiError(409, '请先在主持人流程台切换到团队挑战，再开启最终投票');
   if (error.message.includes('no_drawn_guests')) throw new ApiError(409, '尚无宾客完成抽卡，不能开启最终投票');
-  if (error.message.includes('phase_two_team_scores_missing')) throw new ApiError(409, '请先记录海岛组或沙漠组的团队成绩，再开启最终投票');
+  if (error.message.includes('phase_two_team_draws_incomplete')) throw new ApiError(409, '20 位竞技组玩家尚未全部完成抽卡，不能结算团队积分');
+  if (error.message.includes('phase_two_team_scores_missing')) throw new ApiError(409, '请先分别记录海岛组和沙漠组的最终成绩；即使某队是 0 分也需要明确记录');
   if (error.message.includes('phase_two_team_spy_missing')) throw new ApiError(409, '海岛组和沙漠组必须各有 1 名已抽卡的恶作剧者；请先让主办方完成抽卡或修正预设身份');
   if (error.message.includes('phase_two_team_clues_missing')) throw new ApiError(409, '海岛组和沙漠组都至少需要 2 条启用线索；请让主办方先补齐团队线索');
   if (error.message.includes('team_clue_settlement_stage_not_ready')) throw new ApiError(409, '请先切换到团队挑战，再结算团队积分与线索');

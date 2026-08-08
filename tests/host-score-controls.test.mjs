@@ -8,7 +8,7 @@ const data = await readFile(new URL('../lib/data/host.ts', import.meta.url), 'ut
 const migration = await readFile(new URL('../supabase/migrations/202607300004_host_score_controls.sql', import.meta.url), 'utf8');
 
 test('host UI exposes score controls and a bounded finale workflow', () => {
-  assert.match(page, /团队加分/);
+  assert.match(page, /团队计分/);
   assert.match(page, /个人加分/);
   assert.match(page, /流程控制/);
   assert.match(page, /婚礼流程快捷切换/);
@@ -25,7 +25,7 @@ test('host UI exposes score controls and a bounded finale workflow', () => {
 test('host score mutations are authenticated, same-origin, validated, and idempotent', () => {
   assert.match(route, /assertSameOrigin\(request\)/);
   assert.match(route, /const actor = await requireAdmin\(\)/);
-  assert.match(route, /requiredInteger\(body\.amount, '团队加分', 1, 100\)/);
+  assert.match(route, /requiredInteger\(body\.amount, '团队计分', 0, 100\)/);
   assert.match(route, /requiredInteger\(body\.amount, '个人加分', 1, 100\)/);
   assert.match(route, /requiredUuid\(body\.eventKey, '幂等事件 ID'\)/);
   assert.match(route, /requiredBoolean\(body\.value, '投票状态'\)/);

@@ -55,7 +55,7 @@ test('admin route and controls cannot directly select finale stages', async () =
   assert.match(page, /disabled=\{\['voting', 'results'\]\.includes\(value\)\}/);
   assert.match(page, /系统会关闭当前投票、隐藏揭晓，并清空大屏/);
   assert.match(page, /开启一轮新的最终投票.*关闭宾客注册、清空大屏旧题目/s);
-  assert.match(page, /已经结算的个人和团队积分不会撤销/);
+  assert.match(page, /已经结算的积分不会撤销/);
   assert.match(page, /终局期间不可开放/);
   for (const code of ['use_voting_controls', 'voting_stage_not_ready', 'no_drawn_guests', 'registration_during_finale']) {
     assert.ok(data.includes(code), `missing friendly error for ${code}`);

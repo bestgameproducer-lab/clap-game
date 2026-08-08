@@ -73,7 +73,7 @@ test('host guide is a click-by-click wedding-day operating manual', async () => 
     '主持人现场一分钟速查',
     '登录后先认识主持人台',
     '如何使用全员总览',
-    '如何记录团队加分',
+    '如何记录团队成绩',
     '如何记录个人加分',
     '如何切换婚礼环节',
     '终局四个按钮的固定顺序',

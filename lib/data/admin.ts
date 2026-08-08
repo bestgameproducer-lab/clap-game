@@ -82,7 +82,8 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
     if (error.message.includes('use_voting_controls')) throw new ApiError(409, '投票和身份揭晓必须使用专用按钮，不能从环节下拉框直接跳转');
     if (error.message.includes('voting_stage_not_ready')) throw new ApiError(409, '请先切换到团队挑战环节，再开启最终投票');
     if (error.message.includes('no_drawn_guests')) throw new ApiError(409, '尚无宾客完成抽卡，不能开启最终投票');
-    if (error.message.includes('phase_two_team_scores_missing')) throw new ApiError(409, '请先在团队游戏计分中记录海岛组或沙漠组的成绩，再开启最终投票');
+    if (error.message.includes('phase_two_team_draws_incomplete')) throw new ApiError(409, '20 位竞技组玩家尚未全部完成抽卡，不能结算团队积分');
+    if (error.message.includes('phase_two_team_scores_missing')) throw new ApiError(409, '请先分别记录海岛组和沙漠组的最终成绩；即使某队是 0 分也需要明确记录');
     if (error.message.includes('phase_two_team_spy_missing')) throw new ApiError(409, '海岛组和沙漠组必须各有 1 名已抽卡的恶作剧者；请先完成全员抽卡或修正预设身份');
     if (error.message.includes('guiding_star_origin_invalid') || error.message.includes('lonely_cupid_origin_invalid')) throw new ApiError(409, '第二轮觉醒角色与第一轮爱心/星星结果不一致，本次没有写入部分任务；请核对第一轮配对记录');
     if (error.message.includes('phase_two_team_clues_missing')) throw new ApiError(409, '海岛组和沙漠组都至少需要 2 条启用线索；请先到婚礼设置补齐团队线索');

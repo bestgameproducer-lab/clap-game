@@ -46,6 +46,6 @@ test('mobile host score controls create one event key per submission', () => {
   assert.match(hostPage, /createEventKey\(\)/);
   assert.match(hostPage, /pendingScoreRef\.current\?\.signature === signature/);
   assert.match(hostPage, /JSON\.stringify\(\{ \.\.\.body, eventKey: pending\.eventKey \}\)/);
-  assert.match(hostPage, /团队加分/);
+  assert.match(hostPage, /团队计分/);
   assert.match(hostPage, /个人加分/);
 });
