@@ -1209,7 +1209,7 @@ export default function GuestPage() {
         </div>
         {usesTricksterFacade && secretReaderOpen ? <><strong>{dashboardRole.title}</strong><p>{dashboardRole.note}</p><div className="trickster-inline-rule"><strong>必须隐藏身份</strong><span>不要承认身份、不要展示本页、不要直接询问别人是不是同伴；请继续使用伪装身份行动。</span></div></> : identityVisible ? <><strong>{identityRevealRole.title}</strong><p>{identityRevealRole.note}</p>{usesTricksterFacade && showSecrets && <span className="trickster-hold-hint">记住：点击右侧“展开查看”，可以进入你的真实界面。</span>}</> : <><strong className="identity-mask" aria-hidden="true">••••••</strong><p>短按住可快速查看；需要完整阅读时请点“展开查看”。</p></>}
       </div>
-      {isActivePlayer && !data.game?.results_visible && <div className="identity-game-rule"><strong>所有宾客共同规则</strong><span>最终揭晓前，不主动告诉别人你的身份、阵营或任务，也不要要求别人展示手机。</span></div>}
+      {isActivePlayer && !data.game?.results_visible && <details className="identity-game-rule"><summary>所有宾客共同规则</summary><span>最终揭晓前，不主动告诉别人你的身份、阵营或任务，也不要要求别人展示手机。</span></details>}
       <div className="stage-card" id="guest-stage"><small>当前婚礼环节</small><strong>{stage.label}</strong><p className="stage-default-prompt">{stage.note}</p>{data.game?.phase_note && <div className="stage-live-note"><b>主办方最新提示</b><span>{data.game.phase_note}</span></div>}{dinnerMenuVisible && <button type="button" className="dinner-menu-entry" aria-haspopup="dialog" onClick={() => setDinnerMenuOpen(true)}><span aria-hidden="true">♧</span><span><small>DINNER MENU</small><strong>查看今日菜单</strong></span><b aria-hidden="true">→</b></button>}</div>
     </section>
     {offline && <div className="connection-banner offline" role="status">离线只读模式 · 已显示最近同步的任务，提交和投票暂不可用</div>}
