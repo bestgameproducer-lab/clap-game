@@ -13,10 +13,11 @@ test('审核完成或退回时报告任务更新而不是新任务', async () =>
   assert.match(source, /else if \(newAssignment\) nextNotice = \{ title: '你收到了一项新任务'/);
 });
 
-test('首轮完成后立即为前十名显示名次 Banner', async () => {
+test('首轮完成后只为前三名积分奖励显示名次 Banner', async () => {
   const source = await readFile(guestPageUrl, 'utf8');
 
-  assert.match(source, /assignment\.is_initial && assignment\.completion_rank !== null && assignment\.completion_rank >= 1 && assignment\.completion_rank <= 10/);
+  assert.match(source, /assignment\.is_initial && assignment\.completion_rank !== null && assignment\.completion_rank >= 1 && assignment\.completion_rank <= 3 && assignment\.early_bonus_points > 0/);
   assert.doesNotMatch(source, /data\.game\?\.stage === 'task_round_1' \? undefined : data\.assignments\.find/);
   assert.match(source, /你是第 \{rankedReward\.completion_rank\} 位完成首轮任务的宾客/);
+  assert.match(source, /抢先完成奖励：额外 1 分已经计入你的个人积分/);
 });
