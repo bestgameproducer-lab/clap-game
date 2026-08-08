@@ -37,7 +37,8 @@ test('bonus is visible to the guest, task station, and assignment export', async
     readFile(new URL('../lib/data/export.ts', import.meta.url), 'utf8'),
   ]);
   assert.match(guestData, /completion_rank,early_bonus_points,reward_task_id/);
-  assert.match(guestPage, /额外 1 分/);
+  assert.match(guestPage, /抢先完成奖励：额外 1 分已经计入你的个人积分/);
+  assert.doesNotMatch(guestPage, /升级任务、\$\{rankedReward\.early_bonus_points/);
   assert.match(stationData, /completion_rank,early_bonus_points,completion_note/);
   assert.match(stationPage, /额外 \+1/);
   assert.match(exportData, /'前三额外积分'/);

@@ -153,7 +153,7 @@ npm run build
 
 任务站也会把最近一次同步的宾客、任务和线索临时保存在当前标签页的 `sessionStorage` 中。断网时工作人员仍可按姓名查找并核对文字记录，但任务核验、派发、兑换、发线索和积分补记全部禁用；验证照片的短时链接可能需要联网。恢复网络后页面会自动同步，也可手动重连；安全退出或工作人员会话失效时会清除副本。
 
-婚礼前准备、当天流程与故障恢复请参阅 [`docs/wedding-day-runbook.md`](docs/wedding-day-runbook.md)，人工验收项目请参阅 [`docs/acceptance-checklist.md`](docs/acceptance-checklist.md)。主控首页的“婚礼日状态”会集中显示数据库连接、部署版本、当前流程、宾客进度和待处理数量；现场发现版本不一致时应先刷新，不要继续操作旧页面。
+婚礼前准备、当天流程与故障恢复请参阅 [`docs/wedding-day-runbook.md`](docs/wedding-day-runbook.md)，现场角色可分别使用 [`docs/host-operator-guide.md`](docs/host-operator-guide.md) 和 [`docs/admin-operator-guide.md`](docs/admin-operator-guide.md)，人工验收项目请参阅 [`docs/acceptance-checklist.md`](docs/acceptance-checklist.md)。主控首页的“婚礼日状态”会集中显示数据库连接、部署版本、当前流程、宾客进度和待处理数量；现场发现版本不一致时应先刷新，不要继续操作旧页面。
 
 ## 当前 MVP 的边界
 

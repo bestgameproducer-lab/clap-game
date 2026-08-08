@@ -8,3 +8,5 @@ playwright-report/
 test-results/
 artifacts/wedding-review-pack/
 artifacts/wedding-review-pack.zip
+output/guides/
+tmp/operator-guides/
