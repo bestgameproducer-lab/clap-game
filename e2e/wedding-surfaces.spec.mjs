@@ -294,8 +294,8 @@ test('主持人可以进入团队、个人和流程控制台', async ({ page }) 
   await page.goto('/host');
 
   await expect(page.getByRole('heading', { name: '主持人流程台' })).toBeVisible();
-  await page.getByRole('button', { name: '团队加分', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '给团队加分' })).toBeVisible();
+  await page.getByRole('button', { name: '团队计分', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '记录团队挑战成绩' })).toBeVisible();
   await page.getByRole('button', { name: '个人加分', exact: true }).click();
   await expect(page.getByRole('heading', { name: '给宾客个人加分' })).toBeVisible();
   await page.getByRole('button', { name: '流程控制', exact: true }).click();

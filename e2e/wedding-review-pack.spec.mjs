@@ -478,7 +478,7 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
   await page.goto('/host');
   await expect(page.getByRole('heading', { name: '主持人流程台' })).toBeVisible();
   await screenshot(page, '23a-host-overview', testInfo.project.name);
-  await page.getByRole('button', { name: '团队加分', exact: true }).click();
+  await page.getByRole('button', { name: '团队计分', exact: true }).click();
   await screenshot(page, '23c-host-team-score', testInfo.project.name);
   await page.getByRole('button', { name: '个人加分', exact: true }).click();
   await screenshot(page, '23d-host-personal-score', testInfo.project.name);
