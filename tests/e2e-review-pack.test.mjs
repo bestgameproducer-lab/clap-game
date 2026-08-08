@@ -33,7 +33,8 @@ test('完整婚礼彩排生成可下载且不接触生产数据的截图验收�
     '13-dinner-menu', '14-trickster-facade', '15-trickster-truth', '16-final-vote',
     '16b-vote-confirmation', '16c-trickster-weighted-vote',
     '17-guest-results', '20-admin-opening', '21-admin-live-flow', '22-admin-finale',
-    '22b-admin-published-results', '23-host-console', '23b-host-published-results',
+    '22b-admin-published-results', '23-host-console', '23a-host-overview', '23b-host-published-results',
+    '23c-host-team-score', '23d-host-personal-score', '23e-host-stage-confirmation',
     '24-station-review', '25-public-finale',
   ]) assert.match(reviewSpec, new RegExp(screenshot));
   assert.match(runner, /manifest\.json/);

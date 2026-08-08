@@ -12,7 +12,10 @@ const guides = [
     output: "主持人流程台使用指南.pdf",
     eyebrow: "BALI WEDDING · LIVE OPERATIONS",
     images: {
-      "页面四个入口": ["23-host-console.png"],
+      "登录后先认识主持人台": ["23a-host-overview.png", "23-host-console.png"],
+      "如何记录团队加分": ["23c-host-team-score.png"],
+      "如何记录个人加分": ["23d-host-personal-score.png"],
+      "如何切换婚礼环节": ["23e-host-stage-confirmation.png"],
       "环节一：宾客签到": ["02-invitation-gate.png", "05-selfie-required.png", "07-card-revealed.png", "07b-trickster-card-reveal.png"],
       "环节二：等待仪式": ["08-round-one-task.png"],
       "环节三：婚礼仪式": ["10-ceremony-pause.png"],
