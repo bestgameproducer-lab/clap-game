@@ -18,12 +18,13 @@ test('couple photo cannot be completed through another guests player code', asyn
   assert.doesNotMatch(mutualUi, /P1-SOCIAL-002/);
 });
 
-test('clue and scoreboard copy matches their real settlement boundaries', async () => {
+test('clues appear only after a real settlement or staff grant and team copy stays frozen', async () => {
   const [guest, scoreboard] = await Promise.all([
     read('../app/guest/page.tsx'),
     read('../app/scoreboard/page.tsx'),
   ]);
-  assert.match(guest, /团队挑战结算或工作人员发放后，属于你的线索会出现在这里/);
+  assert.match(guest, /isActivePlayer && data\.clues\.length > 0 && <section className="section-card guest-clues-card"/);
+  assert.doesNotMatch(guest, /团队挑战结算或工作人员发放后，属于你的线索会出现在这里/);
   assert.doesNotMatch(guest, /完成任务后，线索会在这里出现/);
   assert.match(scoreboard, /团队榜只统计团队挑战分，结算后会锁定/);
   assert.doesNotMatch(scoreboard, /团队榜显示已结算的团队挑战分/);

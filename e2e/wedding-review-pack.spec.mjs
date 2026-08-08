@@ -230,6 +230,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
     },
   });
   await page.reload(); await dismissNotice(page);
+  await page.getByRole('button', { name: '查看已完成任务（1）' }).click();
   await page.locator('#guest-missions summary').first().click();
   await expect(page.getByText('完整星星', { exact: true })).toBeVisible();
   await screenshot(page, '09d-star-match-complete', testInfo.project.name);
@@ -391,6 +392,9 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await expect(page.getByRole('heading', { name: '团队实时积分' })).toBeVisible();
   await expect(page.getByText('被忽略的细节')).toBeVisible();
   await screenshot(page, '12e-team-score-clue-reward', testInfo.project.name);
+  await page.getByRole('button', { name: '收下这份荣誉' }).click();
+  await expect(page.locator('.reward-chip')).toContainText('第 2 位完成首轮任务');
+  await screenshot(page, '12h-early-honor-badge', testInfo.project.name);
 
   await page.getByRole('button', { name: /查看今日菜单/ }).click();
   await expect(page.getByRole('img', { name: /婚宴菜单/ })).toBeVisible();
