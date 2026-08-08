@@ -9,6 +9,7 @@ test('guest dashboard promotes one contextual action and collapses completed mis
   assert.match(source, /const primaryAction = data\.game\?\.results_visible/);
   assert.match(source, /data\.game\?\.voting_open && !data\.existingVote/);
   assert.match(source, /incomingConfirmationCount > 0/);
+  assert.match(source, /const showPrimaryAction = !isFocusMode && \(incomingConfirmationCount > 0 \|\| Boolean\(rejectedAssignment\)\)/);
   assert.match(source, /guest-primary-action/);
   assert.match(source, /completedMissionsOpen/);
   assert.match(source, /查看已完成任务/);

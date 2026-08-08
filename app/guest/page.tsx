@@ -1103,7 +1103,9 @@ export default function GuestPage() {
             : data.game?.stage === 'task_round_1'
               ? { label: '现在请专心见证仪式', detail: '任务提交与伙伴确认会在仪式结束后自动恢复。', button: '查看当前环节', target: 'guest-stage', tone: 'waiting' }
               : { label: '当前没有待处理事项', detail: '保持页面即可，新的任务、提示或投票会自动出现。', button: '查看我的任务', target: 'guest-missions', tone: 'complete' };
-  const showPrimaryAction = !isFocusMode && primaryAction.label !== '当前没有待处理事项';
+  // Ordinary task cards are already the next visible action. Reserve this
+  // prominent shortcut for exceptional states that a guest could miss.
+  const showPrimaryAction = !isFocusMode && (incomingConfirmationCount > 0 || Boolean(rejectedAssignment));
 
   function focusPrimaryAction() {
     if ('assignmentId' in primaryAction && primaryAction.assignmentId) {
