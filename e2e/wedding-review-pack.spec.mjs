@@ -230,6 +230,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
     },
   });
   await page.reload(); await dismissNotice(page);
+  await page.getByRole('button', { name: '查看已完成任务（1）' }).click();
   await page.locator('#guest-missions summary').first().click();
   await expect(page.getByText('完整星星', { exact: true })).toBeVisible();
   await screenshot(page, '09d-star-match-complete', testInfo.project.name);
