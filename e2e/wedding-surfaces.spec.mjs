@@ -79,7 +79,7 @@ function collectPageErrors(page) {
 async function acknowledgeGuestActivity(page) {
   const notice = page.getByRole('dialog').filter({ hasText: /欢迎回到婚礼任务|新的活动|任务收到更新|命运/ });
   if (await notice.isVisible().catch(() => false)) {
-    await notice.getByRole('button', { name: /知道了 · 查看更新|接受我的新命运 · 查看能力/ }).click();
+    await notice.getByRole('button', { name: /知道了 · 查看更新|接受我的新命运 · 查看能力|收下结果 · 返回任务/ }).click();
   }
 }
 
@@ -109,6 +109,48 @@ test('宾客真实主页可浏览任务、团队积分并支持桌面滚动', as
   await page.mouse.wheel(0, 700);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
   expect(errors).toEqual([]);
+});
+
+test('离开后重新打开仍会收到升级任务结算，且双方提交前不泄露选择', async ({ page }) => {
+  const dilemmaTask = {
+    title: '星光抉择', description: '你与星光伙伴将面对丘比特留下的最后一道默契考验。',
+    verification_method: '系统等待双方秘密提交后自动结算。', points: 0, category: 'upgrade', stage: 'task_round_2',
+    mission_code: 'P2-STAR-001', mechanic: 'SECRET_DILEMMA', score_policy: 'NO_PERSONAL',
+  };
+  const phaseTwoBase = {
+    mission: 'STAR_DILEMMA', extraVote: false, superLucky: false, isCaptain: false,
+    unlockedAt: '2026-08-01T13:30:00.000Z', phaseOnePointsSnapshot: 2,
+    luckySettled: false, captainSettled: false, originVerified: true,
+    copyChoice: null, copyCandidates: [],
+  };
+  const state = { current: {
+    ...guestData,
+    game: { ...game, stage: 'banquet' },
+    assignments: [{ ...guestData.assignments[0], id: 'star-dilemma', task: dilemmaTask }],
+    phaseTwo: { ...phaseTwoBase, dilemma: { allianceType: 'STAR', submitted: true, settled: false, myChoice: 'TOGETHER', partnerChoice: null, myPoints: null, partnerPoints: null } },
+  } };
+  await page.route('**/api/guest-me', (route) => route.fulfill({ json: state.current }));
+  await page.route('**/api/registration/guests', (route) => route.fulfill({ json: { guests: [], registrationOpen: false } }));
+  await page.goto('/guest');
+  await acknowledgeGuestActivity(page);
+  await page.locator('#guest-missions summary').first().click();
+  await expect(page.getByText('你的选择已密封保存')).toBeVisible();
+  await expect(page.getByText('伙伴选择')).toHaveCount(0);
+
+  state.current = {
+    ...state.current,
+    assignments: [{ ...state.current.assignments[0], status: 'approved' }],
+    phaseTwo: { ...phaseTwoBase, dilemma: { allianceType: 'STAR', submitted: true, settled: true, myChoice: 'TOGETHER', partnerChoice: 'TAKE_ALL', myPoints: 0, partnerPoints: 5 } },
+  };
+  await page.reload();
+  const resultDialog = page.getByRole('dialog');
+  await expect(resultDialog).toContainText('星光在岔路口分开');
+  await expect(resultDialog).toContainText(/你\s*0 分/);
+  await expect(resultDialog).toContainText(/伙伴\s*5 分/);
+  await resultDialog.getByRole('button', { name: '收下结果 · 返回任务' }).click();
+  await page.locator('#guest-missions summary').first().click();
+  await expect(page.getByText('星光在岔路口分开')).toBeVisible();
+  await expect(page.getByText('伙伴选择「独占」· 获得 5 分')).toBeVisible();
 });
 
 test('恶作剧者完成真正任务后在真实界面看到已生效的额外一票', async ({ page }) => {

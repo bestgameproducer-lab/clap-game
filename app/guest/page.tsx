@@ -32,8 +32,10 @@ type PendingNotice =
   | { kind: 'PHASE_TWO_DILEMMA' }
   | { kind: 'PHASE_TWO_COPY' };
 type AwakeningKind = 'LONELY_CUPID' | 'GUIDING_STAR';
-type ContentNotice = { title: string; detail: string; signature: string; variant?: 'awakening'; awakeningKind?: AwakeningKind };
-type ActivitySnapshot = { guestId: string; stage: string; phaseNote: string; awakeningKey: string; assignmentIds: string[]; assignmentStatuses: Record<string, string>; clueIds: string[]; confirmationIds: string[] };
+type DilemmaKind = 'HEART' | 'STAR';
+type DilemmaOutcome = 'mutual-trust' | 'personal-win' | 'partner-win' | 'mutual-guarded';
+type ContentNotice = { title: string; detail: string; signature: string; variant?: 'awakening' | 'dilemma-result'; awakeningKind?: AwakeningKind; dilemmaKind?: DilemmaKind; dilemmaOutcome?: DilemmaOutcome; myPoints?: number; partnerPoints?: number };
+type ActivitySnapshot = { guestId: string; stage: string; phaseNote: string; awakeningKey: string; dilemmaKey: string; assignmentIds: string[]; assignmentStatuses: Record<string, string>; clueIds: string[]; confirmationIds: string[] };
 type ConnectionFeedback = { kind: 'error' | 'success'; text: string };
 type GuestData = {
   guest: { id: string; name: string; team: string; role: string; is_hidden_spy: boolean; points: number; drawn_at: string | null; special_card_revealed_at: string | null; participation_mode: 'ACTIVE_PLAYER' | 'HONOR_GUEST' | 'PRINCIPAL'; relationship: string; story_role: string; eligible_for_mission: boolean; eligible_for_secret_role: boolean; eligible_for_personal_score: boolean; special_card_title: string; special_card_body: string; player_code: string; unlocked_role: string; avatar_path: string | null; avatar_uploaded_at: string | null; avatar_url: string | null };
@@ -136,6 +138,38 @@ function phaseTwoAwakening(data: GuestData): Omit<ContentNotice, 'signature'> | 
   return null;
 }
 
+function phaseTwoDilemmaResult(data: GuestData): Omit<ContentNotice, 'signature'> | null {
+  const dilemma = data.phaseTwo?.dilemma;
+  if (!dilemma?.settled || !dilemma.myChoice || !dilemma.partnerChoice || dilemma.myPoints === null || dilemma.partnerPoints === null) return null;
+  const isHeart = dilemma.allianceType === 'HEART';
+  const cooperativeChoice = isHeart ? 'LOVE' : 'TOGETHER';
+  const myCooperative = dilemma.myChoice === cooperativeChoice;
+  const partnerCooperative = dilemma.partnerChoice === cooperativeChoice;
+  const myLabel = isHeart ? (myCooperative ? '爱' : '恨') : (myCooperative ? '同行' : '独占');
+  const partnerLabel = isHeart ? (partnerCooperative ? '爱' : '恨') : (partnerCooperative ? '同行' : '独占');
+  const scoreLine = `你选择「${myLabel}」，伙伴选择「${partnerLabel}」。本轮你获得 ${dilemma.myPoints} 分，伙伴获得 ${dilemma.partnerPoints} 分。`;
+  if (myCooperative && partnerCooperative) return {
+    title: isHeart ? '爱心守住了彼此' : '两颗星光并肩抵达',
+    detail: `${scoreLine}${isHeart ? ' 两半爱心再次合一。' : ' 星光汇成同一条航线。'}`,
+    variant: 'dilemma-result', dilemmaKind: dilemma.allianceType, dilemmaOutcome: 'mutual-trust', myPoints: dilemma.myPoints, partnerPoints: dilemma.partnerPoints,
+  };
+  if (!myCooperative && partnerCooperative) return {
+    title: isHeart ? '你握住了丘比特的筹码' : '你独自带走了星光',
+    detail: scoreLine,
+    variant: 'dilemma-result', dilemmaKind: dilemma.allianceType, dilemmaOutcome: 'personal-win', myPoints: dilemma.myPoints, partnerPoints: dilemma.partnerPoints,
+  };
+  if (myCooperative && !partnerCooperative) return {
+    title: isHeart ? '两颗心在岔路口错开' : '星光在岔路口分开',
+    detail: scoreLine,
+    variant: 'dilemma-result', dilemmaKind: dilemma.allianceType, dilemmaOutcome: 'partner-win', myPoints: dilemma.myPoints, partnerPoints: dilemma.partnerPoints,
+  };
+  return {
+    title: isHeart ? '两颗爱心都保留了秘密' : '两颗星光各自远行',
+    detail: scoreLine,
+    variant: 'dilemma-result', dilemmaKind: dilemma.allianceType, dilemmaOutcome: 'mutual-guarded', myPoints: dilemma.myPoints, partnerPoints: dilemma.partnerPoints,
+  };
+}
+
 export default function GuestPage() {
   const [data, setData] = useState<GuestData | null>(null);
   const [scoreLedgerOpen, setScoreLedgerOpen] = useState(false);
@@ -204,11 +238,14 @@ export default function GuestPage() {
       if (requestId !== loadRequestRef.current) return false;
       if (response.ok) {
         const nextData = await response.json();
-        const nextSnapshot = {
+        const nextSnapshot: ActivitySnapshot = {
           guestId: nextData.guest.id,
           stage: nextData.game?.stage ?? 'registration',
           phaseNote: nextData.game?.phase_note ?? '',
           awakeningKey: nextData.phaseTwo?.unlockedAt && ['COPY_SCORE', 'TEAM_CAPTAIN'].includes(nextData.phaseTwo.mission ?? '') ? `${nextData.phaseTwo.mission}:${nextData.phaseTwo.unlockedAt}` : '',
+          dilemmaKey: nextData.phaseTwo?.dilemma
+            ? [nextData.phaseTwo.dilemma.allianceType, nextData.phaseTwo.dilemma.settled ? 'settled' : 'waiting', nextData.phaseTwo.dilemma.myChoice ?? '', nextData.phaseTwo.dilemma.partnerChoice ?? '', nextData.phaseTwo.dilemma.myPoints ?? '', nextData.phaseTwo.dilemma.partnerPoints ?? ''].join(':')
+            : '',
           assignmentIds: nextData.assignments.map((assignment: GuestData['assignments'][number]) => assignment.id),
           assignmentStatuses: Object.fromEntries(nextData.assignments.map((assignment: GuestData['assignments'][number]) => [assignment.id, assignment.status])),
           clueIds: nextData.clues.map((clue: GuestData['clues'][number]) => clue.id),
@@ -219,6 +256,7 @@ export default function GuestPage() {
         const activitySignature = activityFingerprint(JSON.stringify(nextSnapshot));
         const previousSnapshot = contentSnapshotRef.current;
         const awakening = phaseTwoAwakening(nextData);
+        const dilemmaResult = phaseTwoDilemmaResult(nextData);
         let nextNotice: ContentNotice | null = null;
         if (previousSnapshot && previousSnapshot.guestId === nextSnapshot.guestId) {
           const newAssignment = nextData.assignments.find((assignment: GuestData['assignments'][number]) => ['assigned', 'rejected'].includes(assignment.status) && !previousSnapshot.assignmentIds.includes(assignment.id) && !(nextData.guest.role === 'spy' && assignment.task.category === 'hidden'));
@@ -227,6 +265,8 @@ export default function GuestPage() {
           const newConfirmation = (nextData.missionStory?.mutualConfirmations ?? []).find((confirmation: { id: string; direction: string; status: string; otherGuestName: string }) => confirmation.direction === 'INCOMING' && confirmation.status === 'PENDING' && !previousSnapshot.confirmationIds.includes(confirmation.id));
           if (awakening && previousSnapshot.awakeningKey !== nextSnapshot.awakeningKey) {
             nextNotice = { ...awakening, signature: activitySignature };
+          } else if (dilemmaResult && previousSnapshot.dilemmaKey !== nextSnapshot.dilemmaKey) {
+            nextNotice = { ...dilemmaResult, signature: activitySignature };
           } else if (previousSnapshot.stage !== nextSnapshot.stage) {
             const stageCopy = gameStageCopy(nextSnapshot.stage);
             nextNotice = { title: `已进入「${stageCopy.label}」`, detail: nextSnapshot.phaseNote || stageCopy.note, signature: activitySignature };
@@ -243,12 +283,14 @@ export default function GuestPage() {
         } else {
           try {
             const guestKey = activityFingerprint(nextSnapshot.guestId);
-            const saved = JSON.parse(window.localStorage.getItem(ACTIVITY_ACK_KEY) || 'null') as { guestKey?: string; signature?: string; stage?: string; assignmentKey?: string; clueKey?: string; confirmationKey?: string; awakeningKey?: string } | null;
+            const saved = JSON.parse(window.localStorage.getItem(ACTIVITY_ACK_KEY) || 'null') as { guestKey?: string; signature?: string; stage?: string; assignmentKey?: string; clueKey?: string; confirmationKey?: string; awakeningKey?: string; dilemmaKey?: string } | null;
             const assignmentKey = activityFingerprint(JSON.stringify([nextSnapshot.assignmentIds, nextSnapshot.assignmentStatuses]));
             const clueKey = activityFingerprint(JSON.stringify(nextSnapshot.clueIds));
             const confirmationKey = activityFingerprint(JSON.stringify(nextSnapshot.confirmationIds));
             if (awakening && (!saved || saved.guestKey !== guestKey || saved.signature !== activitySignature)) {
               nextNotice = { ...awakening, signature: activitySignature };
+            } else if (dilemmaResult && (!saved || saved.guestKey !== guestKey || saved.dilemmaKey !== nextSnapshot.dilemmaKey)) {
+              nextNotice = { ...dilemmaResult, signature: activitySignature };
             } else if (saved?.guestKey === guestKey && saved.signature && saved.signature !== activitySignature) {
               if (saved.stage && saved.stage !== nextSnapshot.stage) {
                 const stageCopy = gameStageCopy(nextSnapshot.stage);
@@ -264,7 +306,7 @@ export default function GuestPage() {
               nextNotice = nextData.guest.drawn_at
                 ? { title: '欢迎回到婚礼任务', detail: `${gameStageCopy(nextSnapshot.stage).label} · 请查看当前任务与现场提示。`, signature: activitySignature }
                 : null;
-              if (!nextNotice) window.localStorage.setItem(ACTIVITY_ACK_KEY, JSON.stringify({ guestKey, signature: activitySignature, stage: nextSnapshot.stage, assignmentKey, clueKey, confirmationKey, awakeningKey: nextSnapshot.awakeningKey }));
+              if (!nextNotice) window.localStorage.setItem(ACTIVITY_ACK_KEY, JSON.stringify({ guestKey, signature: activitySignature, stage: nextSnapshot.stage, assignmentKey, clueKey, confirmationKey, awakeningKey: nextSnapshot.awakeningKey, dilemmaKey: nextSnapshot.dilemmaKey }));
             }
           } catch {}
         }
@@ -686,6 +728,7 @@ export default function GuestPage() {
           clueKey: activityFingerprint(JSON.stringify(snapshot?.clueIds ?? [])),
           confirmationKey: activityFingerprint(JSON.stringify(snapshot?.confirmationIds ?? [])),
           awakeningKey: snapshot?.awakeningKey ?? '',
+          dilemmaKey: snapshot?.dilemmaKey ?? '',
         }));
       } catch {}
     }
@@ -1130,7 +1173,10 @@ export default function GuestPage() {
       ? [{ value: 'LOVE', label: '选择「爱」' }, { value: 'HATE', label: '选择「恨」' }]
       : [{ value: 'TOGETHER', label: '选择「同行」' }, { value: 'TAKE_ALL', label: '选择「独占」' }];
     const labels: Record<string, string> = { LOVE: '爱', HATE: '恨', TOGETHER: '同行', TAKE_ALL: '独占' };
-    if (dilemma?.settled) return <div className="phase-two-choice-state settled"><strong>双方选择已经揭晓</strong><span>你选择「{labels[dilemma.myChoice ?? '']}」· 获得 {dilemma.myPoints ?? 0} 分</span><span>伙伴选择「{labels[dilemma.partnerChoice ?? '']}」· 获得 {dilemma.partnerPoints ?? 0} 分</span></div>;
+    if (dilemma?.settled) {
+      const result = phaseTwoDilemmaResult(data);
+      return <div className={`phase-two-choice-state settled dilemma-${result?.dilemmaOutcome ?? 'mutual-trust'}`}><small>{isHeart ? '丘比特的裁决' : '星光的裁决'}</small><strong>{result?.title ?? '双方选择已经揭晓'}</strong><span>你选择「{labels[dilemma.myChoice ?? '']}」· 获得 {dilemma.myPoints ?? 0} 分</span><span>伙伴选择「{labels[dilemma.partnerChoice ?? '']}」· 获得 {dilemma.partnerPoints ?? 0} 分</span></div>;
+    }
     if (dilemma?.submitted) return <div className="phase-two-choice-state"><strong>你的选择已密封保存</strong><span>等待伙伴提交后，系统才会同时揭晓结果。</span><small>任何人都不能提前查看或修改选择。</small></div>;
     const cooperative = isHeart ? '爱' : '同行';
     const selfish = isHeart ? '恨' : '独占';
@@ -1202,6 +1248,6 @@ export default function GuestPage() {
     {scoreLedgerOpen && <div className="score-ledger-backdrop" role="presentation"><section className="score-ledger-dialog" role="dialog" aria-modal="true" aria-labelledby="score-ledger-title"><header><div><small>MY POINTS</small><h2 id="score-ledger-title">我的积分流水</h2></div><button type="button" aria-label="关闭积分流水" onClick={() => setScoreLedgerOpen(false)}>×</button></header><div className="score-ledger-total"><span>当前积分</span><strong>{data.guest.points}</strong></div><div className="score-ledger-list">{pointLedger.length === 0 ? <p className="empty-state">积分尚未产生，完成任务后会显示在这里。</p> : pointLedger.map((entry) => <article key={entry.id}><div><strong>{entry.label}</strong><small>{new Date(entry.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small></div><b className={entry.amount < 0 ? 'negative' : ''}>{entry.amount > 0 ? '+' : ''}{entry.amount}</b></article>)}</div><footer><small>这里只显示个人积分；团队环节可查看团队实时积分。</small><button type="button" onClick={() => setScoreLedgerOpen(false)}>看清楚了 · 关闭</button></footer></section></div>}
     {playerDirectoryOpen && <div className="player-directory-backdrop" role="presentation"><section className="player-directory-dialog" role="dialog" aria-modal="true" aria-labelledby="player-directory-title"><header><div><small>PLAYER DIRECTORY</small><h2 id="player-directory-title">宾客验证列表</h2></div><button type="button" aria-label="关闭宾客验证列表" onClick={() => setPlayerDirectoryOpen(false)}>×</button></header><div className="player-directory-content"><p>通过头像和姓名找到对方，再复制玩家编号进行任务验证。这里只显示头像、姓名和编号。</p><label htmlFor="player-directory-search">搜索宾客</label><input id="player-directory-search" value={playerDirectorySearch} onChange={(event) => setPlayerDirectorySearch(event.target.value)} placeholder="输入中文名或英文名" autoComplete="off"/>{playerDirectoryLoading ? <div className="directory-state">正在读取婚礼宾客名单…</div> : playerDirectoryError ? <div className="directory-state error"><span>{playerDirectoryError}</span><button type="button" onClick={() => { setPlayerDirectory(null); void openPlayerDirectory(); }}>重新加载</button></div> : playerDirectoryMatches.length === 0 ? <div className="directory-state">没有找到匹配姓名，请确认对方登记时使用的姓名。</div> : <div className="player-directory-results">{playerDirectoryMatches.map((player) => <article key={player.playerCode}>{player.avatarUrl ? <img src={player.avatarUrl} alt={`${player.name}的玩家头像`} loading="lazy"/> : <span className="directory-avatar-fallback" aria-hidden="true">{player.name.trim().slice(0, 1)}</span>}<div><strong>{player.name}</strong><span>{player.playerCode}</span></div><button type="button" className={directoryCopiedCode === player.playerCode ? 'copied' : ''} onClick={() => { void navigator.clipboard?.writeText(player.playerCode); setDirectoryCopiedCode(player.playerCode); window.setTimeout(() => setDirectoryCopiedCode(''), 1800); }}>{directoryCopiedCode === player.playerCode ? '已复制 ✓' : '复制编号'}</button></article>)}</div>}<aside><strong>验证前请确认是本人</strong><span>头像只用于婚礼现场辨认。每位玩家每 10 分钟最多提交 3 次编号；查看和复制不计次数。</span></aside></div><footer><button type="button" onClick={() => setPlayerDirectoryOpen(false)}>找到了 · 返回游戏</button></footer></section></div>}
     {dinnerMenuOpen && <div className="dinner-menu-backdrop" role="presentation"><section className="dinner-menu-dialog" role="dialog" aria-modal="true" aria-labelledby="dinner-menu-title"><header><div><small>ZIMIN &amp; ANRONG</small><h2 id="dinner-menu-title">今日晚宴菜单</h2></div><button type="button" aria-label="关闭今日菜单" onClick={() => setDinnerMenuOpen(false)}>×</button></header><div className="dinner-menu-scroll"><figure className="dinner-menu-image"><img src="/wedding-dinner-menu.jpg" alt="婚宴菜单：意式蔬菜汤配青酱；金枪鱼塔塔与羊栖菜、毛豆、萝卜、西洋菜沙拉；炭烤西冷牛排；香草马斯卡彭慢煮梨、咖啡、茶与精致小点。"/><figcaption>双指可放大查看菜单细节</figcaption></figure></div><footer><span>高清菜单 · 上下滑动查看全部菜品</span><button type="button" onClick={() => setDinnerMenuOpen(false)}>看完菜单 · 返回游戏</button></footer></section></div>}
-    {contentNotice && <div className={`new-content-backdrop ${contentNotice.variant === 'awakening' ? 'awakening' : ''}`}><section className={`new-content-dialog ${contentNotice.variant === 'awakening' ? `awakening ${contentNotice.awakeningKind === 'GUIDING_STAR' ? 'star' : 'heart'}` : ''}`} role="dialog" aria-modal="true" aria-labelledby="new-content-title"><header><span>{contentNotice.variant === 'awakening' ? 'DESTINY AWAKENED' : 'NEW ACTIVITY'}</span><button type="button" aria-label="关闭新活动提示" onClick={acknowledgeContentNotice}>×</button></header>{contentNotice.variant === 'awakening' && <div className="awakening-symbol" aria-hidden="true"><span>{contentNotice.awakeningKind === 'GUIDING_STAR' ? '★' : '♥'}</span><i>✦</i><i>✧</i><i>✦</i></div>}<strong id="new-content-title">{contentNotice.title}</strong><p>{contentNotice.detail}</p><button type="button" onClick={acknowledgeContentNotice}>{contentNotice.variant === 'awakening' ? '接受我的新命运 · 查看能力' : '知道了 · 查看更新'}</button></section></div>}
+    {contentNotice && <div className={`new-content-backdrop ${contentNotice.variant ?? ''}`}><section className={`new-content-dialog ${contentNotice.variant === 'awakening' ? `awakening ${contentNotice.awakeningKind === 'GUIDING_STAR' ? 'star' : 'heart'}` : contentNotice.variant === 'dilemma-result' ? `dilemma-result ${(contentNotice.dilemmaKind ?? 'HEART').toLowerCase()} ${contentNotice.dilemmaOutcome ?? 'mutual-trust'}` : ''}`} role="dialog" aria-modal="true" aria-labelledby="new-content-title"><header><span>{contentNotice.variant === 'awakening' ? 'DESTINY AWAKENED' : contentNotice.variant === 'dilemma-result' ? (contentNotice.dilemmaKind === 'STAR' ? 'STARLIGHT VERDICT' : 'CUPID’S VERDICT') : 'NEW ACTIVITY'}</span><button type="button" aria-label="关闭新活动提示" onClick={acknowledgeContentNotice}>×</button></header>{contentNotice.variant === 'awakening' && <div className="awakening-symbol" aria-hidden="true"><span>{contentNotice.awakeningKind === 'GUIDING_STAR' ? '★' : '♥'}</span><i>✦</i><i>✧</i><i>✦</i></div>}{contentNotice.variant === 'dilemma-result' && <div className="dilemma-result-pair" aria-label={`本轮结果：你 ${contentNotice.myPoints ?? 0} 分，伙伴 ${contentNotice.partnerPoints ?? 0} 分`}><div className="you"><i aria-hidden="true">{contentNotice.dilemmaKind === 'STAR' ? '★' : '♥'}</i><span>你</span><strong>{contentNotice.myPoints ?? 0} 分</strong></div><b aria-hidden="true">✦</b><div className="partner"><i aria-hidden="true">{contentNotice.dilemmaKind === 'STAR' ? '★' : '♥'}</i><span>伙伴</span><strong>{contentNotice.partnerPoints ?? 0} 分</strong></div></div>}<strong id="new-content-title">{contentNotice.title}</strong><p>{contentNotice.detail}</p><button type="button" onClick={acknowledgeContentNotice}>{contentNotice.variant === 'awakening' ? '接受我的新命运 · 查看能力' : contentNotice.variant === 'dilemma-result' ? '收下结果 · 返回任务' : '知道了 · 查看更新'}</button></section></div>}
   </main>;
 }
