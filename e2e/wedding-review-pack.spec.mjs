@@ -67,7 +67,7 @@ async function screenshot(page, file, project) {
 async function dismissNotice(page) {
   const dialog = page.getByRole('dialog');
   if (await dialog.isVisible().catch(() => false)) {
-    const button = dialog.getByRole('button', { name: /知道了|查看更新|接受我的新命运/ });
+    const button = dialog.getByRole('button', { name: /知道了|查看更新|接受我的新命运|收下结果/ });
     if (await button.isVisible().catch(() => false)) await button.click();
   }
 }
@@ -155,6 +155,13 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await page.locator('#guest-missions summary').first().click();
   await expect(page.getByText('选择或拍摄新郎新娘同框照片')).toBeVisible();
   await screenshot(page, '08-round-one-task', testInfo.project.name);
+
+  drawState.current = guestData({ assignments: [assignment('photo-1', couplePhotoTask, 'approved', { verification_note: '任务站已确认完成。' })] });
+  await page.reload();
+  await expect(page.getByRole('dialog')).toContainText(/你的任务(已|收到)更新/);
+  await screenshot(page, '08b-new-activity-after-return', testInfo.project.name);
+  await dismissNotice(page);
+  drawState.current = guestData();
 
   nextCard = {
     ...revealedCard,
@@ -313,6 +320,31 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await expect(page.getByText('爱心联盟的考验')).toBeVisible();
   await screenshot(page, '12b-heart-dilemma', testInfo.project.name);
 
+  const settledDilemma = (allianceType, myChoice, partnerChoice, myPoints, partnerPoints) => ({
+    mission: `${allianceType}_DILEMMA`, extraVote: false, superLucky: false, isCaptain: false,
+    unlockedAt: '2026-08-01T13:30:00.000Z', phaseOnePointsSnapshot: 2,
+    luckySettled: false, captainSettled: false, originVerified: true,
+    dilemma: { allianceType, submitted: true, settled: true, myChoice, partnerChoice, myPoints, partnerPoints },
+    copyChoice: null, copyCandidates: [],
+  });
+  const resultCases = [
+    { file: '12c-star-mutual-result', task: dilemmaTask, phaseTwo: settledDilemma('STAR', 'TOGETHER', 'TOGETHER', 3, 3), title: '两颗星光并肩抵达' },
+    { file: '12d-star-personal-win', task: dilemmaTask, phaseTwo: settledDilemma('STAR', 'TAKE_ALL', 'TOGETHER', 5, 0), title: '你独自带走了星光' },
+    { file: '12e-heart-partner-win', task: heartDilemmaTask, phaseTwo: settledDilemma('HEART', 'LOVE', 'HATE', 0, 5), title: '两颗心在岔路口错开' },
+    { file: '12f-heart-mutual-guarded', task: heartDilemmaTask, phaseTwo: settledDilemma('HEART', 'HATE', 'HATE', 1, 1), title: '两颗爱心都保留了秘密' },
+  ];
+  for (const resultCase of resultCases) {
+    drawState.current = guestData({
+      game: { ...game, stage: 'banquet', registration_open: false, phase_one_completed_at: '2026-08-01T13:00:00.000Z' },
+      assignments: [assignment(`result-${resultCase.file}`, resultCase.task, 'approved')],
+      phaseTwo: resultCase.phaseTwo,
+    });
+    await page.reload();
+    await expect(page.getByRole('dialog')).toContainText(resultCase.title);
+    await screenshot(page, resultCase.file, testInfo.project.name);
+    await dismissNotice(page);
+  }
+
   const luckyTask = {
     title: '丘比特幸运星', description: '第二轮开启时，系统立即按你第一轮已经获得的个人积分发放同额奖励，并自动完成此任务。',
     verification_method: '系统已自动结算。', points: 0, category: 'upgrade', stage: 'task_round_2',
@@ -328,7 +360,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await page.reload(); await dismissNotice(page);
   await page.getByRole('button', { name: /查看我的积分流水/ }).click();
   await expect(page.getByText('丘比特幸运星 · 第一轮积分翻倍')).toBeVisible();
-  await screenshot(page, '12c-lucky-star-ledger', testInfo.project.name);
+  await screenshot(page, '12g-lucky-star-ledger', testInfo.project.name);
   await page.getByRole('button', { name: '看清楚了 · 关闭' }).click();
 
   drawState.current = guestData({
