@@ -85,6 +85,11 @@ test('the dashboard avatar remains prominent beside the guest name', async () =>
   assert.match(styles, /@media\(max-width:420px\)\{\.guest-hero-profile\{gap:12px\}\.guest-avatar-button\{width:70px;height:70px;min-width:70px/);
 });
 
+test('the circular selfie preview keeps its retake hint centered and readable', async () => {
+  const styles = await read('app/styles.css');
+  assert.match(styles, /\.avatar-retake-trigger>span\{[^}]*left:50%;right:auto;[^}]*max-width:calc\(100% - 32px\)[^}]*transform:translateX\(-50%\)[^}]*white-space:nowrap/);
+});
+
 test('the admin guest manager receives private signed avatars and reports real progress', async () => {
   const [adminData, adminPage, styles] = await Promise.all([
     read('lib/data/admin.ts'),

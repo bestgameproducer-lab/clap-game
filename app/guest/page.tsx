@@ -1022,7 +1022,10 @@ export default function GuestPage() {
   const completedAssignments = allDashboardAssignments.filter((assignment) => ['approved', 'cancelled'].includes(assignment.status));
   const dashboardAssignments = completedMissionsOpen || openAssignments.length === 0 ? allDashboardAssignments : openAssignments;
   const pointLedger = data.pointLedger ?? [];
-  const teamScores = data.teamScores ?? [];
+  // Keep the wedding narrative boundary on the client as well as in the DTO.
+  // A stale cache or test fixture must never surface team standings before the
+  // team challenge begins.
+  const teamScores = ['group_game', 'voting', 'results'].includes(data.game?.stage ?? '') ? data.teamScores ?? [] : [];
   const guestClueGroups = Array.from(new Set(data.clues.map((clue) => clue.groupName || '通用线索'))).map((name) => ({ name, clues: data.clues.filter((clue) => (clue.groupName || '通用线索') === name) }));
   const incomingConfirmationCount = missionStory?.mutualConfirmations.filter((confirmation) => confirmation.direction === 'INCOMING' && confirmation.status === 'PENDING').length ?? 0;
   const rejectedAssignment = openAssignments.find((assignment) => assignment.status === 'rejected');

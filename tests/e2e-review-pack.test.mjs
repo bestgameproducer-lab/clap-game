@@ -24,11 +24,17 @@ test('完整婚礼彩排生成可下载且不接触生产数据的截图验收�
   assert.match(reviewConfig, /timeout: 90_000/);
   for (const screenshot of [
     '01-home-invitation', '02-invitation-gate', '03-guest-roster', '04-create-pin',
-    '05-selfie-required', '06-card-draw-ready', '07-card-revealed', '08-round-one-task',
-    '09-symbol-pairing', '10-ceremony-pause', '11-awakening-notice', '12-secret-dilemma',
+    '05-selfie-required', '05b-selfie-preview-retake', '06-card-draw-ready', '07-card-revealed',
+    '07b-trickster-card-reveal', '08-round-one-task', '08b-public-ceremony-role',
+    '09-symbol-pairing', '09b-player-directory', '09c-pairing-invitation', '09d-star-match-complete',
+    '09e-heart-pairing', '10-ceremony-pause', '11-awakening-notice', '11b-guiding-star-mission',
+    '11c-lonely-cupid-awakening', '11d-lonely-cupid-choice', '12-secret-dilemma',
+    '12b-heart-dilemma', '12c-lucky-star-ledger', '12d-family-honor-card', '12e-team-score-clue-reward',
     '13-dinner-menu', '14-trickster-facade', '15-trickster-truth', '16-final-vote',
+    '16b-vote-confirmation', '16c-trickster-weighted-vote',
     '17-guest-results', '20-admin-opening', '21-admin-live-flow', '22-admin-finale',
-    '23-host-console', '24-station-review', '25-public-finale',
+    '22b-admin-published-results', '23-host-console', '23b-host-published-results',
+    '24-station-review', '25-public-finale',
   ]) assert.match(reviewSpec, new RegExp(screenshot));
   assert.match(runner, /manifest\.json/);
   assert.match(indexBuilder, /index\.html/);
