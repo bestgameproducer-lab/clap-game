@@ -13,7 +13,14 @@ const guides = [
     eyebrow: "BALI WEDDING · LIVE OPERATIONS",
     images: {
       "页面四个入口": ["23-host-console.png"],
-      "团队挑战与终局": ["23b-host-published-results.png"],
+      "环节一：宾客签到": ["02-invitation-gate.png", "05-selfie-required.png", "07-card-revealed.png", "07b-trickster-card-reveal.png"],
+      "环节二：等待仪式": ["08-round-one-task.png"],
+      "环节三：婚礼仪式": ["10-ceremony-pause.png"],
+      "环节五：婚宴前奏": ["11-awakening-notice.png"],
+      "环节六：婚宴开始": ["13-dinner-menu.png"],
+      "团队结算与线索发放": ["12e-team-score-clue-reward.png"],
+      "环节八：最终投票": ["16-final-vote.png"],
+      "环节九：身份揭晓、积分与颁奖": ["23b-host-published-results.png", "17-guest-results.png"],
     },
   },
   {
@@ -21,9 +28,16 @@ const guides = [
     output: "主办方后台使用指南.pdf",
     eyebrow: "BALI WEDDING · CONTROL CENTER",
     images: {
-      "开场前检查": ["20-admin-opening.png"],
-      "现场执行": ["21-admin-live-flow.png", "24-station-review.png"],
-      "终局结算顺序": ["22-admin-finale.png"],
+      "后台四个主入口": ["20-admin-opening.png"],
+      "婚礼当天开场前 60 分钟": ["20-admin-opening.png"],
+      "环节一：宾客签到": ["02-invitation-gate.png", "05-selfie-required.png", "07-card-revealed.png", "07b-trickster-card-reveal.png"],
+      "环节二：等待仪式与第一轮执行": ["24-station-review.png", "08-round-one-task.png"],
+      "环节三：婚礼仪式": ["10-ceremony-pause.png"],
+      "环节五：婚宴前奏与第二轮派发": ["21-admin-live-flow.png", "11-awakening-notice.png"],
+      "环节六：婚宴开始": ["13-dinner-menu.png"],
+      "团队积分结算并发放线索": ["12e-team-score-clue-reward.png"],
+      "环节八：最终投票": ["22-admin-finale.png", "16-final-vote.png"],
+      "环节九：身份揭晓、最终积分与奖项": ["22b-admin-published-results.png", "17-guest-results.png"],
     },
   },
 ];
@@ -71,8 +85,13 @@ async function markdownToHtml(markdown, imageMap) {
       const level = heading[1].length;
       const text = heading[2];
       output.push(`<h${level}>${inline(text)}</h${level}>`);
-      for (const filename of imageMap[text] ?? []) {
-        output.push(`<figure><img src="${await imageData(filename)}" alt="${escapeHtml(text)}真实页面截图"><figcaption>${escapeHtml(text)} · 真实页面示例</figcaption></figure>`);
+      const filenames = imageMap[text] ?? [];
+      if (filenames.length) {
+        output.push(`<div class="figure-grid ${filenames.length === 1 ? "single" : "multiple"}">`);
+        for (const filename of filenames) {
+          output.push(`<figure><img src="${await imageData(filename)}" alt="${escapeHtml(text)}真实页面截图"><figcaption>${escapeHtml(text)} · 真实页面示例</figcaption></figure>`);
+        }
+        output.push("</div>");
       }
       continue;
     }
@@ -103,14 +122,18 @@ function documentHtml(body, eyebrow) {
     h1 { color: #4f3028; font-size: 25pt; line-height: 1.15; margin: 0 0 8mm; padding-bottom: 5mm; border-bottom: 2px solid #c7a66a; }
     h2 { color: #663e34; font-size: 16pt; line-height: 1.25; margin: 9mm 0 4mm; break-after: avoid; }
     h3 { color: #4f3028; font-size: 12pt; margin: 6mm 0 2mm; break-after: avoid; }
-    p { margin: 0 0 3mm; orphans: 3; widows: 3; }
+    p { margin: 0 0 3mm; orphans: 3; widows: 3; break-inside: avoid; }
     h1 + p { background: #60473e; color: white; border-radius: 5mm; padding: 5mm 6mm; font-size: 12pt; }
-    ol, ul { margin: 2mm 0 5mm; padding-left: 7mm; }
+    ol, ul { margin: 2mm 0 5mm; padding-left: 7mm; break-inside: avoid; }
     li { margin: 0 0 2.5mm; padding-left: 1mm; break-inside: avoid; }
     strong { color: #5e382e; }
     code { font: 600 9.5pt ui-monospace, SFMono-Regular, Menlo, monospace; background: #f3ece6; border-radius: 2mm; padding: 1mm 2mm; }
-    figure { margin: 5mm 0 7mm; padding: 3mm; border: 1px solid #dfcfc4; border-radius: 5mm; background: #fbf7f2; break-inside: avoid; }
-    img { display: block; width: 100%; max-height: 118mm; object-fit: contain; object-position: top center; border-radius: 3mm; }
+    .figure-grid { display: grid; gap: 4mm; margin: 5mm 0 7mm; break-inside: avoid; }
+    .figure-grid.multiple { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .figure-grid.multiple figure:nth-child(3):last-child { grid-column: 1 / -1; width: 48%; justify-self: center; }
+    figure { margin: 0; padding: 3mm; border: 1px solid #dfcfc4; border-radius: 5mm; background: #fbf7f2; break-inside: avoid; }
+    img { display: block; width: 100%; max-height: 112mm; object-fit: contain; object-position: top center; border-radius: 3mm; }
+    .figure-grid.multiple img { max-height: 94mm; }
     figcaption { margin-top: 2mm; color: #806d63; font-size: 8.5pt; text-align: center; }
     h2:not(:first-of-type) { border-top: 1px solid #e7d8ce; padding-top: 5mm; }
     @media print { a { color: inherit; text-decoration: none; } }
