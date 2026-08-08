@@ -477,8 +477,17 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
   await page.route('**/api/host-data', (route) => route.fulfill({ json: hostState.current }));
   await page.goto('/host');
   await expect(page.getByRole('heading', { name: '主持人流程台' })).toBeVisible();
+  await screenshot(page, '23a-host-overview', testInfo.project.name);
+  await page.getByRole('button', { name: '团队加分', exact: true }).click();
+  await screenshot(page, '23c-host-team-score', testInfo.project.name);
+  await page.getByRole('button', { name: '个人加分', exact: true }).click();
+  await screenshot(page, '23d-host-personal-score', testInfo.project.name);
   await page.getByRole('button', { name: '流程控制', exact: true }).click();
   await screenshot(page, '23-host-console', testInfo.project.name);
+  await page.getByText('婚宴开始', { exact: true }).last().click();
+  await expect(page.getByRole('dialog', { name: '确认切换婚礼流程' })).toBeVisible();
+  await screenshot(page, '23e-host-stage-confirmation', testInfo.project.name);
+  await page.getByRole('button', { name: '取消', exact: true }).click();
 
   hostState.current = {
     ...hostData,

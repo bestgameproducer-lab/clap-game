@@ -66,3 +66,26 @@ test('operations documents describe the current six-gate preflight and minimal h
   assert.match(handoff, /当前精简主持台不读取或展示旧主持题库答案/);
   assert.doesNotMatch(handoff, /恶作剧者秘密计分使用独立私密账本/);
 });
+
+test('host guide is a click-by-click wedding-day operating manual', async () => {
+  const guide = await read('../docs/host-operator-guide.md');
+  for (const section of [
+    '主持人现场一分钟速查',
+    '登录后先认识主持人台',
+    '如何使用全员总览',
+    '如何记录团队加分',
+    '如何记录个人加分',
+    '如何切换婚礼环节',
+    '终局四个按钮的固定顺序',
+    '按钮变灰时先检查什么',
+  ]) assert.match(guide, new RegExp(section));
+  for (const action of [
+    '确认给海岛组/沙漠组加 X 分',
+    '确认给某宾客加 X 分',
+    '确认切换',
+    '结算团队积分并发放线索',
+    '开启新一轮投票',
+    '关闭本轮投票',
+    '公布身份并结算',
+  ]) assert.match(guide, new RegExp(action));
+});
