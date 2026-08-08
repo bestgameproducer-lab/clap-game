@@ -30,6 +30,7 @@ test('guest score DTO excludes staff actors and exposes team scores only in team
   assert.match(dataSource, /select\('id,assignment_id,amount,reason,created_at'\)/);
   assert.doesNotMatch(dataSource, /points_ledger'\)\.select\('[^']*actor/);
   assert.match(dataSource, /\['group_game', 'voting', 'results'\]\.includes\(game\.stage\)/);
+  assert.match(page, /\['group_game', 'voting', 'results'\]\.includes\(data\.game\?\.stage \?\? ''\) \? data\.teamScores \?\? \[\] : \[\]/);
   assert.match(page, /查看我的积分流水/);
   assert.match(page, /团队实时积分/);
 });
