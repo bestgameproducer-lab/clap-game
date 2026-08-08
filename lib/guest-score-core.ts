@@ -14,7 +14,7 @@ export type GuestAssignmentLabel = {
 export type GuestTeamPointEntry = { team: string; amount: number };
 
 const COMPETITIVE_TEAMS = ['海岛组', '沙漠组'] as const;
-const HIDDEN_RESULT_REASONS = ['超级幸运星', '孤单丘比特', '领航星队长'];
+const HIDDEN_RESULT_REASONS = ['超级幸运星', '丘比特幸运星', '孤单丘比特', '领航星队长'];
 
 function pointLabel(reason: string, assignmentTitle: string | null, resultsVisible: boolean) {
   if (!resultsVisible && HIDDEN_RESULT_REASONS.some((prefix) => reason.startsWith(prefix))) return '第二幕系统奖励';

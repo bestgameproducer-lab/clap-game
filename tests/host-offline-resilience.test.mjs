@@ -26,7 +26,7 @@ test('host fallback is read-only and reconnects explicitly', async () => {
   const source = await readFile(new URL('../app/host/page.tsx', import.meta.url), 'utf8');
 
   assert.match(source, /if \(!navigator\.onLine\)[\s\S]*联网后才能加分[\s\S]*return/);
-  assert.match(source, /disabled=\{busy \|\| offline \|\| Boolean\(data\.game\?\.team_clues_settled_at\) \|\| Number\(teamForm\.amount\)/);
+  assert.match(source, /disabled=\{busy \|\| offline \|\| Boolean\(data\.game\?\.team_clues_settled_at\) \|\| teamForm\.amount === '' \|\| Number\(teamForm\.amount\)/);
   assert.match(source, /disabled=\{busy \|\| offline \|\| !selectedGuest/);
   assert.match(source, /useLiveRefresh\(\(\) => load\(\)/);
   assert.match(source, /onClick=\{\(\) => void load\(true\)\}/);

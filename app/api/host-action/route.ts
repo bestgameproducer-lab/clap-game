@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     if (type === 'adjustTeamPoints') {
       const total = await adjustHostTeamPoints({
         team: requiredString(body.team, '组别', 40),
-        amount: requiredInteger(body.amount, '团队加分', 1, 100),
+        amount: requiredInteger(body.amount, '团队计分', 0, 100),
         reason: requiredString(body.reason, '加分原因', 200),
         eventKey: requiredUuid(body.eventKey, '幂等事件 ID'),
       }, actor);
