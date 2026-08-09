@@ -11,7 +11,7 @@ test('secret draw card grows with long mobile content instead of clipping it', a
   assert.match(css, /\.secret-card-scene,\.secret-card,\.secret-card-back,\.secret-card-front\{min-height:465px\}/);
 });
 
-test('narrow mission cards constrain text and native photo controls', async () => {
+test('narrow mission cards constrain text and custom photo controls', async () => {
   const css = await readFile(new URL('../app/styles.css', import.meta.url), 'utf8');
   assert.match(css, /\.mission-body \{ min-width:0;[^}]*\}/);
   assert.match(css, /\.mission-summary-copy>strong\{[^}]*overflow-wrap:anywhere/);
