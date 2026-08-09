@@ -153,7 +153,8 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await page.getByRole('button', { name: '我已经看清楚 · 收起卡片' }).click();
   await expect(page.getByRole('heading', { name: '我的秘密任务' })).toBeVisible();
   await page.locator('#guest-missions summary').first().click();
-  await expect(page.getByText('选择或拍摄新郎新娘同框照片')).toBeVisible();
+  await expect(page.getByText('添加新郎新娘同框照片')).toBeVisible();
+  await expect(page.getByText('拍摄照片或从相册选择')).toBeVisible();
   await screenshot(page, '08-round-one-task', testInfo.project.name);
 
   drawState.current = guestData({ assignments: [assignment('photo-1', couplePhotoTask, 'approved', { verification_note: '任务站已确认完成。' })] });
