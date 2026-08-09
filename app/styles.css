@@ -138,7 +138,7 @@ button.text-button { background: transparent; color: #76665e; padding: 8px; text
 .submission-note strong { margin-bottom:2px; color:#8f6254; font-size:10px; letter-spacing:.06em; }
 .submission-form { margin-top:12px; }
 .submission-form label { font-size:11px; }
-.submission-form textarea { min-height:72px; margin-bottom:8px; }
+.submission-form textarea{min-height:46px;margin-bottom:8px;resize:vertical;transition:min-height .18s ease}.submission-form textarea:focus{min-height:78px}
 .submission-form button { margin-top:0; }
 .phase-two-action,.phase-two-choice-state { display:grid;gap:10px;margin-top:12px;padding:14px;border:1px solid #eadbd1;border-radius:16px;background:#fffaf6; }
 .phase-two-action>strong,.phase-two-choice-state>strong { color:#6f3b32; }
