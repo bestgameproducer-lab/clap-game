@@ -148,6 +148,7 @@ test('离开后重新打开仍会收到升级任务结算，且双方提交前�
   await expect(resultDialog).toContainText(/你\s*0 分/);
   await expect(resultDialog).toContainText(/伙伴\s*5 分/);
   await resultDialog.getByRole('button', { name: '收下结果 · 返回任务' }).click();
+  await page.getByRole('button', { name: '查看已完成任务（1）' }).click();
   await page.locator('#guest-missions summary').first().click();
   await expect(page.getByText('星光在岔路口分开')).toBeVisible();
   await expect(page.getByText('伙伴选择「独占」· 获得 5 分')).toBeVisible();
