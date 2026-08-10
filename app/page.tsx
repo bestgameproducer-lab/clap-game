@@ -5,8 +5,10 @@ export default function Home() {
   const title = process.env.NEXT_PUBLIC_WEDDING_TITLE || 'Our Wedding Mission';
   return <main className="home-shell">
     <section className="home-hero bali-home-hero">
-      <div className="home-invitation-heading"><div className="eyebrow">A SECRET WEDDING ADVENTURE</div>
-      <WeddingSignature/>
+      <div className="home-invitation-heading">
+        <strong className="home-couple-name">ZIMIN <span>&amp;</span> ANRONG</strong>
+        <div className="eyebrow">A SECRET WEDDING ADVENTURE</div>
+        <WeddingSignature compact/>
       </div>
       <BaliInvitationScene/>
       <div className="home-story-mark"><span>♧</span><i/><b>THE CATS HAVE A SECRET</b><i/><span>♧</span></div>
