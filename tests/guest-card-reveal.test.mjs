@@ -23,6 +23,17 @@ test('entering the dashboard never clears the revealed card before draw state is
   assert.match(page, /正在打开游戏主页…/);
 });
 
+test('full-page guest steps reset retained mobile scroll position', async () => {
+  const page = await readFile(pageUrl, 'utf8');
+
+  assert.match(page, /const fullPageStep = checking \|\| deviceAccessChecking/);
+  assert.match(page, /secret-card:\$\{revealedCard \? 'revealed' : 'ready'\}/);
+  assert.match(page, /window\.scrollTo\(0, 0\)/);
+  assert.match(page, /document\.documentElement\.scrollTop = 0/);
+  assert.match(page, /window\.requestAnimationFrame\(resetScroll\)/);
+  assert.match(page, /\}, \[fullPageStep\]\)/);
+});
+
 test('guest UI clearly labels the functional demo task catalogue', async () => {
   const page = await readFile(pageUrl, 'utf8');
 
