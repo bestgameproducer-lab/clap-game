@@ -9,12 +9,11 @@ test('home invitation carries the Bali estate and cat Cupid story without obscur
     readFile(new URL('../app/styles.css', import.meta.url), 'utf8'),
   ]);
   assert.match(home, /<BaliInvitationScene\/>/);
-  assert.match(home, /className="home-couple-title">Zimin <em>&amp;<\/em> Anrong/);
+  assert.match(home, /className="home-couple-signature">Zimin <em>&amp;<\/em> Anrong/);
   assert.doesNotMatch(home, /NEXT_PUBLIC_WEDDING_TITLE/);
   assert.match(home, /<WeddingSignature compact\/>/);
-  assert.match(home, /A WEDDING ADVENTURE IN BALI/);
   assert.match(home, /A SECRET INVITATION/);
-  assert.match(home, /小登与雷雷，发来一封秘密邀约/);
+  assert.match(home, /小登与雷雷<br\/>发来一封秘密邀约/);
   assert.match(home, /领取我的秘密身份/);
   assert.match(scene, /bali-cat-cupid-estate-v1\.jpg/);
   assert.match(scene, /巴厘岛庄园与稻田/);

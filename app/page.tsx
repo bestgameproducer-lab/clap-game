@@ -5,13 +5,12 @@ export default function Home() {
   return <main className="home-shell">
     <section className="home-hero bali-home-hero">
       <div className="home-invitation-heading">
-        <div className="eyebrow">A WEDDING ADVENTURE IN BALI</div>
+        <div className="home-couple-signature">Zimin <em>&amp;</em> Anrong</div>
         <WeddingSignature compact/>
       </div>
       <BaliInvitationScene/>
       <div className="home-story-mark"><span>♧</span><i/><b>A SECRET INVITATION</b><i/><span>♧</span></div>
-      <h1 className="home-couple-title">Zimin <em>&amp;</em> Anrong</h1>
-      <p className="home-kicker">小登与雷雷，发来一封秘密邀约</p>
+      <h1 className="home-invitation-title">小登与雷雷<br/>发来一封秘密邀约</h1>
       <p className="home-copy">领取你的身份，完成藏在婚礼里的秘密任务。<br/>在故事揭晓前，找出混入宾客中的恶作剧者。</p>
       <a className="home-cta" href="/guest"><span>领取我的秘密身份</span><b>→</b></a>
       <p className="privacy-note">受邀宾客专属 · 请独自查看你的身份与任务</p>
