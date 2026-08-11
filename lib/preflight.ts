@@ -17,7 +17,7 @@ export type PreflightItem = {
 export const PHASE_ONE_MISSION_SPECS = [
   ['P1-CER-001',5,1],['P1-CER-002',3,2],['P1-CER-003',3,1],['P1-CER-004',3,1],
   ['P1-HEART-001',2,5],['P1-STAR-001',2,5],['P1-SOCIAL-001',2,2],['P1-SOCIAL-002',2,2],
-  ['P1-BONUS-001',2,2],['P1-TRICKSTER-001',0,null],
+  ['P1-BONUS-001',2,2],['P1-TRICKSTER-001',0,null],['P1-FAMILY-001',2,1],
 ] as const;
 
 function item(id: string, label: string, detail: string, ready: boolean, warning = false): PreflightItem {
@@ -62,7 +62,7 @@ export function buildWeddingPreflight(input: {
   const items: PreflightItem[] = [
     item('game-state', '核心流程状态可用', input.hasGameState ? '数据库流程状态已读取' : '无法读取 game_state', input.hasGameState),
     item('invitation-code', '正式邀请码已设置', input.invitationCodeRotated ? '已由主办方安全更新' : '仍是公开示例码或尚未在后台确认', input.invitationCodeRotated),
-    item('guest-roster', '32 位宾客名单与三组结构', `${invitedGuests.length} 位可登录 · 家人组 ${familyGuests.length} 人 · 第二轮竞技玩家 ${competitiveGuests.length} 人`, invitedGuests.length === 32 && familyGuests.length === 10 && competitiveGuests.length === 20),
+    item('guest-roster', '34 位宾客与 33 个登录账号', `${invitedGuests.length} 个账号可登录 · 家人组 ${familyGuests.length} 个账号 · 第二轮竞技玩家 ${competitiveGuests.length} 人`, invitedGuests.length === 33 && familyGuests.length === 11 && competitiveGuests.length === 20),
     item('draw-capacity', '竞技组容量没有冲突', teamSummary.map((team) => `${team.team} ${team.total}/10`).join(' · '), capacityValid),
     item('official-missions', '第一轮任务、分值与人数正确', `${officialMissionCount}/${officialMissionCodes.length} 项符合定稿${unexpectedPhaseOneTasks.length ? ` · 另有 ${unexpectedPhaseOneTasks.length} 项非定稿任务仍启用` : ''}`, officialMissionCount === officialMissionCodes.length && unexpectedPhaseOneTasks.length === 0),
     item('story-cast', '固定职务与随机图案池正确', `誓词 ${storyCounts.OFFICIANT} · 戒指 ${storyCounts.RING_KEEPER} · 应援 ${storyCounts.GROOM_CHEERLEADER + storyCounts.BRIDE_CHEERLEADER} · 已预设爱心 ${storyCounts.HEART_HOLDER}/5 · 已预设星星 ${storyCounts.STAR_HOLDER}/5`, storyCastReady),
