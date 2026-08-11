@@ -470,7 +470,7 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
     guests: [staffGuest], assignments: [], tasks: [], clues: [], submissions: [], votes: [], pointLedger: [], auditLog: [], awards: [], teamPointLedger: [], resultRewards: [], hiddenTaskCodes: [], heartSlots: [], playerRelationships: [], allianceClues: [], symbolPairings: [], phaseTwoProfiles: [],
     game: { ...game, stage: 'registration' }, rankings: { personal: [], teams: [] }, finale: { tricksters: [], voteCounts: [] },
     preflight: { ready: true, blockedCount: 0, items: [
-      { id: 'roster', label: '32 位宾客名单', detail: '名单与组别已经确认', status: 'ready' },
+      { id: 'roster', label: '34 位宾客与 33 个登录账号', detail: '名单与组别已经确认', status: 'ready' },
       { id: 'missions', label: '第一轮任务容量', detail: '正式任务池可完成抽卡', status: 'ready' },
     ] },
     rehearsalResetPreview: emptyReset,

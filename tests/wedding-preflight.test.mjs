@@ -9,7 +9,7 @@ function completeFixture() {
     role: index === 0 ? 'spy' : 'guest', is_hidden_spy: false,
     drawn_at: null, team_locked: true, role_locked: true, participation_mode: 'ACTIVE_PLAYER', story_role: 'NONE', phase_two_eligible: true,
   })));
-  const taskFamily = Array.from({ length: 3 }, (_, index) => ({
+  const taskFamily = Array.from({ length: 4 }, (_, index) => ({
     id: `family-task-${index}`, active: true, team: '家人组', role: 'guest', is_hidden_spy: false,
     drawn_at: null, team_locked: true, role_locked: true, participation_mode: 'ACTIVE_PLAYER', story_role: 'NONE', phase_two_eligible: false,
   }));
@@ -36,7 +36,7 @@ function completeFixture() {
   };
 }
 
-test('a complete 32-person rehearsal configuration passes every preflight gate', () => {
+test('a complete 34-person, 33-account rehearsal configuration passes every preflight gate', () => {
   const result = buildWeddingPreflight(completeFixture());
   assert.equal(result.ready, true);
   assert.equal(result.blockedCount, 0);
