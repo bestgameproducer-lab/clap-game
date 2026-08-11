@@ -13,7 +13,8 @@ test('home invitation carries the Bali estate and cat Cupid story without obscur
   assert.doesNotMatch(home, /NEXT_PUBLIC_WEDDING_TITLE/);
   assert.match(home, /<WeddingSignature compact\/>/);
   assert.match(home, /A WEDDING ADVENTURE IN BALI/);
-  assert.match(home, /丘比特的秘密婚礼任务/);
+  assert.match(home, /A SECRET INVITATION/);
+  assert.match(home, /小登与雷雷，发来一封秘密邀约/);
   assert.match(home, /领取我的秘密身份/);
   assert.match(scene, /bali-cat-cupid-estate-v1\.jpg/);
   assert.match(scene, /巴厘岛庄园与稻田/);
