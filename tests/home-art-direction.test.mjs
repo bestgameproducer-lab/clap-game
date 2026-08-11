@@ -9,7 +9,8 @@ test('home invitation carries the Bali estate and cat Cupid story without obscur
     readFile(new URL('../app/styles.css', import.meta.url), 'utf8'),
   ]);
   assert.match(home, /<BaliInvitationScene\/>/);
-  assert.match(home, /className="home-couple-name"/);
+  assert.match(home, /className="home-couple-title">Zimin <em>&amp;<\/em> Anrong/);
+  assert.doesNotMatch(home, /NEXT_PUBLIC_WEDDING_TITLE/);
   assert.match(home, /<WeddingSignature compact\/>/);
   assert.match(home, /两位白猫丘比特，邀请你进入庄园/);
   assert.match(home, /进入婚礼任务/);
