@@ -87,7 +87,7 @@ async function routeGuestData(page, initialData) {
 
 test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await page.goto('/');
-  await expect(page.getByRole('link', { name: /进入婚礼任务/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /领取我的秘密身份/ })).toBeVisible();
   await screenshot(page, '01-home-invitation', testInfo.project.name);
 
   let registrationData = null;

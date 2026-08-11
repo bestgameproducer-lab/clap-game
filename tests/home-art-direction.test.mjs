@@ -12,8 +12,9 @@ test('home invitation carries the Bali estate and cat Cupid story without obscur
   assert.match(home, /className="home-couple-title">Zimin <em>&amp;<\/em> Anrong/);
   assert.doesNotMatch(home, /NEXT_PUBLIC_WEDDING_TITLE/);
   assert.match(home, /<WeddingSignature compact\/>/);
-  assert.match(home, /两位白猫丘比特，邀请你进入庄园/);
-  assert.match(home, /进入婚礼任务/);
+  assert.match(home, /A WEDDING ADVENTURE IN BALI/);
+  assert.match(home, /丘比特的秘密婚礼任务/);
+  assert.match(home, /领取我的秘密身份/);
   assert.match(scene, /bali-cat-cupid-estate-v1\.jpg/);
   assert.match(scene, /巴厘岛庄园与稻田/);
   assert.match(styles, /\.bali-home-hero\{[^}]*background:linear-gradient/);
