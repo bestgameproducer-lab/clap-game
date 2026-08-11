@@ -54,7 +54,8 @@ test('background refresh stays visually silent while manual guest refresh has fe
   assert.doesNotMatch(host, /正在同步主持台/);
   assert.match(guest, /refreshManually\(\)/);
   assert.match(guest, /状态已刷新/);
-  assert.match(guest, /manualRefreshing \? '刷新中…' : '刷新状态'/);
+  assert.match(guest, /manualRefreshing \? '刷新中…' : '手动刷新'/);
   assert.match(styles, /\.refresh-button\.refreshing \.refresh-icon/);
+  assert.match(styles, /\.footer-actions\{display:flex;align-items:center;justify-content:center/);
   assert.match(scoreboard, /自动更新已开启\{offline \?/);
 });

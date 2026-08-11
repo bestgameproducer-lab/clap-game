@@ -20,4 +20,7 @@ test('首轮完成后只为前三名积分奖励显示名次 Banner', async () =
   assert.doesNotMatch(source, /data\.game\?\.stage === 'task_round_1' \? undefined : data\.assignments\.find/);
   assert.match(source, /你是第 \{rankedReward\.completion_rank\} 位完成首轮任务的宾客/);
   assert.match(source, /抢先完成奖励：额外 1 分已经计入你的个人积分/);
+  assert.match(source, /REWARD_ACK_KEY = 'wedding-guest-reward-ack-v1'/);
+  assert.match(source, /window\.localStorage\.setItem\(REWARD_ACK_KEY, rankedRewardKey\)/);
+  assert.match(source, /rankedReward && rewardAcknowledged && <button type="button" className="reward-chip"/);
 });

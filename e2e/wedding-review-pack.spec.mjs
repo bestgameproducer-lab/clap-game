@@ -87,7 +87,7 @@ async function routeGuestData(page, initialData) {
 
 test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await page.goto('/');
-  await expect(page.getByRole('link', { name: /进入婚礼任务/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /领取我的秘密身份/ })).toBeVisible();
   await screenshot(page, '01-home-invitation', testInfo.project.name);
 
   let registrationData = null;
@@ -153,7 +153,8 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await page.getByRole('button', { name: '我已经看清楚 · 收起卡片' }).click();
   await expect(page.getByRole('heading', { name: '我的秘密任务' })).toBeVisible();
   await page.locator('#guest-missions summary').first().click();
-  await expect(page.getByText('选择或拍摄新郎新娘同框照片')).toBeVisible();
+  await expect(page.getByText('添加新郎新娘同框照片')).toBeVisible();
+  await expect(page.getByText('拍摄照片或从相册选择')).toBeVisible();
   await screenshot(page, '08-round-one-task', testInfo.project.name);
 
   drawState.current = guestData({ assignments: [assignment('photo-1', couplePhotoTask, 'approved', { verification_note: '任务站已确认完成。' })] });
@@ -230,6 +231,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
     },
   });
   await page.reload(); await dismissNotice(page);
+  await page.getByRole('button', { name: '查看已完成任务（1）' }).click();
   await page.locator('#guest-missions summary').first().click();
   await expect(page.getByText('完整星星', { exact: true })).toBeVisible();
   await screenshot(page, '09d-star-match-complete', testInfo.project.name);
@@ -391,6 +393,9 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await expect(page.getByRole('heading', { name: '团队实时积分' })).toBeVisible();
   await expect(page.getByText('被忽略的细节')).toBeVisible();
   await screenshot(page, '12e-team-score-clue-reward', testInfo.project.name);
+  await page.getByRole('button', { name: '收下这份荣誉' }).click();
+  await expect(page.locator('.reward-chip')).toContainText('第 2 位完成首轮任务');
+  await screenshot(page, '12h-early-honor-badge', testInfo.project.name);
 
   await page.getByRole('button', { name: /查看今日菜单/ }).click();
   await expect(page.getByRole('img', { name: /婚宴菜单/ })).toBeVisible();

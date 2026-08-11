@@ -31,7 +31,7 @@ test('完整婚礼彩排生成可下载且不接触生产数据的截图验收�
     '11c-lonely-cupid-awakening', '11d-lonely-cupid-choice', '12-secret-dilemma',
     '12b-heart-dilemma', '12c-star-mutual-result', '12d-star-personal-win',
     '12e-heart-partner-win', '12f-heart-mutual-guarded', '12g-lucky-star-ledger',
-    '12d-family-honor-card', '12e-team-score-clue-reward',
+    '12d-family-honor-card', '12e-team-score-clue-reward', '12h-early-honor-badge',
     '13-dinner-menu', '14-trickster-facade', '15-trickster-truth', '16-final-vote',
     '16b-vote-confirmation', '16c-trickster-weighted-vote',
     '17-guest-results', '20-admin-opening', '21-admin-live-flow', '22-admin-finale',

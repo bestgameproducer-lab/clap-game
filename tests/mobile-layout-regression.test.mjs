@@ -11,11 +11,14 @@ test('secret draw card grows with long mobile content instead of clipping it', a
   assert.match(css, /\.secret-card-scene,\.secret-card,\.secret-card-back,\.secret-card-front\{min-height:465px\}/);
 });
 
-test('narrow mission cards constrain text and native photo controls', async () => {
+test('narrow mission cards constrain text and custom photo controls', async () => {
   const css = await readFile(new URL('../app/styles.css', import.meta.url), 'utf8');
   assert.match(css, /\.mission-body \{ min-width:0;[^}]*\}/);
   assert.match(css, /\.mission-summary-copy>strong\{[^}]*overflow-wrap:anywhere/);
-  assert.match(css, /\.evidence-controls input\[type="file"\] \{[^}]*min-width:0; max-width:100%;[^}]*overflow:hidden/);
+  assert.match(css, /\.evidence-controls \.evidence-file-input\{[^}]*position:absolute;[^}]*clip-path:inset\(50%\)/);
+  assert.match(css, /\.evidence-file-trigger\{[^}]*min-height:58px;[^}]*cursor:pointer/);
+  assert.match(css, /\.submission-form textarea\{min-height:46px;[^}]*resize:vertical/);
+  assert.match(css, /\.submission-form textarea:focus\{min-height:78px\}/);
   assert.match(css, /\.mission-summary\{grid-template-columns:30px minmax\(0,1fr\) 34px;gap:8px\}/);
   assert.match(css, /\.mission-chevron\{width:34px;height:34px\}/);
 });
