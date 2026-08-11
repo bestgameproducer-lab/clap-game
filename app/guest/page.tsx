@@ -404,6 +404,33 @@ export default function GuestPage() {
     return () => document.body.classList.remove('modal-scroll-locked');
   }, [pageScrollLocked]);
 
+  const fullPageStep = checking || deviceAccessChecking
+    ? 'loading'
+    : !data
+      ? `registration:${guests ? 'guest-list' : 'invitation'}:${selectedGuest ? 'identity' : ''}`
+      : !data.guest.avatar_url || avatarEditorOpen
+        ? 'avatar'
+        : data.guest.participation_mode === 'HONOR_GUEST' && (!data.guest.special_card_revealed_at || specialCardRevealed)
+          ? `honor-card:${specialCardRevealed ? 'revealed' : 'ready'}`
+          : data.guest.participation_mode === 'PRINCIPAL'
+            ? 'principal-card'
+            : data.guest.participation_mode === 'ACTIVE_PLAYER' && (!data.guest.drawn_at || revealedCard)
+              ? `secret-card:${revealedCard ? 'revealed' : 'ready'}`
+              : 'dashboard';
+
+  useEffect(() => {
+    // These steps replace the whole guest screen without a route navigation, so
+    // mobile browsers otherwise retain the previous screen's scroll offset.
+    const resetScroll = () => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+    resetScroll();
+    const frame = window.requestAnimationFrame(resetScroll);
+    return () => window.cancelAnimationFrame(frame);
+  }, [fullPageStep]);
+
   useEffect(() => {
     if (!secretReaderOpen && !dinnerMenuOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
