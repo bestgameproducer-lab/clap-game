@@ -20,15 +20,15 @@ test('social missions support bounded mutual confirmation with atomic completion
   assert.doesNotMatch(guestData, /CUPID_HELPER|cupid_helper_actions/);
   assert.match(guestPage, /renderMutualConfirmation\(assignment\)/);
   assert.match(guestPage, /className="inline-mutual-confirmation"/);
-  assert.match(guestPage, /输入玩家编号/);
+  assert.match(guestPage, /无法上传合影？/);
+  assert.match(guestPage, /改用玩家编号确认/);
   assert.match(guestPage, /assignment\.task\.mission_code !== 'P1-SOCIAL-001'/);
   assert.match(guestPage, /添加新郎新娘同框照片/);
   assert.match(guestPage, /拍摄照片或从相册选择/);
-  assert.match(guestPage, /📷 一起自拍/);
-  assert.match(guestPage, /选择或拍摄合影/);
+  assert.match(guestPage, /添加与新朋友的合影/);
   assert.doesNotMatch(guestPage, /<h2>请新朋友确认<\/h2>/);
   assert.match(styles, /\.inline-mutual-confirmation/);
-  assert.match(styles, /\.mission-proof-divider/);
+  assert.match(styles, /\.photo-primary-proof/);
   assert.match(guestPage, /好友确认请求/);
 });
 
