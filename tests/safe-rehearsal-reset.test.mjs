@@ -37,7 +37,7 @@ test('reset is retry-idempotent and leaves a permanent audit summary', () => {
   assert.match(reset, /'backup_confirmed',true/);
 });
 
-test('runtime progress is cleared while reusable wedding configuration remains', () => {
+test('legacy reset preserved reusable configuration before clue-library reset policy changed', () => {
   const reset = resetFunction();
   for (const table of ['cupid_helper_actions', 'assignment_mutual_confirmations', 'symbol_pairing_assignments', 'player_relationships', 'trickster_signal_attempts', 'result_rewards', 'votes', 'guest_clues', 'points_ledger', 'team_points_ledger', 'spy_points_ledger', 'team_resource_ledger', 'assignments', 'guest_sessions', 'guest_login_throttles']) {
     assert.match(reset, new RegExp(`delete from ${table}`));
