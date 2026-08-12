@@ -24,8 +24,8 @@ test('admin console opens focused modules instead of one continuous page', async
 test('the data module clearly exposes the full rehearsal cleanup boundary', async () => {
   const page = await readFile(pageUrl, 'utf8');
 
-  assert.match(page, /清场后，运行数据应全部归零/);
-  assert.match(page, /清除所有宾客密码与登录、宾客自拍、抽卡结果、任务进度、验证照片、投票、个人与团队积分、历史竞拍流水与发布状态/);
+  assert.match(page, /清场后，运行数据和线索库应全部归零/);
+  assert.match(page, /清除所有宾客密码与登录、宾客自拍、抽卡结果、任务进度、验证照片、投票、个人与团队积分、历史竞拍流水、已发线索与整个线索库/);
   assert.match(page, /同时清除配对、互认和第二轮临时状态/);
   assert.match(page, /清空全部彩排运行数据/);
   assert.match(page, /resetControlsClosed/);
