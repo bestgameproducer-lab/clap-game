@@ -13,15 +13,17 @@ test('service worker caches only public app shells and static assets', async () 
   }
 });
 
-test('guest page registers offline shell without persisting private data to local storage', async () => {
+test('guest page registers offline shell without persisting private game data in browser storage', async () => {
   const source = await readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8');
   assert.match(source, /serviceWorker\.register\(SERVICE_WORKER_URL/);
   assert.match(source, /updateViaCache: 'none'/);
   assert.match(source, /addEventListener\('pageshow', checkForUpdate\)/);
   assert.match(source, /addEventListener\('visibilitychange', checkForUpdate\)/);
   assert.match(source, /serviceWorker\.addEventListener\('controllerchange'/);
-  assert.match(source, /window\.sessionStorage\.setItem\(GUEST_CACHE_KEY/);
-  assert.doesNotMatch(source, /localStorage\.setItem\(GUEST_CACHE_KEY/);
+  assert.doesNotMatch(source, /GUEST_CACHE_KEY|sessionStorage\.setItem/);
+  assert.match(source, /LEGACY_PRIVATE_SESSION_KEYS/);
+  assert.match(source, /sessionStorage\.removeItem\(key\)/);
+  assert.match(source, /为避免显示上一轮的任务或线索，请联网后重试/);
   assert.match(source, /弱网备用已准备/);
   assert.match(source, /安全退出需要联网完成/);
   assert.match(source, /if \(!response\.ok\) throw new Error\('logout_failed'\)/);
@@ -43,12 +45,13 @@ test('service worker script is served without stale HTTP caching and with root s
   assert.doesNotMatch(worker, /v\d+-neutral-dilemma/);
 });
 
-test('public scoreboard keeps a timestamped tab-only snapshot and reports stale state', async () => {
+test('public scoreboard keeps only the already-rendered board in memory and reports stale state', async () => {
   const source = await readFile(new URL('../app/scoreboard/page.tsx', import.meta.url), 'utf8');
-  assert.match(source, /window\.sessionStorage\.setItem\(SCOREBOARD_CACHE_KEY, JSON\.stringify\(\{ data: body, cachedAt \}\)\)/);
-  assert.match(source, /window\.sessionStorage\.getItem\(SCOREBOARD_CACHE_KEY\)/);
-  assert.doesNotMatch(source, /localStorage\.setItem\(SCOREBOARD_CACHE_KEY/);
-  assert.match(source, /window\.localStorage\.removeItem\('wedding-scoreboard-cache'\)/);
+  assert.doesNotMatch(source, /SCOREBOARD_CACHE_KEY|sessionStorage\.setItem|localStorage/);
+  assert.match(source, /LEGACY_SCOREBOARD_SESSION_KEYS/);
+  assert.match(source, /sessionStorage\.removeItem\(key\)/);
+  assert.match(source, /never restore a previous rehearsal's scores after reload/);
+  assert.match(source, /setData\(\(current\) => current\)/);
   assert.match(source, /serviceWorker\.register\(SERVICE_WORKER_URL/);
   assert.match(source, /updateViaCache: 'none'/);
   assert.match(source, /window\.addEventListener\('offline', disconnect\)/);

@@ -21,9 +21,11 @@ test('staff selections recover when live content is disabled or removed', async 
     read('../app/admin/page.tsx'),
     read('../app/station/page.tsx'),
   ]);
-  assert.match(admin, /setSelectedClueId\(\(current\) => data\.clues\.some\(\(clue\) => clue\.id === current && clue\.active\)/);
+  assert.match(admin, /selectableCluesForSelectedGuest\.some\(\(clue\) => clue\.id === selectedClueId\) \? selectedClueId : ''/);
+  assert.match(admin, /settledClueIdsForSelectedTeam\.has\(clue\.id\)/);
   assert.match(admin, /setLibraryClueId\(\(current\) => current === 'new' \|\| data\.clues\.some\(\(clue\) => clue\.id === current && clue\.active\)/);
-  assert.match(station, /setTaskId\(\(current\) => body\.tasks\?\.some\(\(task: Task\) => task\.id === current\)/);
+  assert.match(station, /const allowedTaskIds = data\.manualTaskIdsByGuest\?\.\[guestId\] \?\? \[\]/);
+  assert.match(station, /setTaskId\(\(current\) => allowedTaskIds\.includes\(current\)/);
   assert.match(station, /setClueId\(\(current\) => body\.clues\?\.some\(\(clue: \{ id: string \}\) => clue\.id === current\)/);
 });
 
@@ -33,10 +35,11 @@ test('empty staff tools explain what must be configured instead of showing blank
     read('../app/station/page.tsx'),
     read('../app/styles.css'),
   ]);
-  assert.match(admin, /当前没有可发放线索/);
-  assert.match(admin, /当前模式没有可派发任务/);
-  assert.match(station, /当前没有可派发的特别任务/);
-  assert.match(station, /线索需要主办方在婚礼设置中根据现场情况创建/);
+  assert.match(admin, /当前没有可补发线索/);
+  assert.match(admin, /manualTaskAvailability\.reason/);
+  assert.match(station, /manualTaskUnavailableReason/);
+  assert.match(station, /当前没有可补发的已结算线索/);
+  assert.match(station, /任务站不能现场改选其他线索/);
   assert.match(styles, /\.tool-empty-state/);
 });
 
@@ -46,10 +49,16 @@ test('station presents the shared wedding-stage copy instead of raw database val
   assert.doesNotMatch(station, /当前阶段：\{data\.game\?\.stage/);
 });
 
-test('admin dashboard does not depend on retired host-library or wallet reads', async () => {
-  const source = await read('../lib/data/admin.ts');
+test('staff data does not depend on retired host-library, wallet, or alliance-editor reads', async () => {
+  const [source, hostData, page] = await Promise.all([
+    read('../lib/data/admin.ts'),
+    read('../lib/data/host.ts'),
+    read('../app/admin/page.tsx'),
+  ]);
   const dashboard = source.slice(source.indexOf('export async function getAdminDashboardData'), source.indexOf('export async function getPrintableMissionCards'));
-  assert.doesNotMatch(dashboard, /from\('host_segments'\)|from\('team_resources'\)|hostSegments|resourceWallets/);
+  assert.doesNotMatch(dashboard, /from\('host_segments'\)|from\('team_resources'\)|from\('alliance_clue_fragments'\)|hostSegments|resourceWallets|allianceClues/);
+  assert.doesNotMatch(hostData, /HostSegmentInput|saveHostSegment|publishHostSegment|adjustTeamResources/);
+  assert.doesNotMatch(page, /allianceClues|allianceForms/);
 });
 
 test('operations documents describe the current six-gate preflight and minimal host desk', async () => {

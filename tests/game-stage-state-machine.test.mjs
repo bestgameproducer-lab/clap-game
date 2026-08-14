@@ -52,7 +52,7 @@ test('admin route and controls cannot directly select finale stages', async () =
 
   assert.match(rules, /MANUAL_GAME_STAGES = \['registration', 'waiting', 'task_round_1', 'ceremony_end', 'task_round_2', 'banquet', 'group_game'\]/);
   assert.match(route, /requiredEnum\(body\.stage, '游戏阶段', MANUAL_GAME_STAGES\)/);
-  assert.match(page, /disabled=\{\['voting', 'results'\]\.includes\(value\)\}/);
+  assert.match(page, /disabled=\{busy \|\| finalResultsLocked \|\| !isNextLiveGameStage\(data\.game\?\.stage, stage\)\}/);
   assert.match(page, /系统会关闭当前投票、隐藏揭晓，并清空大屏/);
   assert.match(page, /开启一轮新的最终投票.*关闭宾客注册、清空大屏旧题目/s);
   assert.match(page, /已经结算的积分不会撤销/);

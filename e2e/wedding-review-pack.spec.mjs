@@ -27,6 +27,7 @@ const couplePhotoTask = {
   title: '拍摄一张新郎新娘同框的照片',
   description: '在不打扰婚礼流程的前提下，捕捉一张新郎和新娘同时入镜的照片。',
   verification_method: '上传照片或向任务站工作人员出示照片。', points: 2,
+  verification_type: 'PHOTO',
   category: 'standard', stage: 'task_round_1', mission_code: 'P1-SOCIAL-002',
   mechanic: 'STANDARD', score_policy: 'STANDARD',
 };
@@ -48,7 +49,7 @@ function assignment(id, task, status = 'assigned', extra = {}) {
 function guestData(overrides = {}) {
   return {
     guest, assignments: [assignment('photo-1', couplePhotoTask)], clues: [], game,
-    candidates: [], existingVote: null, pointLedger: [],
+    candidates: [], existingVote: null, pointLedger: [], votingEligible: true,
     // Match the authenticated DTO boundary: team scores are absent until the
     // team challenge opens, so early screenshots cannot imply a live ranking.
     teamScores: [],
@@ -226,7 +227,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
     assignments: [assignment('star-1', starTask, 'approved')],
     missionStory: {
       ...baseStory,
-      symbolPairing: { symbol: 'STAR', status: 'MATCHED', fragmentSide: 'RIGHT', pendingRelationshipId: null, finalizedAt: '2026-08-01T12:45:00.000Z' },
+      symbolPairing: { symbol: 'STAR', status: 'PAIRED', fragmentSide: 'RIGHT', pendingRelationshipId: null, finalizedAt: '2026-08-01T12:45:00.000Z' },
       relationships: [{ id: 'star-paired', type: 'STAR_ALLIANCE', status: 'ACTIVE', partnerName: '謝菲菲 Feifei Xie', confirmedByMe: true, confirmedByPartner: true, activatedAt: '2026-08-01T12:45:00.000Z' }],
     },
   });
@@ -360,10 +361,13 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
     phaseTwo: { mission: 'SUPER_LUCKY', extraVote: false, superLucky: true, isCaptain: false, unlockedAt: '2026-08-01T13:30:00.000Z', phaseOnePointsSnapshot: 4, luckySettled: true, captainSettled: false, originVerified: true, dilemma: null, copyChoice: null, copyCandidates: [] },
   });
   await page.reload(); await dismissNotice(page);
-  await page.getByRole('button', { name: /查看我的积分流水/ }).click();
+  const scoreLedgerClose = page.getByRole('button', { name: '看清楚了 · 关闭' });
+  if (!(await scoreLedgerClose.isVisible().catch(() => false))) {
+    await page.getByRole('button', { name: /查看我的积分流水/ }).click();
+  }
   await expect(page.getByText('丘比特幸运星 · 第一轮积分翻倍')).toBeVisible();
   await screenshot(page, '12g-lucky-star-ledger', testInfo.project.name);
-  await page.getByRole('button', { name: '看清楚了 · 关闭' }).click();
+  await scoreLedgerClose.click();
 
   drawState.current = guestData({
     guest: { ...guest, participation_mode: 'HONOR_GUEST', team: '家人组', role: 'guest', eligible_for_mission: false, eligible_for_secret_role: false, special_card_title: '一路相伴', special_card_body: '谢谢你一直守护着这个家，也见证两个人走到今天。', special_card_revealed_at: null },
@@ -469,6 +473,8 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
     health: { database: 'online', checkedAt: '2026-08-01T14:05:00.000Z', deploymentVersion: 'visual-review' },
     guests: [staffGuest], assignments: [], tasks: [], clues: [], submissions: [], votes: [], pointLedger: [], auditLog: [], awards: [], teamPointLedger: [], resultRewards: [], hiddenTaskCodes: [], heartSlots: [], playerRelationships: [], allianceClues: [], symbolPairings: [], phaseTwoProfiles: [],
     game: { ...game, stage: 'registration' }, rankings: { personal: [], teams: [] }, finale: { tricksters: [], voteCounts: [] },
+    settledTeamClueIds: { '海岛组': [], '沙漠组': [] },
+    storageReconciliationFailed: false,
     preflight: { ready: true, blockedCount: 0, items: [
       { id: 'roster', label: '34 位宾客与 33 个登录账号', detail: '名单与组别已经确认', status: 'ready' },
       { id: 'missions', label: '第一轮任务容量', detail: '正式任务池可完成抽卡', status: 'ready' },
@@ -519,6 +525,8 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
   await screenshot(page, '23c-host-team-score', testInfo.project.name);
   await page.getByRole('button', { name: '个人加分', exact: true }).click();
   await screenshot(page, '23d-host-personal-score', testInfo.project.name);
+  hostState.current = { ...hostData, game: { ...hostData.game, stage: 'task_round_2' } };
+  await page.reload();
   await page.getByRole('button', { name: '流程控制', exact: true }).click();
   await screenshot(page, '23-host-console', testInfo.project.name);
   await page.getByText('婚宴开始', { exact: true }).last().click();
@@ -529,6 +537,7 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
   hostState.current = {
     ...hostData,
     game: { stage: 'results', voting_open: false, voting_round: 1, results_visible: true, team_clues_settled_at: '2026-08-01T14:30:00.000Z' },
+    finalLocked: true,
     voteCount: 10,
     rankings: { personal: finalePersonal, teams: [{ team: '沙漠组', points: 20 }, { team: '海岛组', points: 13 }] },
     finale,
@@ -551,7 +560,7 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
 
   await page.route('**/api/public-scoreboard', (route) => route.fulfill({ json: {
     visible: true, stage: 'results', resultsVisible: true, displayTitle: null, displayBody: null, publicClue: null, timerEndsAt: null, updatedAt: '2026-08-01T15:00:00.000Z',
-    teams: [{ team: '沙漠组', points: 20, completedTasks: 12, guestCount: 10 }, { team: '海岛组', points: 13, completedTasks: 11, guestCount: 10 }],
+    teams: [{ team: '沙漠组', points: 20, completedTasks: 12, guests: 10 }, { team: '海岛组', points: 13, completedTasks: 11, guests: 10 }],
     leaders: finalePersonal, voteCounts: finale.voteCounts,
     revealedRoles: finale.tricksters.map((item) => ({ ...item, role: 'spy', is_hidden_spy: false })), awards: [],
   } }));

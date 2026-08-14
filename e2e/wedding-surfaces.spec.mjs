@@ -59,6 +59,8 @@ const adminData = {
   teamPointLedger: [], resultRewards: [], hiddenTaskCodes: [], heartSlots: [], playerRelationships: [],
   allianceClues: [], symbolPairings: [], phaseTwoProfiles: [], game,
   rankings: { personal: [], teams: [] }, finale: { tricksters: [], voteCounts: [] },
+  settledTeamClueIds: { '海岛组': [], '沙漠组': [] },
+  storageReconciliationFailed: false,
   preflight: { ready: true, blockedCount: 0, items: [{ id: 'roster', label: '宾客名单', detail: '已完成', status: 'ready' }] },
   rehearsalResetPreview: emptyResetPreview,
 };
@@ -319,8 +321,8 @@ test('主控四个主入口及现场二级入口均可进入', async ({ page }) 
   await expect(page.getByRole('heading', { name: '待审核任务' })).toBeVisible();
   await primaryNavigation.getByRole('button', { name: '婚礼设置', exact: true }).click();
   const settingModules = page.locator('details.settings-module-card');
-  await expect(settingModules).toHaveCount(4);
-  for (const title of ['任务库管理', '团队线索库', '自由图案配对', '隐藏任务实体卡']) {
+  await expect(settingModules).toHaveCount(3);
+  for (const title of ['任务库管理', '团队线索库', '自由图案配对']) {
     const module = settingModules.filter({ hasText: title });
     await expect(module).not.toHaveAttribute('open', '');
   }
@@ -343,6 +345,126 @@ test('主持人可以进入团队、个人和流程控制台', async ({ page }) 
   await expect(page.getByRole('heading', { name: '给宾客个人加分' })).toBeVisible();
   await page.getByRole('button', { name: '流程控制', exact: true }).click();
   await expect(page.getByRole('heading', { name: '婚礼流程控制' })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('主控、主持人和任务站都能真实提交个人积分并携带同一安全契约', async ({ page }) => {
+  const errors = collectPageErrors(page);
+  const runId = '11111111-1111-4111-8111-111111111111';
+  const requests = [];
+  page.on('dialog', (dialog) => dialog.accept());
+  await page.route('**/api/admin-action', async (route) => {
+    const body = route.request().postDataJSON();
+    requests.push({ surface: 'staff', body });
+    await route.fulfill({ json: { ok: true } });
+  });
+  await page.route('**/api/host-action', async (route) => {
+    const body = route.request().postDataJSON();
+    requests.push({ surface: 'host', body });
+    await route.fulfill({ json: { ok: true, total: 4 } });
+  });
+
+  const liveGame = { ...game, rehearsal_run_id: runId, results_published_at: null };
+  await page.route('**/api/admin-data', (route) => route.fulfill({ json: { ...adminData, game: liveGame, finalLocked: false } }));
+  await page.goto('/admin');
+  await page.locator('.admin-panel-tabs').getByRole('button', { name: '现场执行', exact: true }).click();
+  await page.getByRole('navigation', { name: '现场执行功能' }).getByRole('button', { name: /任务审核/ }).click();
+  await page.getByRole('button', { name: '调整个人积分 →' }).click();
+  await page.locator('#point-amount').fill('2');
+  await page.locator('#point-reason').fill('现场互动奖励');
+  await page.getByRole('button', { name: '确认调整 测试宾客' }).click();
+  await expect(page.getByText('个人积分已调整', { exact: true })).toBeVisible();
+
+  await page.route('**/api/host-data', (route) => route.fulfill({ json: {
+    ...hostData,
+    game: { ...hostData.game, rehearsal_run_id: runId, results_published_at: null },
+    finalLocked: false,
+  } }));
+  await page.goto('/host');
+  await page.getByRole('button', { name: '个人加分', exact: true }).click();
+  await page.getByLabel('增加分数').fill('2');
+  await page.getByLabel('加分原因').fill('主持人现场奖励');
+  await page.getByRole('button', { name: '确认给测试宾客加 2 分' }).click();
+  await expect(page.getByText(/测试宾客 已加 2 分 · 当前 4 分/)).toBeVisible();
+
+  const stationData = {
+    guests: [{
+      id: guest.id, name: guest.name, login_name: 'test guest', team: '家人组', points: 4,
+      claimed_at: '2026-08-01T11:00:00.000Z', drawn_at: null,
+      eligible_for_personal_score: true, phase_two_eligible: false,
+      participation_mode: 'HONOR_GUEST',
+    }],
+    assignments: [], tasks: [], clues: [], manualTaskIdsByGuest: { [guest.id]: [] },
+    game: { stage: 'group_game', team_clues_settled_at: null, results_visible: false,
+      results_published_at: null, rehearsal_run_id: runId, task_catalog_mode: 'live' },
+    finalLocked: false,
+  };
+  await page.route('**/api/station-data', (route) => route.fulfill({ json: stationData }));
+  await page.goto('/station');
+  await page.getByRole('button', { name: '全部', exact: true }).click();
+  await page.getByRole('button', { name: /测试宾客/ }).click();
+  await page.getByText('更多现场操作', { exact: true }).click();
+  await page.getByLabel('积分变化').fill('1');
+  await page.getByLabel('积分原因').fill('家人互动奖励');
+  await page.getByRole('button', { name: '确认调整 测试宾客' }).click();
+  await expect(page.getByText('个人积分已调整', { exact: true })).toBeVisible();
+
+  expect(requests).toHaveLength(3);
+  for (const request of requests) {
+    expect(request.body.rehearsalRunId).toBe(runId);
+    expect(request.body.eventKey).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+    expect(request.body.guestId).toBe(guest.id);
+    expect(request.body.amount).toBeGreaterThan(0);
+    expect(request.body.reason).toBeTruthy();
+  }
+  expect(requests.map((request) => request.body.type)).toEqual(['adjustPoints', 'adjustGuestPoints', 'adjustPoints']);
+  expect(errors).toEqual([]);
+});
+
+test('主控必须先关闭投票，并在发布前核对已投、应投与缺席人数', async ({ page }) => {
+  const errors = collectPageErrors(page);
+  const runId = '22222222-2222-4222-8222-222222222222';
+  const current = {
+    ...adminData,
+    votes: [{
+      id: 'vote-1', vote_weight: 1,
+      voter: { name: '测试宾客', team: '海岛组' },
+      target: { name: '另一位宾客', team: '海岛组' },
+    }],
+    game: {
+      ...game,
+      stage: 'voting', voting_open: true, voting_round: 1,
+      results_visible: false, results_published_at: null,
+      team_clues_settled_at: '2026-08-01T14:30:00.000Z',
+      rehearsal_run_id: runId,
+    },
+  };
+  const actions = [];
+  await page.route('**/api/admin-data', (route) => route.fulfill({ json: current }));
+  await page.route('**/api/admin-action', async (route) => {
+    const body = route.request().postDataJSON();
+    actions.push(body);
+    if (body.type === 'toggleVoting' && body.value === false) current.game.voting_open = false;
+    await route.fulfill({ json: { ok: true } });
+  });
+
+  await page.goto('/admin');
+  await page.locator('.admin-panel-tabs').getByRole('button', { name: '终局结算', exact: true }).click();
+  await expect(page.getByText('第 1 轮进行中 · 1/1 人已投')).toBeVisible();
+  const publishWhileOpen = page.getByRole('button', { name: '请先关闭投票' });
+  await expect(publishWhileOpen).toBeDisabled();
+
+  await page.getByRole('button', { name: '关闭本轮投票' }).click();
+  await page.getByRole('button', { name: '确认执行' }).click();
+  await expect.poll(() => actions.length).toBe(1);
+  expect(actions[0]).toMatchObject({
+    type: 'toggleVoting', value: false, rehearsalRunId: runId,
+  });
+
+  await page.getByRole('button', { name: '公布身份并结算个人奖励' }).click();
+  const confirmation = page.getByRole('dialog', { name: '确认公布身份' });
+  await expect(confirmation.getByText('本轮已投 1 人 / 应投 1 人 / 缺席 0 人。')).toBeVisible();
+  await expect(confirmation.getByRole('button', { name: '确认公布并永久冻结' })).toBeEnabled();
   expect(errors).toEqual([]);
 });
 

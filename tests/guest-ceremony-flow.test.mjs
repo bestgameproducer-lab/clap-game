@@ -26,7 +26,8 @@ test('ceremony end is accepted by the phase-one finalizer before act two', async
 
 test('admin exposes ceremony end and a separate act-two transition', async () => {
   const admin = await readFile(adminPageUrl, 'utf8');
-  assert.match(admin, /LIVE_FLOW_STAGES = \['registration', 'waiting', 'task_round_1', 'ceremony_end', 'task_round_2', 'banquet', 'group_game'\]/);
+  assert.match(admin, /LIVE_GAME_STAGE_SEQUENCE, gameStageCopy, isNextLiveGameStage/);
+  assert.match(admin, /LIVE_FLOW_STAGES = LIVE_GAME_STAGE_SEQUENCE/);
   assert.match(admin, /第一轮任务提交和伙伴配对会重新开放，但第二轮任务仍保持关闭/);
   assert.match(admin, /系统会结束第一轮、处理尚未配对的最终角色，并一次性发放第二轮任务/);
   assert.match(admin, /宾客将进入婚宴阶段/);
@@ -51,9 +52,12 @@ test('stage changes use an in-page confirmation instead of a fragile browser dia
 });
 
 test('login baselines existing content and never reports a completed assignment as new', async () => {
-  const guest = await readFile(guestPageUrl, 'utf8');
+  const [guest, activityCore] = await Promise.all([
+    readFile(guestPageUrl, 'utf8'),
+    readFile(new URL('../lib/guest-activity-core.ts', import.meta.url), 'utf8'),
+  ]);
   assert.match(guest, /guestId: nextData\.guest\.id/);
-  assert.match(guest, /previousSnapshot && previousSnapshot\.guestId === nextSnapshot\.guestId/);
-  assert.match(guest, /\['assigned', 'rejected'\]\.includes\(assignment\.status\)/);
-  assert.match(guest, /contentSnapshotRef\.current = null; setContentNotice\(null\)/);
+  assert.match(activityCore, /previous\.guestId === current\.guestId && previous\.rehearsalRunId === current\.rehearsalRunId/);
+  assert.match(activityCore, /\['assigned', 'rejected'\]\.includes\(after\.assignmentStatuses\[assignmentId\]\)/);
+  assert.match(guest, /contentSnapshotRef\.current = null; contentNoticeRef\.current = null; setContentNotice\(null\)/);
 });

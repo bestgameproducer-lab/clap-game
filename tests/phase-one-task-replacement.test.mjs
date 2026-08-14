@@ -13,6 +13,6 @@ test('the reunion photo mission is replaced forward-only with the couple photo m
   assert.match(migration, /捕捉一张新郎和新娘同时入镜的照片/);
   assert.match(migration, /上传照片或向任务站工作人员出示照片/);
   assert.doesNotMatch(migration, /delete\s+from|truncate|update\s+public\.assignments/i);
-  assert.match(specification, /P1-SOCIAL-002 \| 拍摄一张新郎新娘同框的照片 \| 2 \| 2/);
+  assert.match(specification, /P1-SOCIAL-002 \| 拍摄一张新郎新娘同框的照片 \| 3（金紫洋、沙漠组恶作剧者伪装、1 个受控随机名额） \| 2/);
   assert.doesNotMatch(specification, /和认识很久终于见面的朋友合影/);
 });

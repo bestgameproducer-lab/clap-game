@@ -33,7 +33,7 @@ test('final voting no longer changes frozen team totals and prior bonuses are au
 test('trickster call is rendered inside the real task and dilemma copy is reduced to its payoff table', () => {
   assert.match(guestPage, /function renderTricksterSignal\(assignment/);
   assert.match(guestPage, /assignment\.task\.mechanic !== 'TRICKSTER_SIGNAL'/);
-  assert.match(guestPage, /renderPhaseTwoAction\(assignment\)\}\{renderTricksterSignal\(assignment\)/);
+  assert.match(guestPage, /renderPhaseTwoAction\(assignment\)\}\s*\{renderTricksterSignal\(assignment\)/);
   assert.doesNotMatch(guestPage, /trickster-inline-command/);
   assert.match(guestPage, /isDilemmaTask[\s\S]+!isDilemmaTask && <p>\{assignment\.task\.description\}<\/p>/);
   assert.match(guestPage, /积分规则 · 必须秘密选择，不能商量/);

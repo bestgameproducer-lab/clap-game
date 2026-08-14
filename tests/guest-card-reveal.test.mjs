@@ -26,7 +26,9 @@ test('entering the dashboard never clears the revealed card before draw state is
 test('full-page guest steps reset retained mobile scroll position', async () => {
   const page = await readFile(pageUrl, 'utf8');
 
-  assert.match(page, /const fullPageStep = checking \|\| deviceAccessChecking/);
+  // A restored authenticated guest must not be held on the loading screen just
+  // because the convenience invitation-cookie check is still in flight.
+  assert.match(page, /const fullPageStep = checking \|\| \(!data && deviceAccessChecking\)/);
   assert.match(page, /secret-card:\$\{revealedCard \? 'revealed' : 'ready'\}/);
   assert.match(page, /window\.scrollTo\(0, 0\)/);
   assert.match(page, /document\.documentElement\.scrollTop = 0/);

@@ -15,7 +15,7 @@ test('relationship recipients can accept directly and errors stay beside the inp
   assert.match(page, /查询玩家/);
   assert.match(page, /inline-feedback/);
   assert.match(page, /fetch\('\/api\/accept-connection'/);
-  assert.match(route, /requireGuest\(\)/);
+  assert.match(route, /requireGuestContext\(\)/);
   assert.match(route, /assertSameOrigin\(request\)/);
   assert.match(route, /requiredUuid/);
   assert.match(data, /rpc\('accept_player_connection'/);
@@ -28,7 +28,7 @@ test('true trickster work never enters the ordinary facade and completed work un
     read('app/guest/page.tsx'),
     read('supabase/migrations/202608030004_unlock_trickster_vote_after_signal.sql'),
   ]);
-  assert.match(page, /const facadeAssignments = isTricksterGuest \? data\.assignments\.filter\(\(assignment\) => assignment\.task\.category !== 'hidden'\)/);
+  assert.match(page, /const facadeAssignments = usesTricksterFacade \? data\.assignments\.filter\(\(assignment\) => assignment\.task\.category !== 'hidden'\)/);
   assert.match(page, /额外一票已解锁/);
   assert.match(migration, /t\.mission_code='P1-TRICKSTER-001'/);
   assert.match(migration, /then\s+v_weight:=2/);
@@ -49,10 +49,22 @@ test('guiding star has a first-act origin guard and team results use a frozen sn
 });
 
 test('re-login activity acknowledgement stores category fingerprints, not task content', async () => {
-  const page = await read('app/guest/page.tsx');
+  const [page, activityCore] = await Promise.all([
+    read('app/guest/page.tsx'),
+    read('lib/guest-activity-core.ts'),
+  ]);
   assert.match(page, /wedding-guest-activity-ack-v2/);
-  assert.match(page, /assignmentKey/);
-  assert.match(page, /clueKey/);
-  assert.match(page, /confirmationKey/);
+  assert.match(activityCore, /assignmentKey/);
+  assert.match(activityCore, /clueKey/);
+  assert.match(activityCore, /confirmationKey/);
   assert.match(page, /你离开期间有新的活动/);
+});
+
+test('invalid fallback confirmation codes stay beside the specific task input', async () => {
+  const page = await read('app/guest/page.tsx');
+  const mutualUi = page.slice(page.indexOf('async function requestMutualConfirmation'), page.indexOf('async function openPlayerDirectory'));
+  assert.match(mutualUi, /setMutualConfirmationFeedback/);
+  assert.doesNotMatch(mutualUi, /catch \(cause\) \{ setError/);
+  assert.match(page, /mutualConfirmationFeedback\[assignment\.id\]/);
+  assert.match(page, /role=\{feedback\.kind === 'error' \? 'alert' : 'status'\}/);
 });

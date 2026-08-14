@@ -44,7 +44,7 @@ test('the live console promotes wedding settings and collapses only safety tools
   assert.match(admin, /PRIMARY_ADMIN_PANELS/);
   assert.match(admin, /PRIMARY_ADMIN_PANELS:[\s\S]*开场与宾客[\s\S]*现场执行[\s\S]*终局结算[\s\S]*婚礼设置/);
   assert.match(admin, /安全、备份与清场/);
-  assert.match(admin, /高级操作：预设身份、派发任务、线索与人工积分/);
+  assert.match(admin, /宾客操作：个人加分、预设身份、临时任务与线索/);
   assert.doesNotMatch(admin, /高级操作：恶作剧者私密积分/);
   assert.match(styles, /\.admin-panel-tabs\{[^}]*repeat\(4,minmax\(0,1fr\)\)/);
   assert.match(styles, /\.approval-row \{[^}]*grid-template-columns:minmax\(0,1fr\)/);

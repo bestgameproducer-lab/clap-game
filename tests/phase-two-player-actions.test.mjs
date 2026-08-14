@@ -3,13 +3,14 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const migration = await readFile(new URL('../supabase/migrations/202607310002_phase_two_player_actions.sql', import.meta.url), 'utf8');
+const copyScopeFix = await readFile(new URL('../supabase/migrations/202608140002_fix_copy_score_settlement_scope.sql', import.meta.url), 'utf8');
 const route = await readFile(new URL('../app/api/phase-two-action/route.ts', import.meta.url), 'utf8');
 const guestData = await readFile(new URL('../lib/data/guest.ts', import.meta.url), 'utf8');
 const guestPage = await readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8');
 
 test('phase-two player mutations are authenticated, same-origin, and validated', () => {
   assert.match(route, /assertSameOrigin\(request\)/);
-  assert.match(route, /await requireGuest\(\)/);
+  assert.match(route, /await requireGuestContext\(\)/);
   assert.match(route, /requiredEnum\(body\.choice, '秘密选择', DILEMMA_CHOICES\)/);
   assert.match(route, /requiredUuid\(body\.targetGuestId, '复制目标'\)/);
   assert.match(guestData, /rpc\('submit_phase_two_dilemma'/);
@@ -47,6 +48,19 @@ test('captain and copy settlement share the idempotent final reveal boundary', (
   assert.match(migration, /v_result:=settle_voting_results_with_lucky_v1/);
   assert.match(migration, /v_phase_two:=settle_phase_two_copy_and_captain/);
   assert.match(migration, /delete from phase_two_dilemmas;\s+delete from phase_two_copy_choices/);
+});
+
+test('copy settlement measures only official phase-two task points after captain settlement', () => {
+  const captainPosition = copyScopeFix.indexOf("where primary_mission='TEAM_CAPTAIN'");
+  const copyPosition = copyScopeFix.indexOf("where primary_mission='COPY_SCORE'");
+  assert.ok(captainPosition >= 0 && copyPosition > captainPosition);
+  assert.match(copyScopeFix, /join assignments source_assignment on source_assignment\.id=l\.assignment_id/);
+  assert.match(copyScopeFix, /source_task\.stage='task_round_2'/);
+  assert.match(copyScopeFix, /is_official_wedding_mission_code\(source_task\.mission_code\)/);
+  assert.match(copyScopeFix, /source_task\.mission_code not in\('P2-LONELY-001','P2-LUCKY-001'\)/);
+  assert.doesNotMatch(copyScopeFix, /l\.reason<>/);
+  assert.match(copyScopeFix, /'captain_settled_first',true/);
+  assert.match(copyScopeFix, /revoke all on function settle_phase_two_copy_and_captain\(text\)[\s\S]*service_role/);
 });
 
 test('guest task cards expose explicit locked, waiting, settled, and offline states', () => {

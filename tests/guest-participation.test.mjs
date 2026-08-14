@@ -54,9 +54,10 @@ test('honor guests draw a dedicated family surprise instead of a random task', a
   assert.match(familyAlignmentMigration, /added_honor_family_roster_mismatch/);
   assert.doesNotMatch(familyAlignmentMigration, /delete from|truncate|eligible_for_mission=true|eligible_for_secret_role=true/);
   assert.match(revealRoute, /assertSameOrigin\(request\)/);
-  assert.match(revealRoute, /await requireGuest\(\)/);
+  assert.match(revealRoute, /await requireGuestContext\(\)/);
   assert.match(guestData, /reveal_honor_special_card/);
-  assert.match(publicData, /eq\('active', true\)\.eq\('eligible_for_personal_score', true\)\.not\('drawn_at', 'is', null\)/);
+  assert.match(publicData, /eq\('active', true\)\.eq\('eligible_for_personal_score', true\)/);
+  assert.match(publicData, /filter\(hasJoinedPersonalRanking\)/);
   assert.match(publicData, /team: guest\.team/);
   assert.match(publicData, /countsForTeam: guest\.participation_mode === 'ACTIVE_PLAYER' && \['海岛组', '沙漠组'\]\.includes\(guest\.team\)/);
   assert.match(guestData, /participation_mode !== 'ACTIVE_PLAYER'/);

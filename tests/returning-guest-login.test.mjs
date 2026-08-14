@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const migrationUrl = new URL('../supabase/migrations/202607290034_returning_guest_login.sql', import.meta.url);
+const latestRosterMigrationUrl = new URL('../supabase/migrations/202607290041_final_roster_participation.sql', import.meta.url);
+const resetMigrationUrl = new URL('../supabase/migrations/202608130001_harden_rehearsal_reset_completeness.sql', import.meta.url);
 
 test('closed registration lists only returning guests after invitation validation', async () => {
   const migration = await readFile(migrationUrl, 'utf8');
@@ -38,4 +40,24 @@ test('registration API exposes only the RPC-permitted roster and mobile copy exp
   assert.match(route, /response\.cookies\.set\(INVITATION_DEVICE_COOKIE/);
   assert.match(route, /return response;/);
   assert.match(page, /新宾客注册已结束；已设置密码的宾客仍可登录/);
+});
+
+test('the latest guest claim and rehearsal reset serialize on the game-state row', async () => {
+  const [latestRoster, reset] = await Promise.all([
+    readFile(latestRosterMigrationUrl, 'utf8'),
+    readFile(resetMigrationUrl, 'utf8'),
+  ]);
+  const claim = latestRoster.slice(
+    latestRoster.indexOf('create function claim_guest_by_login'),
+    latestRoster.indexOf('drop function if exists draw_guest_card'),
+  );
+  const resetFunction = reset.slice(
+    reset.indexOf('create or replace function reset_rehearsal_data'),
+    reset.indexOf('create or replace function set_registration_open'),
+  );
+
+  assert.match(claim, /select \* into v_state from game_state where game_state\.id=1 for share/);
+  assert.match(resetFunction, /select \* into v_state from game_state where id=1 for update/);
+  assert.match(resetFunction, /delete from guest_sessions where true/);
+  assert.match(resetFunction, /claim_code_hash=null,claimed_at=null/);
 });

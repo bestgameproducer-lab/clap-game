@@ -13,7 +13,7 @@ test('admin, guests, and scoreboard share wedding-stage names and visible defaul
     assert.match(stages, new RegExp(`${stage}: \\{`));
   }
   assert.match(guest, /gameStageCopy\(data\.game\?\.stage\)/);
-  assert.match(admin, /GAME_STAGE_OPTIONS, gameStageCopy/);
+  assert.match(admin, /GAME_STAGE_OPTIONS[\s\S]*?gameStageCopy/);
   assert.match(scoreboard, /gameStageCopy\(data\.stage\)\.label/);
   assert.doesNotMatch(scoreboard, /const STAGE_LABELS/);
   assert.match(guest, /stage-default-prompt/);

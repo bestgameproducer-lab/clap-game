@@ -3,13 +3,14 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const guestPage = readFileSync(new URL('../app/guest/page.tsx', import.meta.url), 'utf8');
+const activityCore = readFileSync(new URL('../lib/guest-activity-core.ts', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../app/styles.css', import.meta.url), 'utf8');
 
 test('升级任务结算拥有独立活动指纹并优先于普通任务状态更新', () => {
-  assert.match(guestPage, /dilemmaKey: string/);
-  assert.match(guestPage, /saved\.dilemmaKey !== nextSnapshot\.dilemmaKey/);
-  assert.match(guestPage, /dilemmaResult && previousSnapshot\.dilemmaKey !== nextSnapshot\.dilemmaKey[\s\S]*?previousSnapshot\.stage/);
-  assert.match(guestPage, /dilemmaKey: snapshot\?\.dilemmaKey/);
+  assert.match(activityCore, /dilemmaKey: string/);
+  assert.match(activityCore, /hasDilemmaResult && current\.dilemmaKey && ack\.dilemmaKey !== current\.dilemmaKey/);
+  assert.match(activityCore, /hasDilemmaResult && after\.dilemmaKey && before\.dilemmaKey !== after\.dilemmaKey[\s\S]*?before\.stage/);
+  assert.match(guestPage, /createGuestActivityAck\(contentNotice\.snapshot\)/);
 });
 
 test('爱心和星星四种结算结果使用中立叙事，不在结算前泄露伙伴选择', () => {

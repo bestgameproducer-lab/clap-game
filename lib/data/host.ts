@@ -1,41 +1,23 @@
 import 'server-only';
 import { ApiError } from '../errors';
-import { buildPublicScoreboard, findUndetectedTricksterIds } from '../scoreboard-core';
+import { isTaskAllowedInCatalogMode } from '../official-task-manifest';
+import { buildPublicScoreboard, findUndetectedTricksterIds, hasJoinedPersonalRanking } from '../scoreboard-core';
 import { getSupabaseAdmin } from '../supabase';
 import { compareWeddingGuests } from '../wedding-roster-order';
 
-export type HostSegmentInput = {
-  id: string | null;
-  title: string;
-  stage: string;
-  publicPrompt: string;
-  hostNotes: string;
-  correctAnswer: string;
-  publicClue: string;
-  timerMinutes: number;
-  sortOrder: number;
-  ready: boolean;
-};
-
 function ensureHostDatabaseError(error: { message: string } | null, fallback: string) {
   if (!error) return;
-  if (error.message.includes('host_segment_not_found')) throw new ApiError(404, '找不到这个主持环节');
-  if (error.message.includes('host_segment_not_ready')) throw new ApiError(409, '请先补齐正确答案并勾选允许发布');
-  if (error.message.includes('host_answer_required')) throw new ApiError(400, '允许发布前必须填写主持人正确答案');
-  if (error.message.includes('team_not_found')) throw new ApiError(404, '找不到这个队伍');
-  if (error.message.includes('insufficient_team_resources')) throw new ApiError(409, '丘比特金币余额不足，不能完成这次扣减');
-  if (error.message.includes('team_resources_limit')) throw new ApiError(409, '丘比特金币余额超过系统上限');
-  if (error.message.includes('invalid_resource_amount')) throw new ApiError(400, '金币变化必须是 -100 到 100 之间的非零整数');
-  if (error.message.includes('resource_reason_required')) throw new ApiError(400, '请填写金币变化原因');
-  if (error.message.includes('resource_event_conflict')) throw new ApiError(409, '这次金币操作与已保存记录冲突，请刷新后重试');
   if (error.message.includes('invalid_host_score_amount')) throw new ApiError(400, '每次只能增加 1–100 分');
   if (error.message.includes('score_reason_required')) throw new ApiError(400, '请填写加分原因');
   if (error.message.includes('score_event_key_required')) throw new ApiError(400, '缺少本次加分的事件编号');
+  if (error.message.includes('rehearsal_run_required')) throw new ApiError(400, '缺少婚礼运行批次，请刷新主持人页面后重试');
+  if (error.message.includes('rehearsal_run_mismatch')) throw new ApiError(409, '本页面属于清场前的旧批次；为避免污染正式数据，请刷新主持人页面后重新操作');
   if (error.message.includes('score_event_conflict')) throw new ApiError(409, '这次加分请求与已有记录冲突，请刷新后重试');
   if (error.message.includes('guest_not_personal_score_eligible')) throw new ApiError(409, '这位宾客目前不能获得个人积分');
   if (error.message.includes('guest_not_found')) throw new ApiError(404, '找不到这位宾客');
   if (error.message.includes('invalid_team')) throw new ApiError(400, '组别不正确');
   if (error.message.includes('use_voting_controls')) throw new ApiError(409, '投票和身份揭晓必须使用下方专用按钮，不能从婚礼环节直接跳转');
+  if (error.message.includes('invalid_game_stage_transition')) throw new ApiError(409, '婚礼环节只能按顺序进入；请刷新页面确认当前环节和下一步');
   if (error.message.includes('symbol_pairing_count_invalid')) throw new ApiError(409, '爱心和星星都必须各有五位玩家完成抽卡');
   if (error.message.includes('symbol_pairing_state_invalid') || error.message.includes('symbol_finalization_incomplete')) throw new ApiError(409, '爱心或星星配对状态异常，请让主控核对联盟记录');
   if (error.message.includes('symbol_fragment_distribution_invalid')) throw new ApiError(409, '爱心或星星的左右图案数量异常，无法自动完成最终配对');
@@ -46,7 +28,10 @@ function ensureHostDatabaseError(error: { message: string } | null, fallback: st
   if (error.message.includes('phase_two_relationship_roles_not_ready')) throw new ApiError(409, '爱心或星星角色尚未完成结算，请刷新后重试');
   if (error.message.includes('guiding_star_origin_invalid') || error.message.includes('lonely_cupid_origin_invalid')) throw new ApiError(409, '第二轮觉醒角色与第一轮爱心/星星结果不一致，本次没有写入部分任务；请让主控核对第一轮配对记录');
   if (error.message.includes('phase_two_yirui_speech_unavailable')) throw new ApiError(409, '固定晚宴致辞玩家尚未完成抽卡，暂时不能发放第二轮任务');
+  if (error.message.includes('phase_two_first_act_photo_contract_invalid')) throw new ApiError(409, '第一轮照片任务分配与正式任务清单不一致；第二轮尚未发放，请让主控核对张奕睿的固定照片任务和三项竞技组照片任务');
+  if (error.message.includes('phase_two_photo_absorption_incomplete')) throw new ApiError(409, '仍有第一轮照片玩家未被第二轮能力任务吸收；本次没有发放第二轮任务，请让主控运行完整性检查');
   if (error.message.includes('phase_two_extra_vote_unavailable') || error.message.includes('phase_two_lucky_unavailable')) throw new ApiError(409, '第二轮能力卡名额不足，请让主控核对竞技组名单');
+  if (error.message.includes('phase_two_existing_assignments_incomplete')) throw new ApiError(409, '检测到不完整或旧版第二轮任务，系统已停止切换；请让主控运行完整性检查');
   if (error.message.includes('phase_two_coverage_invalid') || error.message.includes('phase_two_team_coverage_invalid') || error.message.includes('phase_two_assignment_count_invalid')) throw new ApiError(409, '第二轮任务覆盖校验失败，本次没有写入部分任务，请让主控核对配置');
   if (error.message.includes('voting_stage_not_ready')) throw new ApiError(409, '请先在主持人流程台切换到团队挑战，再开启最终投票');
   if (error.message.includes('no_drawn_guests')) throw new ApiError(409, '尚无宾客完成抽卡，不能开启最终投票');
@@ -57,28 +42,33 @@ function ensureHostDatabaseError(error: { message: string } | null, fallback: st
   if (error.message.includes('team_clue_settlement_stage_not_ready')) throw new ApiError(409, '请先切换到团队挑战，再结算团队积分与线索');
   if (error.message.includes('team_clues_not_settled')) throw new ApiError(409, '请先结算团队积分并自动发放线索，再开启最终投票');
   if (error.message.includes('team_scores_already_settled')) throw new ApiError(409, '团队积分已经结算，不能继续加分');
+  if (error.message.includes('team_score_stage_closed')) throw new ApiError(409, '只有进入“婚宴互动 · 团队挑战”后才能记录团队积分');
+  if (error.message.includes('results_already_published') || error.message.includes('final_results_locked')) throw new ApiError(409, '最终结果已经公布，本场流程、积分与结算记录已锁定');
   if (error.message.includes('DELETE requires a WHERE clause')) throw new ApiError(409, '第二轮派发被数据库安全规则拦截，请刷新后重试；本次没有写入部分任务');
   if (error.message.includes('voting_not_started')) throw new ApiError(409, '请先发起最终投票，再进行结算');
+  if (error.message.includes('voting_still_open')) throw new ApiError(409, '请先关闭本轮投票，再公布身份并结算终局奖励');
+  if (error.message.includes('no_votes_in_current_round')) throw new ApiError(409, '本轮还没有收到任何投票，不能公布并永久冻结终局结果');
   throw new Error(`${fallback}: ${error.message}`);
 }
 
 export async function getHostDashboardData() {
   const db = getSupabaseAdmin();
-  const [guests, teamPoints, personalPoints, game, votes, assignments, clues] = await Promise.all([
-    db.from('guests').select('id,name,team,role,is_hidden_spy,points,participation_mode,special_card_title,eligible_for_personal_score,drawn_at').eq('active', true).eq('uses_app', true).order('team').order('name'),
+  const [guests, teamPoints, personalPoints, game, votes, assignments, clues, finalRewards] = await Promise.all([
+    db.from('guests').select('id,name,team,role,is_hidden_spy,points,participation_mode,phase_two_eligible,special_card_title,eligible_for_personal_score,drawn_at,special_card_revealed_at').eq('active', true).eq('uses_app', true).order('team').order('name'),
     db.from('team_points_ledger').select('id,team,amount,reason,created_at').order('created_at', { ascending: false }),
-    db.from('points_ledger').select('id,guest_id,amount,reason,created_at,guest:guests(id,name)').is('assignment_id', null).order('created_at', { ascending: false }).limit(50),
-    db.from('game_state').select('stage,voting_open,voting_round,results_visible,team_clues_settled_at,team_score_snapshot').eq('id', 1).single(),
+    db.from('points_ledger').select('id,guest_id,amount,reason,created_at,guest:guests(id,name)').is('assignment_id', null).not('event_key', 'is', null).order('created_at', { ascending: false }).limit(50),
+    db.from('game_state').select('stage,voting_open,voting_round,results_visible,results_published_at,team_clues_settled_at,team_score_snapshot,rehearsal_run_id,task_catalog_mode').eq('id', 1).single(),
     db.from('votes').select('id,voting_round,voter_guest_id,target_guest_id,vote_weight,voter:guests!votes_voter_guest_id_fkey(id,name,team)'),
-    db.from('assignments').select('guest_id,status').eq('status', 'approved'),
-    db.from('clues').select('team_scope,active').eq('active', true).in('team_scope', ['海岛组', '沙漠组']),
+    db.from('assignments').select('guest_id,status,task:tasks!assignments_task_id_fkey(mission_code)').eq('status', 'approved'),
+    db.from('clues').select('team_scope,active,spy_guest_id').eq('active', true).in('team_scope', ['海岛组', '沙漠组']),
+    db.from('result_rewards').select('id').limit(1),
   ]);
-  const error = guests.error ?? teamPoints.error ?? personalPoints.error ?? game.error ?? votes.error ?? assignments.error ?? clues.error;
+  const error = guests.error ?? teamPoints.error ?? personalPoints.error ?? game.error ?? votes.error ?? assignments.error ?? clues.error ?? finalRewards.error;
   if (error) throw new Error(`Unable to load host data: ${error.message}`);
   const orderedGuests = [...(guests.data ?? [])].sort(compareWeddingGuests);
   const votingRound = game.data?.voting_round ?? 0;
   const eligibleGuests = orderedGuests
-    .filter((guest) => guest.eligible_for_personal_score && guest.drawn_at)
+    .filter((guest) => guest.eligible_for_personal_score && hasJoinedPersonalRanking(guest))
     .map((guest) => ({
       id: guest.id,
       name: guest.name,
@@ -95,95 +85,80 @@ export async function getHostDashboardData() {
     vote_weight: vote.vote_weight,
     voter: Array.isArray(vote.voter) ? vote.voter[0] ?? null : vote.voter,
   }));
-  const tricksters = orderedGuests.filter((guest) => guest.drawn_at && (guest.role === 'spy' || guest.is_hidden_spy) && ['海岛组', '沙漠组'].includes(guest.team));
+  const eligibleTeamTricksters = orderedGuests.filter((guest) => guest.participation_mode === 'ACTIVE_PLAYER'
+    && guest.phase_two_eligible && guest.drawn_at && guest.role === 'spy' && !guest.is_hidden_spy
+    && ['海岛组', '沙漠组'].includes(guest.team));
   const undetectedTricksterIds = game.data?.results_visible
-    ? findUndetectedTricksterIds(eligibleGuests, roundVotes, tricksters)
+    ? findUndetectedTricksterIds(eligibleGuests, roundVotes, eligibleTeamTricksters)
     : new Set<string>();
-  const rankings = buildPublicScoreboard(eligibleGuests, assignments.data ?? [], roundVotes, frozenTeamPoints, {
+  const rankingAssignments = (assignments.data ?? [])
+    .filter((assignment) => isTaskAllowedInCatalogMode(assignment.task, game.data?.task_catalog_mode));
+  const rankings = buildPublicScoreboard(eligibleGuests, rankingAssignments, roundVotes, frozenTeamPoints, {
     leaderLimit: game.data?.results_visible ? eligibleGuests.length : 10,
     priorityGuestIds: undetectedTricksterIds,
   });
   return {
-    guests: orderedGuests, teamPoints: teamPoints.data ?? [], personalPoints: personalPoints.data ?? [],
+    guests: orderedGuests,
+    teamPoints: (teamPoints.data ?? []).filter((entry) => ['海岛组', '沙漠组'].includes(entry.team)),
+    personalPoints: personalPoints.data ?? [],
     game: game.data,
+    finalLocked: Boolean(game.data?.results_published_at || finalRewards.data?.length),
     voteCount: roundVotes.length,
-    teamClueCounts: Object.fromEntries(['海岛组', '沙漠组'].map((team) => [team,
-      (clues.data ?? []).filter((clue) => clue.team_scope === team).length])),
+    teamClueCounts: Object.fromEntries(['海岛组', '沙漠组'].map((team) => {
+      const teamTricksterIds = eligibleTeamTricksters.filter((guest) => guest.team === team).map((guest) => guest.id);
+      return [team, (clues.data ?? []).filter((clue) => clue.team_scope === team
+        && (clue.spy_guest_id === null || teamTricksterIds.includes(clue.spy_guest_id))).length];
+    })),
     rankings: { personal: rankings.leaders, teams: rankings.teams },
     finale: {
-      tricksters: game.data?.results_visible ? tricksters.map((guest) => ({ id: guest.id, name: guest.name, team: guest.team, escaped: undetectedTricksterIds.has(guest.id) })) : [],
+      tricksters: game.data?.results_visible ? eligibleTeamTricksters.map((guest) => ({ id: guest.id, name: guest.name, team: guest.team, escaped: undetectedTricksterIds.has(guest.id) })) : [],
       voteCounts: game.data?.results_visible ? rankings.voteCounts : [],
     },
   };
 }
 
-export async function setHostFinaleFlag(field: 'voting_open' | 'results_visible', value: boolean, actor: string) {
-  const { error } = await getSupabaseAdmin().rpc('set_game_flag', {
-    p_field: field, p_value: value, p_actor: actor,
+export async function setHostFinaleFlag(field: 'voting_open' | 'results_visible', value: boolean, actor: string, rehearsalRunId: string) {
+  const db = getSupabaseAdmin();
+  if (field === 'results_visible' && value) {
+    const { data: state, error: stateError } = await db.from('game_state').select('voting_open').eq('id', 1).single();
+    ensureHostDatabaseError(stateError, 'Unable to verify finale voting state');
+    if (state?.voting_open) throw new ApiError(409, '请先关闭本轮投票，再公布身份并结算终局奖励');
+  }
+  const { error } = await db.rpc('set_game_flag_for_run', {
+    p_field: field, p_value: value, p_actor: actor, p_rehearsal_run_id: rehearsalRunId,
   });
   ensureHostDatabaseError(error, 'Unable to update finale state');
 }
 
-export async function settleHostTeamChallengeClues(actor: string) {
-  const { data, error } = await getSupabaseAdmin().rpc('settle_phase_two_team_clues', { p_actor: actor });
+export async function settleHostTeamChallengeClues(actor: string, rehearsalRunId: string) {
+  const { data, error } = await getSupabaseAdmin().rpc('settle_phase_two_team_clues_for_run', {
+    p_actor: actor, p_rehearsal_run_id: rehearsalRunId,
+  });
   ensureHostDatabaseError(error, 'Unable to settle team challenge clues');
   return data;
 }
 
-export async function setHostGameStage(stage: string, actor: string) {
-  const { error } = await getSupabaseAdmin().rpc('set_game_stage', {
-    p_stage: stage, p_actor: actor,
+export async function setHostGameStage(stage: string, actor: string, rehearsalRunId: string) {
+  const { error } = await getSupabaseAdmin().rpc('set_game_stage_for_run', {
+    p_stage: stage, p_actor: actor, p_rehearsal_run_id: rehearsalRunId,
   });
   ensureHostDatabaseError(error, 'Unable to update game stage');
 }
 
-export async function adjustHostTeamPoints(input: { team: string; amount: number; reason: string; eventKey: string }, actor: string) {
-  const { data, error } = await getSupabaseAdmin().rpc('adjust_host_team_points', {
+export async function adjustHostTeamPoints(input: { team: string; amount: number; reason: string; eventKey: string; rehearsalRunId: string }, actor: string) {
+  const { data, error } = await getSupabaseAdmin().rpc('adjust_host_team_points_for_run', {
     p_team: input.team, p_amount: input.amount, p_reason: input.reason, p_event_key: input.eventKey, p_actor: actor,
+    p_rehearsal_run_id: input.rehearsalRunId,
   });
   ensureHostDatabaseError(error, 'Unable to add host team points');
   return data as number;
 }
 
-export async function adjustHostGuestPoints(input: { guestId: string; amount: number; reason: string; eventKey: string }, actor: string) {
-  const { data, error } = await getSupabaseAdmin().rpc('adjust_host_guest_points', {
+export async function adjustHostGuestPoints(input: { guestId: string; amount: number; reason: string; eventKey: string; rehearsalRunId: string }, actor: string) {
+  const { data, error } = await getSupabaseAdmin().rpc('adjust_host_guest_points_for_run', {
     p_guest_id: input.guestId, p_amount: input.amount, p_reason: input.reason, p_event_key: input.eventKey, p_actor: actor,
+    p_rehearsal_run_id: input.rehearsalRunId,
   });
   ensureHostDatabaseError(error, 'Unable to add host guest points');
-  return data as number;
-}
-
-export async function saveHostSegment(input: HostSegmentInput, actor: string) {
-  const { data, error } = await getSupabaseAdmin().rpc('save_host_segment', {
-    p_segment_id: input.id,
-    p_title: input.title,
-    p_stage: input.stage,
-    p_public_prompt: input.publicPrompt,
-    p_host_notes: input.hostNotes,
-    p_correct_answer: input.correctAnswer,
-    p_public_clue: input.publicClue,
-    p_timer_minutes: input.timerMinutes,
-    p_sort_order: input.sortOrder,
-    p_ready: input.ready,
-    p_actor: actor,
-  });
-  ensureHostDatabaseError(error, 'Unable to save host segment');
-  return data as string;
-}
-
-export async function publishHostSegment(segmentId: string, actor: string) {
-  const { error } = await getSupabaseAdmin().rpc('publish_host_segment', { p_segment_id: segmentId, p_actor: actor });
-  ensureHostDatabaseError(error, 'Unable to publish host segment');
-}
-
-export async function adjustTeamResources(input: { team: string; amount: number; reason: string; eventKey: string }, actor: string) {
-  const { data, error } = await getSupabaseAdmin().rpc('adjust_team_resources', {
-    p_team: input.team,
-    p_amount: input.amount,
-    p_reason: input.reason,
-    p_event_key: input.eventKey,
-    p_actor: actor,
-  });
-  ensureHostDatabaseError(error, 'Unable to adjust team resources');
   return data as number;
 }

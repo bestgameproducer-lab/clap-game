@@ -8,8 +8,9 @@ const [publicData, guestPage, scoreboardPage] = await Promise.all([
   readFile(new URL('../app/scoreboard/page.tsx', import.meta.url), 'utf8'),
 ]);
 
-test('published results expose a complete public ranking even when the live scoreboard flag is off', () => {
-  assert.match(publicData, /!game\.scoreboard_visible && !game\.results_visible/);
+test('published results expose a complete ranking only while the public scoreboard is open', () => {
+  assert.match(publicData, /if \(!game\.scoreboard_visible\)/);
+  assert.doesNotMatch(publicData, /!game\.scoreboard_visible && !game\.results_visible/);
   assert.match(publicData, /leaderLimit: game\.results_visible \? scoreboardGuests\.length : 10/);
   assert.match(publicData, /findUndetectedTricksterIds/);
 });

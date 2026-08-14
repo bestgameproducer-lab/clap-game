@@ -1,0 +1,190 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+import { OFFICIAL_TASK_MANIFEST } from '../lib/official-task-manifest.ts';
+
+const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
+const TEAMS = ['海岛组', '沙漠组'];
+
+function shuffled(values, seed) {
+  const result = [...values];
+  let state = seed >>> 0;
+  const random = () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const target = Math.floor(random() * (index + 1));
+    [result[index], result[target]] = [result[target], result[index]];
+  }
+  return result;
+}
+
+function buildFirstAct(seed) {
+  const fixed = [
+    ['yifan', '海岛组', 'P1-CER-001'],
+    ['xingcheng', '家人组', 'P1-CER-002'],
+    ['andao', '家人组', 'P1-CER-002'],
+    ['siran', '沙漠组', 'P1-CER-003'],
+    ['moshuang', '沙漠组', 'P1-CER-004'],
+    ['feifei', '海岛组', 'P1-BONUS-001'],
+    ['luyi', '沙漠组', 'P1-BONUS-001'],
+    ['yirui', '海岛组', 'P1-SOCIAL-001'],
+    ['ziyang', '家人组', 'P1-SOCIAL-002'],
+    ['tianran-ziyou', '家人组', 'P1-FAMILY-001'],
+  ].map(([id, team, mission]) => ({ id, team, mission, spy: false }));
+
+  const flex = shuffled([
+    ...Array.from({ length: 7 }, (_, index) => ({ id: `island-flex-${index}`, team: '海岛组' })),
+    ...Array.from({ length: 7 }, (_, index) => ({ id: `desert-flex-${index}`, team: '沙漠组' })),
+  ], seed);
+
+  const spies = TEAMS.map((team) => ({
+    ...flex.find((player) => player.team === team),
+    mission: team === '海岛组' ? 'P1-SOCIAL-001' : 'P1-SOCIAL-002',
+    spy: true,
+  }));
+  const spyIds = new Set(spies.map((player) => player.id));
+  const ordinaryPool = flex.filter((player) => !spyIds.has(player.id));
+  const ordinaryPhotos = TEAMS.map((team) => ({
+    ...ordinaryPool.find((player) => player.team === team),
+    mission: team === '海岛组' ? 'P1-SOCIAL-001' : 'P1-SOCIAL-002',
+    spy: false,
+  }));
+  const photoIds = new Set(ordinaryPhotos.map((player) => player.id));
+  const symbolPool = shuffled(
+    ordinaryPool.filter((player) => !photoIds.has(player.id)),
+    seed ^ 0x9e3779b9,
+  );
+  const symbols = symbolPool.map((player, index) => ({
+    ...player,
+    mission: index < 5 ? 'P1-HEART-001' : 'P1-STAR-001',
+    spy: false,
+  }));
+
+  return [...fixed, ...spies, ...ordinaryPhotos, ...symbols];
+}
+
+function allocateSecondAct(firstAct, seed) {
+  const competitive = firstAct.filter((player) => TEAMS.includes(player.team));
+  const selectedIds = new Set();
+  const selected = [];
+  const take = (player, mission) => {
+    assert.ok(player, `missing candidate for ${mission}`);
+    assert.equal(selectedIds.has(player.id), false, `${player.id} received two second-act slots`);
+    selectedIds.add(player.id);
+    selected.push({ ...player, mission });
+  };
+
+  for (const player of competitive.filter((candidate) => candidate.spy)) take(player, 'P2-TRICKSTER-001');
+  take(competitive.find((player) => player.id === 'yirui'), 'P2-CEREMONY-001');
+
+  const hearts = shuffled(competitive.filter((player) => player.mission === 'P1-HEART-001'), seed ^ 11);
+  const stars = shuffled(competitive.filter((player) => player.mission === 'P1-STAR-001'), seed ^ 17);
+  hearts.slice(0, 4).forEach((player) => take(player, 'P2-HEART-001'));
+  take(hearts[4], 'P2-LONELY-001');
+  stars.slice(0, 4).forEach((player) => take(player, 'P2-STAR-001'));
+  take(stars[4], 'P2-GUIDE-001');
+
+  let remaining = shuffled(
+    competitive.filter((player) => !selectedIds.has(player.id)).map((player) => ({
+      ...player,
+      hadScoredFirstActPhoto: player.mission.startsWith('P1-SOCIAL-'),
+    })),
+    seed ^ 23,
+  );
+  for (const team of TEAMS) {
+    const teamPool = remaining.filter((player) => player.team === team);
+    const winner = teamPool.find((player) => player.hadScoredFirstActPhoto) ?? teamPool[0];
+    take(winner, 'P2-POWER-001');
+    remaining = remaining.filter((player) => player.id !== winner.id);
+  }
+  const lucky = remaining.find((player) => player.hadScoredFirstActPhoto) ?? remaining[0];
+  take(lucky, 'P2-LUCKY-001');
+  remaining = remaining.filter((player) => player.id !== lucky.id);
+  const dinnerCodes = ['P2-SOCIAL-001', 'P2-SOCIAL-002', 'P2-SOCIAL-003', 'P2-SOCIAL-004'];
+  remaining.forEach((player, index) => take(player, dinnerCodes[index]));
+  return selected;
+}
+
+test('official assignment-mode metadata describes the real allocator source', () => {
+  const expected = new Map([
+    ['P1-CER-001', 'FIXED'], ['P1-CER-002', 'FIXED'],
+    ['P1-CER-003', 'FIXED'], ['P1-CER-004', 'FIXED'],
+    ['P1-HEART-001', 'CONTROLLED_RANDOM'], ['P1-STAR-001', 'CONTROLLED_RANDOM'],
+    ['P1-SOCIAL-001', 'CONTROLLED_RANDOM'], ['P1-SOCIAL-002', 'CONTROLLED_RANDOM'],
+    ['P1-BONUS-001', 'FIXED'], ['P1-TRICKSTER-001', 'ROLE_FIXED'],
+    ['P1-FAMILY-001', 'FIXED'],
+    ['P2-SOCIAL-001', 'CONTROLLED_RANDOM'], ['P2-SOCIAL-002', 'CONTROLLED_RANDOM'],
+    ['P2-SOCIAL-003', 'CONTROLLED_RANDOM'], ['P2-SOCIAL-004', 'CONTROLLED_RANDOM'],
+    ['P2-CEREMONY-001', 'FIXED'],
+    ['P2-HEART-001', 'RELATIONSHIP'], ['P2-STAR-001', 'RELATIONSHIP'],
+    ['P2-LONELY-001', 'RELATIONSHIP'], ['P2-GUIDE-001', 'RELATIONSHIP'],
+    ['P2-TRICKSTER-001', 'ROLE_FIXED'],
+    ['P2-POWER-001', 'CONTROLLED_RANDOM'], ['P2-LUCKY-001', 'CONTROLLED_RANDOM'],
+  ]);
+  assert.equal(expected.size, 23);
+  assert.deepEqual(
+    new Map(OFFICIAL_TASK_MANIFEST.map((task) => [task.mission_code, task.assignment_mode])),
+    expected,
+  );
+});
+
+test('forward migration aligns all 23 rows and preserves the full formal catalog gate', async () => {
+  const migration = await read('supabase/migrations/202608140009_align_official_assignment_mode_metadata.sql');
+  assert.match(migration, /get diagnostics v_count=row_count;[\s\S]*v_count<>23/);
+  assert.match(migration, /pg_get_functiondef\('public\.formal_wedding_catalog_ready\(\)'::regprocedure\)/);
+  assert.match(migration, /formal_catalog_assignment_mode_patch_failed/);
+  assert.match(migration, /if not formal_wedding_catalog_ready\(\)/);
+  assert.match(migration, /assignment_rows_changed',false/);
+  assert.match(migration, /scores_changed',false/);
+  assert.doesNotMatch(migration, /update\s+assignments|update\s+guests|insert\s+into\s+points_ledger/i);
+});
+
+test('30 deterministic draw orders preserve P1 capacity and P2 no-repeat-photo invariants', () => {
+  const expectedFirstAct = new Map([
+    ['P1-CER-001', 1], ['P1-CER-002', 2], ['P1-CER-003', 1], ['P1-CER-004', 1],
+    ['P1-HEART-001', 5], ['P1-STAR-001', 5],
+    ['P1-SOCIAL-001', 3], ['P1-SOCIAL-002', 3],
+    ['P1-BONUS-001', 2], ['P1-FAMILY-001', 1],
+  ]);
+  const expectedSecondAct = new Map([
+    ['P2-SOCIAL-001', 1], ['P2-SOCIAL-002', 1],
+    ['P2-SOCIAL-003', 1], ['P2-SOCIAL-004', 1],
+    ['P2-CEREMONY-001', 1], ['P2-HEART-001', 4], ['P2-STAR-001', 4],
+    ['P2-LONELY-001', 1], ['P2-GUIDE-001', 1], ['P2-TRICKSTER-001', 2],
+    ['P2-POWER-001', 2], ['P2-LUCKY-001', 1],
+  ]);
+
+  for (let seed = 1; seed <= 30; seed += 1) {
+    const firstAct = buildFirstAct(seed);
+    assert.equal(firstAct.length, 24, `seed ${seed}: first-act account count`);
+    assert.equal(new Set(firstAct.map((player) => player.id)).size, 24, `seed ${seed}: duplicate first-act account`);
+    for (const [mission, count] of expectedFirstAct) {
+      assert.equal(firstAct.filter((player) => player.mission === mission).length, count, `seed ${seed}: ${mission}`);
+    }
+    assert.deepEqual(
+      firstAct.filter((player) => player.spy).map((player) => player.team).sort(),
+      [...TEAMS].sort(),
+      `seed ${seed}: one trickster per team`,
+    );
+
+    const secondAct = allocateSecondAct(firstAct, seed);
+    assert.equal(secondAct.length, 20, `seed ${seed}: second-act account count`);
+    assert.equal(new Set(secondAct.map((player) => player.id)).size, 20, `seed ${seed}: duplicate second-act account`);
+    for (const [mission, count] of expectedSecondAct) {
+      assert.equal(secondAct.filter((player) => player.mission === mission).length, count, `seed ${seed}: ${mission}`);
+    }
+    assert.deepEqual(
+      secondAct.filter((player) => player.mission === 'P2-POWER-001').map((player) => player.team).sort(),
+      [...TEAMS].sort(),
+      `seed ${seed}: one extra vote per team`,
+    );
+    assert.equal(
+      secondAct.filter((player) => player.mission.startsWith('P2-SOCIAL-'))
+        .some((player) => player.hadScoredFirstActPhoto),
+      false,
+      `seed ${seed}: repeat photo recipient`,
+    );
+  }
+});

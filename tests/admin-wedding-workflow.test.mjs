@@ -52,6 +52,19 @@ test('安全设置和开场检查归入对应准备模块', async () => {
   assert.match(admin, /activePanel === 'guests'[\s\S]*开场检查/);
 });
 
+test('manual personal scoring is visible from task review without weakening its final-result lock', async () => {
+  const admin = await read('app/admin/page.tsx');
+  const css = await read('app/styles.css');
+
+  assert.match(admin, /现场需要给宾客加分？/);
+  assert.match(admin, /onClick=\{openManualScoreTools\}/);
+  assert.match(admin, /id="manual-personal-score"/);
+  assert.match(admin, /operatorToolsOpen/);
+  assert.match(admin, /终局后已冻结/);
+  assert.match(admin, /家人组也能获得个人积分并进入个人排名/);
+  assert.match(css, /\.admin-score-shortcut/);
+});
+
 test('开场检查只展开待处理事项并折叠已通过明细', async () => {
   const admin = await read('app/admin/page.tsx');
   const css = await read('app/styles.css');

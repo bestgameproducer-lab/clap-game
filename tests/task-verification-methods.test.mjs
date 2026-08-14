@@ -45,7 +45,7 @@ test('guest, station, admin, and CSV views share the same proof requirement', as
   assert.match(guestPage, /如何验证/);
   assert.match(stationPage, /核验要求/);
   assert.match(guestData, /task:tasks!assignments_task_id_fkey\(title,description,verification_method,points/);
-  assert.match(stationData, /task:tasks!assignments_task_id_fkey\(id,title,description,verification_method,points/);
+  assert.match(stationData, /task:tasks!assignments_task_id_fkey\(id,title,description,verification_method,verification_type,points/);
   assert.match(exportData, /'验证方式'/);
   assert.match(exportData, /task\?\.verification_method/);
 });

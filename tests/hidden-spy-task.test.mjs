@@ -3,8 +3,9 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const migrationUrl = new URL('../supabase/migrations/202607290019_hidden_spy_task.sql', import.meta.url);
+const retirementMigrationUrl = new URL('../supabase/migrations/202608130011_lock_final_results_and_retire_hidden_spy.sql', import.meta.url);
 
-test('database permits only one valid active hidden-spy task and one activated guest', async () => {
+test('historical migration constrained the retired hidden-spy task and activated guest', async () => {
   const migration = await readFile(migrationUrl, 'utf8');
   assert.match(migration, /add column if not exists grants_hidden_spy boolean not null default false/);
   assert.match(migration, /add column if not exists is_hidden_spy boolean not null default false/);
@@ -13,7 +14,7 @@ test('database permits only one valid active hidden-spy task and one activated g
   assert.match(migration, /unique index if not exists guests_single_hidden_spy_idx/);
 });
 
-test('hidden-spy assignment is reserved for one drawn ordinary guest', async () => {
+test('historical hidden-spy assignment was reserved for one drawn ordinary guest', async () => {
   const migration = await readFile(migrationUrl, 'utf8');
   const assign = migration.slice(migration.indexOf('create or replace function assign_task_to_guest'), migration.indexOf('create or replace function approve_assignment'));
   assert.match(assign, /pg_advisory_xact_lock\(hashtext\('wedding-hidden-spy-activation-v1'\)\)/);
@@ -23,7 +24,7 @@ test('hidden-spy assignment is reserved for one drawn ordinary guest', async () 
   assert.match(assign, /'assignment\.create'/);
 });
 
-test('approval awards points and promotes the hidden spy in one transaction', async () => {
+test('historical approval promoted the hidden spy in one transaction', async () => {
   const migration = await readFile(migrationUrl, 'utf8');
   const approval = migration.slice(migration.indexOf('create or replace function approve_assignment'));
   const eligibility = approval.indexOf("if v_role<>'guest'");
@@ -35,31 +36,31 @@ test('approval awards points and promotes the hidden spy in one transaction', as
   assert.match(approval, /spy\.id=c\.spy_guest_id and spy\.team=v_team and spy\.role='spy'/);
 });
 
-test('task API validates the flag and locks it after assignment', async () => {
-  const [migration, route, data, page] = await Promise.all([
-    readFile(migrationUrl, 'utf8'),
+test('current runtime permanently retires hidden-spy tasks from API, data, and UI', async () => {
+  const [retirement, route, data, page, hostPage] = await Promise.all([
+    readFile(retirementMigrationUrl, 'utf8'),
     readFile(new URL('../app/api/admin-action/route.ts', import.meta.url), 'utf8'),
     readFile(new URL('../lib/data/admin.ts', import.meta.url), 'utf8'),
     readFile(new URL('../app/admin/page.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../app/host/page.tsx', import.meta.url), 'utf8'),
   ]);
-  const save = migration.slice(migration.indexOf('create function save_game_task'), migration.indexOf('create or replace function assign_task_to_guest'));
-  assert.match(save, /v_existing\.grants_hidden_spy is distinct from p_grants_hidden_spy/);
-  assert.match(route, /requiredBoolean\(body\.grantsHiddenSpy, '隐藏间谍奖励'\)/);
-  assert.match(data, /p_grants_hidden_spy: input\.grantsHiddenSpy/);
-  assert.match(page, /完成后成为隐藏间谍/);
-  assert.match(page, /const category = grantsHiddenSpy \? 'hidden' : newTask\.category/);
-  assert.match(page, /const roleScope = grantsHiddenSpy \? 'guest' : newTask\.roleScope/);
-  assert.match(page, /grantsHiddenSpy \? \{ stage: 'task_round_2' \} : \{\}/);
-  assert.match(page, /recommendedTaskPoints\(category, roleScope, grantsHiddenSpy\)/);
+  assert.match(retirement, /update tasks set active=false where grants_hidden_spy and active/);
+  assert.match(retirement, /if new\.grants_hidden_spy then[\s\S]*message='hidden_spy_feature_retired'/);
+  assert.doesNotMatch(route, /grantsHiddenSpy|issueHiddenTaskCode|redeemHiddenTaskCode/);
+  assert.match(data, /p_grants_hidden_spy: false/);
+  assert.match(data, /from\('tasks'\)[\s\S]*?\.eq\('grants_hidden_spy', false\)/);
+  assert.doesNotMatch(page, /完成后成为隐藏间谍|隐藏任务实体卡|issueHiddenTaskCode/);
+  assert.doesNotMatch(page, /隐藏间谍/);
+  assert.doesNotMatch(hostPage, /隐藏间谍/);
 });
 
-test('hidden-spy identity is private until the established results boundary', async () => {
+test('approved historical hidden-spy identity remains private until the results boundary', async () => {
   const [guestSource, publicSource, stationSource] = await Promise.all([
     readFile(new URL('../lib/data/guest.ts', import.meta.url), 'utf8'),
     readFile(new URL('../lib/data/public.ts', import.meta.url), 'utf8'),
     readFile(new URL('../lib/data/station.ts', import.meta.url), 'utf8'),
   ]);
-  assert.match(guestSource, /select\('id,name,team,role,is_hidden_spy,points,drawn_at,special_card_revealed_at,participation_mode,[^']+'\)/);
+  assert.match(guestSource, /select\('id,name,team,role,is_hidden_spy,points,active,uses_app,drawn_at/);
   assert.equal(guestSource.includes('hidden_role'), false);
   const resultsGuard = publicSource.indexOf('if (game.results_visible)');
   const publicHiddenSpyQuery = publicSource.indexOf("select('id,name,team,role,is_hidden_spy')");

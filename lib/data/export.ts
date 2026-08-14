@@ -2,7 +2,7 @@ import 'server-only';
 import { buildCsv, type CsvCell } from '../csv';
 import { getSupabaseAdmin } from '../supabase';
 
-export type AdminExportKind = 'guests' | 'assignments' | 'points' | 'team-points' | 'team-resources' | 'awards' | 'audit';
+export type AdminExportKind = 'guests' | 'assignments' | 'points' | 'team-points' | 'clues' | 'guest-clues' | 'awards' | 'audit';
 
 export async function getAdminCsvExport(kind: AdminExportKind) {
   const db = getSupabaseAdmin();
@@ -36,11 +36,23 @@ export async function getAdminCsvExport(kind: AdminExportKind) {
     if (error) throw new Error(`Unable to export team points: ${error.message}`);
     headers = ['组别', '团队积分变化', '原因', '操作人', '时间'];
     rows = (data ?? []).map((item) => [item.team, item.amount, item.reason, item.actor, item.created_at]);
-  } else if (kind === 'team-resources') {
-    const { data, error } = await db.from('team_resource_ledger').select('team,amount,balance_after,reason,actor,created_at').order('created_at');
-    if (error) throw new Error(`Unable to export team resources: ${error.message}`);
-    headers = ['组别', '金币变化', '变化后余额', '原因', '操作人', '时间'];
-    rows = (data ?? []).map((item) => [item.team, item.amount, item.balance_after, item.reason, item.actor, item.created_at]);
+  } else if (kind === 'clues') {
+    const { data, error } = await db.from('clues').select('title,content,group_name,team_scope,active,level,created_at,spy:guests!clues_spy_guest_id_fkey(name)').order('group_name').order('created_at');
+    if (error) throw new Error(`Unable to export clues: ${error.message}`);
+    headers = ['线索名称', '线索内容', '分类', '适用队伍', '关联恶作剧者', '等级', '启用', '创建时间'];
+    rows = (data ?? []).map((item) => {
+      const spy = Array.isArray(item.spy) ? item.spy[0] : item.spy;
+      return [item.title, item.content, item.group_name, item.team_scope, spy?.name, item.level, item.active, item.created_at];
+    });
+  } else if (kind === 'guest-clues') {
+    const { data, error } = await db.from('guest_clues').select('granted_by,created_at,guest:guests(name),clue:clues(title,group_name,team_scope)').order('created_at');
+    if (error) throw new Error(`Unable to export guest clues: ${error.message}`);
+    headers = ['宾客', '线索名称', '分类', '适用队伍', '发放来源', '发放时间'];
+    rows = (data ?? []).map((item) => {
+      const guest = Array.isArray(item.guest) ? item.guest[0] : item.guest;
+      const clue = Array.isArray(item.clue) ? item.clue[0] : item.clue;
+      return [guest?.name, clue?.title, clue?.group_name, clue?.team_scope, item.granted_by, item.created_at];
+    });
   } else if (kind === 'awards') {
     const { data, error } = await db.from('awards').select('title,winner_team,reason,sort_order,published,updated_at,winner:guests(name)').order('sort_order').order('created_at');
     if (error) throw new Error(`Unable to export awards: ${error.message}`);

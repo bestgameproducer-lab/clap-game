@@ -18,7 +18,7 @@ test('host data endpoint requires administrator authorization', async () => {
 test('authenticated host data returns private finale ballots without credentials', async () => {
   const source = await readFile(new URL('../lib/data/host.ts', import.meta.url), 'utf8');
   const scoreDto = source.slice(source.indexOf('export async function getHostDashboardData'), source.indexOf('export async function adjustHostTeamPoints'));
-  assert.match(scoreDto, /select\('id,name,team,role,is_hidden_spy,points,participation_mode,special_card_title,eligible_for_personal_score,drawn_at'\)/);
+  assert.match(scoreDto, /select\('id,name,team,role,is_hidden_spy,points,participation_mode,phase_two_eligible,special_card_title,eligible_for_personal_score,drawn_at,special_card_revealed_at'\)/);
   assert.match(scoreDto, /voter_guest_id,target_guest_id,vote_weight/);
   assert.doesNotMatch(scoreDto, /pin_hash|hidden_role|claim_code_hash|password_hash/);
 });

@@ -12,7 +12,10 @@ export async function POST(request: Request) {
     assertSameOrigin(request);
     await requireAdmin();
     const body = await readJsonObject(request);
-    const data = await createStaffEvidenceUpload(requiredUuid(body.assignmentId, '任务 ID'));
+    const data = await createStaffEvidenceUpload(
+      requiredUuid(body.assignmentId, '任务 ID'),
+      requiredUuid(body.rehearsalRunId, '婚礼运行批次'),
+    );
     return noStoreJson(data);
   } catch (error) { return apiErrorResponse(error); }
 }
@@ -26,6 +29,7 @@ export async function PUT(request: Request) {
       requiredUuid(body.assignmentId, '任务 ID'),
       requiredString(body.path, '照片路径', 250),
       actor,
+      requiredUuid(body.rehearsalRunId, '婚礼运行批次'),
     );
     return noStoreJson({ ok: true });
   } catch (error) { return apiErrorResponse(error); }
@@ -36,7 +40,11 @@ export async function DELETE(request: Request) {
     assertSameOrigin(request);
     const actor = await requireAdmin();
     const body = await readJsonObject(request);
-    await removeStaffEvidence(requiredUuid(body.assignmentId, '任务 ID'), actor);
+    await removeStaffEvidence(
+      requiredUuid(body.assignmentId, '任务 ID'),
+      actor,
+      requiredUuid(body.rehearsalRunId, '婚礼运行批次'),
+    );
     return noStoreJson({ ok: true });
   } catch (error) { return apiErrorResponse(error); }
 }

@@ -57,6 +57,25 @@ export const GAME_STAGES = {
 
 export type GameStage = keyof typeof GAME_STAGES;
 
+export const LIVE_GAME_STAGE_SEQUENCE = [
+  'registration',
+  'waiting',
+  'task_round_1',
+  'ceremony_end',
+  'task_round_2',
+  'banquet',
+  'group_game',
+] as const satisfies readonly GameStage[];
+
+export function nextLiveGameStage(stage: string | null | undefined): GameStage | null {
+  const index = LIVE_GAME_STAGE_SEQUENCE.indexOf(stage as typeof LIVE_GAME_STAGE_SEQUENCE[number]);
+  return index >= 0 ? LIVE_GAME_STAGE_SEQUENCE[index + 1] ?? null : null;
+}
+
+export function isNextLiveGameStage(current: string | null | undefined, requested: string): boolean {
+  return nextLiveGameStage(current) === requested;
+}
+
 export const GAME_STAGE_OPTIONS = (Object.keys(GAME_STAGES) as GameStage[]).map(
   (value) => [value, GAME_STAGES[value].label] as const,
 );

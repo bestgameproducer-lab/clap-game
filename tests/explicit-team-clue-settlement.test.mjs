@@ -17,6 +17,14 @@ test('team clue settlement is explicit, ranked, audited, and reset-safe', async 
   assert.doesNotMatch(migration, /truncate/);
 });
 
+test('current hardened team clue settlement never reintroduces unsupported min(uuid)', async () => {
+  const migration = await read('supabase/migrations/202608130010_harden_staff_scoring_and_clue_grants.sql');
+  const settlement = migration.slice(migration.indexOf('create or replace function settle_phase_two_team_clues'));
+
+  assert.match(settlement, /\(array_agg\(id order by id\)\)\[1\],count\(\*\)::integer into v_spy_id,v_spy_count/);
+  assert.doesNotMatch(settlement, /select min\(id\),count\(\*\)::integer into v_spy_id/);
+});
+
 test('admin and host expose the same authenticated pre-vote settlement action', async () => {
   const [adminRoute, hostRoute, adminData, hostData] = await Promise.all([
     read('app/api/admin-action/route.ts'), read('app/api/host-action/route.ts'),
@@ -25,7 +33,7 @@ test('admin and host expose the same authenticated pre-vote settlement action', 
   for (const source of [adminRoute, hostRoute]) assert.match(source, /type === 'settleTeamClues'/);
   assert.match(adminData, /settleTeamChallengeClues/);
   assert.match(hostData, /settleHostTeamChallengeClues/);
-  for (const source of [adminData, hostData]) assert.match(source, /rpc\('settle_phase_two_team_clues'/);
+  for (const source of [adminData, hostData]) assert.match(source, /rpc\('settle_phase_two_team_clues_for_run'/);
 });
 
 test('seed placeholders are removed without deleting issued clue history', async () => {
@@ -51,8 +59,9 @@ test('legacy generic placeholders are removed forward-only and settlement readin
   for (const page of [admin, host]) {
     assert.match(page, /teamSettlementReady/);
     assert.match(page, /恶作剧者 \$\{check\.spies\}\/1/);
-    assert.match(page, /线索 \$\{check\.clues\}\/2/);
+    assert.match(page, /线索 \$\{check\.clues\}\/\$\{check\.requiredClues\}/);
+    assert.match(page, /check\.clues >= check\.requiredClues/);
   }
-  assert.match(hostData, /select\('team_scope,active'\)/);
+  assert.match(hostData, /select\('team_scope,active,spy_guest_id'\)/);
   assert.match(hostData, /teamClueCounts/);
 });

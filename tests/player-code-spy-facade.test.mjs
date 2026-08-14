@@ -24,13 +24,14 @@ test('a trickster dashboard replaces facade content with true content in place',
   assert.match(page, /data\.assignments\.filter\(\(assignment\) => assignment\.task\.category !== 'hidden'\)/);
   assert.match(page, /data\.assignments\.filter\(\(assignment\) => assignment\.task\.category === 'hidden'\)/);
   assert.match(page, /nextData\.guest\.role === 'spy' && assignment\.task\.category === 'hidden'/);
-  assert.match(page, /<span>\{assignment\.task\.points\} 分<\/span>/);
+  assert.match(page, /guestMissionRewardLabel\(\{ points: assignment\.task\.points/);
   assert.doesNotMatch(page, /完成但不计个人分|完成记录 · 不计个人分/);
   assert.match(page, /const dashboardRole = usesTricksterFacade && !secretReaderOpen \? ROLE_LABELS\.guest : role/);
   assert.match(page, /const identityRevealRole = usesTricksterFacade \? role : dashboardRole/);
   assert.match(page, /identityVisible \? <><strong>\{identityRevealRole\.title\}<\/strong><p>\{identityRevealRole\.note\}<\/p>/);
   assert.match(page, /isTrickster && identityVisible && !data\.game\?\.results_visible && \(!usesTricksterFacade \|\| secretReaderOpen\) \? 'trickster-identity'/);
-  assert.match(page, /isTricksterGuest && secretReaderOpen \? trueTricksterAssignments : facadeAssignments/);
+  assert.match(page, /usesTricksterFacade && secretReaderOpen \? trueTricksterAssignments : facadeAssignments/);
+  assert.match(page, /const facadeAssignments = usesTricksterFacade \? data\.assignments\.filter/);
   assert.match(page, /<details className="mission-item"/);
   assert.doesNotMatch(page, /trickster-dossier-inline|openTricksterDossier/);
   assert.match(page, /setSecretReaderOpen\(true\)/);

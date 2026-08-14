@@ -15,9 +15,9 @@ import {
   saveGuestRoster,
   importGuestRoster,
   grantClueToGuest,
-  issueHiddenTaskCode,
-  redeemHiddenTaskCode,
+  deactivateGameClue,
   resetRehearsalData,
+  retryRehearsalStorageCleanup,
   rejectAssignment,
   resetGuestClaim,
   setGameFlag,
@@ -27,7 +27,6 @@ import {
   setGuestPhaseNote,
   setRegistrationOpen,
   saveAward,
-  saveAllianceClue,
   settleTeamChallengeClues,
   undoPlayerRelationship,
 } from '@/lib/data/admin';
@@ -54,56 +53,65 @@ export async function POST(request: Request) {
     const actor = await requireAdmin();
     const body = await readJsonObject(request);
     const type = requiredString(body.type, '操作类型', 40);
+    const currentRunId = () => requiredUuid(body.rehearsalRunId, '婚礼运行批次');
     let result: Record<string, unknown> = { ok: true };
     if (type === 'toggleVoting') {
-      await setGameFlag('voting_open', requiredBoolean(body.value, '投票状态'), actor);
+      await setGameFlag('voting_open', requiredBoolean(body.value, '投票状态'), actor, currentRunId());
     } else if (type === 'settleTeamClues') {
-      result = { ok: true, settlement: await settleTeamChallengeClues(actor) };
+      result = { ok: true, settlement: await settleTeamChallengeClues(actor, currentRunId()) };
     } else if (type === 'toggleResults') {
-      await setGameFlag('results_visible', requiredBoolean(body.value, '结果状态'), actor);
+      const publishResults = requiredBoolean(body.value, '结果状态');
+      if (!publishResults) throw new ApiError(409, '终局结果一经发布不能撤回；如需停止公开展示，请关闭大屏');
+      await setGameFlag('results_visible', true, actor, currentRunId());
     } else if (type === 'toggleScoreboard') {
-      await setGameFlag('scoreboard_visible', requiredBoolean(body.value, '大屏状态'), actor);
+      await setGameFlag('scoreboard_visible', requiredBoolean(body.value, '大屏状态'), actor, currentRunId());
     } else if (type === 'toggleRegistration') {
-      await setRegistrationOpen(requiredBoolean(body.value, '注册状态'), actor);
+      await setRegistrationOpen(requiredBoolean(body.value, '注册状态'), actor, currentRunId());
     } else if (type === 'rotateInvitationCode') {
       await setInvitationCode(requiredInvitationCode(body.code), actor);
     } else if (type === 'rotateAdminPassword') {
       await rotateAdminPassword(requiredAdminPassword(body.password), actor);
       result = { ok: true, reauthenticate: true };
     } else if (type === 'setStage') {
-      await setGameStage(requiredEnum(body.stage, '游戏阶段', MANUAL_GAME_STAGES), actor);
+      await setGameStage(requiredEnum(body.stage, '游戏阶段', MANUAL_GAME_STAGES), actor, currentRunId());
     } else if (type === 'setGuestPhaseNote') {
-      await setGuestPhaseNote(optionalString(body.note, '宾客端环节提示', 500), actor);
+      await setGuestPhaseNote(optionalString(body.note, '宾客端环节提示', 500), actor, currentRunId());
     } else if (type === 'resetGuestClaim') {
-      await resetGuestClaim(requiredUuid(body.guestId, '宾客 ID'), actor);
+      await resetGuestClaim(requiredUuid(body.guestId, '宾客 ID'), actor, currentRunId());
     } else if (type === 'approve') {
       await approveAssignment(
         requiredUuid(body.assignmentId, '任务 ID'),
         actor,
         requiredString(body.verificationNote, '核验记录', 500),
+        currentRunId(),
       );
     } else if (type === 'completeAtStation') {
       await completeAssignmentAtStation(
         requiredUuid(body.assignmentId, '任务 ID'),
         actor,
         requiredString(body.verificationNote, '核验记录', 500),
+        currentRunId(),
       );
     } else if (type === 'reject') {
       const reason = body.reason === undefined ? '管理员退回' : requiredString(body.reason, '退回原因', 500);
-      await rejectAssignment(requiredUuid(body.assignmentId, '任务 ID'), actor, reason);
+      await rejectAssignment(requiredUuid(body.assignmentId, '任务 ID'), actor, reason, currentRunId());
     } else if (type === 'adjustPoints') {
       await adjustGuestPoints(
         requiredUuid(body.guestId, '宾客 ID'),
         requiredInteger(body.amount, '积分调整', -1000, 1000),
         actor,
         requiredString(body.reason, '调整原因', 200),
+        requiredUuid(body.eventKey, '幂等事件 ID'),
+        currentRunId(),
       );
     } else if (type === 'adjustTeamPoints') {
       await adjustTeamPoints(
-        requiredString(body.team, '组别', 40),
+        requiredEnum(body.team, '组别', ['海岛组', '沙漠组'] as const),
         requiredInteger(body.amount, '团队积分调整', -1000, 1000),
         actor,
         requiredString(body.reason, '调整原因', 200),
+        requiredUuid(body.eventKey, '幂等事件 ID'),
+        currentRunId(),
       );
     } else if (type === 'setLiveDisplay') {
       await setLiveDisplay(
@@ -112,15 +120,17 @@ export async function POST(request: Request) {
         optionalString(body.publicClue, '公开线索', 500),
         requiredInteger(body.timerMinutes, '倒计时', 0, 120),
         actor,
+        currentRunId(),
       );
     } else if (type === 'assignTask') {
-      await assignTaskToGuest(requiredUuid(body.guestId, '宾客 ID'), requiredUuid(body.taskId, '任务 ID'), actor);
+      await assignTaskToGuest(requiredUuid(body.guestId, '宾客 ID'), requiredUuid(body.taskId, '任务 ID'), actor, currentRunId());
     } else if (type === 'reassignTask') {
       await reassignTaskAssignment(
         requiredUuid(body.assignmentId, '原任务 ID'),
         requiredUuid(body.taskId, '新任务 ID'),
         actor,
         requiredString(body.reason, '改派原因', 500),
+        currentRunId(),
       );
     } else if (type === 'updateCeremonyAssignment') {
       await updateCeremonyAssignment(
@@ -128,14 +138,7 @@ export async function POST(request: Request) {
         requiredEnum(body.ceremonyStatus, '仪式任务状态', CEREMONY_STATUSES),
         body.ringVariant ? requiredEnum(body.ringVariant, '戒指类型', RING_VARIANTS) : null,
         actor,
-      );
-    } else if (type === 'issueHiddenTaskCode') {
-      result = { ok: true, code: await issueHiddenTaskCode(requiredUuid(body.taskId, '任务 ID'), actor) };
-    } else if (type === 'redeemHiddenTaskCode') {
-      await redeemHiddenTaskCode(
-        requiredUuid(body.guestId, '宾客 ID'),
-        requiredString(body.code, '隐藏任务码', 40),
-        actor,
+        currentRunId(),
       );
     } else if (type === 'resetRehearsal') {
       result = { ok: true, ...(await resetRehearsalData({
@@ -143,21 +146,30 @@ export async function POST(request: Request) {
         backupConfirmed: requiredBoolean(body.backupConfirmed, '备份确认'),
         reason: requiredString(body.reason, '清场原因', 300),
         eventKey: requiredUuid(body.eventKey, '幂等事件 ID'),
-      }, actor)) };
+      }, actor, currentRunId())) };
+    } else if (type === 'retryRehearsalCleanup') {
+      result = { ok: true, ...(await retryRehearsalStorageCleanup(
+        requiredUuid(body.eventKey, '清理事件 ID'),
+        actor,
+      )) };
     } else if (type === 'grantClue') {
-      await grantClueToGuest(requiredUuid(body.guestId, '宾客 ID'), requiredUuid(body.clueId, '线索 ID'), actor);
+      await grantClueToGuest(requiredUuid(body.guestId, '宾客 ID'), requiredUuid(body.clueId, '线索 ID'), actor, currentRunId());
+    } else if (type === 'deactivateClue') {
+      await deactivateGameClue(requiredUuid(body.clueId, '线索 ID'), actor, currentRunId());
     } else if (type === 'configureGuest') {
       await configureGuestGameProfile(
         requiredUuid(body.guestId, '宾客 ID'),
         requiredString(body.team, '组别', 40),
         requiredEnum(body.role, '身份', GAME_ROLES),
         actor,
+        currentRunId(),
       );
     } else if (type === 'configureStoryRole') {
       await configureGuestStoryRole(
         requiredUuid(body.guestId, '宾客 ID'),
         requiredEnum(body.storyRole, '剧情职务', STORY_ROLES),
         actor,
+        currentRunId(),
       );
     } else if (type === 'configurePhaseTwoProfile') {
       await configurePhaseTwoProfile({
@@ -167,21 +179,14 @@ export async function POST(request: Request) {
         superLucky: requiredBoolean(body.superLucky, '超级幸运星'),
         isCaptain: requiredBoolean(body.isCaptain, '队长身份'),
         interactionTheme: optionalString(body.interactionTheme, '合影主题', 120),
-      }, actor);
+      }, actor, currentRunId());
     } else if (type === 'undoRelationship') {
       await undoPlayerRelationship(
         requiredUuid(body.relationshipId, '关系 ID'),
         actor,
         requiredString(body.reason, '撤销原因', 500),
+        currentRunId(),
       );
-    } else if (type === 'saveAllianceClue') {
-      await saveAllianceClue({
-        pairKey: requiredEnum(body.pairKey, '爱心配对', ['A', 'B'] as const),
-        title: requiredString(body.title, '线索标题', 120),
-        leftFragment: optionalString(body.leftFragment, '左半线索', 500),
-        rightFragment: optionalString(body.rightFragment, '右半线索', 500),
-        active: requiredBoolean(body.active, '线索状态'),
-      }, actor);
     } else if (type === 'saveGuestRoster') {
       await saveGuestRoster({
         id: body.guestId ? requiredUuid(body.guestId, '宾客 ID') : null,
@@ -192,9 +197,9 @@ export async function POST(request: Request) {
         ceremonyEligible: requiredBoolean(body.ceremonyEligible, '仪式任务标记'),
         active: requiredBoolean(body.active, '宾客启用状态'),
         staffNotes: optionalString(body.staffNotes, '工作人员备注', 300),
-      }, actor);
+      }, actor, currentRunId());
     } else if (type === 'importGuestRoster') {
-      result = { ok: true, importedCount: await importGuestRoster(requiredGuestRosterImportRows(body.rows), actor) };
+      result = { ok: true, importedCount: await importGuestRoster(requiredGuestRosterImportRows(body.rows), actor, currentRunId()) };
     } else if (type === 'saveTask') {
       await saveGameTask({
         id: body.taskId ? requiredUuid(body.taskId, '任务 ID') : null,
@@ -206,7 +211,6 @@ export async function POST(request: Request) {
         category: requiredEnum(body.category, '任务类型', TASK_CATEGORIES),
         stage: requiredEnum(body.stage, '任务阶段', TASK_STAGES),
         active: requiredBoolean(body.active, '任务启用状态'),
-        grantsHiddenSpy: requiredBoolean(body.grantsHiddenSpy, '隐藏间谍奖励'),
       }, actor);
     } else if (type === 'saveClue') {
       await saveGameClue({
@@ -215,7 +219,7 @@ export async function POST(request: Request) {
         content: requiredString(body.content, '线索内容', 1000),
         groupName: requiredString(body.groupName, '线索分组', 60),
         teamScope: requiredEnum(body.teamScope, '线索适用队伍', ['海岛组', '沙漠组'] as const),
-      }, actor);
+      }, actor, currentRunId());
     } else if (type === 'saveAward') {
       const winnerKind = requiredEnum(body.winnerKind, '获奖对象类型', ['none', 'guest', 'team'] as const);
       await saveAward({
@@ -226,7 +230,7 @@ export async function POST(request: Request) {
         reason: optionalString(body.reason, '颁奖理由', 500),
         sortOrder: requiredInteger(body.sortOrder, '奖项顺序', 0, 9999),
         published: requiredBoolean(body.published, '发布状态'),
-      }, actor);
+      }, actor, currentRunId());
     } else {
       throw new ApiError(400, '未知操作');
     }

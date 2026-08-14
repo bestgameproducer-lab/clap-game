@@ -8,18 +8,23 @@ test('guest dashboard promotes one contextual action and collapses completed mis
   const source = await read('app/guest/page.tsx');
   assert.match(source, /const primaryAction = data\.game\?\.results_visible/);
   assert.match(source, /data\.game\?\.voting_open && !data\.existingVote/);
-  assert.match(source, /incomingConfirmationCount > 0/);
-  assert.match(source, /const showPrimaryAction = !isFocusMode && \(incomingConfirmationCount > 0 \|\| Boolean\(rejectedAssignment\)\)/);
+  assert.match(source, /const incomingSymbolRelationships = incomingRelationships\.filter\(\(relationship\) => relationship\.type !== 'TRICKSTER_CONNECTION'\)/);
+  assert.match(source, /incomingConfirmationCount \+ incomingSymbolRelationships\.length/);
+  assert.match(source, /actionableIncomingConfirmationCount > 0/);
+  assert.match(source, /const showPrimaryAction = !isFocusMode && \(actionableIncomingConfirmationCount > 0 \|\| Boolean\(rejectedAssignment\)\)/);
+  assert.match(source, /assignment\.status === 'rejected' && isTaskActionOpenAtStage/);
   assert.match(source, /guest-primary-action/);
   assert.match(source, /completedMissionsOpen/);
   assert.match(source, /查看已完成任务/);
-  assert.match(source, /isTricksterGuest && secretReaderOpen \? trueTricksterAssignments : facadeAssignments/);
+  assert.match(source, /usesTricksterFacade && secretReaderOpen \? trueTricksterAssignments : facadeAssignments/);
   assert.match(source, /trickster-real-mode-banner/);
+  assert.match(source, /secretReaderOpen && incomingTricksterRelationship/);
+  assert.match(source, /一项秘密同伴确认正在等待/);
 });
 
 test('host and administrator surfaces give stage-aware next-step guidance', async () => {
   const [host, admin] = await Promise.all([read('app/host/page.tsx'), read('app/admin/page.tsx')]);
-  assert.match(host, /const hostGuidance = data\?\.game\?\.results_visible/);
+  assert.match(host, /const hostGuidance = finalLocked/);
   assert.match(host, /host-guidance-card/);
   assert.match(host, /记录团队挑战成绩/);
   assert.match(admin, /const adminGuidance = !data\.preflight\.ready/);
