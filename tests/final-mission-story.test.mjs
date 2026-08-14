@@ -56,7 +56,7 @@ test('trickster signals start in phase one and use the configurable five-attempt
   assert.match(migration, /v_relation\.player_a_confirmed and v_relation\.player_b_confirmed/);
   const route = await readFile(connectionRouteUrl, 'utf8');
   assert.match(route, /assertSameOrigin\(request\)/);
-  assert.match(route, /const guestId = await requireGuest\(\)/);
+  assert.match(route, /const \{ guestId, rehearsalRunId \} = await requireGuestContext\(\)/);
   assert.match(route, /requiredPlayerCode\(body\.targetCode\)/);
   const guestPage = await readFile(guestPageUrl, 'utf8');
   const runbook = await readFile(new URL('../docs/wedding-day-runbook.md', import.meta.url), 'utf8');
@@ -80,7 +80,7 @@ test('alliance fragments and relationship details stay in authenticated DTOs', a
   assert.match(adminRoute, /type === 'undoRelationship'/);
 });
 
-test('rehearsal reset clears runtime relationships but preserves clue configuration', async () => {
+test('rehearsal reset clears runtime relationships but preserves reusable alliance-fragment templates', async () => {
   const migration = await readFile(migrationUrl, 'utf8');
   const reset = migration.slice(migration.indexOf('create or replace function reset_final_mission_story_runtime'));
   assert.match(reset, /delete from player_relationships/);
@@ -104,5 +104,6 @@ test('printable guest cards require staff authorization and omit hidden roles', 
 
 test('the public leaderboard is suppressed throughout the first act', async () => {
   const source = await readFile(new URL('../lib/data/public.ts', import.meta.url), 'utf8');
-  assert.match(source, /\['registration', 'waiting', 'task_round_1'\]\.includes\(game\.stage\) \? \[\] : scoreboard\.leaders/);
+  assert.match(source, /const individualScoresVisible = \['voting', 'results'\]\.includes\(game\.stage\)/);
+  assert.match(source, /leaders: individualScoresVisible \? scoreboard\.leaders : \[\]/);
 });

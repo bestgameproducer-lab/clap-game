@@ -32,7 +32,8 @@ test('重复登录使用设备凭证且退出个人身份时保留', async () =>
   assert.match(claimRoute, /readInvitationDevicePass\(\(await cookies\(\)\)\.get\(INVITATION_DEVICE_COOKIE\)\?\.value\)/);
   assert.doesNotMatch(claimRoute, /body\.invitationCode/);
   assert.doesNotMatch(logoutRoute, /invitation_device_pass|INVITATION_DEVICE_COOKIE/);
-  assert.match(guestPage, /fetch\('\/api\/registration\/guests', \{ cache: 'no-store' \}\)/);
+  assert.match(guestPage, /fetch\('\/api\/registration\/guests', \{ cache: 'no-store', signal: controller\.signal \}\)/);
+  assert.match(guestPage, /window\.setTimeout\(\(\) => controller\.abort\(\), READ_REQUEST_TIMEOUT_MS\)/);
   assert.match(guestPage, /body: JSON\.stringify\(\{ loginName: selectedGuest\.loginName, claimCode \}\)/);
   assert.doesNotMatch(guestPage, /localStorage\.(?:setItem|getItem)\([^\n]*(invitation|invite)/i);
   assert.match(guestPage, /ACTIVITY_ACK_KEY/);

@@ -16,12 +16,22 @@ test('unmatched symbol players are not told their act-two role before the reveal
 
 test('special awakenings override generic new-task notices and survive a closed page', () => {
   assert.match(guestPage, /function phaseTwoAwakening/);
-  assert.match(guestPage, /previousSnapshot\.awakeningKey !== nextSnapshot\.awakeningKey/);
-  assert.match(guestPage, /awakening && \(!saved \|\| saved\.guestKey !== guestKey \|\| saved\.signature !== activitySignature\)/);
+  assert.match(guestPage, /decideGuestActivity\(/);
+  assert.match(guestPage, /hasAwakening: Boolean\(awakening\)/);
+  assert.match(guestPage, /createGuestActivityAck\(contentNotice\.snapshot\)/);
+  assert.doesNotMatch(guestPage, /saved\.signature !== activitySignature/);
   assert.match(guestPage, /DESTINY AWAKENED/);
   assert.match(guestPage, /接受我的新命运/);
   assert.match(styles, /@keyframes destiny-awaken/);
   assert.match(styles, /prefers-reduced-motion:reduce/);
+  assert.match(guestPage, /\['COPY_SCORE', 'TEAM_CAPTAIN', 'EXTRA_VOTE', 'SUPER_LUCKY'\]/);
+  assert.match(guestPage, /awakeningKind: 'CUPID_LUCKY_STAR'/);
+  assert.match(guestPage, /丘比特的好运，终于落在你身上/);
+  assert.match(guestPage, /awakeningKind: 'EXTRA_VOTE'/);
+  assert.match(guestPage, /丘比特交给你第二次裁决/);
+  assert.match(guestPage, /className="extra-vote-power-note"/);
+  assert.match(guestPage, /额外一票已解锁/);
+  assert.match(styles, /\.extra-vote-power-note/);
 });
 
 test('forward-only task copy explains why each unmatched player receives an ability', () => {

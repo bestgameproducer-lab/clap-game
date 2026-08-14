@@ -19,11 +19,18 @@ test('couple photo cannot be completed through another guests player code', asyn
 });
 
 test('clues appear only after a real settlement or staff grant and team copy stays frozen', async () => {
-  const [guest, scoreboard] = await Promise.all([
+  const [guest, guestData, scoreboard] = await Promise.all([
     read('../app/guest/page.tsx'),
+    read('../lib/data/guest.ts'),
     read('../app/scoreboard/page.tsx'),
   ]);
   assert.match(guest, /isActivePlayer && data\.clues\.length > 0 && <section className="section-card guest-clues-card"/);
+  assert.match(guest, /<small>TEAM CLUES<\/small><h2>我的团队线索<\/h2>/);
+  assert.match(guest, /clue\.groupName \|\| '现场线索'/);
+  assert.doesNotMatch(guest, /SPY CLUES|<h2>已解锁线索<\/h2>/);
+  assert.match(guestData, /from\('guest_clues'\)[^\n]+\.order\('created_at', \{ ascending: true \}\)\.order\('id', \{ ascending: true \}\)/);
+  assert.match(guestData, /\(results\[1\]\.data \?\? \[\]\)\.flatMap/);
+  assert.match(guestData, /clue\?\.title && clue\.content/);
   assert.doesNotMatch(guest, /团队挑战结算或工作人员发放后，属于你的线索会出现在这里/);
   assert.doesNotMatch(guest, /完成任务后，线索会在这里出现/);
   assert.match(scoreboard, /团队榜只统计团队挑战分，结算后会锁定/);

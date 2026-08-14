@@ -21,8 +21,8 @@ test('admin route validates and publishes the guest-only notice', async () => {
     readFile(new URL('../lib/data/guest.ts', import.meta.url), 'utf8'),
     readFile(new URL('../lib/data/public.ts', import.meta.url), 'utf8'),
   ]);
-  assert.match(route, /setGuestPhaseNote\(optionalString\(body\.note, '宾客端环节提示', 500\), actor\)/);
-  assert.match(data, /rpc\('set_guest_phase_note'/);
+  assert.match(route, /setGuestPhaseNote\(optionalString\(body\.note, '宾客端环节提示', 500\), actor, currentRunId\(\)\)/);
+  assert.match(data, /rpc\('set_guest_phase_note_for_run'/);
   assert.match(page, /临时补充提示（选填）/);
   assert.match(page, /宾客端默认提示/);
   assert.match(page, /type: 'setGuestPhaseNote', note: ''/);

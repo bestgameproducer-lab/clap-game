@@ -36,7 +36,7 @@ test('admin loads inactive library entries but only offers active content for as
   assert.doesNotMatch(taskQuery, /eq\('active', true\)/);
   const page = await readFile(new URL('../app/admin/page.tsx', import.meta.url), 'utf8');
   assert.match(page, /activeCatalogTasks\.map/);
-  assert.match(page, /task\.active && task\.story_role_scope === 'NONE' && \(data\.game\?\.task_catalog_mode === 'demo' \? task\.is_demo : !task\.is_demo\)/);
+  assert.match(page, /task\.active && task\.story_role_scope === 'NONE'[\s\S]*?!\/\^P\[12\]-\/[\s\S]*?task_catalog_mode === 'demo'/);
   assert.match(page, /TEAMS\.map/);
   assert.match(page, /任务库管理/);
   assert.match(page, /团队线索库/);

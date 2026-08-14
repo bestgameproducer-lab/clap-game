@@ -7,9 +7,10 @@ const styles = fs.readFileSync(new URL('../app/styles.css', import.meta.url), 'u
 
 test('space-heavy wedding settings modules are collapsed by default', () => {
   const settings = page.slice(page.indexOf("activePanel === 'content'"), page.indexOf("activePanel === 'guests'", page.indexOf("activePanel === 'content'")));
-  assert.equal((settings.match(/<details className="section-card admin-collapsible-card settings-module-card">/g) ?? []).length, 4);
+  assert.equal((settings.match(/<details className="section-card admin-collapsible-card settings-module-card">/g) ?? []).length, 3);
   assert.doesNotMatch(settings, /settings-module-card" open/);
-  for (const title of ['任务库管理', '团队线索库', '自由图案配对', '隐藏任务实体卡']) assert.match(settings, new RegExp(`<strong>${title}<\\/strong>`));
+  for (const title of ['任务库管理', '团队线索库', '自由图案配对']) assert.match(settings, new RegExp(`<strong>${title}<\\/strong>`));
+  assert.doesNotMatch(settings, /隐藏任务实体卡|issueHiddenTaskCode/);
   assert.match(styles, /\.settings-module-card\[open\]\{grid-column:1\/-1\}/);
   assert.match(styles, /\.settings-module-card>summary\{min-height:106px\}/);
 });

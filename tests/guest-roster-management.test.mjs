@@ -48,7 +48,8 @@ test('admin roster API validates every mutable field server-side', async () => {
   assert.match(route, /requiredString\(body\.name, '宾客姓名', 120\)/);
   assert.match(route, /requiredBoolean\(body\.isElder, '长辈标记'\)/);
   assert.match(route, /optionalString\(body\.staffNotes, '工作人员备注', 300\)/);
-  assert.match(data, /rpc\('save_guest_roster'/);
+  assert.match(data, /rpc\('save_guest_roster_for_run'/);
+  assert.match(route, /saveGuestRoster\([\s\S]*?actor, currentRunId\(\)\)/);
   assert.match(page, /宾客名单管理/);
   assert.match(page, /例如 Fangzhou Chen/);
   assert.match(page, /停用会撤销该宾客所有登录会话/);

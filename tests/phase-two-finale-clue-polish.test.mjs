@@ -5,6 +5,7 @@ import test from 'node:test';
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 const migration = await read('supabase/migrations/202607310028_phase_two_finale_clue_polish.sql');
 const guest = await read('app/guest/page.tsx');
+const activityCore = await read('lib/guest-activity-core.ts');
 const admin = await read('app/admin/page.tsx');
 
 test('both act-two dilemmas are secret and show the complete payoff matrix', () => {
@@ -30,17 +31,24 @@ test('Cupid lucky star settles immediately and adds two for the initial lucky ta
 
 test('activity acknowledgements persist only opaque fingerprints across page opens', () => {
   assert.match(guest, /ACTIVITY_ACK_KEY/);
-  assert.match(guest, /activityFingerprint\(nextSnapshot\.guestId\)/);
-  assert.match(guest, /saved\.signature !== activitySignature/);
+  assert.match(guest, /createGuestActivityAck\(nextSnapshot\)/);
+  assert.match(guest, /parseGuestActivityAck\(window\.localStorage\.getItem\(ACTIVITY_ACK_KEY\)\)/);
+  assert.match(activityCore, /guestKey: activityFingerprint\(snapshot\.guestId\)/);
+  assert.match(activityCore, /assignmentKey: activityFingerprint/);
+  assert.match(activityCore, /clueKey: activityFingerprint/);
   assert.match(guest, /你离开期间有新的活动/);
   assert.doesNotMatch(guest, /localStorage\.setItem\([^\n]*(assignmentIds|clueIds|phaseNote)/);
 });
 
-test('final reveal remains actionable during voting and uses an in-page confirmation', () => {
+test('final reveal requires a closed vote and uses an in-page confirmation', () => {
   assert.match(admin, /onClick=\{requestResultsToggle\}/);
-  assert.match(admin, /自动关闭投票/);
-  assert.doesNotMatch(admin.slice(admin.indexOf('function requestResultsToggle'), admin.indexOf('async function issueCode')), /window\.confirm/);
-  assert.doesNotMatch(admin, /disabled=\{busy \|\| Boolean\(data\.game\?\.voting_open\)\}/);
+  assert.match(admin, /请先关闭本轮投票，再公布身份并结算/);
+  const revealHandlers = admin.slice(admin.indexOf('function requestResultsToggle'), admin.indexOf('function resetRehearsal'));
+  assert.match(revealHandlers, /if \(data\?\.game\?\.voting_open\)/);
+  assert.match(revealHandlers, /setPendingResultsVisible\(true\)/);
+  assert.match(revealHandlers, /async function confirmResultsToggle/);
+  assert.doesNotMatch(revealHandlers, /window\.confirm/);
+  assert.match(admin, /disabled=\{busy \|\| finalResultsLocked \|\| Boolean\(data\.game\?\.voting_open\)/);
 });
 
 test('clues are saved and displayed in organizer-defined groups', () => {
