@@ -28,8 +28,9 @@ test('host score mutations are authenticated, same-origin, validated, and idempo
   assert.match(route, /requiredInteger\(body\.amount, '团队计分', 0, 100\)/);
   assert.match(route, /requiredInteger\(body\.amount, '个人加分', 1, 100\)/);
   assert.match(route, /requiredUuid\(body\.eventKey, '幂等事件 ID'\)/);
+  assert.match(route, /const currentRunId = \(\) => requiredUuid\(body\.rehearsalRunId, '婚礼运行批次'\)/);
   assert.match(route, /requiredBoolean\(body\.value, '投票状态'\)/);
-  assert.match(route, /setHostFinaleFlag\('results_visible', true, actor\)/);
+  assert.match(route, /setHostFinaleFlag\('results_visible', true, actor, currentRunId\(\)\)/);
   assert.match(route, /requiredEnum\(body\.stage, '游戏阶段', MANUAL_GAME_STAGES\)/);
   assert.match(route, /setHostGameStage/);
   assert.doesNotMatch(route, /saveSegment|publishSegment|adjustResources/);
@@ -47,11 +48,13 @@ test('team and personal scores stay in separate audited ledgers', () => {
 });
 
 test('host data is an explicit private operations DTO', () => {
-  assert.match(data, /select\('id,name,team,role,is_hidden_spy,points,participation_mode,special_card_title,eligible_for_personal_score,drawn_at'\)/);
+  assert.match(data, /select\('id,name,team,role,is_hidden_spy,points,participation_mode,phase_two_eligible,special_card_title,eligible_for_personal_score,drawn_at,special_card_revealed_at'\)/);
   assert.match(data, /select\('id,team,amount,reason,created_at'\)/);
-  assert.match(data, /select\('id,guest_id,amount,reason,created_at,guest:guests\(id,name\)'\)/);
-  assert.match(data, /select\('stage,voting_open,voting_round,results_visible,team_clues_settled_at,team_score_snapshot'\)/);
+  assert.match(data, /select\('id,guest_id,amount,reason,created_at,guest:guests\(id,name\)'\)[\s\S]*?\.not\('event_key', 'is', null\)/);
+  assert.match(data, /select\('stage,voting_open,voting_round,results_visible,results_published_at,team_clues_settled_at,team_score_snapshot,rehearsal_run_id,task_catalog_mode'\)/);
   assert.match(data, /select\('id,voting_round,voter_guest_id,target_guest_id,vote_weight/);
+  assert.match(data, /db\.from\('result_rewards'\)\.select\('id'\)\.limit\(1\)/);
+  assert.match(data, /finalLocked: Boolean\(game\.data\?\.results_published_at \|\| finalRewards\.data\?\.length\)/);
   const scoreDto = data.slice(data.indexOf('export async function getHostDashboardData'), data.indexOf('export async function adjustHostTeamPoints'));
   assert.match(scoreDto, /voteCounts: game\.data\?\.results_visible \? rankings\.voteCounts : \[\]/);
   assert.doesNotMatch(scoreDto, /correct_answer|host_notes|team_resources/);
@@ -59,7 +62,7 @@ test('host data is an explicit private operations DTO', () => {
 
 test('host finale mutations reuse the server-authoritative idempotent settlement boundary', () => {
   assert.match(data, /setHostFinaleFlag\(field: 'voting_open' \| 'results_visible'/);
-  assert.match(data, /rpc\('set_game_flag'/);
+  assert.match(data, /rpc\('set_game_flag_for_run'/);
   assert.match(page, /确认主持人终局操作/);
   assert.match(page, /结算具有幂等保护/);
   assert.match(page, /data\.game\?\.stage !== 'group_game'/);
@@ -70,9 +73,9 @@ test('host flow controls use only manual wedding stages and require confirmation
   assert.match(page, /GAME_STAGE_OPTIONS\.filter\(\(\[stage\]\) => !\['voting', 'results'\]\.includes\(stage\)\)/);
   assert.match(page, /确认切换婚礼流程/);
   assert.match(page, /type: 'setStage'/);
-  assert.match(page, /已经结算的积分不会撤销/);
+  assert.match(page, /已冻结的团队挑战分不会变化/);
   assert.match(data, /setHostGameStage/);
-  assert.match(data, /rpc\('set_game_stage'/);
+  assert.match(data, /rpc\('set_game_stage_for_run'/);
 });
 
 test('host can enter team challenge, settle clues, and then unlock the final vote', () => {

@@ -63,7 +63,7 @@ test('honor guests can rank personally without creating a placeholder team', () 
   const result = buildPublicScoreboard([
     { id: 'family', name: 'Family', team: '家人组', points: 8, countsForTeam: false },
     { id: 'player', name: 'Player', team: '玫瑰组', points: 2 },
-  ], [], []);
+  ], [], [], [{ team: '家人组', amount: 99 }]);
 
   assert.equal(result.leaders[0].name, 'Family');
   assert.equal(result.leaders[0].team, '家人组');
@@ -105,4 +105,51 @@ test('a trickster tied for the team highest vote count is considered detected', 
   ];
 
   assert.equal(findUndetectedTricksterIds(finalGuests, finalVotes, [{ id: 'spy', team: '玫瑰组' }]).size, 0);
+});
+
+test('zero-point ability cards never break a tied personal ranking', () => {
+  const tiedGuests = [
+    { id: 'z', name: 'A Guest', team: '海岛组', points: 8 },
+    { id: 'a', name: 'B Guest', team: '沙漠组', points: 8 },
+  ];
+  const result = buildPublicScoreboard(tiedGuests, [
+    { guest_id: 'a', status: 'approved' },
+    { guest_id: 'a', status: 'approved' },
+    { guest_id: 'z', status: 'approved' },
+  ], [], [], { leaderLimit: tiedGuests.length });
+
+  assert.deepEqual(result.leaders.map(({ id, points, completedTasks }) => ({ id, points, completedTasks })), [
+    { id: 'z', points: 8, completedTasks: 1 },
+    { id: 'a', points: 8, completedTasks: 2 },
+  ]);
+
+  const duplicateNames = buildPublicScoreboard([
+    { id: 'b', name: 'Same Name', team: '海岛组', points: 8 },
+    { id: 'a', name: 'Same Name', team: '沙漠组', points: 8 },
+  ], [], [], [], { leaderLimit: 2 });
+  assert.deepEqual(duplicateNames.leaders.map((guest) => guest.id), ['a', 'b']);
+});
+
+test('ordinary completed tasks never break a tied team challenge ranking', () => {
+  const tiedGuests = [
+    { id: 'island', name: 'Island', team: '海岛组', points: 0 },
+    { id: 'desert', name: 'Desert', team: '沙漠组', points: 0 },
+    { id: 'family', name: 'Family', team: '家人组', points: 9, countsForTeam: false },
+  ];
+  const result = buildPublicScoreboard(tiedGuests, [
+    { guest_id: 'island', status: 'approved' },
+    { guest_id: 'island', status: 'approved' },
+    { guest_id: 'desert', status: 'approved' },
+    { guest_id: 'family', status: 'approved' },
+  ], [], [
+    { team: '海岛组', amount: 6 },
+    { team: '沙漠组', amount: 6 },
+    { team: '家人组', amount: 99 },
+  ], { leaderLimit: tiedGuests.length });
+
+  assert.deepEqual(result.teams.map(({ team, points, completedTasks }) => ({ team, points, completedTasks })), [
+    { team: '沙漠组', points: 6, completedTasks: 1 },
+    { team: '海岛组', points: 6, completedTasks: 2 },
+  ]);
+  assert.equal(result.leaders.some((guest) => guest.id === 'family'), true);
 });

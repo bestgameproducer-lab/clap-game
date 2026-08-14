@@ -11,6 +11,17 @@ test('task station data excludes hidden roles and credentials', async () => {
   assert.match(route, /await requireAdmin\(\)/);
 });
 
+test('task station excludes hidden assignments before signing or rendering them', async () => {
+  const [data, page] = await Promise.all([
+    readFile(new URL('../lib/data/station.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../app/station/page.tsx', import.meta.url), 'utf8'),
+  ]);
+  assert.match(data, /const visibleAssignments = \(assignments\.data \?\? \[\]\)\.filter/);
+  assert.match(data, /return task\?\.category !== 'hidden'/);
+  assert.match(data, /signEvidencePaths\(visibleAssignments\)/);
+  assert.match(page, /本页面不显示任何隐藏身份/);
+});
+
 test('published awards are loaded only inside the results boundary', async () => {
   const source = await readFile(new URL('../lib/data/public.ts', import.meta.url), 'utf8');
   const resultsGuard = source.indexOf('if (game.results_visible)');

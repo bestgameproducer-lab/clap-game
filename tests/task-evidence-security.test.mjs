@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const migrationUrl = new URL('../supabase/migrations/202607290023_private_task_evidence.sql', import.meta.url);
+const hardeningMigrationUrl = new URL('../supabase/migrations/202608130001_harden_rehearsal_reset_completeness.sql', import.meta.url);
+const uploadHardeningMigrationUrl = new URL('../supabase/migrations/202608130018_lock_signed_uploads_to_rehearsal_run.sql', import.meta.url);
 
 test('task evidence bucket is private, bounded, and image-only', async () => {
   const migration = await readFile(migrationUrl, 'utf8');
@@ -27,20 +29,39 @@ test('only an assignment owner can bind an uploaded object while the task is edi
 test('evidence authorization API requires a guest session and same-origin mutation', async () => {
   const route = await readFile(new URL('../app/api/task-evidence/route.ts', import.meta.url), 'utf8');
   assert.equal((route.match(/assertSameOrigin\(request\)/g) ?? []).length, 3);
-  assert.equal((route.match(/await requireGuest\(\)/g) ?? []).length, 3);
+  assert.equal((route.match(/await requireGuestContext\(\)/g) ?? []).length, 3);
   assert.match(route, /requiredUuid\(body\.assignmentId, '任务 ID'\)/);
   assert.match(route, /requiredString\(body\.path, '照片路径', 250\)/);
   assert.doesNotMatch(route, /SUPABASE_SERVICE_ROLE_KEY|supabaseServiceRoleKey/);
 });
 
 test('server issues only deterministic signed paths and short-lived read URLs', async () => {
-  const source = await readFile(new URL('../lib/data/evidence.ts', import.meta.url), 'utf8');
-  assert.match(source, /return `\$\{guestId\}\/\$\{assignmentId\}\/evidence\.jpg`/);
-  assert.match(source, /\.eq\('guest_id', guestId\)/);
-  assert.match(source, /\['assigned', 'rejected'\]\.includes\(data\.status\)/);
+  const [source, migration] = await Promise.all([
+    readFile(new URL('../lib/data/evidence.ts', import.meta.url), 'utf8'),
+    readFile(uploadHardeningMigrationUrl, 'utf8'),
+  ]);
+  assert.match(source, /\.rpc\('authorize_guest_assignment_evidence_upload'/);
+  assert.match(source, /\.rpc\('authorize_staff_assignment_evidence_upload_for_run'/);
+  assert.doesNotMatch(source, /assignmentEvidencePath|currentRehearsalRunId/);
+  const guestAuthorization = migration.slice(
+    migration.indexOf('create or replace function authorize_guest_assignment_evidence_upload'),
+    migration.indexOf('create or replace function authorize_staff_assignment_evidence_upload'),
+  );
+  assert.match(guestAuthorization, /a\.id=p_assignment_id and a\.guest_id=p_guest_id/);
+  assert.match(guestAuthorization, /v_assignment_status not in\('assigned','rejected'\)/);
+  assert.match(guestAuthorization, /return p_guest_id::text\|\|'\/'\|\|v_run_id::text\|\|'\/'\|\|p_assignment_id::text\|\|'\.jpg'/);
   assert.match(source, /createSignedUploadUrl\(path, \{ upsert: true \}\)/);
   assert.match(source, /EVIDENCE_URL_TTL_SECONDS = 10 \* 60/);
   assert.match(source, /createSignedUrls\(paths, EVIDENCE_URL_TTL_SECONDS\)/);
+});
+
+test('formal evidence paths are isolated by rehearsal run and confirmed server-side', async () => {
+  const migration = await readFile(hardeningMigrationUrl, 'utf8');
+  assert.match(migration, /assignments_evidence_path_check/);
+  assert.match(migration, /rehearsal_run_id/);
+  assert.match(migration, /create or replace function confirm_assignment_evidence\(/);
+  assert.match(migration, /create or replace function confirm_assignment_evidence_staff\(/);
+  assert.match(migration, /bucket_id='task-evidence'/);
 });
 
 test('mobile client strips metadata through canvas compression before signed upload', async () => {
@@ -55,7 +76,10 @@ test('mobile client strips metadata through canvas compression before signed upl
   assert.match(page, /type="file" accept="image\/\*"/);
   assert.match(page, /method: 'PUT'.*'Content-Type': 'image\/jpeg'/s);
   assert.match(page, /只有你和工作人员可以查看/);
-  assert.match(page, /assignments: nextData\.assignments\.map\(\(assignment: GuestData\['assignments'\]\[number\]\) => \(\{ \.\.\.assignment, evidence_url: null \}\)\)/);
+  // The authenticated guest may preview their own short-lived signed URL in
+  // memory, but the full DTO must never be persisted for an offline reload.
+  assert.doesNotMatch(page, /sessionStorage\.setItem|GUEST_CACHE_KEY/);
+  assert.match(page, /never restores? .*previous rehearsal|为避免显示上一轮的任务或线索/s);
 });
 
 test('private evidence stays outside public and offline data boundaries', async () => {
@@ -69,6 +93,6 @@ test('private evidence stays outside public and offline data boundaries', async 
   assert.equal(publicSource.includes('evidence_'), false);
   assert.equal(serviceWorker.includes('task-evidence'), false);
   assert.match(guestData, /signEvidencePaths\(visibleAssignments\)/);
-  assert.match(stationData, /signEvidencePaths\(assignments\.data \?\? \[\]\)/);
+  assert.match(stationData, /signEvidencePaths\(visibleAssignments\)/);
   assert.match(adminData, /submissions: await signEvidencePaths/);
 });

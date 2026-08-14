@@ -18,7 +18,7 @@ test('final roster separates visible group membership from phase-two eligibility
 
 test('competitive team capacity is two groups of ten with one trickster each', () => {
   assert.match(preflight, /WEDDING_TEAMS = \['海岛组', '沙漠组'\]/);
-  assert.match(preflight, /team\.total <= 10 && team\.spies <= 1 && team\.guests <= 9/);
+  assert.match(preflight, /team\.total === 10 && team\.spies <= 1 && team\.guests <= 9/);
   assert.match(migration, /'yirui zhang'[\s\S]+'junheng liu'/);
   assert.match(migration, /p_role not in \('guest','spy'\)/);
   assert.doesNotMatch(migration.slice(migration.indexOf('create or replace function configure_guest_game_profile')), /p_role not in \('guest','spy','helper'\)/);
@@ -32,7 +32,7 @@ test('phase two configuration is private, audited, and server validated', () => 
   assert.match(adminRoute, /requiredBoolean\(body\.extraVote, '额外投票权'\)/);
   assert.match(adminPage, /第二轮任务配置/);
   assert.match(adminPage, /双重裁决/);
-  assert.match(adminPage, /超级幸运星/);
+  assert.match(adminPage, /丘比特幸运星/);
 });
 
 test('phase two mission catalogue is forward-only and fail-closed around unresolved coverage', () => {

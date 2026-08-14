@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const migration = await readFile(new URL('../supabase/migrations/202608120003_clear_clue_library_on_rehearsal_reset.sql', import.meta.url), 'utf8');
+const migration = await readFile(new URL('../supabase/migrations/202608130001_harden_rehearsal_reset_completeness.sql', import.meta.url), 'utf8');
 const adminPage = await readFile(new URL('../app/admin/page.tsx', import.meta.url), 'utf8');
 const reset = migration.slice(migration.indexOf('create or replace function reset_rehearsal_data'));
 

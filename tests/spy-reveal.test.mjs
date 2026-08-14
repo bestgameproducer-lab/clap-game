@@ -6,7 +6,8 @@ const publicData = await readFile(new URL('../lib/data/public.ts', import.meta.u
 const scoreboard = await readFile(new URL('../app/scoreboard/page.tsx', import.meta.url), 'utf8');
 
 test('published results reveal only tricksters, escape status, and ballot sources', () => {
-  assert.match(publicData, /or\('role\.eq\.spy,is_hidden_spy\.eq\.true'\)/);
+  assert.match(publicData, /eq\('participation_mode', 'ACTIVE_PLAYER'\)\.eq\('phase_two_eligible', true\)/);
+  assert.match(publicData, /eq\('role', 'spy'\)\.eq\('is_hidden_spy', false\)/);
   assert.match(scoreboard, /THE FINAL REVEAL/);
   assert.match(scoreboard, /丘比特的恶作剧者/);
   assert.match(scoreboard, /恶作剧者揭晓/);

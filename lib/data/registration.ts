@@ -4,6 +4,7 @@ import { createGuestSessionToken, GUEST_SESSION_MAX_AGE, hashGuestSessionToken }
 import { getSupabaseAdmin } from '../supabase';
 
 function mapRegistrationError(message: string): never {
+  if (message.includes('rehearsal_storage_cleanup_pending')) throw new ApiError(409, '彩排私密照片仍在安全清理中，请稍后重试');
   if (message.includes('registration_closed')) throw new ApiError(409, '注册尚未开放或已经关闭');
   if (message.includes('invalid_invitation_code')) throw new ApiError(401, '婚礼邀请码不正确');
   if (message.includes('invalid_login_name')) throw new ApiError(401, '找不到这个拼音用户名，请检查拼写');

@@ -1,31 +1,32 @@
 import 'server-only';
 import { ApiError } from '../errors';
-import { buildPublicScoreboard, findUndetectedTricksterIds } from '../scoreboard-core';
+import { isTaskAllowedInCatalogMode } from '../official-task-manifest';
+import { buildPublicScoreboard, findUndetectedTricksterIds, hasJoinedPersonalRanking } from '../scoreboard-core';
 import { getSupabaseAdmin } from '../supabase';
 
 export async function getPublicScoreboard() {
   const db = getSupabaseAdmin();
   const { data: game, error: gameError } = await db
     .from('game_state')
-    .select('stage,voting_round,scoreboard_visible,results_visible,display_title,display_body,public_clue,timer_ends_at,updated_at,team_score_snapshot')
+    .select('stage,voting_round,scoreboard_visible,results_visible,display_title,display_body,public_clue,timer_ends_at,updated_at,team_score_snapshot,task_catalog_mode')
     .eq('id', 1)
     .single();
   if (gameError || !game) throw new ApiError(503, '积分大屏暂时无法加载');
 
-  if (!game.scoreboard_visible && !game.results_visible) {
+  if (!game.scoreboard_visible) {
     return { visible: false, stage: game.stage, resultsVisible: false, displayTitle: null, displayBody: null, publicClue: null, timerEndsAt: null, updatedAt: game.updated_at, teams: [], leaders: [], voteCounts: [], revealedRoles: [], awards: [] };
   }
 
   const [guestResult, assignmentResult, voteResult, teamPointResult] = await Promise.all([
-    db.from('guests').select('id,name,team,points,participation_mode').eq('active', true).eq('eligible_for_personal_score', true).not('drawn_at', 'is', null).order('name'),
-    db.from('assignments').select('guest_id,status').eq('status', 'approved'),
+    db.from('guests').select('id,name,team,points,participation_mode,drawn_at,special_card_revealed_at').eq('active', true).eq('eligible_for_personal_score', true).order('name'),
+    db.from('assignments').select('guest_id,status,task:tasks!assignments_task_id_fkey(mission_code)').eq('status', 'approved'),
     db.from('votes').select('voter_guest_id,target_guest_id,vote_weight,voter:guests!votes_voter_guest_id_fkey(id,name,team)').eq('voting_round', game.voting_round),
     db.from('team_points_ledger').select('team,amount'),
   ]);
   const error = guestResult.error ?? assignmentResult.error ?? voteResult.error ?? teamPointResult.error;
   if (error) throw new Error(`Unable to load public scoreboard: ${error.message}`);
 
-  const scoreboardGuests = (guestResult.data ?? []).map((guest) => ({
+  const scoreboardGuests = (guestResult.data ?? []).filter(hasJoinedPersonalRanking).map((guest) => ({
     id: guest.id,
     name: guest.name,
     team: guest.team,
@@ -36,7 +37,10 @@ export async function getPublicScoreboard() {
   let awards: Array<{ id: string; title: string; winnerName: string; winnerTeam: string | null; reason: string }> = [];
   if (game.results_visible) {
     const [roleResult, awardResult] = await Promise.all([
-      db.from('guests').select('id,name,team,role,is_hidden_spy').or('role.eq.spy,is_hidden_spy.eq.true').in('team', ['海岛组', '沙漠组']).not('drawn_at', 'is', null).order('team').order('name'),
+      db.from('guests').select('id,name,team,role,is_hidden_spy')
+        .eq('active', true).eq('uses_app', true).eq('participation_mode', 'ACTIVE_PLAYER').eq('phase_two_eligible', true)
+        .eq('role', 'spy').eq('is_hidden_spy', false).in('team', ['海岛组', '沙漠组'])
+        .not('drawn_at', 'is', null).order('team').order('name'),
       db.from('awards').select('id,title,winner_team,reason,winner:guests(name,team)').eq('published', true).order('sort_order').order('created_at'),
     ]);
     const revealError = roleResult.error ?? awardResult.error;
@@ -59,7 +63,7 @@ export async function getPublicScoreboard() {
     : new Set<string>();
   const scoreboard = buildPublicScoreboard(
     scoreboardGuests,
-    assignmentResult.data ?? [],
+    (assignmentResult.data ?? []).filter((assignment) => isTaskAllowedInCatalogMode(assignment.task, game.task_catalog_mode)),
     scoreboardVotes,
     game.team_score_snapshot && typeof game.team_score_snapshot === 'object'
       ? Object.entries(game.team_score_snapshot as Record<string, unknown>).map(([team, amount]) => ({ team, amount: Number(amount) || 0 }))
@@ -70,6 +74,14 @@ export async function getPublicScoreboard() {
     },
   );
 
+  // The display switch controls whether the public screen itself is open; it
+  // must never be able to bypass the wedding timeline. Before the team game,
+  // operators may still publish a timer or a public instruction, but scores
+  // remain private. Team scores start with the team challenge and individual
+  // rankings remain private until voting begins.
+  const teamScoresVisible = ['group_game', 'voting', 'results'].includes(game.stage);
+  const individualScoresVisible = ['voting', 'results'].includes(game.stage);
+
   return {
     visible: true,
     stage: game.stage,
@@ -79,8 +91,8 @@ export async function getPublicScoreboard() {
     publicClue: game.public_clue,
     timerEndsAt: game.timer_ends_at,
     updatedAt: game.updated_at,
-    teams: scoreboard.teams,
-    leaders: ['registration', 'waiting', 'task_round_1'].includes(game.stage) ? [] : scoreboard.leaders,
+    teams: teamScoresVisible ? scoreboard.teams : [],
+    leaders: individualScoresVisible ? scoreboard.leaders : [],
     voteCounts: game.results_visible ? scoreboard.voteCounts : [],
     revealedRoles: game.results_visible ? revealedRoles.map((guest) => ({
       ...guest,

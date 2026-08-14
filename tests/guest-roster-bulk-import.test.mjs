@@ -28,9 +28,10 @@ test('bulk roster import is previewed and revalidated across client, route, and 
   assert.match(parser, /一次最多导入 100 位宾客/);
   assert.match(parser, /批量导入不会覆盖原宾客/);
   assert.match(validation, /requiredGuestRosterImportRows/);
-  assert.match(route, /importGuestRoster\(requiredGuestRosterImportRows\(body\.rows\), actor\)/);
-  assert.match(data, /rpc\('import_guest_roster'/);
+  assert.match(route, /importGuestRoster\(requiredGuestRosterImportRows\(body\.rows\), actor, currentRunId\(\)\)/);
+  assert.match(data, /rpc\('import_guest_roster_for_run'/);
   assert.match(page, /从表格或文本批量新增/);
   assert.match(page, /我已核对预览中的显示姓名和登录名/);
   assert.match(page, /data\.game\?\.registration_open/);
+  assert.match(page, /type: 'importGuestRoster'[\s\S]*?rehearsalRunId: data\.game\.rehearsal_run_id/);
 });

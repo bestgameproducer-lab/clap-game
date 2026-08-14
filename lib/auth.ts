@@ -41,12 +41,12 @@ export async function requireAdmin() {
   return subject;
 }
 
-export async function requireGuest() {
+export async function requireGuestContext() {
   const token = (await cookies()).get('guest_session')?.value;
   if (!token) throw new ApiError(401, '未登录');
   const { data, error } = await getSupabaseAdmin()
     .from('guest_sessions')
-    .select('guest_id')
+    .select('guest_id,rehearsal_run_id')
     .eq('token_hash', hashGuestSessionToken(token))
     .is('revoked_at', null)
     .gt('expires_at', new Date().toISOString())
@@ -57,5 +57,18 @@ export async function requireGuest() {
     .from('guests').select('id').eq('id', data.guest_id).eq('active', true).maybeSingle();
   if (guestError) throw new Error(`Unable to verify active guest: ${guestError.message}`);
   if (!guest) throw new ApiError(401, '宾客身份已停用，请联系主办方');
-  return data.guest_id;
+  const { data: game, error: gameError } = await getSupabaseAdmin()
+    .from('game_state')
+    .select('rehearsal_run_id')
+    .eq('id', 1)
+    .single();
+  if (gameError || !game) throw new Error(`Unable to verify rehearsal run: ${gameError?.message ?? 'missing row'}`);
+  if (!data.rehearsal_run_id || data.rehearsal_run_id !== game.rehearsal_run_id) {
+    throw new ApiError(401, '本设备的登录属于上一轮彩排，请重新登录');
+  }
+  return { guestId: data.guest_id, rehearsalRunId: data.rehearsal_run_id };
+}
+
+export async function requireGuest() {
+  return (await requireGuestContext()).guestId;
 }

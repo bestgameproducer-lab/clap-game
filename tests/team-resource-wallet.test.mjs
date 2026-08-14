@@ -8,6 +8,9 @@ const hostRoute = await readFile(new URL('../app/api/host-action/route.ts', impo
 const hostPage = await readFile(new URL('../app/host/page.tsx', import.meta.url), 'utf8');
 const publicData = await readFile(new URL('../lib/data/public.ts', import.meta.url), 'utf8');
 const scoreboardCore = await readFile(new URL('../lib/scoreboard-core.ts', import.meta.url), 'utf8');
+const adminPage = await readFile(new URL('../app/admin/page.tsx', import.meta.url), 'utf8');
+const adminExportRoute = await readFile(new URL('../app/api/admin-export/route.ts', import.meta.url), 'utf8');
+const adminExportData = await readFile(new URL('../lib/data/export.ts', import.meta.url), 'utf8');
 
 test('team resource wallets are private, start at ten, and cannot be overdrawn', () => {
   assert.match(migration, /balance integer not null default 10 check \(balance between 0 and 1000\)/);
@@ -31,7 +34,7 @@ test('resource mutations are no longer exposed by the minimal host route', () =>
   assert.match(hostRoute, /assertSameOrigin\(request\)/);
   assert.match(hostRoute, /requireAdmin\(\)/);
   assert.doesNotMatch(hostRoute, /adjustResources|金币变化/);
-  assert.match(hostData, /rpc\('adjust_team_resources'/);
+  assert.doesNotMatch(hostData, /adjustTeamResources|rpc\('adjust_team_resources'/);
 });
 
 test('resource wallets remain private and absent from host score data', () => {
@@ -41,11 +44,17 @@ test('resource wallets remain private and absent from host score data', () => {
   assert.doesNotMatch(scoreboardCore, /team_resources|team_resource_ledger/);
 });
 
+test('retired resource wallets are absent from the admin UI and export API', () => {
+  assert.doesNotMatch(adminPage, /竞拍金币|竞拍记录|team-resources|team\.resources_adjust/);
+  assert.doesNotMatch(adminExportRoute, /team-resources/);
+  assert.doesNotMatch(adminExportData, /team_resource_ledger|team-resources/);
+});
+
 test('mobile host score controls create one event key per submission', () => {
   assert.doesNotMatch(hostPage, /资源竞拍钱包/);
   assert.match(hostPage, /createEventKey\(\)/);
   assert.match(hostPage, /pendingScoreRef\.current\?\.signature === signature/);
-  assert.match(hostPage, /JSON\.stringify\(\{ \.\.\.body, eventKey: pending\.eventKey \}\)/);
+  assert.match(hostPage, /JSON\.stringify\(\{ \.\.\.body, eventKey: pending\.eventKey, rehearsalRunId: data\?\.game\?\.rehearsal_run_id \}\)/);
   assert.match(hostPage, /团队计分/);
   assert.match(hostPage, /个人加分/);
 });

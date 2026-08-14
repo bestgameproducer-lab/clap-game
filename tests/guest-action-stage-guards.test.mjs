@@ -82,9 +82,14 @@ test('mobile guest page explains closed action windows', async () => {
   assert.match(page, /isTaskWaitingForStage/);
   assert.match(page, /抽卡入口暂未开放/);
   assert.match(page, /婚礼仪式进行中，照片上传和任务提交暂时暂停；仪式结束后会自动恢复/);
-  assert.match(page, /照片上传、任务提交和玩家确认暂时暂停/);
+  assert.match(page, /照片上传、任务提交，以及发起或接受玩家确认暂时暂停；误邀仍可拒绝/);
   assert.match(page, /本环节已停止提交/);
-  assert.match(evidence, /task:tasks!assignments_task_id_fkey\(stage\)/);
+  assert.match(evidence, /task:tasks!assignments_task_id_fkey\(stage,mission_code,mechanic\)/);
   assert.match(evidence, /isTaskActionOpenAtStage\(task\?\.stage, game\?\.stage\)/);
-  assert.equal((evidence.match(/await requireEditableGuestAssignment\(assignmentId, guestId\)/g) ?? []).length, 3);
+  // Creating and removing evidence must pass the official-task UI contract;
+  // confirmation reuses the run-scoped path authorized by the create step.
+  assert.equal((evidence.match(/await requireEditableGuestAssignment\(assignmentId, guestId\)/g) ?? []).length, 2);
+  assert.match(evidence, /acceptsGuestPhotoEvidence/);
+  assert.match(evidence, /\.rpc\('authorize_guest_assignment_evidence_upload'/);
+  assert.match(evidence, /\.rpc\('confirm_assignment_evidence'/);
 });

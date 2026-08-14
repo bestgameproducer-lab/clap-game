@@ -12,6 +12,23 @@ export type ScoreboardOptions = {
   priorityGuestIds?: ReadonlySet<string>;
 };
 
+export type PersonalRankingParticipant = {
+  participation_mode: string;
+  points: number;
+  drawn_at: string | null;
+  special_card_revealed_at: string | null;
+};
+
+const NON_TEAM_SCORE_GROUPS = new Set(['家人组']);
+
+export function hasJoinedPersonalRanking(guest: PersonalRankingParticipant): boolean {
+  if (guest.participation_mode === 'ACTIVE_PLAYER') return Boolean(guest.drawn_at);
+  if (guest.participation_mode === 'HONOR_GUEST') {
+    return Boolean(guest.special_card_revealed_at) || guest.points > 0;
+  }
+  return false;
+}
+
 export function findUndetectedTricksterIds(
   guests: Array<Pick<ScoreboardGuest, 'id' | 'team'>>,
   votes: ScoreboardVote[],
@@ -66,17 +83,27 @@ export function buildPublicScoreboard(
     teams.set(guest.team, current);
   }
   for (const entry of teamPoints) {
+    // Family guests can earn personal points, but the family group never has a
+    // team score. Ignore any legacy or malformed ledger row defensively so a
+    // stale rehearsal record cannot recreate a family team on the finale.
+    if (NON_TEAM_SCORE_GROUPS.has(entry.team)) continue;
     const current = teams.get(entry.team) ?? { team: entry.team, points: 0, guests: 0, completedTasks: 0 };
     current.points += entry.amount;
     teams.set(entry.team, current);
   }
 
   return {
-    teams: [...teams.values()].sort((a, b) => b.points - a.points || b.completedTasks - a.completedTasks || a.team.localeCompare(b.team)),
+    // Completed assignment counts are display-only context. They cannot break
+    // a team-score tie because the formal team-clue settlement treats equal
+    // team points as a shared first place.
+    teams: [...teams.values()].sort((a, b) => b.points - a.points || a.team.localeCompare(b.team)),
     leaders: guests
       .map((guest) => ({ id: guest.id, name: guest.name, team: guest.team, points: guest.points, completedTasks: approvedByGuest.get(guest.id) ?? 0 }))
+      // Ability cards and hidden roles can create additional zero-point
+      // approved assignments. Keep that count informational so secret role
+      // allocation can never become an undocumented ranking advantage.
       .sort((a, b) => Number(options.priorityGuestIds?.has(b.id) ?? false) - Number(options.priorityGuestIds?.has(a.id) ?? false)
-        || b.points - a.points || b.completedTasks - a.completedTasks || a.name.localeCompare(b.name))
+        || b.points - a.points || a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
       .slice(0, options.leaderLimit ?? 10)
       .map((guest) => ({ ...guest, undetectedTrickster: options.priorityGuestIds?.has(guest.id) ?? false })),
     voteCounts: guests

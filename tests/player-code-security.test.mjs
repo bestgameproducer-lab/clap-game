@@ -37,7 +37,7 @@ test('authenticated code entry is rate limited and target errors do not enable e
   assert.match(migration, /if v_count>8 then/);
   assert.match(migration, /locked_until=v_now\+interval '10 minutes'/);
   assert.match(migration, /grant execute on function consume_player_code_attempt\(uuid\) to service_role/);
-  assert.equal((data.match(/await consumePlayerCodeAttempt\(guestId\)/g) ?? []).length, 2);
+  assert.equal((data.match(/await consumePlayerCodeAttempt\(guestId, rehearsalRunId\)/g) ?? []).length, 2);
   assert.match(data, /编号无效或不适合这项任务/);
   assert.doesNotMatch(data, /没有找到这个玩家编号/);
   assert.match(page, /placeholder="例如 K7M4"/);
