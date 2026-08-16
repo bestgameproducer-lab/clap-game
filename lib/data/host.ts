@@ -15,6 +15,9 @@ function ensureHostDatabaseError(error: { message: string } | null, fallback: st
   if (error.message.includes('score_event_conflict')) throw new ApiError(409, '这次加分请求与已有记录冲突，请刷新后重试');
   if (error.message.includes('guest_not_personal_score_eligible')) throw new ApiError(409, '这位宾客目前不能获得个人积分');
   if (error.message.includes('guest_not_found')) throw new ApiError(404, '找不到这位宾客');
+  if (error.message.includes('ceremony_assignment_not_found')) throw new ApiError(404, '找不到这项仪式任务');
+  if (error.message.includes('ring_variant_required')) throw new ApiError(409, '请先选择负责新郎戒指或新娘戒指');
+  if (error.message.includes('ceremony_assignment_not_completable')) throw new ApiError(409, '这项仪式任务当前不能完成，请刷新后核对状态');
   if (error.message.includes('invalid_team')) throw new ApiError(400, '组别不正确');
   if (error.message.includes('use_voting_controls')) throw new ApiError(409, '投票和身份揭晓必须使用下方专用按钮，不能从婚礼环节直接跳转');
   if (error.message.includes('invalid_game_stage_transition')) throw new ApiError(409, '婚礼环节只能按顺序进入；请刷新页面确认当前环节和下一步');
@@ -59,7 +62,7 @@ export async function getHostDashboardData() {
     db.from('points_ledger').select('id,guest_id,amount,reason,created_at,guest:guests(id,name)').is('assignment_id', null).not('event_key', 'is', null).order('created_at', { ascending: false }).limit(50),
     db.from('game_state').select('stage,voting_open,voting_round,results_visible,results_published_at,team_clues_settled_at,team_score_snapshot,rehearsal_run_id,task_catalog_mode').eq('id', 1).single(),
     db.from('votes').select('id,voting_round,voter_guest_id,target_guest_id,vote_weight,voter:guests!votes_voter_guest_id_fkey(id,name,team)'),
-    db.from('assignments').select('guest_id,status,task:tasks!assignments_task_id_fkey(mission_code)').eq('status', 'approved'),
+    db.from('assignments').select('id,guest_id,status,ceremony_status,ring_variant,guest:guests(id,name),task:tasks!assignments_task_id_fkey(title,mission_code,category)').neq('status', 'cancelled'),
     db.from('clues').select('team_scope,active,spy_guest_id').eq('active', true).in('team_scope', ['海岛组', '沙漠组']),
     db.from('result_rewards').select('id').limit(1),
   ]);
@@ -91,8 +94,12 @@ export async function getHostDashboardData() {
   const undetectedTricksterIds = game.data?.results_visible
     ? findUndetectedTricksterIds(eligibleGuests, roundVotes, eligibleTeamTricksters)
     : new Set<string>();
-  const rankingAssignments = (assignments.data ?? [])
+  const rankingAssignments = (assignments.data ?? []).filter((assignment) => assignment.status === 'approved')
     .filter((assignment) => isTaskAllowedInCatalogMode(assignment.task, game.data?.task_catalog_mode));
+  const ceremonyAssignments = (assignments.data ?? []).filter((assignment) => {
+    const task = Array.isArray(assignment.task) ? assignment.task[0] : assignment.task;
+    return task?.category === 'ceremony';
+  });
   const rankings = buildPublicScoreboard(eligibleGuests, rankingAssignments, roundVotes, frozenTeamPoints, {
     leaderLimit: game.data?.results_visible ? eligibleGuests.length : 10,
     priorityGuestIds: undetectedTricksterIds,
@@ -109,6 +116,7 @@ export async function getHostDashboardData() {
       return [team, (clues.data ?? []).filter((clue) => clue.team_scope === team
         && (clue.spy_guest_id === null || teamTricksterIds.includes(clue.spy_guest_id))).length];
     })),
+    ceremonyAssignments,
     rankings: { personal: rankings.leaders, teams: rankings.teams },
     finale: {
       tricksters: game.data?.results_visible ? eligibleTeamTricksters.map((guest) => ({ id: guest.id, name: guest.name, team: guest.team, escaped: undetectedTricksterIds.has(guest.id) })) : [],
@@ -143,6 +151,22 @@ export async function setHostGameStage(stage: string, actor: string, rehearsalRu
     p_stage: stage, p_actor: actor, p_rehearsal_run_id: rehearsalRunId,
   });
   ensureHostDatabaseError(error, 'Unable to update game stage');
+}
+
+export async function completeHostCeremonyAssignment(
+  assignmentId: string,
+  ringVariant: 'GROOM_RING' | 'BRIDE_RING' | null,
+  actor: string,
+  rehearsalRunId: string,
+) {
+  const { error } = await getSupabaseAdmin().rpc('update_ceremony_assignment_for_run', {
+    p_assignment_id: assignmentId,
+    p_ceremony_status: 'COMPLETED',
+    p_ring_variant: ringVariant,
+    p_actor: actor,
+    p_rehearsal_run_id: rehearsalRunId,
+  });
+  ensureHostDatabaseError(error, 'Unable to complete ceremony assignment');
 }
 
 export async function adjustHostTeamPoints(input: { team: string; amount: number; reason: string; eventKey: string; rehearsalRunId: string }, actor: string) {

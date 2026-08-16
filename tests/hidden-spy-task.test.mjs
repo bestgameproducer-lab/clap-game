@@ -48,7 +48,7 @@ test('current runtime permanently retires hidden-spy tasks from API, data, and U
   assert.match(retirement, /if new\.grants_hidden_spy then[\s\S]*message='hidden_spy_feature_retired'/);
   assert.doesNotMatch(route, /grantsHiddenSpy|issueHiddenTaskCode|redeemHiddenTaskCode/);
   assert.match(data, /p_grants_hidden_spy: false/);
-  assert.match(data, /from\('tasks'\)[\s\S]*?\.eq\('grants_hidden_spy', false\)/);
+  assert.match(data, /from\('tasks'\)\.select\('[^']*grants_hidden_spy[^']*'\)\.eq\('grants_hidden_spy', false\)/);
   assert.doesNotMatch(page, /完成后成为隐藏间谍|隐藏任务实体卡|issueHiddenTaskCode/);
   assert.doesNotMatch(page, /隐藏间谍/);
   assert.doesNotMatch(hostPage, /隐藏间谍/);

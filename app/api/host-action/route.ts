@@ -1,5 +1,5 @@
 import { requireAdmin } from '@/lib/auth';
-import { adjustHostGuestPoints, adjustHostTeamPoints, setHostFinaleFlag, setHostGameStage, settleHostTeamChallengeClues } from '@/lib/data/host';
+import { adjustHostGuestPoints, adjustHostTeamPoints, completeHostCeremonyAssignment, setHostFinaleFlag, setHostGameStage, settleHostTeamChallengeClues } from '@/lib/data/host';
 import { ApiError, apiErrorResponse, noStoreJson } from '@/lib/errors';
 import { MANUAL_GAME_STAGES } from '@/lib/game-rules';
 import { assertSameOrigin, readJsonObject, requiredBoolean, requiredEnum, requiredInteger, requiredString, requiredUuid } from '@/lib/validation';
@@ -44,6 +44,17 @@ export async function POST(request: Request) {
     }
     if (type === 'setStage') {
       await setHostGameStage(requiredEnum(body.stage, '游戏阶段', MANUAL_GAME_STAGES), actor, currentRunId());
+      return noStoreJson({ ok: true });
+    }
+    if (type === 'completeCeremonyAssignment') {
+      await completeHostCeremonyAssignment(
+        requiredUuid(body.assignmentId, '仪式任务 ID'),
+        body.ringVariant === null || body.ringVariant === '' || body.ringVariant === undefined
+          ? null
+          : requiredEnum(body.ringVariant, '戒指分工', ['GROOM_RING', 'BRIDE_RING'] as const),
+        actor,
+        currentRunId(),
+      );
       return noStoreJson({ ok: true });
     }
     throw new ApiError(400, '未知操作');
