@@ -398,7 +398,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await expect(page.getByText('被忽略的细节')).toBeVisible();
   await screenshot(page, '12e-team-score-clue-reward', testInfo.project.name);
   await page.getByRole('button', { name: '收下这份荣誉' }).click();
-  await expect(page.locator('.reward-chip')).toContainText('第 2 位完成首轮任务');
+  await expect(page.locator('.reward-chip')).toContainText('第 2 位通过首轮核验');
   await screenshot(page, '12h-early-honor-badge', testInfo.project.name);
 
   await page.getByRole('button', { name: /查看今日菜单/ }).click();
