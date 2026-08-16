@@ -49,6 +49,8 @@ test('a trickster dashboard replaces facade content with true content in place',
   assert.match(page, /吃了仙人掌。/);
   assert.doesNotMatch(page, /你觉得丘比特今天心情怎么样？|他好像想开个玩笑。/);
   assert.match(page, /恶作剧者真正任务/);
+  assert.match(page, /usesTricksterFacade && secretReaderOpen && tricksterSignalCompleted && openAssignments\.length === 0/);
+  assert.match(page, /无需再次提交，身份揭晓前请继续保密/);
   assert.match(page, /隐藏并恢复伪装/);
   assert.match(page, /!usesTricksterFacade && <div className="secret-reader-backdrop"/);
   assert.match(page, /isTricksterCard \? '你的伪装任务'/);
