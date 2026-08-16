@@ -669,7 +669,16 @@ test(
         `select count(*) from guests where active and uses_app
            and participation_mode='ACTIVE_PLAYER' and phase_two_eligible
            and drawn_at is not null`,
-      )), 20);
+      )), 21, 'twenty primary cards plus Louise secondary lucky ability are released');
+      assert.equal(Number(await scalar(
+        db,
+        `select count(*) from phase_two_profiles p join guests g on g.id=p.guest_id
+         join assignments a on a.guest_id=p.guest_id and a.status='approved'
+         join tasks t on t.id=a.task_id
+         where p.super_lucky and p.lucky_bonus_settled_at is not null
+           and lower(g.login_name) in('feifei xie','luyi sun')
+           and t.mission_code='P2-LUCKY-001'`,
+      )), 2, 'both fixed first-act lucky stars receive settled act-two lucky cards');
       assert.equal(Number(await scalar(
         db,
         `select count(*) from (values('海岛组'::text),('沙漠组'::text)) expected(team)
