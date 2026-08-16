@@ -163,7 +163,7 @@ export async function getAdminDashboardData(actor: string) {
     db.rpc('preview_rehearsal_reset'),
     db.from('heart_slots').select('heart_code,pair_key,side,guest_id,assigned_at,guest:guests(id,name)').order('heart_code'),
     db.from('player_relationships').select('id,relationship_type,status,player_a_confirmed,player_b_confirmed,activated_at,player_a:guests!player_relationships_player_a_id_fkey(id,name),player_b:guests!player_relationships_player_b_id_fkey(id,name)').order('created_at', { ascending: false }),
-    db.from('symbol_pairing_assignments').select('guest_id,symbol,status,partner_guest_id,pending_relationship_id,finalized_at,updated_at,guest:guests!symbol_pairing_assignments_guest_id_fkey(id,name),partner:guests!symbol_pairing_assignments_partner_guest_id_fkey(id,name)').order('symbol').order('updated_at'),
+    db.from('symbol_pairing_assignments').select('guest_id,symbol,fragment_side,status,partner_guest_id,pending_relationship_id,finalized_at,updated_at,guest:guests!symbol_pairing_assignments_guest_id_fkey(id,name),partner:guests!symbol_pairing_assignments_partner_guest_id_fkey(id,name)').order('symbol').order('fragment_side').order('updated_at'),
     db.from('phase_two_profiles').select('guest_id,team,primary_mission,extra_vote,super_lucky,is_captain,interaction_theme,unlocked_at,updated_at').order('team').order('updated_at'),
     db.from('rehearsal_resets').select('event_key,evidence_paths,avatar_paths,created_at').order('created_at', { ascending: false }),
     db.from('audit_log').select('action,details,created_at')

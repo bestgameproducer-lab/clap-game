@@ -51,7 +51,7 @@ test('every guest-facing and ranking DTO applies the formal catalog boundary', a
     assert.match(source, /isTaskAllowedInCatalogMode/);
   }
   assert.match(publicData, /task:tasks!assignments_task_id_fkey\(mission_code\)/);
-  assert.match(host, /task:tasks!assignments_task_id_fkey\(mission_code\)/);
+  assert.match(host, /task:tasks!assignments_task_id_fkey\([^)]*mission_code[^)]*\)/);
   assert.match(station, /task\?\.category !== 'hidden'[\s\S]*?isTaskAllowedInCatalogMode/);
   assert.match(guest, /catalogAssignments[\s\S]*?isTaskAllowedInCatalogMode\(assignment\.task, game\.task_catalog_mode\)[\s\S]*?visibleAssignments = catalogAssignments\.filter[\s\S]*?isAssignmentVisibleAtStage/);
   assert.match(guest, /buildGuestPointLedger\(pointLedgerResult\.data \?\? \[\], visibleAssignments, game\.results_visible\)/);
