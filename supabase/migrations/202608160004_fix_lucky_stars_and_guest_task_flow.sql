@@ -333,6 +333,53 @@ $$;
 revoke all on function phase_two_official_assignment_set_complete()
   from public,anon,authenticated,service_role;
 
+-- The public release wrapper previously normalized every power from the
+-- primary mission and required exactly twenty assignments. Louise now owns a
+-- second automatic lucky card, so keep the two named lucky flags and validate
+-- the complete twenty-one-card set at both idempotent and first-release paths.
+create or replace function unlock_phase_two_missions(p_actor text)
+returns integer language plpgsql security definer set search_path=public as $$
+declare
+  v_count integer;
+begin
+  if exists(select 1 from phase_two_profiles p where p.primary_mission='TEAM_CAPTAIN' and not exists(
+      select 1 from symbol_pairing_assignments s where s.guest_id=p.guest_id and s.symbol='STAR' and s.status='UNPAIRED_FINAL')) then
+    raise exception using errcode='P0001',message='guiding_star_origin_invalid';
+  end if;
+  if exists(select 1 from phase_two_profiles p where p.primary_mission='COPY_SCORE' and not exists(
+      select 1 from symbol_pairing_assignments s where s.guest_id=p.guest_id and s.symbol='HEART' and s.status='UNPAIRED_FINAL')) then
+    raise exception using errcode='P0001',message='lonely_cupid_origin_invalid';
+  end if;
+
+  if exists(select 1 from assignments a join tasks t on t.id=a.task_id where t.mission_code like 'P2-%') then
+    if phase_two_official_assignment_set_complete() then
+      perform settle_phase_two_lucky(p_actor);
+      perform complete_phase_two_extra_vote_assignments(p_actor);
+      return 21;
+    end if;
+    raise exception using errcode='P0001',message='phase_two_existing_assignments_incomplete';
+  end if;
+
+  delete from phase_two_dilemmas where true;
+  delete from phase_two_copy_choices where true;
+  v_count:=unlock_phase_two_missions_assignments_v1(p_actor);
+  update phase_two_profiles p set
+    extra_vote=(p.primary_mission='EXTRA_VOTE'),
+    super_lucky=(lower(g.login_name) in('feifei xie','luyi sun')),
+    is_captain=(p.primary_mission='TEAM_CAPTAIN'),updated_at=now()
+  from guests g where g.id=p.guest_id;
+  if v_count<>21 or not phase_two_official_assignment_set_complete() then
+    raise exception using errcode='P0001',message='phase_two_assignment_count_invalid';
+  end if;
+  perform settle_phase_two_lucky(p_actor);
+  perform complete_phase_two_extra_vote_assignments(p_actor);
+  return 21;
+end;
+$$;
+
+revoke all on function unlock_phase_two_missions(text) from public,anon,authenticated;
+grant execute on function unlock_phase_two_missions(text) to service_role;
+
 select settle_phase_two_lucky('migration:202608160004');
 
 insert into audit_log(actor,action,target_type,target_id,details)
