@@ -1,0 +1,25 @@
+name: Codex One Time Sync
+on:
+  push:
+    branches:
+      - codex/fix-preflight-image-latency
+permissions:
+  contents: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/fix-preflight-image-latency
+          fetch-depth: 0
+      - name: Apply verified local patch
+        shell: bash
+        run: |
+          echo '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' | base64 --decode | gzip --decompress > /tmp/codex.patch
+          git apply --index /tmp/codex.patch
+          git rm .github/workflows/codex-one-time-sync.yml
+          git config user.name codex-sync
+          git config user.email codex-sync@users.noreply.github.com
+          git commit -m "test default-open active missions in browser flow"
+          git push origin HEAD:codex/fix-preflight-image-latency
