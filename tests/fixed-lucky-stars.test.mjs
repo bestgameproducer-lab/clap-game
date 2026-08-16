@@ -25,6 +25,7 @@ test('live repair preserves unfinished banquet work and refuses unsafe reassignm
 test('future allocation keeps twenty primary profiles plus Louise secondary lucky card', async () => {
   const migration = await readFile(migrationUrl, 'utf8');
   assert.match(migration, /v_task_count:=v_task_count\+1/);
+  assert.match(migration, /g\.team=v_team[\s\S]*lower\(g\.login_name\)<>'feifei xie'/);
   assert.match(migration, /if v_count<>21 or not phase_two_official_assignment_set_complete\(\)/);
   assert.match(migration, /return 21/);
   assert.match(migration, /mission_code='P2-LUCKY-001'[\s\S]*lower\(g\.login_name\)='luyi sun'/);

@@ -188,6 +188,17 @@ begin
   end if;$new$
   );
 
+  -- Reserve Feifei before the two random team-level extra-vote draws. Her
+  -- fixed first-act lucky card must take precedence over a random act-two
+  -- power in every rehearsal, not only in today's production allocation.
+  v_updated:=replace(v_updated,
+    $old$      and g.team=v_team
+      and not exists(select 1 from phase_two_profiles p where p.guest_id=g.id)$old$,
+    $new$      and g.team=v_team
+      and lower(g.login_name)<>'feifei xie'
+      and not exists(select 1 from phase_two_profiles p where p.guest_id=g.id)$new$
+  );
+
   v_updated:=replace(v_updated,
     $old$      and not exists(
         select 1 from assignments a join tasks t on t.id=a.task_id
@@ -261,6 +272,7 @@ begin
 
   if v_updated=v_definition
       or position($needle$lower(g.login_name)='feifei xie'$needle$ in v_updated)=0
+      or position($needle$lower(g.login_name)<>'feifei xie'$needle$ in v_updated)=0
       or position($needle$fixed_lucky_secondary_assignment_missing$needle$ in v_updated)=0 then
     raise exception using errcode='P0001',message='fixed_lucky_allocator_patch_failed';
   end if;
