@@ -67,6 +67,7 @@ const adminData = {
 
 const hostData = {
   guests: [{ ...guest, special_card_title: '' }], teamPoints: [], personalPoints: [],
+  ceremonyAssignments: [],
   game: { stage: 'group_game', voting_open: false, voting_round: 0, results_visible: false, team_clues_settled_at: null },
   voteCount: 0, teamClueCounts: { 海岛组: 0, 沙漠组: 0 }, rankings: { personal: [], teams: [] },
   finale: { tricksters: [], voteCounts: [] },

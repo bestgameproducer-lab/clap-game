@@ -14,16 +14,20 @@ test('host completion atomically approves and scores ceremony assignments', asyn
 });
 
 test('host desk exposes a ceremony confirmation control', async () => {
-  const [data, route, page] = await Promise.all([
+  const [data, route, page, browserFixture, reviewFixture] = await Promise.all([
     read('lib/data/host.ts'),
     read('app/api/host-action/route.ts'),
     read('app/host/page.tsx'),
+    read('e2e/wedding-surfaces.spec.mjs'),
+    read('e2e/wedding-review-pack.spec.mjs'),
   ]);
   assert.match(data, /ceremony_status,ring_variant/);
   assert.match(data, /update_ceremony_assignment_for_run/);
   assert.match(route, /type === 'completeCeremonyAssignment'/);
   assert.match(page, /仪式任务确认/);
   assert.match(page, /确认完成并计分/);
+  assert.match(browserFixture, /const hostData = \{[\s\S]*?ceremonyAssignments: \[\]/);
+  assert.match(reviewFixture, /const hostData = \{[\s\S]*?ceremonyAssignments: \[\]/);
 });
 
 test('guest ceremony card explains that no self-submission is required', async () => {

@@ -513,6 +513,7 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
   const hostData = {
     guests: [{ ...guest, name: '王倩怡', special_card_title: '' }, { ...guest, id: 'spy-host', name: '恶作剧者', role: 'spy', team: '沙漠组', special_card_title: '' }],
     teamPoints: [{ id: 1, team: '海岛组', amount: 8, reason: '团队挑战' }], personalPoints: [],
+    ceremonyAssignments: [],
     game: { stage: 'group_game', voting_open: false, voting_round: 0, results_visible: false, team_clues_settled_at: null },
     voteCount: 0, teamClueCounts: { 海岛组: 2, 沙漠组: 2 }, rankings: { personal: [], teams: [] }, finale: { tricksters: [], voteCounts: [] },
   };
