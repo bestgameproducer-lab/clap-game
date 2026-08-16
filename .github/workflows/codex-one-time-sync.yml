@@ -1,5 +1,8 @@
 name: Codex One Time Sync
 on:
+  push:
+    branches:
+      - codex/fix-preflight-image-latency
   workflow_dispatch:
 permissions:
   contents: write
