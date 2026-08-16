@@ -3,8 +3,8 @@ import type { Metadata, Viewport } from 'next';
 import { ViewportHeightSync } from './viewport-height-sync';
 
 export const metadata: Metadata = {
-  title: 'Wedding Mission',
-  description: 'Private wedding guest mission game',
+  title: 'Zimin & Anrong · 丘比特的婚礼考验',
+  description: '仅限受邀宾客参与的婚礼秘密任务游戏',
   manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: '婚礼任务' },
   formatDetection: { telephone: false },

@@ -43,6 +43,28 @@ export async function listRegistrationGuests(invitationCode: string) {
   };
 }
 
+export async function consumeInvitationCodeAttempt(attemptKey: string) {
+  const { data, error } = await getSupabaseAdmin().rpc('consume_invitation_code_attempt', {
+    p_attempt_key: attemptKey,
+  });
+  if (error) throw new Error(`Unable to record invitation-code attempt: ${error.message}`);
+  const result = Array.isArray(data) ? data[0] : data;
+  if (!result || !['ok', 'rate_limited'].includes(result.auth_status)) {
+    throw new Error('Invitation-code throttle returned an unknown status');
+  }
+  return {
+    status: result.auth_status as 'ok' | 'rate_limited',
+    retryAfterSeconds: Math.max(0, Number(result.retry_after_seconds || 0)),
+  };
+}
+
+export async function clearInvitationCodeAttempts(attemptKey: string) {
+  const { error } = await getSupabaseAdmin().rpc('clear_invitation_code_attempts', {
+    p_attempt_key: attemptKey,
+  });
+  if (error) throw new Error(`Unable to clear invitation-code attempts: ${error.message}`);
+}
+
 export async function claimGuestIdentity(invitationCode: string, loginName: string, claimCode: string, attemptKey: string) {
   const token = createGuestSessionToken();
   const expiresAt = new Date(Date.now() + GUEST_SESSION_MAX_AGE * 1000).toISOString();

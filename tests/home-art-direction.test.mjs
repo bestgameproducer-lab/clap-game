@@ -3,12 +3,19 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 test('home invitation carries the Bali estate and cat Cupid story without obscuring the primary action', async () => {
-  const [home, scene, styles] = await Promise.all([
+  const [home, scene, styles, layout, manifest] = await Promise.all([
     readFile(new URL('../app/page.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app/bali-invitation-scene.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app/styles.css', import.meta.url), 'utf8'),
+    readFile(new URL('../app/layout.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../app/manifest.ts', import.meta.url), 'utf8'),
   ]);
   assert.match(home, /<BaliInvitationScene\/>/);
+  assert.match(scene, /import Image from 'next\/image'/);
+  assert.match(scene, /<Image/);
+  assert.match(scene, /sizes="\(max-width: 420px\) calc\(100vw - 64px\), 540px"/);
+  assert.match(scene, /priority/);
+  assert.doesNotMatch(scene, /<img/);
   assert.match(home, /className="home-couple-signature">Zimin <em>&amp;<\/em> Anrong/);
   assert.doesNotMatch(home, /NEXT_PUBLIC_WEDDING_TITLE/);
   assert.match(home, /<WeddingSignature compact\/>/);
@@ -19,4 +26,7 @@ test('home invitation carries the Bali estate and cat Cupid story without obscur
   assert.match(scene, /巴厘岛庄园与稻田/);
   assert.match(styles, /\.bali-home-hero\{[^}]*background:linear-gradient/);
   assert.match(styles, /\.bali-home-hero \.home-cta\{background:#6c3b42/);
+  assert.match(layout, /title: 'Zimin & Anrong · 丘比特的婚礼考验'/);
+  assert.match(layout, /description: '仅限受邀宾客参与的婚礼秘密任务游戏'/);
+  assert.match(manifest, /name: '丘比特的婚礼考验'/);
 });

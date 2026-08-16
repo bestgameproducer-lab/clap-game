@@ -34,7 +34,7 @@ const couplePhotoTask = {
 
 const baseStory = {
   playerCode: 'R4CD', unlockedRole: '', symbolPairing: null, relationships: [],
-  tricksterAttemptsUsed: 0, tricksterMaxAttempts: 5, mutualConfirmations: [], allianceClue: null,
+  tricksterAttemptsUsed: 0, tricksterMaxAttempts: 5, mutualConfirmations: [],
 };
 
 function assignment(id, task, status = 'assigned', extra = {}) {
@@ -398,7 +398,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await expect(page.getByText('被忽略的细节')).toBeVisible();
   await screenshot(page, '12e-team-score-clue-reward', testInfo.project.name);
   await page.getByRole('button', { name: '收下这份荣誉' }).click();
-  await expect(page.locator('.reward-chip')).toContainText('第 2 位完成首轮任务');
+  await expect(page.locator('.reward-chip')).toContainText('第 2 位通过首轮核验');
   await screenshot(page, '12h-early-honor-badge', testInfo.project.name);
 
   await page.getByRole('button', { name: /查看今日菜单/ }).click();
@@ -471,7 +471,7 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
   const emptyReset = { claimed_guests: 10, drawn_guests: 8, assignments: 12, evidence_files: 2, avatar_files: 7, votes: 0, guest_clues: 0, personal_ledger_entries: 9, team_ledger_entries: 2, spy_ledger_entries: 0, resource_ledger_entries: 0, registration_open: true, voting_open: false, scoreboard_visible: false };
   const adminData = {
     health: { database: 'online', checkedAt: '2026-08-01T14:05:00.000Z', deploymentVersion: 'visual-review' },
-    guests: [staffGuest], assignments: [], tasks: [], clues: [], submissions: [], votes: [], pointLedger: [], auditLog: [], awards: [], teamPointLedger: [], resultRewards: [], hiddenTaskCodes: [], heartSlots: [], playerRelationships: [], allianceClues: [], symbolPairings: [], phaseTwoProfiles: [],
+    guests: [staffGuest], assignments: [], tasks: [], clues: [], submissions: [], votes: [], pointLedger: [], auditLog: [], awards: [], teamPointLedger: [], resultRewards: [], hiddenTaskCodes: [], heartSlots: [], playerRelationships: [], symbolPairings: [], phaseTwoProfiles: [],
     game: { ...game, stage: 'registration' }, rankings: { personal: [], teams: [] }, finale: { tricksters: [], voteCounts: [] },
     settledTeamClueIds: { '海岛组': [], '沙漠组': [] },
     storageReconciliationFailed: false,

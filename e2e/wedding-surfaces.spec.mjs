@@ -41,7 +41,7 @@ const guestData = {
   assignments: [{ id: 'assignment-1', status: 'assigned', is_initial: true, completion_rank: null, early_bonus_points: 0, reward_task_id: null, reward_clue_id: null, completion_note: '', verification_note: '', verified_at: null, evidence_uploaded_at: null, evidence_url: null, rejection_reason: null, task }],
   clues: [], game, candidates: [], existingVote: null, pointLedger: [],
   teamScores: [{ team: '海岛组', points: 3 }, { team: '沙漠组', points: 2 }], results: null,
-  missionStory: { playerCode: 'K7M4', unlockedRole: '', symbolPairing: null, relationships: [], tricksterAttemptsUsed: 0, tricksterMaxAttempts: 5, mutualConfirmations: [], allianceClue: null },
+  missionStory: { playerCode: 'K7M4', unlockedRole: '', symbolPairing: null, relationships: [], tricksterAttemptsUsed: 0, tricksterMaxAttempts: 5, mutualConfirmations: [] },
   phaseTwo: null,
 };
 
@@ -57,7 +57,7 @@ const adminData = {
   guests: [{ ...guest, login_name: 'test guest', claimed_at: '2026-08-01T11:00:00.000Z', team_locked: true, role_locked: false, table_label: 'A1', is_elder: false, ceremony_eligible: false, active: true, staff_notes: '', uses_app: true, phase_two_eligible: true }],
   assignments: [], tasks: [], clues: [], submissions: [], votes: [], pointLedger: [], auditLog: [], awards: [],
   teamPointLedger: [], resultRewards: [], hiddenTaskCodes: [], heartSlots: [], playerRelationships: [],
-  allianceClues: [], symbolPairings: [], phaseTwoProfiles: [], game,
+  symbolPairings: [], phaseTwoProfiles: [], game,
   rankings: { personal: [], teams: [] }, finale: { tricksters: [], voteCounts: [] },
   settledTeamClueIds: { '海岛组': [], '沙漠组': [] },
   storageReconciliationFailed: false,

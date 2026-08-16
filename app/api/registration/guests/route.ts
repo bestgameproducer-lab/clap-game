@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
-import { listRegistrationGuests } from '@/lib/data/registration';
+import { getInvitationCodeAttemptKey } from '@/lib/auth';
+import { clearInvitationCodeAttempts, consumeInvitationCodeAttempt, listRegistrationGuests } from '@/lib/data/registration';
 import { ApiError, apiErrorResponse, noStoreJson } from '@/lib/errors';
 import { createInvitationDevicePass, INVITATION_DEVICE_COOKIE, INVITATION_DEVICE_MAX_AGE, readInvitationDevicePass } from '@/lib/invitation-device-pass';
 import { assertSameOrigin, readJsonObject, requiredInvitationCode } from '@/lib/validation';
@@ -27,16 +28,31 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  let retryAfterSeconds = 0;
   try {
     assertSameOrigin(request);
     const body = await readJsonObject(request);
     const invitationCode = requiredInvitationCode(body.invitationCode);
+    const attemptKey = getInvitationCodeAttemptKey(request);
+    const attempt = await consumeInvitationCodeAttempt(attemptKey);
+    if (attempt.status === 'rate_limited') {
+      retryAfterSeconds = attempt.retryAfterSeconds;
+      const minutes = Math.max(1, Math.ceil(attempt.retryAfterSeconds / 60));
+      throw new ApiError(429, `邀请码尝试次数过多，请 ${minutes} 分钟后再试`);
+    }
     const result = await listRegistrationGuests(invitationCode);
+    await clearInvitationCodeAttempts(attemptKey);
     const response = noStoreJson(result);
     response.cookies.set(INVITATION_DEVICE_COOKIE, createInvitationDevicePass(invitationCode), {
       ...deviceCookieOptions,
       maxAge: INVITATION_DEVICE_MAX_AGE,
     });
     return response;
-  } catch (error) { return apiErrorResponse(error); }
+  } catch (error) {
+    const response = apiErrorResponse(error);
+    if (error instanceof ApiError && error.status === 429) {
+      response.headers.set('Retry-After', String(Math.max(1, retryAfterSeconds)));
+    }
+    return response;
+  }
 }

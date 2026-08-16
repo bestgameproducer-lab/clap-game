@@ -29,7 +29,7 @@ test('clues appear only after a real settlement or staff grant and team copy sta
   assert.match(guest, /clue\.groupName \|\| '现场线索'/);
   assert.doesNotMatch(guest, /SPY CLUES|<h2>已解锁线索<\/h2>/);
   assert.match(guestData, /from\('guest_clues'\)[^\n]+\.order\('created_at', \{ ascending: true \}\)\.order\('id', \{ ascending: true \}\)/);
-  assert.match(guestData, /\(results\[1\]\.data \?\? \[\]\)\.flatMap/);
+  assert.match(guestData, /\(cluesResult\.data \?\? \[\]\)\.flatMap/);
   assert.match(guestData, /clue\?\.title && clue\.content/);
   assert.doesNotMatch(guest, /团队挑战结算或工作人员发放后，属于你的线索会出现在这里/);
   assert.doesNotMatch(guest, /完成任务后，线索会在这里出现/);

@@ -33,8 +33,8 @@ test('首轮前五名显示名次 Banner，但只有前三名显示额外积分'
 
   assert.match(source, /assignment\.is_initial && assignment\.completion_rank !== null && assignment\.completion_rank >= 1 && assignment\.completion_rank <= 5/);
   assert.doesNotMatch(source, /data\.game\?\.stage === 'task_round_1' \? undefined : data\.assignments\.find/);
-  assert.match(source, /你是第 \{rankedReward\.completion_rank\} 位完成首轮任务的宾客/);
-  assert.match(source, /rankedReward\.early_bonus_points > 0 \? '抢先完成奖励：额外 1 分已经计入你的个人积分。' : '你的首轮任务完成名次已经记录。'/);
+  assert.match(source, /你是第 \{rankedReward\.completion_rank\} 位通过工作人员核验首轮任务的宾客/);
+  assert.match(source, /rankedReward\.early_bonus_points > 0 \? '抢先核验奖励：额外 1 分已经计入你的个人积分。' : '你的首轮人工核验名次已经记录。'/);
   assert.match(source, /REWARD_ACK_KEY = 'wedding-guest-reward-ack-v2'/);
   assert.match(source, /activityFingerprint\(`\$\{data\.game\?\.rehearsal_run_id \?\? ''\}:\$\{data\.guest\.id\}:\$\{reward\.id\}:\$\{reward\.completion_rank\}`\)/);
   assert.match(source, /window\.localStorage\.setItem\(REWARD_ACK_KEY, rankedRewardKey\)/);
