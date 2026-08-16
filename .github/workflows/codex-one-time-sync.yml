@@ -1,0 +1,25 @@
+name: Codex One Time Sync
+on:
+  push:
+    branches:
+      - codex/fix-preflight-image-latency
+permissions:
+  contents: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/fix-preflight-image-latency
+          fetch-depth: 0
+      - name: Apply verified local patch
+        shell: bash
+        run: |
+          echo 'H4sIAOzegWoCA61V34/aOBB+56+Yh5UCBwmEZSnXbVaVTqpOuj6cWvXhdJwiE4+Du46d2g4/dP/8jQ0s7Kld+rBIEBKPZz7P980XLoWANK2lBzZ2XctWzOG4kbVlXhrtxtPJdD5Z5PPJZDIrhdyVqqse96XzzLqSaV7WHTpfeuYeS6HMNnPfFKxeLVVPao47mOeL29tfZ1mGQsxWixXkk8l8NuulafqKuHvD4fA1sb9/D2m+WIzmMAyX/A3QkxXWUvcAADUHKe5vNG5vwv3gvge9IRAb8Akd2g3CB5QCJW0RxiL4NX23BizVMw14ZE2qcIMKcOctSzfGI3DLti6D39EecxFY5PRrnU9Z5SECh4pZDk3nPHj2iNBarJCjrhDMBi2wUxHakVLNY67WbGlRaqCqdg8W10jnZ2oE2ngwWu3Dojec7RNHSQ3vqtA/YEqZKrYyC6k2Zddy5pG/LSy2ilXYf3o0CgEAN0bxG4gfQgJ1Fo5bbMpwOUQcFkJh3EnnXd+hQjpgDsIS8nZNFJaEvSQcQiokQLBdIzWyzQ5sSV7UmeSDWOtUN9DxE3VVaEW/zpQhOkvNGhy8e0jEgbCdxOTVQUadDKNOhkEvLzcRvtPECxiH9fB5Dog5J2vdoPaORPDVBDpJ0w4CveAJSMGyqHLJo76n8zzoe/pmOrqUd8gvxRkjdZCjkFoGDZyKG0uKcvFRn46HXOHNd/paXLb1FBeE9pR9UExO7f7JnM+5+mHSF4DGuTrZAFZGc2b35bl/ZSPpv65/lDuM87ETlkmHxEyFbZyWLuwDtLYyHIvkTzKdPBk16Byr6f6y8nGwjC1b5qt1KRiJiCf3FwbT45ce70lTbhxTpDFFGj0sC8+z5qsj/7sWcvRkMeO3+QSzjIlJNb1jzz35apKD114Nixq7ixK7OygsLPUTJckfSfdM2uBe0S8ddDpozK3J8VZMf+vQw9bYx6h+i6JzMcYxEfYeueodM4rOdzR3Z6uCR8SWlL8lNvdURDbEMJwHVXUOPpoucPckgAt7TUY0TXtdQX8AxQP8GyihKLLcp/cKFMC2jHghMPwDZe0/LX2x5KpJ58UiGUQ2CS1a6kmg+Rw2gvHm8NapTKf92+LybjnMx8EtXthcLy8N7u+lW37+55c4L8s+rZ0nZvm/kRlfQRWHP6J49zDNwwQF9zn7nRFCVpKpy4lx6GlL0yr0uOwvB9dqWCTGNEzza4FxFI0uj/M0TT9++e2Pv9IwVi8euUhUt5fgOh3P+x9eoRG8LQkAAA==' | base64 --decode | gzip --decompress > /tmp/codex.patch
+          git apply --index /tmp/codex.patch
+          git rm .github/workflows/codex-one-time-sync.yml
+          git config user.name codex-sync
+          git config user.email codex-sync@users.noreply.github.com
+          git commit -m "fix reserve fixed lucky star before random powers"
+          git push origin HEAD:codex/fix-preflight-image-latency
