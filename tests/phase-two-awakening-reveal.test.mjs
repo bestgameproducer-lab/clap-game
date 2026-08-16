@@ -24,7 +24,9 @@ test('special awakenings override generic new-task notices and survive a closed 
   assert.match(guestPage, /接受我的新命运/);
   assert.match(styles, /@keyframes destiny-awaken/);
   assert.match(styles, /prefers-reduced-motion:reduce/);
-  assert.match(guestPage, /\['COPY_SCORE', 'TEAM_CAPTAIN', 'EXTRA_VOTE', 'SUPER_LUCKY'\]/);
+  assert.match(guestPage, /nextData\.phaseTwo\.superLucky/);
+  assert.match(guestPage, /data\.phaseTwo\.superLucky && data\.phaseTwo\.luckySettled/);
+  assert.match(guestPage, /EFFECT_ACK_KEY/);
   assert.match(guestPage, /awakeningKind: 'CUPID_LUCKY_STAR'/);
   assert.match(guestPage, /丘比特的好运，终于落在你身上/);
   assert.match(guestPage, /awakeningKind: 'EXTRA_VOTE'/);

@@ -30,8 +30,11 @@ test('host desk exposes a ceremony confirmation control', async () => {
   assert.match(reviewFixture, /const hostData = \{[\s\S]*?ceremonyAssignments: \[\]/);
 });
 
-test('guest ceremony card explains that no self-submission is required', async () => {
-  const page = await read('app/guest/page.tsx');
-  assert.match(page, /assignment\.task\.category === 'ceremony'[\s\S]*无需在这里提交/);
-  assert.match(page, /主持人确认完成后，状态和积分会自动更新/);
+test('guest ceremony cards can report completion while host approval remains authoritative', async () => {
+  const [page, taskUi] = await Promise.all([read('app/guest/page.tsx'), read('lib/guest-task-ui.ts')]);
+  for (const missionCode of ['P1-CER-001', 'P1-CER-002', 'P1-CER-003', 'P1-CER-004', 'P2-CEREMONY-001']) {
+    assert.match(taskUi, new RegExp(`'${missionCode}'`));
+  }
+  assert.match(page, /我已完成 · 提交验证/);
+  assert.match(page, /assignment\.task\.category === 'ceremony'/);
 });

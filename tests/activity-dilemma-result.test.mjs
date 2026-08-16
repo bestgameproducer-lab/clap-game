@@ -11,6 +11,9 @@ test('升级任务结算拥有独立活动指纹并优先于普通任务状态�
   assert.match(activityCore, /hasDilemmaResult && current\.dilemmaKey && ack\.dilemmaKey !== current\.dilemmaKey/);
   assert.match(activityCore, /hasDilemmaResult && after\.dilemmaKey && before\.dilemmaKey !== after\.dilemmaKey[\s\S]*?before\.stage/);
   assert.match(guestPage, /createGuestActivityAck\(contentNotice\.snapshot\)/);
+  assert.match(guestPage, /EFFECT_ACK_KEY = 'wedding-guest-effect-ack-v1'/);
+  assert.match(guestPage, /hasAcknowledgedEffect\(nextEffectKey\)/);
+  assert.match(guestPage, /\['task_round_2', 'banquet'\]\.includes\(data\.game\?\.stage/);
 });
 
 test('爱心和星星四种结算结果使用中立叙事，不在结算前泄露伙伴选择', () => {

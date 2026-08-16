@@ -28,7 +28,7 @@ test('browser persistence has an explicit reset-safe allowlist', async () => {
   ));
   assert.deepEqual(
     [...new Set(localStorageWrites.map(({ key }) => key))].sort(),
-    ['ACTIVITY_ACK_KEY', 'REWARD_ACK_KEY'],
+    ['ACTIVITY_ACK_KEY', 'EFFECT_ACK_KEY', 'REWARD_ACK_KEY'],
     'new localStorage writes must be classified before rehearsal reset can ship',
   );
   assert.ok(localStorageWrites.every(({ path }) => path.endsWith('/app/guest/page.tsx')));
@@ -41,6 +41,7 @@ test('browser persistence has an explicit reset-safe allowlist', async () => {
 
   const guestPage = sources.find(({ path }) => path.endsWith('/app/guest/page.tsx'))?.source ?? '';
   assert.match(guestPage, /ACTIVITY_ACK_KEY = 'wedding-guest-activity-ack-v2'/);
+  assert.match(guestPage, /EFFECT_ACK_KEY = 'wedding-guest-effect-ack-v1'/);
   assert.match(guestPage, /REWARD_ACK_KEY = 'wedding-guest-reward-ack-v2'/);
   assert.match(guestPage, /rehearsalRunId: nextData\.game\?\.rehearsal_run_id/);
   assert.match(guestPage, /activityFingerprint\(`\$\{data\.game\?\.rehearsal_run_id \?\? ''\}:\$\{data\.guest\.id\}/);

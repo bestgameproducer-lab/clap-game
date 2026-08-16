@@ -32,7 +32,7 @@ test('a trickster dashboard replaces facade content with true content in place',
   assert.match(page, /isTrickster && identityVisible && !data\.game\?\.results_visible && \(!usesTricksterFacade \|\| secretReaderOpen\) \? 'trickster-identity'/);
   assert.match(page, /usesTricksterFacade && secretReaderOpen \? trueTricksterAssignments : facadeAssignments/);
   assert.match(page, /const facadeAssignments = usesTricksterFacade \? data\.assignments\.filter/);
-  assert.match(page, /<details className="mission-item"/);
+  assert.match(page, /<details className=\{`mission-item/);
   assert.doesNotMatch(page, /trickster-dossier-inline|openTricksterDossier/);
   assert.match(page, /setSecretReaderOpen\(true\)/);
   assert.match(page, /usesTricksterFacade && secretReaderOpen/);

@@ -449,7 +449,7 @@ export async function getGuestView(guestId: string) {
       superLucky: phaseTwoProfile.super_lucky,
       isCaptain: phaseTwoProfile.is_captain,
       unlockedAt: phaseTwoProfile.unlocked_at,
-      phaseOnePointsSnapshot: phaseTwoProfile.primary_mission === 'SUPER_LUCKY' ? phaseTwoProfile.phase_one_points_snapshot : null,
+      phaseOnePointsSnapshot: phaseTwoProfile.super_lucky ? phaseTwoProfile.phase_one_points_snapshot : null,
       luckySettled: Boolean(phaseTwoProfile.lucky_bonus_settled_at),
       captainSettled: Boolean(phaseTwoProfile.captain_bonus_settled_at),
       originVerified: phaseTwoProfile.primary_mission === 'TEAM_CAPTAIN'

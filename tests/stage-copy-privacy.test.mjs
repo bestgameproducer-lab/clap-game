@@ -20,13 +20,14 @@ test('admin, guests, and scoreboard share wedding-stage names and visible defaul
   assert.match(admin, /宾客端默认提示/);
 });
 
-test('new guest content waits for manual dismissal without expanding tasks', async () => {
+test('new guest content waits for manual dismissal while only the first active task expands', async () => {
   const guest = await readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8');
   assert.match(guest, /contentSnapshotRef/);
   assert.match(guest, /new-content-dialog[^\n]+role="dialog" aria-modal="true"/);
   assert.match(guest, /setContentNotice\(null\)/);
   assert.doesNotMatch(guest, /setTimeout\(\(\) => setContentNotice/);
-  assert.match(guest, /expandedAssignments\[assignment\.id\] \?\? false/);
+  assert.match(guest, /expandedAssignments\[assignment\.id\] \?\? \(index === 0 && !isCompletedAssignment\)/);
+  assert.match(guest, /mission-completed/);
 });
 
 test('every secret card explains secrecy and tricksters receive a critical warning', async () => {
