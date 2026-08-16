@@ -39,7 +39,7 @@ test('every public application table has an explicit rehearsal-reset classificat
   const resetInPlace = new Set(['alliance_clue_fragments', 'awards', 'game_state', 'guests', 'heart_slots', 'team_resources']);
   const preservedConfiguration = new Set([
     'admin_credential_override', 'admin_login_throttles', 'admin_sessions',
-    'audit_log', 'host_segments', 'rehearsal_resets', 'tasks',
+    'audit_log', 'host_segments', 'invitation_code_throttles', 'rehearsal_resets', 'tasks',
   ]);
   const classified = new Set([...clearedRuntime, ...resetInPlace, ...preservedConfiguration]);
   assert.deepEqual([...createdTables].filter((table) => !classified.has(table)).sort(), [], 'a new table must be classified before rehearsal reset can ship');

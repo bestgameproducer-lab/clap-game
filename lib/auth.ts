@@ -34,6 +34,15 @@ export function getAdminLoginAttemptKey(request: Request) {
     .digest('hex');
 }
 
+export function getInvitationCodeAttemptKey(request: Request) {
+  const userAgent = (request.headers.get('user-agent') || 'unknown').slice(0, 256);
+  const { supabaseServiceRoleKey } = getSupabaseEnv();
+  return crypto
+    .createHmac('sha256', supabaseServiceRoleKey)
+    .update(`invitation-code-v1\n${firstClientAddress(request)}\n${userAgent}`)
+    .digest('hex');
+}
+
 export async function requireAdmin() {
   const token = (await cookies()).get('admin_session')?.value;
   const subject = token ? await verifyAdminSession(token) : null;

@@ -279,7 +279,19 @@ export async function getGuestView(guestId: string) {
       teamScores: [],
     };
   }
-  const results = await Promise.all([
+  const [
+    assignmentsResult,
+    cluesResult,
+    candidatesResult,
+    voteResult,
+    symbolPairingResult,
+    relationshipsResult,
+    tricksterAttemptsResult,
+    mutualConfirmationsResult,
+    phaseTwoProfileResult,
+    dilemmaResult,
+    copyChoiceResult,
+  ] = await Promise.all([
     db.from('assignments').select('id,status,is_initial,completion_rank,early_bonus_points,reward_task_id,reward_clue_id,completion_note,verification_note,verified_at,evidence_path,evidence_uploaded_at,rejection_reason,task:tasks!assignments_task_id_fkey(title,description,verification_method,points,category,stage,mission_code,mechanic,score_policy)').eq('guest_id', guestId).neq('status', 'cancelled').order('created_at', { ascending: false }).order('id', { ascending: false }),
     db.from('guest_clues').select('id,created_at,clue:clues(title,content,group_name)').eq('guest_id', guestId).order('created_at', { ascending: true }).order('id', { ascending: true }),
     votingEligible
@@ -293,15 +305,17 @@ export async function getGuestView(guestId: string) {
     db.from('symbol_pairing_assignments').select('symbol,status,fragment_side,partner_guest_id,pending_relationship_id,finalized_at').eq('guest_id', guestId).maybeSingle(),
     db.from('player_relationships').select('id,relationship_type,player_a_id,player_b_id,player_a_confirmed,player_b_confirmed,status,activated_at,player_a:guests!player_relationships_player_a_id_fkey(id,name),player_b:guests!player_relationships_player_b_id_fkey(id,name)').or(`player_a_id.eq.${guestId},player_b_id.eq.${guestId}`).order('created_at'),
     db.from('trickster_signal_attempts').select('id', { count: 'exact', head: true }).eq('guest_id', guestId),
-    db.from('alliance_clue_fragments').select('pair_key,title,left_fragment,right_fragment,active').eq('active', true),
     db.from('assignment_mutual_confirmations').select('id,assignment_id,owner_guest_id,confirmer_guest_id,status,created_at,owner:guests!assignment_mutual_confirmations_owner_guest_id_fkey(id,name),confirmer:guests!assignment_mutual_confirmations_confirmer_guest_id_fkey(id,name)').or(`owner_guest_id.eq.${guestId},confirmer_guest_id.eq.${guestId}`).order('created_at', { ascending: false }),
     db.from('phase_two_profiles').select('primary_mission,extra_vote,super_lucky,is_captain,unlocked_at,phase_one_points_snapshot,lucky_bonus_settled_at,captain_bonus_settled_at').eq('guest_id', guestId).maybeSingle(),
     db.from('phase_two_dilemmas').select('alliance_type,player_a_id,player_b_id,player_a_choice,player_b_choice,player_a_points,player_b_points,settled_at').or(`player_a_id.eq.${guestId},player_b_id.eq.${guestId}`).maybeSingle(),
     db.from('phase_two_copy_choices').select('target_guest_id,settled_points,settled_at,target:guests!phase_two_copy_choices_target_guest_id_fkey(id,name,team)').eq('guest_id', guestId).maybeSingle(),
   ]);
-  const error = results.find((result) => result.error)?.error;
+  const queryResults = [assignmentsResult, cluesResult, candidatesResult, voteResult, symbolPairingResult,
+    relationshipsResult, tricksterAttemptsResult, mutualConfirmationsResult, phaseTwoProfileResult,
+    dilemmaResult, copyChoiceResult];
+  const error = queryResults.find((result) => result.error)?.error;
   if (error) throw new Error(`Unable to load guest data: ${error.message}`);
-  const catalogAssignments = (results[0].data ?? []).filter((assignment) => (
+  const catalogAssignments = (assignmentsResult.data ?? []).filter((assignment) => (
     isTaskAllowedInCatalogMode(assignment.task, game.task_catalog_mode)
   ));
   const assignmentStatusById = new Map(
@@ -331,7 +345,7 @@ export async function getGuestView(guestId: string) {
       getPublicScoreboard(),
     ]);
     if (rewardError) throw new Error(`Unable to load published results: ${rewardError.message}`);
-    const votedTargetId = results[3].data?.target_guest_id ?? null;
+    const votedTargetId = voteResult.data?.target_guest_id ?? null;
     const votedTarget = publicScoreboard.revealedRoles.find((candidate) => candidate.id === votedTargetId) ?? null;
     publishedResults = {
       tricksters: publicScoreboard.revealedRoles.map((candidate) => ({
@@ -351,10 +365,10 @@ export async function getGuestView(guestId: string) {
       bonusPoints: (rewards ?? []).reduce((sum, reward) => sum + reward.amount, 0),
     };
   }
-  const symbolPairing = results[4].data;
-  const phaseTwoProfile = results[9].data;
-  const dilemma = results[10].data;
-  const copyChoice = results[11].data;
+  const symbolPairing = symbolPairingResult.data;
+  const phaseTwoProfile = phaseTwoProfileResult.data;
+  const dilemma = dilemmaResult.data;
+  const copyChoice = copyChoiceResult.data;
   let copyCandidates: Array<{ id: string; name: string; team: string }> = [];
   if (phaseTwoProfile?.primary_mission === 'COPY_SCORE' && phaseTwoProfile.unlocked_at) {
     const { data: candidateProfiles, error: candidateError } = await db
@@ -369,7 +383,7 @@ export async function getGuestView(guestId: string) {
       return target ? [{ id: target.id, name: target.name, team: target.team }] : [];
     }).sort((a, b) => a.team.localeCompare(b.team) || a.name.localeCompare(b.name));
   }
-  const relationships = (results[5].data ?? []).map((relationship) => {
+  const relationships = (relationshipsResult.data ?? []).map((relationship) => {
     const isPlayerA = relationship.player_a_id === guestId;
     const partner = isPlayerA
       ? (Array.isArray(relationship.player_b) ? relationship.player_b[0] : relationship.player_b)
@@ -389,14 +403,14 @@ export async function getGuestView(guestId: string) {
     assignments: signedVisibleAssignments,
     pointLedger: buildGuestPointLedger(pointLedgerResult.data ?? [], visibleAssignments, game.results_visible),
     teamScores: teamScoresVisible ? buildGuestTeamScores(teamPointResult.data ?? [], game.team_score_snapshot) : [],
-    clues: (results[1].data ?? []).flatMap((item: { id: string; clue: { title: string; content: string; group_name: string } | { title: string; content: string; group_name: string }[] | null }) => {
+    clues: (cluesResult.data ?? []).flatMap((item: { id: string; clue: { title: string; content: string; group_name: string } | { title: string; content: string; group_name: string }[] | null }) => {
       const clue = Array.isArray(item.clue) ? item.clue[0] : item.clue;
       return clue?.title && clue.content ? [{ id: item.id, title: clue.title, content: clue.content, groupName: clue.group_name || '现场线索' }] : [];
     }),
     game,
     votingEligible,
-    candidates: results[2].data ?? [],
-    existingVote: results[3].data?.target_guest_id ?? null,
+    candidates: candidatesResult.data ?? [],
+    existingVote: voteResult.data?.target_guest_id ?? null,
     results: publishedResults,
     missionStory: {
       playerCode: guest.player_code,
@@ -409,9 +423,9 @@ export async function getGuestView(guestId: string) {
         finalizedAt: symbolPairing.finalized_at,
       } : null,
       relationships,
-      tricksterAttemptsUsed: results[6].count ?? 0,
+      tricksterAttemptsUsed: tricksterAttemptsResult.count ?? 0,
       tricksterMaxAttempts: game.trickster_max_attempts,
-      mutualConfirmations: (results[8].data ?? [])
+      mutualConfirmations: (mutualConfirmationsResult.data ?? [])
         .filter((confirmation) => confirmation.status !== 'PENDING'
           || ['assigned', 'rejected', 'submitted'].includes(assignmentStatusById.get(confirmation.assignment_id) ?? ''))
         .map((confirmation) => {
@@ -428,7 +442,6 @@ export async function getGuestView(guestId: string) {
           createdAt: confirmation.created_at,
         };
         }),
-      allianceClue: null,
     },
     phaseTwo: phaseTwoProfile ? {
       mission: phaseTwoProfile.primary_mission,

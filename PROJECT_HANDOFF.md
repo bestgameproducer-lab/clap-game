@@ -46,7 +46,6 @@ npm run build
 SUPABASE_URL=https://bkrtgrufcctgxyfxdgqy.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=从 Supabase Project Settings/API 安全取得
 ADMIN_PASSWORD=从项目负责人或 Vercel 环境变量安全取得
-NEXT_PUBLIC_WEDDING_TITLE=婚礼页面标题
 ```
 
 环境变量名的无密钥模板见 `.env.example`。不要要求项目负责人把管理员密码或 service-role key 粘贴进 Codex 对话；优先使用已经登录的 Supabase/Vercel 页面或本机密码管理器配置 `.env.local`。
@@ -99,7 +98,7 @@ NEXT_PUBLIC_WEDDING_TITLE=婚礼页面标题
 - 玩家编号为四位随机易读码（例如 `K7M4`），必须同时含字母和数字，并排除 `0/O/1/I/L`；不可恢复为按名单顺序递增的编号。输入会忽略空格和横杠，服务端对连续尝试限流且不通过错误信息泄露某编号是否存在。
 - 抽卡成功后，普通任务立即出现在任务栏，不等待后台切换阶段。
 - 宾客可在仪式前（`registration`、`waiting`）和仪式结束后（`ceremony_end`、`task_round_2`、`banquet`、`group_game`）提交第一轮任务；婚礼仪式进行中（`task_round_1`）暂停提交，进入投票或揭晓后关闭。
-- 验证照片是可选证据，在允许提交的阶段应显示上传/更换/删除入口；弱网失败不能阻止现场人工核验。
+- 大多数任务的验证照片是可选证据；`P2-SOCIAL-003` 与 `P2-SOCIAL-004` 在宾客端提交前强制要求照片。在允许提交的阶段应显示上传/更换/删除入口；弱网时由任务站代传，或保留现场记录并在终局前补录。
 - 每项任务必须显示验证方式。后台或任务站通过任务后自动加分且幂等；退回必须填写宾客可见原因。
 - 自动同步应静默进行，不能每 5 秒弹绿色提示或让页面跳动。只有用户手动按“刷新状态”时显示刷新动画与成功反馈。
 - 新活动提示必须完整可读并由用户手动关闭，不能短时间自动消失或只显示一半。
