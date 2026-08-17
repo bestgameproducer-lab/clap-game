@@ -66,7 +66,7 @@ async function screenshot(page, file, project) {
 }
 
 async function dismissNotice(page) {
-  const dialog = page.getByRole('dialog');
+  const dialog = page.locator('.new-content-dialog');
   const button = dialog.getByRole('button', { name: /知道了|查看更新|接受我的新命运|收下结果/ });
   const appeared = await button.waitFor({ state: 'visible', timeout: 2_000 }).then(() => true).catch(() => false);
   if (!appeared) return;
