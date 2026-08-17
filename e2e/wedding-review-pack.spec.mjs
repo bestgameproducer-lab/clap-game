@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { OFFICIAL_TASK_MANIFEST } from '../lib/official-task-manifest.ts';
 
 const outputRoot = process.env.WEDDING_REVIEW_DIR || 'artifacts/wedding-review-pack';
 const avatar = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"%3E%3Crect width="160" height="160" rx="80" fill="%23eadbd2"/%3E%3Ccircle cx="80" cy="62" r="30" fill="%23a87866"/%3E%3Cpath d="M28 150c8-38 28-55 52-55s44 17 52 55" fill="%237b4f42"/%3E%3C/svg%3E';
@@ -23,14 +24,13 @@ const guest = {
   avatar_path: 'guest-review/avatar.jpg', avatar_uploaded_at: '2026-08-01T11:30:00.000Z', avatar_url: avatar,
 };
 
-const couplePhotoTask = {
-  title: '拍摄一张新郎新娘同框的照片',
-  description: '在不打扰婚礼流程的前提下，捕捉一张新郎和新娘同时入镜的照片。',
-  verification_method: '上传照片或向任务站工作人员出示照片。', points: 2,
-  verification_type: 'PHOTO',
-  category: 'standard', stage: 'task_round_1', mission_code: 'P1-SOCIAL-002',
-  mechanic: 'STANDARD', score_policy: 'STANDARD',
-};
+function officialTask(missionCode) {
+  const task = OFFICIAL_TASK_MANIFEST.find((candidate) => candidate.mission_code === missionCode);
+  if (!task) throw new Error(`official_task_missing:${missionCode}`);
+  return { ...task };
+}
+
+const couplePhotoTask = officialTask('P1-SOCIAL-002');
 
 const baseStory = {
   playerCode: 'R4CD', unlockedRole: '', symbolPairing: null, relationships: [],
@@ -89,6 +89,60 @@ async function routeGuestData(page, initialData) {
     ],
   } }));
   return state;
+}
+
+const STORY_ROLE_TASKS = {
+  OFFICIANT: 'P1-CER-001',
+  RING_KEEPER: 'P1-CER-002',
+  GROOM_CHEERLEADER: 'P1-CER-003',
+  BRIDE_CHEERLEADER: 'P1-CER-004',
+  HEART_HOLDER: 'P1-HEART-001',
+  STAR_HOLDER: 'P1-STAR-001',
+};
+
+function phaseTwoReviewState(missionCode) {
+  const shared = {
+    extraVote: false, superLucky: false, isCaptain: false, unlockedAt: null,
+    phaseOnePointsSnapshot: 2, luckySettled: false, captainSettled: false,
+    originVerified: true, dilemma: null, copyChoice: null, copyCandidates: [],
+  };
+  if (missionCode === 'P2-HEART-001') return { ...shared, mission: 'HEART_DILEMMA', dilemma: { allianceType: 'HEART', submitted: false, settled: false, myChoice: null, partnerChoice: null, myPoints: null, partnerPoints: null } };
+  if (missionCode === 'P2-STAR-001') return { ...shared, mission: 'STAR_DILEMMA', dilemma: { allianceType: 'STAR', submitted: false, settled: false, myChoice: null, partnerChoice: null, myPoints: null, partnerPoints: null } };
+  if (missionCode === 'P2-LONELY-001') return { ...shared, mission: 'COPY_SCORE', copyCandidates: [{ id: 'copy-a', name: '徐莫双 Moshuang Xu', team: '海岛组' }, { id: 'copy-b', name: '任易 Yi Ren', team: '沙漠组' }] };
+  if (missionCode === 'P2-GUIDE-001') return { ...shared, mission: 'TEAM_CAPTAIN', isCaptain: true };
+  if (missionCode === 'P2-TRICKSTER-001') return { ...shared, mission: 'TRICKSTER' };
+  if (missionCode === 'P2-POWER-001') return { ...shared, mission: 'EXTRA_VOTE', extraVote: true };
+  if (missionCode === 'P2-LUCKY-001') return { ...shared, mission: 'SUPER_LUCKY', superLucky: true, luckySettled: true };
+  return null;
+}
+
+function taskVisualState(task, index) {
+  const phaseTwoTask = task.stage === 'task_round_2';
+  const spyTask = ['P1-TRICKSTER-001', 'P2-TRICKSTER-001', 'P2-POWER-001'].includes(task.mission_code);
+  const completedTask = ['P1-BONUS-001', 'P2-POWER-001', 'P2-LUCKY-001'].includes(task.mission_code);
+  const storyRole = task.story_role_scope && task.story_role_scope !== 'NONE' ? task.story_role_scope : 'NONE';
+  const symbolPairing = task.mission_code === 'P1-HEART-001'
+    ? { symbol: 'HEART', status: 'AVAILABLE', fragmentSide: 'LEFT', pendingRelationshipId: null, finalizedAt: null }
+    : task.mission_code === 'P1-STAR-001'
+      ? { symbol: 'STAR', status: 'AVAILABLE', fragmentSide: 'RIGHT', pendingRelationshipId: null, finalizedAt: null }
+      : null;
+  return guestData({
+    guest: {
+      ...guest,
+      role: spyTask ? 'spy' : 'guest',
+      story_role: storyRole,
+      unlocked_role: task.mission_code === 'P2-LONELY-001' ? 'LONELY_CUPID' : task.mission_code === 'P2-GUIDE-001' ? 'GUIDING_STAR' : '',
+    },
+    game: {
+      ...game,
+      stage: phaseTwoTask ? 'banquet' : 'ceremony_end',
+      registration_open: false,
+      phase_one_completed_at: phaseTwoTask ? '2026-08-01T13:00:00.000Z' : null,
+    },
+    assignments: [assignment(`official-${index}`, task, completedTask ? 'approved' : 'assigned', completedTask ? { verification_note: '系统已经完成并记录本任务。' } : {})],
+    missionStory: { ...baseStory, symbolPairing },
+    phaseTwo: phaseTwoReviewState(task.mission_code),
+  });
 }
 
 test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
@@ -183,11 +237,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await page.getByRole('button', { name: '我已经看清楚 · 收起卡片' }).click();
   nextCard = revealedCard;
 
-  const ringTask = {
-    title: '戒指守护者', description: '在工作人员提示后领取戒指盒，并在交换戒指环节送到新人身边。',
-    verification_method: '由工作人员现场确认。', points: 5, category: 'ceremony', stage: 'task_round_1',
-    mission_code: 'P1-CER-002', mechanic: 'STANDARD', score_policy: 'STANDARD',
-  };
+  const ringTask = officialTask('P1-CER-002');
   drawState.current = guestData({
     guest: { ...guest, story_role: 'RING_KEEPER' },
     assignments: [assignment('ring-1', ringTask)],
@@ -196,11 +246,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await expect(page.getByText('戒指守护者', { exact: true }).first()).toBeVisible();
   await screenshot(page, '08b-public-ceremony-role', testInfo.project.name);
 
-  const starTask = {
-    title: '寻找星星伙伴', description: '找到持有另一半星星的玩家，组成星光联盟。',
-    verification_method: '双方在软件中确认。', points: 2, category: 'standard', stage: 'task_round_1',
-    mission_code: 'P1-STAR-001', mechanic: 'STAR_MATCH', score_policy: 'STANDARD',
-  };
+  const starTask = officialTask('P1-STAR-001');
   drawState.current = guestData({
     assignments: [assignment('star-1', starTask)],
     missionStory: { ...baseStory, symbolPairing: { symbol: 'STAR', status: 'AVAILABLE', fragmentSide: 'RIGHT', pendingRelationshipId: null, finalizedAt: null } },
@@ -242,11 +288,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await expect(page.getByText('完整星星', { exact: true })).toBeVisible();
   await screenshot(page, '09d-star-match-complete', testInfo.project.name);
 
-  const heartTask = {
-    title: '寻找爱心伙伴', description: '找到持有另一半爱心的玩家，组成丘比特联盟。',
-    verification_method: '双方在软件中确认。', points: 2, category: 'standard', stage: 'task_round_1',
-    mission_code: 'P1-HEART-001', mechanic: 'HEART_MATCH', score_policy: 'STANDARD',
-  };
+  const heartTask = officialTask('P1-HEART-001');
   drawState.current = guestData({
     assignments: [assignment('heart-1', heartTask)],
     missionStory: { ...baseStory, symbolPairing: { symbol: 'HEART', status: 'AVAILABLE', fragmentSide: 'LEFT', pendingRelationshipId: null, finalizedAt: null } },
@@ -261,11 +303,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await expect(page.getByText(/婚礼仪式进行中 · 照片上传/)).toBeVisible();
   await screenshot(page, '10-ceremony-pause', testInfo.project.name);
 
-  const guideTask = {
-    title: '领航星', description: '召集队友、理解团队挑战，并带领大家前进。',
-    verification_method: '团队挑战结束后由系统结算。', points: 0, category: 'upgrade', stage: 'task_round_2',
-    mission_code: 'P2-GUIDE-001', mechanic: 'TEAM_CAPTAIN', score_policy: 'NO_PERSONAL',
-  };
+  const guideTask = officialTask('P2-GUIDE-001');
   drawState.current = guestData({
     guest: { ...guest, unlocked_role: 'GUIDING_STAR' },
     game: { ...game, stage: 'task_round_2', registration_open: false, phase_one_completed_at: '2026-08-01T13:00:00.000Z' },
@@ -280,11 +318,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await expect(page.getByText('你没有失败，这项能力正来自那次落单')).toBeVisible();
   await screenshot(page, '11b-guiding-star-mission', testInfo.project.name);
 
-  const lonelyTask = {
-    title: '孤单丘比特', description: '选择一位竞技玩家，在最终揭晓时复制他在第二幕获得的个人积分。',
-    verification_method: '锁定目标后由系统在最终揭晓时自动结算。', points: 0, category: 'upgrade', stage: 'task_round_2',
-    mission_code: 'P2-LONELY-001', mechanic: 'COPY_SCORE', score_policy: 'NO_PERSONAL',
-  };
+  const lonelyTask = officialTask('P2-LONELY-001');
   drawState.current = guestData({
     guest: { ...guest, unlocked_role: 'LONELY_CUPID' },
     game: { ...game, stage: 'task_round_2', registration_open: false, phase_one_completed_at: '2026-08-01T13:00:00.000Z' },
@@ -299,11 +333,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await expect(page.getByLabel('选择要复制命运的玩家')).toBeVisible();
   await screenshot(page, '11d-lonely-cupid-choice', testInfo.project.name);
 
-  const dilemmaTask = {
-    title: '星光抉择', description: '你与星光伙伴将面对丘比特留下的最后一道默契考验。',
-    verification_method: '系统等待双方秘密提交后自动结算。', points: 0, category: 'upgrade', stage: 'task_round_2',
-    mission_code: 'P2-STAR-001', mechanic: 'SECRET_DILEMMA', score_policy: 'NO_PERSONAL',
-  };
+  const dilemmaTask = officialTask('P2-STAR-001');
   drawState.current = guestData({
     game: { ...game, stage: 'banquet', registration_open: false, phase_one_completed_at: '2026-08-01T13:00:00.000Z' },
     assignments: [assignment('dilemma-1', dilemmaTask)],
@@ -314,10 +344,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await expect(page.getByText('星光伙伴的抉择')).toBeVisible();
   await screenshot(page, '12-secret-dilemma', testInfo.project.name);
 
-  const heartDilemmaTask = {
-    ...dilemmaTask, title: '爱与恨', description: '丘比特要检验爱心联盟能否经得住诱惑。',
-    mission_code: 'P2-HEART-001',
-  };
+  const heartDilemmaTask = officialTask('P2-HEART-001');
   drawState.current = guestData({
     game: { ...game, stage: 'banquet', registration_open: false, phase_one_completed_at: '2026-08-01T13:00:00.000Z' },
     assignments: [assignment('heart-dilemma-1', heartDilemmaTask)],
@@ -353,11 +380,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
     await dismissNotice(page);
   }
 
-  const luckyTask = {
-    title: '丘比特幸运星', description: '第二轮开启时，系统立即按你第一轮已经获得的个人积分发放同额奖励，并自动完成此任务。',
-    verification_method: '系统已自动结算。', points: 0, category: 'upgrade', stage: 'task_round_2',
-    mission_code: 'P2-LUCKY-001', mechanic: 'INSTANT_BONUS', score_policy: 'NO_PERSONAL',
-  };
+  const luckyTask = officialTask('P2-LUCKY-001');
   drawState.current = guestData({
     guest: { ...guest, points: 8 },
     game: { ...game, stage: 'banquet', registration_open: false, phase_one_completed_at: '2026-08-01T13:00:00.000Z' },
@@ -411,11 +434,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await screenshot(page, '13-dinner-menu', testInfo.project.name);
   await page.getByRole('button', { name: '看完菜单 · 返回游戏' }).click();
 
-  const tricksterSignal = {
-    title: '寻找恶作剧者同伴', description: '使用只有恶作剧者知道的暗号寻找真正同伴。',
-    verification_method: '双方通过暗号并在软件中确认。', points: 0, category: 'hidden', stage: 'task_round_1',
-    mission_code: 'P1-TRICKSTER-001', mechanic: 'TRICKSTER_SIGNAL', score_policy: 'NO_PERSONAL',
-  };
+  const tricksterSignal = officialTask('P1-TRICKSTER-001');
   drawState.current = guestData({
     guest: { ...guest, role: 'spy', name: '刘俊恒 Junheng Liu' },
     game: { ...game, stage: 'banquet', registration_open: false, phase_one_completed_at: '2026-08-01T13:00:00.000Z' },
@@ -469,6 +488,120 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await screenshot(page, '17-guest-results', testInfo.project.name);
 });
 
+test('@mobile-review 23 项正式任务逐项视觉矩阵', async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
+  const state = await routeGuestData(page, guestData());
+  for (const [index, task] of OFFICIAL_TASK_MANIFEST.entries()) {
+    state.current = taskVisualState(task, index);
+    if (index === 0) await page.goto('/guest');
+    else await page.reload();
+    await dismissNotice(page);
+
+    const isSpyTask = ['P1-TRICKSTER-001', 'P2-TRICKSTER-001', 'P2-POWER-001'].includes(task.mission_code);
+    if (isSpyTask) {
+      await page.getByRole('button', { name: '展开查看' }).click();
+      await expect(page.getByText('真实界面已展开')).toBeVisible();
+    }
+
+    const completedToggle = page.locator('.completed-missions-toggle');
+    if (await completedToggle.isVisible().catch(() => false)) await completedToggle.click();
+    await expandFirstMission(page);
+    const missionCard = page.locator('#guest-missions details').filter({ hasText: task.title }).first();
+    await expect(missionCard).toBeVisible();
+    if (['P2-HEART-001', 'P2-STAR-001'].includes(task.mission_code)) {
+      await expect(missionCard).toContainText('积分规则 · 必须秘密选择，不能商量');
+      await expect(missionCard.getByRole('button', { name: '确认提交 · 不可修改' })).toBeDisabled();
+    } else {
+      await expect(missionCard).toContainText(task.verification_method);
+    }
+
+    if (['P1-CER-001', 'P1-CER-002', 'P1-CER-003', 'P1-CER-004', 'P2-CEREMONY-001'].includes(task.mission_code)) {
+      await expect(missionCard.getByRole('button', { name: '我已完成 · 提交验证' })).toBeVisible();
+    }
+    if (['P2-SOCIAL-003', 'P2-SOCIAL-004'].includes(task.mission_code)) {
+      await expect(missionCard.getByRole('button', { name: '请先上传主题合影' })).toBeDisabled();
+    }
+
+    await screenshot(page, `30-task-${task.mission_code.toLowerCase()}`, testInfo.project.name);
+  }
+});
+
+test('@mobile-review 任务状态层级与驳回恢复视觉核验', async ({ page }, testInfo) => {
+  const state = await routeGuestData(page, guestData({
+    game: { ...game, stage: 'ceremony_end', registration_open: false },
+    assignments: [
+      assignment('status-rejected', officialTask('P1-SOCIAL-002'), 'rejected', { rejection_reason: '照片中没有同时看到新郎和新娘，请补拍后再次提交。', completion_note: '已经上传一张现场照片。' }),
+      assignment('status-current', officialTask('P1-CER-002'), 'assigned'),
+      assignment('status-waiting', officialTask('P1-CER-003'), 'submitted', { completion_note: '已在主持人提示后完成应援。' }),
+      assignment('status-complete', officialTask('P1-SOCIAL-001'), 'approved', { verification_note: '任务站已核验合影与双方确认。' }),
+    ],
+  }));
+  await page.goto('/guest');
+  await dismissNotice(page);
+  await expect(page.locator('.mission-list-label.current')).toContainText('现在需要处理');
+  await expect(page.locator('.mission-list-label.waiting')).toContainText('等待工作人员审核');
+  await expect(page.locator('#guest-missions details').first()).toHaveAttribute('open', '');
+  await expect(page.locator('#guest-missions details').first()).toContainText('任务站留言');
+  await expect(page.getByRole('button', { name: '补充完成 · 再次提交' })).toBeVisible();
+  await expect(page.getByText('等待审核', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /已完成任务（1）/ })).toBeVisible();
+  await screenshot(page, '31-task-status-hierarchy', testInfo.project.name);
+
+  state.current = guestData({
+    game: { ...game, stage: 'banquet', registration_open: false, phase_one_completed_at: '2026-08-01T13:00:00.000Z' },
+    assignments: [assignment('speech-submitted', officialTask('P2-CEREMONY-001'), 'submitted', { completion_note: '已在主持人安排的时间完成两分钟致辞。' })],
+  });
+  await page.reload();
+  await dismissNotice(page);
+  await expandFirstMission(page);
+  await expect(page.locator('#guest-missions details').first()).toContainText('等待审核');
+  await expect(page.locator('#guest-missions details').first()).toContainText('我的完成说明');
+  await screenshot(page, '32-dinner-speech-submitted', testInfo.project.name);
+});
+
+test('@mobile-review 公开与秘密角色逐项视觉矩阵', async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  const roleCases = [
+    { file: '40-role-wedding-guardian', title: '婚礼守护者', taskCode: 'P1-SOCIAL-002', storyRole: 'NONE' },
+    { file: '40b-role-officiant', title: '誓词引导人', taskCode: STORY_ROLE_TASKS.OFFICIANT, storyRole: 'OFFICIANT', public: true },
+    { file: '40c-role-ring-keeper', title: '戒指守护者', taskCode: STORY_ROLE_TASKS.RING_KEEPER, storyRole: 'RING_KEEPER', public: true },
+    { file: '40d-role-groom-cheerleader', title: '新郎应援者', taskCode: STORY_ROLE_TASKS.GROOM_CHEERLEADER, storyRole: 'GROOM_CHEERLEADER', public: true },
+    { file: '40e-role-bride-cheerleader', title: '新娘应援者', taskCode: STORY_ROLE_TASKS.BRIDE_CHEERLEADER, storyRole: 'BRIDE_CHEERLEADER', public: true },
+    { file: '40f-role-heart-holder', title: '爱心寻觅者', taskCode: STORY_ROLE_TASKS.HEART_HOLDER, storyRole: 'HEART_HOLDER' },
+    { file: '40g-role-star-holder', title: '星光寻觅者', taskCode: STORY_ROLE_TASKS.STAR_HOLDER, storyRole: 'STAR_HOLDER' },
+    { file: '40h-role-trickster-truth', title: '丘比特的恶作剧者', taskCode: 'P1-TRICKSTER-001', storyRole: 'NONE', spy: true },
+  ];
+  const state = await routeGuestData(page, guestData());
+  for (const [index, roleCase] of roleCases.entries()) {
+    const task = officialTask(roleCase.taskCode);
+    const symbolPairing = roleCase.storyRole === 'HEART_HOLDER'
+      ? { symbol: 'HEART', status: 'AVAILABLE', fragmentSide: 'LEFT', pendingRelationshipId: null, finalizedAt: null }
+      : roleCase.storyRole === 'STAR_HOLDER'
+        ? { symbol: 'STAR', status: 'AVAILABLE', fragmentSide: 'RIGHT', pendingRelationshipId: null, finalizedAt: null }
+        : null;
+    state.current = guestData({
+      guest: { ...guest, role: roleCase.spy ? 'spy' : 'guest', story_role: roleCase.storyRole },
+      game: { ...game, stage: 'ceremony_end', registration_open: false },
+      assignments: [assignment(`role-${index}`, task)],
+      missionStory: { ...baseStory, symbolPairing },
+    });
+    if (index === 0) await page.goto('/guest');
+    else await page.reload();
+    await dismissNotice(page);
+    if (!roleCase.public) await page.getByRole('button', { name: '展开查看' }).click();
+    await expect(page.getByText(roleCase.title, { exact: true }).first()).toBeVisible();
+    await screenshot(page, roleCase.file, testInfo.project.name);
+  }
+
+  state.current = guestData({
+    guest: { ...guest, participation_mode: 'HONOR_GUEST', team: '家人组', eligible_for_mission: false, eligible_for_secret_role: false, special_card_title: '一路相伴', special_card_body: '谢谢你一直守护着这个家。', special_card_revealed_at: '2026-08-01T13:40:00.000Z' },
+    game: { ...game, stage: 'banquet', registration_open: false }, assignments: [], phaseTwo: null,
+  });
+  await page.reload();
+  await expect(page.getByText('家庭荣誉宾客', { exact: true })).toBeVisible();
+  await screenshot(page, '40i-role-family-honor-guest', testInfo.project.name);
+});
+
 test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page }, testInfo) => {
   const staffGuest = { ...guest, login_name: 'qianyi wang', claimed_at: '2026-08-01T11:00:00.000Z', team_locked: true, role_locked: false, table_label: 'A1', is_elder: false, ceremony_eligible: false, active: true, staff_notes: '', uses_app: true, phase_two_eligible: true };
   const finalePersonal = Array.from({ length: 12 }, (_, index) => ({ id: `p-${index}`, name: index === 11 ? '家人嘉宾' : `宾客 ${index + 1}`, team: index === 11 ? '家人组' : index % 2 ? '海岛组' : '沙漠组', points: 18 - index, completedTasks: 2, undetectedTrickster: index === 0 }));
@@ -518,7 +651,11 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
   const hostData = {
     guests: [{ ...guest, name: '王倩怡', special_card_title: '' }, { ...guest, id: 'spy-host', name: '恶作剧者', role: 'spy', team: '沙漠组', special_card_title: '' }],
     teamPoints: [{ id: 1, team: '海岛组', amount: 8, reason: '团队挑战' }], personalPoints: [],
-    ceremonyAssignments: [],
+    ceremonyAssignments: [
+      { id: 'host-ring', status: 'assigned', ceremony_status: 'PENDING', ring_variant: null, guest: { id: 'ring-guest', name: '金星澄 Xingcheng Jin' }, task: { title: '戒指守护者', mission_code: 'P1-CER-002', category: 'ceremony' } },
+      { id: 'host-speech', status: 'submitted', ceremony_status: 'PENDING', ring_variant: null, guest: { id: 'speech-guest', name: '晚宴致辞宾客 Speech Guest' }, task: { title: '晚宴致辞人', mission_code: 'P2-CEREMONY-001', category: 'ceremony' } },
+      { id: 'host-officiant', status: 'approved', ceremony_status: 'COMPLETED', ring_variant: null, guest: { id: 'officiant-guest', name: '誓词引导宾客' }, task: { title: '誓词引导人', mission_code: 'P1-CER-001', category: 'ceremony' } },
+    ],
     game: { stage: 'group_game', voting_open: false, voting_round: 0, results_visible: false, team_clues_settled_at: null },
     voteCount: 0, teamClueCounts: { 海岛组: 2, 沙漠组: 2 }, rankings: { personal: [], teams: [] }, finale: { tricksters: [], voteCounts: [] },
   };
@@ -527,6 +664,10 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
   await page.goto('/host');
   await expect(page.getByRole('heading', { name: '主持人流程台' })).toBeVisible();
   await screenshot(page, '23a-host-overview', testInfo.project.name);
+  await expect(page.getByRole('heading', { name: '仪式任务确认' })).toBeVisible();
+  await expect(page.getByText('宾客已提交 · 等待主持人确认')).toBeVisible();
+  await page.getByLabel('金星澄 Xingcheng Jin负责的戒指').selectOption('GROOM_RING');
+  await screenshot(page, '23f-host-ceremony-confirmation', testInfo.project.name);
   await page.getByRole('button', { name: '团队计分', exact: true }).click();
   await screenshot(page, '23c-host-team-score', testInfo.project.name);
   await page.getByRole('button', { name: '个人加分', exact: true }).click();

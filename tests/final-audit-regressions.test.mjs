@@ -44,7 +44,8 @@ test('final publication opens the scoreboard once and later closure remains effe
 });
 
 test('review fixtures match current station, host and scoreboard DTO fields', () => {
-  assert.match(reviewSpec, /verification_type: 'PHOTO'/);
+  assert.match(reviewSpec, /const couplePhotoTask = officialTask\('P1-SOCIAL-002'\)/);
+  assert.match(reviewSpec, /OFFICIAL_TASK_MANIFEST/);
   assert.match(reviewSpec, /finalLocked: true/);
   assert.match(reviewSpec, /completedTasks: 12, guests: 10/);
   assert.doesNotMatch(reviewSpec, /guestCount:/);

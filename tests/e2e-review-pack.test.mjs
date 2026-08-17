@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { OFFICIAL_TASK_MANIFEST } from '../lib/official-task-manifest.ts';
 
 const [packageJson, workflow, baseConfig, reviewConfig, reviewSpec, runner, indexBuilder, mobileBuilder, gitignore] = await Promise.all([
   readFile(new URL('../package.json', import.meta.url), 'utf8'),
@@ -36,9 +37,18 @@ test('完整婚礼彩排生成可下载且不接触生产数据的截图验收�
     '16b-vote-confirmation', '16c-trickster-weighted-vote',
     '17-guest-results', '20-admin-opening', '21-admin-live-flow', '22-admin-finale',
     '22b-admin-published-results', '23-host-console', '23a-host-overview', '23b-host-published-results',
-    '23c-host-team-score', '23d-host-personal-score', '23e-host-stage-confirmation',
+    '23c-host-team-score', '23d-host-personal-score', '23e-host-stage-confirmation', '23f-host-ceremony-confirmation',
     '24-station-review', '25-public-finale',
+    '31-task-status-hierarchy', '32-dinner-speech-submitted',
+    '40-role-wedding-guardian', '40b-role-officiant', '40c-role-ring-keeper',
+    '40d-role-groom-cheerleader', '40e-role-bride-cheerleader', '40f-role-heart-holder',
+    '40g-role-star-holder', '40h-role-trickster-truth', '40i-role-family-honor-guest',
   ]) assert.match(reviewSpec, new RegExp(screenshot));
+  assert.match(reviewSpec, /for \(const \[index, task\] of OFFICIAL_TASK_MANIFEST\.entries\(\)\)/);
+  assert.match(reviewSpec, /`30-task-\$\{task\.mission_code\.toLowerCase\(\)\}`/);
+  assert.match(runner, /const taskReviewSteps = OFFICIAL_TASK_MANIFEST\.map/);
+  assert.match(runner, /12g-lucky-star-ledger/);
+  assert.doesNotMatch(runner, /12c-lucky-star-ledger/);
   assert.match(runner, /manifest\.json/);
   assert.match(indexBuilder, /index\.html/);
   assert.match(indexBuilder, /README\.md/);
@@ -52,4 +62,20 @@ test('完整婚礼彩排生成可下载且不接触生产数据的截图验收�
   assert.match(workflow, /wedding-review-pack-\$\{\{ github\.run_number \}\}/);
   assert.match(gitignore, /artifacts\/wedding-review-pack\//);
   assert.doesNotMatch(reviewSpec, /SUPABASE_SERVICE_ROLE_KEY|ADMIN_PASSWORD|invitationCodeHash|password_hash/);
+});
+
+test('视觉验收清单与全部 86 张截图保持一一对应', () => {
+  const generatedTaskFiles = OFFICIAL_TASK_MANIFEST.map((task) => `30-task-${task.mission_code.toLowerCase()}`);
+  const screenshotFiles = new Set([
+    ...[...reviewSpec.matchAll(/screenshot\(page,\s*'([^']+)'/g)].map((match) => match[1]),
+    ...[...reviewSpec.matchAll(/\{ file: '([^']+)'/g)].map((match) => match[1]),
+    ...generatedTaskFiles,
+  ]);
+  const manifestSource = runner.slice(0, runner.indexOf('await writeFile'));
+  const manifestFiles = new Set([
+    ...[...manifestSource.matchAll(/\['([^']+)',\s*'/g)].map((match) => match[1]),
+    ...generatedTaskFiles,
+  ]);
+  assert.equal(screenshotFiles.size, 86);
+  assert.deepEqual([...screenshotFiles].sort(), [...manifestFiles].sort());
 });
