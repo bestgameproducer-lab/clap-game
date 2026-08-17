@@ -508,7 +508,12 @@ test('@mobile-review 23 项正式任务逐项视觉矩阵', async ({ page }, tes
     await expandFirstMission(page);
     const missionCard = page.locator('#guest-missions details').filter({ hasText: task.title }).first();
     await expect(missionCard).toBeVisible();
-    await expect(missionCard).toContainText(task.verification_method);
+    if (['P2-HEART-001', 'P2-STAR-001'].includes(task.mission_code)) {
+      await expect(missionCard).toContainText('积分规则 · 必须秘密选择，不能商量');
+      await expect(missionCard.getByRole('button', { name: '确认提交 · 不可修改' })).toBeDisabled();
+    } else {
+      await expect(missionCard).toContainText(task.verification_method);
+    }
 
     if (['P1-CER-001', 'P1-CER-002', 'P1-CER-003', 'P1-CER-004', 'P2-CEREMONY-001'].includes(task.mission_code)) {
       await expect(missionCard.getByRole('button', { name: '我已完成 · 提交验证' })).toBeVisible();
