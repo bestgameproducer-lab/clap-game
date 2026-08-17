@@ -15,7 +15,9 @@ test('guest dashboard promotes one contextual action and collapses completed mis
   assert.match(source, /assignment\.status === 'rejected' && isTaskActionOpenAtStage/);
   assert.match(source, /guest-primary-action/);
   assert.match(source, /completedMissionsOpen/);
-  assert.match(source, /正在进行/);
+  assert.match(source, /待处理 \{actionableAssignments\.length\} · 待审核 \{waitingAssignments\.length\} · 已完成/);
+  assert.match(source, /现在需要处理/);
+  assert.match(source, /等待工作人员审核/);
   assert.match(source, /已完成任务（\$\{completedAssignments\.length\}）· 默认收起/);
   assert.match(source, /usesTricksterFacade && secretReaderOpen \? trueTricksterAssignments : facadeAssignments/);
   assert.match(source, /trickster-real-mode-banner/);

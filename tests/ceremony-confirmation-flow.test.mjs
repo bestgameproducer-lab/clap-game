@@ -26,8 +26,12 @@ test('host desk exposes a ceremony confirmation control', async () => {
   assert.match(route, /type === 'completeCeremonyAssignment'/);
   assert.match(page, /仪式任务确认/);
   assert.match(page, /确认完成并计分/);
+  assert.match(page, /宾客可以先在任务页提交完成说明/);
+  assert.doesNotMatch(page, /宾客端无需提交/);
   assert.match(browserFixture, /const hostData = \{[\s\S]*?ceremonyAssignments: \[\]/);
-  assert.match(reviewFixture, /const hostData = \{[\s\S]*?ceremonyAssignments: \[\]/);
+  assert.match(reviewFixture, /id: 'host-ring'[\s\S]*?mission_code: 'P1-CER-002'/);
+  assert.match(reviewFixture, /id: 'host-speech'[\s\S]*?status: 'submitted'/);
+  assert.match(reviewFixture, /23f-host-ceremony-confirmation/);
 });
 
 test('guest ceremony cards can report completion while host approval remains authoritative', async () => {
