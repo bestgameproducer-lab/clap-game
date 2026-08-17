@@ -10,6 +10,9 @@ const deploymentVersion = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12)
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: __dirname,
+  images: {
+    qualities: [68, 75],
+  },
   env: {
     NEXT_PUBLIC_DEPLOYMENT_VERSION: deploymentVersion,
   },

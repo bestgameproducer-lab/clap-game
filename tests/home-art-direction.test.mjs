@@ -36,3 +36,9 @@ test('home invitation carries the Bali estate and cat Cupid story without obscur
   assert.match(layout, /description: '仅限受邀宾客参与的婚礼秘密任务游戏'/);
   assert.match(manifest, /name: '丘比特的婚礼考验'/);
 });
+
+test('the priority invitation artwork is a non-empty decodable JPEG asset', async () => {
+  const image = await readFile(new URL('../public/art/bali-cat-cupid-estate-v1.jpg', import.meta.url));
+  assert.deepEqual([...image.subarray(0, 3)], [0xff, 0xd8, 0xff]);
+  assert.ok(image.byteLength > 500_000);
+});

@@ -43,3 +43,18 @@ test('bonus is visible to the guest, task station, and assignment export', async
   assert.match(stationPage, /额外 \+1/);
   assert.match(exportData, /'前三额外积分'/);
 });
+
+test('guest and operator copy reserve the honor itself for the same top-three boundary', async () => {
+  const [guestPage, readme, checklist, adminGuide, runbook] = await Promise.all([
+    readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../README.md', import.meta.url), 'utf8'),
+    readFile(new URL('../docs/acceptance-checklist.md', import.meta.url), 'utf8'),
+    readFile(new URL('../docs/admin-operator-guide.md', import.meta.url), 'utf8'),
+    readFile(new URL('../docs/wedding-day-runbook.md', import.meta.url), 'utf8'),
+  ]);
+  assert.match(guestPage, /completion_rank <= 3/);
+  for (const document of [readme, checklist, adminGuide, runbook]) {
+    assert.match(document, /前 3 位/);
+    assert.doesNotMatch(document, /前 5 位|第 4.?5 位/);
+  }
+});

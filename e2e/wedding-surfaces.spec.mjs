@@ -86,9 +86,10 @@ function collectPageErrors(page) {
 
 async function acknowledgeGuestActivity(page) {
   const notice = page.getByRole('dialog').filter({ hasText: /欢迎回到婚礼任务|新的活动|任务收到更新|命运/ });
-  if (await notice.isVisible().catch(() => false)) {
-    await notice.getByRole('button', { name: /知道了 · 查看更新|接受我的新命运 · 查看能力|收下结果 · 返回任务/ }).click();
-  }
+  const appeared = await notice.waitFor({ state: 'visible', timeout: 2_000 }).then(() => true).catch(() => false);
+  if (!appeared) return;
+  await notice.getByRole('button', { name: /知道了 · 查看更新|接受我的新命运 · 查看能力|收下结果 · 返回任务/ }).click();
+  await expect(notice).toBeHidden();
 }
 
 test('宾客真实主页可浏览任务、团队积分并支持桌面滚动', async ({ page }) => {
