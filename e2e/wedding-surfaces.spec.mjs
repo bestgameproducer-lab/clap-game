@@ -45,6 +45,11 @@ const guestData = {
   phaseTwo: null,
 };
 
+async function expandFirstMission(page) {
+  const mission = page.locator('#guest-missions details').first();
+  if ((await mission.getAttribute('open')) === null) await mission.locator('summary').click();
+}
+
 const emptyResetPreview = {
   claimed_guests: 0, drawn_guests: 0, assignments: 0, evidence_files: 0, avatar_files: 0, votes: 0,
   guest_clues: 0, personal_ledger_entries: 0, team_ledger_entries: 0,
@@ -67,6 +72,7 @@ const adminData = {
 
 const hostData = {
   guests: [{ ...guest, special_card_title: '' }], teamPoints: [], personalPoints: [],
+  ceremonyAssignments: [],
   game: { stage: 'group_game', voting_open: false, voting_round: 0, results_visible: false, team_clues_settled_at: null },
   voteCount: 0, teamClueCounts: { 海岛组: 0, 沙漠组: 0 }, rankings: { personal: [], teams: [] },
   finale: { tricksters: [], voteCounts: [] },
@@ -135,7 +141,7 @@ test('离开后重新打开仍会收到升级任务结算，且双方提交前�
   await page.route('**/api/registration/guests', (route) => route.fulfill({ json: { guests: [], registrationOpen: false } }));
   await page.goto('/guest');
   await acknowledgeGuestActivity(page);
-  await page.locator('#guest-missions summary').first().click();
+  await expandFirstMission(page);
   await expect(page.getByText('你的选择已密封保存')).toBeVisible();
   await expect(page.getByText('伙伴选择')).toHaveCount(0);
 
@@ -150,8 +156,8 @@ test('离开后重新打开仍会收到升级任务结算，且双方提交前�
   await expect(resultDialog).toContainText(/你\s*0 分/);
   await expect(resultDialog).toContainText(/伙伴\s*5 分/);
   await resultDialog.getByRole('button', { name: '收下结果 · 返回任务' }).click();
-  await page.getByRole('button', { name: '查看已完成任务（1）' }).click();
-  await page.locator('#guest-missions summary').first().click();
+  await page.getByRole('button', { name: /已完成任务（1）/ }).click();
+  await expandFirstMission(page);
   await expect(page.getByText('星光在岔路口分开')).toBeVisible();
   await expect(page.getByText('伙伴选择「独占」· 获得 5 分')).toBeVisible();
 });

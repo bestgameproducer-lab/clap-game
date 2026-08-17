@@ -11,8 +11,10 @@ test('guest missions are newest-first and independently collapsible', async () =
     read('app/styles.css'),
   ]);
   assert.match(dataSource, /order\('created_at', \{ ascending: false \}\)\.order\('id', \{ ascending: false \}\)/);
-  assert.match(guestPage, /<details className="mission-item"/);
-  assert.match(guestPage, /expandedAssignments\[assignment\.id\] \?\? false/);
+  assert.match(guestPage, /<details className=\{`mission-item \$\{isCompletedAssignment/);
+  assert.match(guestPage, /expandedAssignments\[assignment\.id\] \?\? \(index === 0 && !isCompletedAssignment\)/);
+  assert.match(guestPage, /mission-list-label current/);
+  assert.match(guestPage, /mission-list-label completed/);
   assert.match(guestPage, /onToggle=/);
   assert.match(styles, /\.mission-summary/);
   assert.match(guestPage, /<span className="mission-chevron" aria-hidden="true"><span\/><\/span>/);

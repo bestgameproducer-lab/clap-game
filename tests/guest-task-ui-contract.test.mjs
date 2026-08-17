@@ -22,6 +22,15 @@ const expectedPhotoCodes = [
   'P2-SOCIAL-004',
 ];
 
+const expectedSubmissionCodes = [
+  ...expectedPhotoCodes,
+  'P1-CER-001',
+  'P1-CER-002',
+  'P1-CER-003',
+  'P1-CER-004',
+  'P2-CEREMONY-001',
+];
+
 test('all 23 official tasks expose photo controls only when their proof contract accepts a photo', () => {
   assert.equal(OFFICIAL_TASK_MANIFEST.length, 23);
   assert.deepEqual([...LIVE_GUEST_PHOTO_EVIDENCE_MISSION_CODES].sort(), expectedPhotoCodes.sort());
@@ -37,7 +46,7 @@ test('all 23 official tasks expose photo controls only when their proof contract
     );
     assert.equal(
       acceptsGuestSelfSubmission({ missionCode: task.mission_code, mechanic: task.mechanic, catalogMode: 'live' }),
-      expectedPhotoCodes.includes(task.mission_code),
+      expectedSubmissionCodes.includes(task.mission_code),
       `${task.mission_code} guest submission`,
     );
   }

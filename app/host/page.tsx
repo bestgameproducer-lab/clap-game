@@ -30,6 +30,7 @@ type HostData = {
   guests: Guest[];
   teamPoints: Array<{ id: number; team: string; amount: number; reason: string; created_at: string }>;
   personalPoints: Array<{ id: string; guest_id: string; amount: number; reason: string; created_at: string; guest: { id: string; name: string } | null }>;
+  ceremonyAssignments: Array<{ id: string; status: string; ceremony_status: string | null; ring_variant: 'GROOM_RING' | 'BRIDE_RING' | null; guest: { id: string; name: string } | null; task: { title: string; mission_code: string | null; category: string } | null }>;
   game: { stage: string; voting_open: boolean; voting_round: number; results_visible: boolean; results_published_at: string | null; team_clues_settled_at: string | null; team_score_snapshot: Record<string, number> | null; rehearsal_run_id: string } | null;
   finalLocked: boolean;
   voteCount: number;
@@ -181,6 +182,24 @@ export default function HostPage() {
     finally { setBusy(false); }
   }
 
+  async function completeCeremonyAssignment(assignmentId: string, ringVariant: string | null) {
+    if (!navigator.onLine) { setOffline(true); setError('当前离线，联网后才能确认仪式任务'); return; }
+    setBusy(true); setError(''); setMessage('');
+    try {
+      const response = await fetch('/api/host-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'completeCeremonyAssignment', assignmentId, ringVariant, rehearsalRunId: data?.game?.rehearsal_run_id }),
+      });
+      const result = await responseBody(response);
+      if (response.status === 401) { clearHostCache(); setData(null); }
+      if (!response.ok) throw new Error(result.error || '仪式任务确认失败');
+      setMessage('仪式任务已确认完成，积分已自动记录');
+      await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '仪式任务确认失败'); }
+    finally { setBusy(false); }
+  }
+
   const filteredGuests = useMemo(() => {
     const term = guestSearch.trim().toLocaleLowerCase();
     const scoreEligible = (data?.guests ?? []).filter((guest) => guest.eligible_for_personal_score);
@@ -243,6 +262,7 @@ export default function HostPage() {
 
     <nav className="host-score-tabs" aria-label="主持人功能"><button className={mode === 'overview' ? 'active' : ''} aria-pressed={mode === 'overview'} onClick={() => { setMode('overview'); setMessage(''); setError(''); }}>全员总览</button><button className={mode === 'team' ? 'active' : ''} aria-pressed={mode === 'team'} onClick={() => { setMode('team'); setMessage(''); setError(''); }}>团队计分</button><button className={mode === 'guest' ? 'active' : ''} aria-pressed={mode === 'guest'} onClick={() => { setMode('guest'); setMessage(''); setError(''); }}>个人加分</button><button className={mode === 'finale' ? 'active' : ''} aria-pressed={mode === 'finale'} onClick={() => { setMode('finale'); setMessage(''); setError(''); }}>流程控制</button></nav>
 
+    {mode === 'overview' && data.ceremonyAssignments.length > 0 && <section className="section-card host-score-panel"><div className="section-heading"><div><small>CEREMONY CHECK</small><h2>仪式任务确认</h2></div><span>{data.ceremonyAssignments.filter((assignment) => assignment.status === 'approved').length}/{data.ceremonyAssignments.length}</span></div><p className="muted">宾客端无需提交。仪式完成后由主持人在这里确认，系统会原子地通过任务并记录积分。</p><div className="host-roster-list">{data.ceremonyAssignments.map((assignment) => <form key={assignment.id} onSubmit={(event) => { event.preventDefault(); const ringVariant = String(new FormData(event.currentTarget).get('ringVariant') ?? '') || null; if (!window.confirm(`确认 ${assignment.guest?.name ?? '该宾客'} 已完成「${assignment.task?.title ?? '仪式任务'}」？确认后会立即通过并计分。`)) return; void completeCeremonyAssignment(assignment.id, ringVariant); }}><div><strong>{assignment.guest?.name ?? '未知宾客'}</strong><small>{assignment.task?.title ?? '仪式任务'} · {assignment.status === 'approved' ? '已完成并计分' : '等待主持人确认'}</small></div>{assignment.task?.mission_code === 'P1-CER-002' && assignment.status !== 'approved' && <select name="ringVariant" aria-label={`${assignment.guest?.name ?? '宾客'}负责的戒指`} defaultValue={assignment.ring_variant ?? ''} required><option value="">选择负责戒指</option><option value="GROOM_RING">新郎戒指</option><option value="BRIDE_RING">新娘戒指</option></select>}<button type="submit" disabled={busy || offline || finalLocked || assignment.status === 'approved'}>{assignment.status === 'approved' ? '已完成 ✓' : '确认完成并计分'}</button></form>)}</div></section>}
     {mode === 'overview' ? <section className="section-card host-score-panel"><div className="section-heading"><div><small>PRIVATE ROSTER</small><h2>分组、积分与身份</h2></div><span>{data.guests.length} 人</span></div><div className="host-roster-list">{data.guests.map((guest) => <article key={guest.id} className={(guest.role === 'spy' || guest.is_hidden_spy) && guest.drawn_at ? 'spy' : ''}><div><strong>{guest.name}</strong><small>{guest.team || '未分组'} · {guest.drawn_at ? '已抽卡' : guest.participation_mode === 'ACTIVE_PLAYER' ? '待抽卡' : '专属卡'}</small></div><span>{guest.eligible_for_personal_score ? `${guest.points} 分` : '不计分'}</span>{(guest.role === 'spy' || guest.is_hidden_spy) && guest.drawn_at && <b>恶作剧者</b>}</article>)}</div></section> : mode === 'team' ? <section className="section-card host-score-panel"><div className="section-heading"><div><small>TEAM SCORE</small><h2>记录团队挑战成绩</h2></div></div>
       <div className="team-total-list">{teamTotals.map((item) => <button type="button" disabled={finalLocked || data.game?.stage !== 'group_game' || Boolean(data.game?.team_clues_settled_at)} className={teamForm.team === item.team ? 'selected' : ''} key={item.team} onClick={() => setTeamForm({ ...teamForm, team: item.team })}><strong>{item.team}</strong><span>{item.points} 分</span></button>)}</div>
       {data.game?.stage !== 'group_game' && <div className="control-state">请先在“流程控制”进入婚宴互动 · 团队挑战；其他环节不能提前记录团队分。</div>}

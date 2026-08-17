@@ -28,10 +28,11 @@ test('玩家编号复制只有成功后才显示完成状态', async () => {
   assert.doesNotMatch(source, /navigator\.clipboard\?\.writeText/);
 });
 
-test('首轮前五名显示名次 Banner，但只有前三名显示额外积分', async () => {
+test('首轮只有工作人员核验通过的前三名显示 Early Completion Honor', async () => {
   const source = await readFile(guestPageUrl, 'utf8');
 
-  assert.match(source, /assignment\.is_initial && assignment\.completion_rank !== null && assignment\.completion_rank >= 1 && assignment\.completion_rank <= 5/);
+  assert.equal((source.match(/assignment\.completion_rank <= 3/g) ?? []).length, 2);
+  assert.doesNotMatch(source, /assignment\.completion_rank <= 5/);
   assert.doesNotMatch(source, /data\.game\?\.stage === 'task_round_1' \? undefined : data\.assignments\.find/);
   assert.match(source, /你是第 \{rankedReward\.completion_rank\} 位通过工作人员核验首轮任务的宾客/);
   assert.match(source, /rankedReward\.early_bonus_points > 0 \? '抢先核验奖励：额外 1 分已经计入你的个人积分。' : '你的首轮人工核验名次已经记录。'/);

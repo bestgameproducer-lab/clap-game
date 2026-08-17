@@ -8,6 +8,14 @@ const LIVE_PHOTO_EVIDENCE_MISSIONS = new Set([
   'P2-SOCIAL-004',
 ]);
 
+const LIVE_GUEST_CONFIRMATION_MISSIONS = new Set([
+  'P1-CER-001',
+  'P1-CER-002',
+  'P1-CER-003',
+  'P1-CER-004',
+  'P2-CEREMONY-001',
+]);
+
 const REQUIRED_GUEST_PHOTO_MISSIONS = new Set([
   'P2-SOCIAL-003',
   'P2-SOCIAL-004',
@@ -32,12 +40,13 @@ export function acceptsGuestSelfSubmission(input: {
   mechanic: string | null | undefined;
   catalogMode: string | null | undefined;
 }) {
-  // Every live mission that accepts a guest-side submission is photo based.
-  // Ceremony, role, dilemma and automatic rewards are completed by the host or
-  // system and must not expose a misleading “submit” action to the guest.
+  // Host-confirmed ceremony missions also accept a guest completion notice.
+  // This gives the guest a visible handoff while the host or task station keeps
+  // final approval and scoring server-authoritative.
   if (input.catalogMode === 'demo') return input.mechanic === 'STANDARD';
   if (input.catalogMode !== 'live') return false;
-  return typeof input.missionCode === 'string' && LIVE_PHOTO_EVIDENCE_MISSIONS.has(input.missionCode);
+  return typeof input.missionCode === 'string'
+    && (LIVE_PHOTO_EVIDENCE_MISSIONS.has(input.missionCode) || LIVE_GUEST_CONFIRMATION_MISSIONS.has(input.missionCode));
 }
 
 export function guestPhotoEvidenceLabel(missionCode: string | null | undefined, hasEvidence: boolean) {

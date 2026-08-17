@@ -73,6 +73,11 @@ async function dismissNotice(page) {
   }
 }
 
+async function expandFirstMission(page) {
+  const mission = page.locator('#guest-missions details').first();
+  if ((await mission.getAttribute('open')) === null) await mission.locator('summary').click();
+}
+
 async function routeGuestData(page, initialData) {
   const state = { current: initialData };
   await page.route('**/api/guest-me', (route) => route.fulfill({ json: state.current }));
@@ -153,7 +158,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
 
   await page.getByRole('button', { name: '我已经看清楚 · 收起卡片' }).click();
   await expect(page.getByRole('heading', { name: '我的秘密任务' })).toBeVisible();
-  await page.locator('#guest-missions summary').first().click();
+  await expandFirstMission(page);
   await expect(page.getByText('添加新郎新娘同框照片')).toBeVisible();
   await expect(page.getByText('拍摄照片或从相册选择')).toBeVisible();
   await screenshot(page, '08-round-one-task', testInfo.project.name);
@@ -201,7 +206,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
     missionStory: { ...baseStory, symbolPairing: { symbol: 'STAR', status: 'AVAILABLE', fragmentSide: 'RIGHT', pendingRelationshipId: null, finalizedAt: null } },
   });
   await page.reload(); await dismissNotice(page);
-  await page.locator('#guest-missions summary').first().click();
+  await expandFirstMission(page);
   await expect(page.getByText('右半星星')).toBeVisible();
   await screenshot(page, '09-symbol-pairing', testInfo.project.name);
 
@@ -219,7 +224,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
     },
   });
   await page.reload(); await dismissNotice(page);
-  await page.locator('#guest-missions summary').first().click();
+  await expandFirstMission(page);
   await expect(page.getByRole('button', { name: '接受邀请' })).toBeVisible();
   await screenshot(page, '09c-pairing-invitation', testInfo.project.name);
 
@@ -232,8 +237,8 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
     },
   });
   await page.reload(); await dismissNotice(page);
-  await page.getByRole('button', { name: '查看已完成任务（1）' }).click();
-  await page.locator('#guest-missions summary').first().click();
+  await page.getByRole('button', { name: /已完成任务（1）/ }).click();
+  await expandFirstMission(page);
   await expect(page.getByText('完整星星', { exact: true })).toBeVisible();
   await screenshot(page, '09d-star-match-complete', testInfo.project.name);
 
@@ -247,7 +252,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
     missionStory: { ...baseStory, symbolPairing: { symbol: 'HEART', status: 'AVAILABLE', fragmentSide: 'LEFT', pendingRelationshipId: null, finalizedAt: null } },
   });
   await page.reload(); await dismissNotice(page);
-  await page.locator('#guest-missions summary').first().click();
+  await expandFirstMission(page);
   await expect(page.getByText('左半爱心')).toBeVisible();
   await screenshot(page, '09e-heart-pairing', testInfo.project.name);
 
@@ -271,7 +276,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await expect(page.getByRole('dialog')).toContainText('落单的星光');
   await screenshot(page, '11-awakening-notice', testInfo.project.name);
   await dismissNotice(page);
-  await page.locator('#guest-missions summary').first().click();
+  await expandFirstMission(page);
   await expect(page.getByText('你没有失败，这项能力正来自那次落单')).toBeVisible();
   await screenshot(page, '11b-guiding-star-mission', testInfo.project.name);
 
@@ -290,7 +295,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await expect(page.getByRole('dialog')).toContainText('原来，你从未被遗忘');
   await screenshot(page, '11c-lonely-cupid-awakening', testInfo.project.name);
   await dismissNotice(page);
-  await page.locator('#guest-missions summary').first().click();
+  await expandFirstMission(page);
   await expect(page.getByLabel('选择要复制命运的玩家')).toBeVisible();
   await screenshot(page, '11d-lonely-cupid-choice', testInfo.project.name);
 
@@ -305,7 +310,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
     phaseTwo: { mission: 'STAR_DILEMMA', extraVote: false, superLucky: false, isCaptain: false, unlockedAt: '2026-08-01T13:30:00.000Z', phaseOnePointsSnapshot: 2, luckySettled: false, captainSettled: false, originVerified: true, dilemma: { allianceType: 'STAR', submitted: false, settled: false, myChoice: null, partnerChoice: null, myPoints: null, partnerPoints: null }, copyChoice: null, copyCandidates: [] },
   });
   await page.reload(); await dismissNotice(page);
-  await page.locator('#guest-missions summary').first().click();
+  await expandFirstMission(page);
   await expect(page.getByText('星光伙伴的抉择')).toBeVisible();
   await screenshot(page, '12-secret-dilemma', testInfo.project.name);
 
@@ -319,7 +324,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
     phaseTwo: { mission: 'HEART_DILEMMA', extraVote: false, superLucky: false, isCaptain: false, unlockedAt: '2026-08-01T13:30:00.000Z', phaseOnePointsSnapshot: 2, luckySettled: false, captainSettled: false, originVerified: true, dilemma: { allianceType: 'HEART', submitted: false, settled: false, myChoice: null, partnerChoice: null, myPoints: null, partnerPoints: null }, copyChoice: null, copyCandidates: [] },
   });
   await page.reload(); await dismissNotice(page);
-  await page.locator('#guest-missions summary').first().click();
+  await expandFirstMission(page);
   await expect(page.getByText('爱心联盟的考验')).toBeVisible();
   await screenshot(page, '12b-heart-dilemma', testInfo.project.name);
 
@@ -513,6 +518,7 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
   const hostData = {
     guests: [{ ...guest, name: '王倩怡', special_card_title: '' }, { ...guest, id: 'spy-host', name: '恶作剧者', role: 'spy', team: '沙漠组', special_card_title: '' }],
     teamPoints: [{ id: 1, team: '海岛组', amount: 8, reason: '团队挑战' }], personalPoints: [],
+    ceremonyAssignments: [],
     game: { stage: 'group_game', voting_open: false, voting_round: 0, results_visible: false, team_clues_settled_at: null },
     voteCount: 0, teamClueCounts: { 海岛组: 2, 沙漠组: 2 }, rankings: { personal: [], teams: [] }, finale: { tricksters: [], voteCounts: [] },
   };
