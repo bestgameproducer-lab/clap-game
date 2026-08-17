@@ -594,7 +594,7 @@ test('@mobile-review 公开与秘密角色逐项视觉矩阵', async ({ page }, 
   }
 
   state.current = guestData({
-    guest: { ...guest, participation_mode: 'HONOR_GUEST', team: '家人组', eligible_for_mission: false, eligible_for_secret_role: false, special_card_title: '一路相伴', special_card_body: '谢谢你一直守护着这个家。' },
+    guest: { ...guest, participation_mode: 'HONOR_GUEST', team: '家人组', eligible_for_mission: false, eligible_for_secret_role: false, special_card_title: '一路相伴', special_card_body: '谢谢你一直守护着这个家。', special_card_revealed_at: '2026-08-01T13:40:00.000Z' },
     game: { ...game, stage: 'banquet', registration_open: false }, assignments: [], phaseTwo: null,
   });
   await page.reload();
