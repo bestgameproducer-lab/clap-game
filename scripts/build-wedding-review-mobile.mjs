@@ -31,7 +31,12 @@ const screenshots = (await listPngs(root)).map((path) => {
   return { path, item, order: item ? manifest.steps.indexOf(item) : Number.MAX_SAFE_INTEGER };
 }).sort((left, right) => left.order - right.order || left.path.localeCompare(right.path));
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  headless: true,
+  ...(process.env.WEDDING_TEST_CHROME_EXECUTABLE
+    ? { executablePath: process.env.WEDDING_TEST_CHROME_EXECUTABLE }
+    : {}),
+});
 const context = await browser.newContext({ viewport: { width: 480, height: 900 }, deviceScaleFactor: 1 });
 const page = await context.newPage();
 const pdfPages = [];

@@ -66,11 +66,12 @@ async function screenshot(page, file, project) {
 }
 
 async function dismissNotice(page) {
-  const dialog = page.getByRole('dialog');
-  if (await dialog.isVisible().catch(() => false)) {
-    const button = dialog.getByRole('button', { name: /知道了|查看更新|接受我的新命运|收下结果/ });
-    if (await button.isVisible().catch(() => false)) await button.click();
-  }
+  const dialog = page.locator('.new-content-dialog');
+  const button = dialog.getByRole('button', { name: /知道了|查看更新|接受我的新命运|收下结果/ });
+  const appeared = await button.waitFor({ state: 'visible', timeout: 2_000 }).then(() => true).catch(() => false);
+  if (!appeared) return;
+  await button.click();
+  await expect(dialog).toBeHidden();
 }
 
 async function expandFirstMission(page) {
