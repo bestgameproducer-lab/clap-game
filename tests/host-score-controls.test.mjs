@@ -73,7 +73,7 @@ test('host flow controls use only manual wedding stages and require confirmation
   assert.match(page, /GAME_STAGE_OPTIONS\.filter\(\(\[stage\]\) => !\['voting', 'results'\]\.includes\(stage\)\)/);
   assert.match(page, /确认切换婚礼流程/);
   assert.match(page, /type: 'setStage'/);
-  assert.match(page, /已冻结的团队挑战分不会变化/);
+  assert.match(page, /团队挑战分保持冻结/);
   assert.match(data, /setHostGameStage/);
   assert.match(data, /rpc\('set_game_stage_for_run'/);
 });

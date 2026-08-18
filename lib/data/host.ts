@@ -46,6 +46,8 @@ function ensureHostDatabaseError(error: { message: string } | null, fallback: st
   if (error.message.includes('team_clues_not_settled')) throw new ApiError(409, '请先结算团队积分并自动发放线索，再开启最终投票');
   if (error.message.includes('team_scores_already_settled')) throw new ApiError(409, '团队积分已经结算，不能继续加分');
   if (error.message.includes('team_score_stage_closed')) throw new ApiError(409, '只有进入“婚宴互动 · 团队挑战”后才能记录团队积分');
+  if (error.message.includes('family_random_score_stage_closed')) throw new ApiError(409, '只有进入“婚宴互动 · 团队挑战”后才能抽取家人组个人奖励');
+  if (error.message.includes('family_random_guest_unavailable')) throw new ApiError(409, '家人组当前没有可获得个人积分的宾客，请让主办方核对名单');
   if (error.message.includes('results_already_published') || error.message.includes('final_results_locked')) throw new ApiError(409, '最终结果已经公布，本场流程、积分与结算记录已锁定');
   if (error.message.includes('DELETE requires a WHERE clause')) throw new ApiError(409, '第二轮派发被数据库安全规则拦截，请刷新后重试；本次没有写入部分任务');
   if (error.message.includes('voting_not_started')) throw new ApiError(409, '请先发起最终投票，再进行结算');
@@ -185,4 +187,14 @@ export async function adjustHostGuestPoints(input: { guestId: string; amount: nu
   });
   ensureHostDatabaseError(error, 'Unable to add host guest points');
   return data as number;
+}
+
+export async function awardRandomFamilyGuestPoint(input: { eventKey: string; rehearsalRunId: string }, actor: string) {
+  const { data, error } = await getSupabaseAdmin().rpc('award_random_family_guest_point_for_run', {
+    p_event_key: input.eventKey,
+    p_actor: actor,
+    p_rehearsal_run_id: input.rehearsalRunId,
+  });
+  ensureHostDatabaseError(error, 'Unable to award a random family guest point');
+  return data as { guest_id: string; guest_name: string; total: number; amount: 1; replayed: boolean };
 }

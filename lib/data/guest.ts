@@ -337,6 +337,7 @@ export async function getGuestView(guestId: string) {
     votedTargetId: string | null;
     votedTargetName: string | null;
     voteCorrect: boolean | null;
+    teamCaught: boolean | null;
     bonusPoints: number;
   } = null;
   if (game.results_visible) {
@@ -347,6 +348,7 @@ export async function getGuestView(guestId: string) {
     if (rewardError) throw new Error(`Unable to load published results: ${rewardError.message}`);
     const votedTargetId = voteResult.data?.target_guest_id ?? null;
     const votedTarget = publicScoreboard.revealedRoles.find((candidate) => candidate.id === votedTargetId) ?? null;
+    const ownTeamTrickster = publicScoreboard.revealedRoles.find((candidate) => candidate.team === guest.team) ?? null;
     publishedResults = {
       tricksters: publicScoreboard.revealedRoles.map((candidate) => ({
         id: candidate.id,
@@ -362,6 +364,7 @@ export async function getGuestView(guestId: string) {
           ?? '已投票宾客'
         : null,
       voteCorrect: votedTargetId ? Boolean(votedTarget) : null,
+      teamCaught: ownTeamTrickster ? !ownTeamTrickster.escaped : null,
       bonusPoints: (rewards ?? []).reduce((sum, reward) => sum + reward.amount, 0),
     };
   }

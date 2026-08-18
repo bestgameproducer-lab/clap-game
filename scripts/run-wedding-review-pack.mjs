@@ -83,7 +83,7 @@ const steps = [
   ['23a-host-overview', '主持人全员总览', '主持人核对宾客分组、抽卡状态、个人积分与恶作剧者身份。', '主持人端'],
   ['23b-host-published-results', '主持人终局排名', '主持人端展示恶作剧者追捕结果、团队榜和完整个人排名。', '主持人端'],
   ['23c-host-team-score', '主持人团队加分', '主持人选择队伍、分数和原因后记录团队挑战成绩。', '主持人端'],
-  ['23d-host-personal-score', '主持人个人加分', '主持人搜索并核对宾客后记录现场个人奖励。', '主持人端'],
+  ['23d-host-personal-score', '主持人个人加分', '家人组获胜时由服务器随机选择一位成员 +1；其他现场奖励由主持人搜索并核对宾客后记录。', '主持人端'],
   ['23e-host-stage-confirmation', '主持人流程切换确认', '主持人选择婚礼环节后再次核对影响并确认切换。', '主持人端'],
   ['23f-host-ceremony-confirmation', '主持人仪式任务确认', '区分宾客已提交、等待现场完成与已计分，并提供戒指归属选择。', '主持人端'],
   ['24-station-review', '任务站审核', '任务站优先显示待核验宾客与任务证据。', '任务站'],
@@ -96,8 +96,8 @@ await writeFile(resolve(outputDirectory, 'manifest.json'), JSON.stringify({
   steps: steps.map(([file, title, description, surface]) => ({ file, title, description, surface })),
 }, null, 2));
 
-const runner = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-const testResult = spawnSync(runner, ['playwright', 'test', '--config=playwright.review.config.mjs'], {
+const playwrightCli = resolve(repositoryRoot, 'node_modules/@playwright/test/cli.js');
+const testResult = spawnSync(process.execPath, [playwrightCli, 'test', '--config=playwright.review.config.mjs'], {
   cwd: repositoryRoot,
   env: { ...process.env, WEDDING_REVIEW_DIR: outputDirectory },
   stdio: 'inherit',

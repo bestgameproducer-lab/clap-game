@@ -1,5 +1,5 @@
 import { requireAdmin } from '@/lib/auth';
-import { adjustHostGuestPoints, adjustHostTeamPoints, completeHostCeremonyAssignment, setHostFinaleFlag, setHostGameStage, settleHostTeamChallengeClues } from '@/lib/data/host';
+import { adjustHostGuestPoints, adjustHostTeamPoints, awardRandomFamilyGuestPoint, completeHostCeremonyAssignment, setHostFinaleFlag, setHostGameStage, settleHostTeamChallengeClues } from '@/lib/data/host';
 import { ApiError, apiErrorResponse, noStoreJson } from '@/lib/errors';
 import { MANUAL_GAME_STAGES } from '@/lib/game-rules';
 import { assertSameOrigin, readJsonObject, requiredBoolean, requiredEnum, requiredInteger, requiredString, requiredUuid } from '@/lib/validation';
@@ -30,6 +30,13 @@ export async function POST(request: Request) {
         rehearsalRunId: currentRunId(),
       }, actor);
       return noStoreJson({ ok: true, total });
+    }
+    if (type === 'awardRandomFamilyPoint') {
+      const award = await awardRandomFamilyGuestPoint({
+        eventKey: requiredUuid(body.eventKey, '幂等事件 ID'),
+        rehearsalRunId: currentRunId(),
+      }, actor);
+      return noStoreJson({ ok: true, award });
     }
     if (type === 'toggleVoting') {
       await setHostFinaleFlag('voting_open', requiredBoolean(body.value, '投票状态'), actor, currentRunId());
