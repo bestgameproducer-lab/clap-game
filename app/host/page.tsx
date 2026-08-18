@@ -7,6 +7,8 @@ import { GAME_STAGE_OPTIONS, gameStageCopy, isNextLiveGameStage } from '@/lib/ga
 import { useLiveRefresh } from '@/lib/use-live-refresh';
 import { WeddingSignature } from '../wedding-signature';
 import { requiredTeamClueCount } from '@/lib/team-clue-readiness';
+import { HostGameToolkit } from './host-game-toolkit';
+import type { HostGameToolkitData } from '@/lib/host-game-types';
 
 const TEAMS = ['海岛组', '沙漠组'] as const;
 const HOST_CACHE_KEYS = ['wedding-host-private-cache-v1', 'wedding-host-private-cache-v2', 'wedding-host-score-cache-v1', 'wedding-host-score-cache-v2'];
@@ -54,7 +56,11 @@ function clearHostCache() { try { for (const key of HOST_CACHE_KEYS) window.sess
 export default function HostPage() {
   const [password, setPassword] = useState('');
   const [data, setData] = useState<HostData | null>(null);
-  const [mode, setMode] = useState<'overview' | 'team' | 'guest' | 'finale'>('overview');
+  const [mode, setMode] = useState<'overview' | 'games' | 'team' | 'guest' | 'finale'>('overview');
+  const [gameToolkit, setGameToolkit] = useState<HostGameToolkitData | null>(null);
+  const [gameToolkitLoading, setGameToolkitLoading] = useState(false);
+  const [gameToolkitError, setGameToolkitError] = useState('');
+  const [gameToolkitRetry, setGameToolkitRetry] = useState(0);
   const [teamForm, setTeamForm] = useState({ team: '海岛组', amount: '1', reason: '主持人现场计分' });
   const [guestForm, setGuestForm] = useState({ guestId: '', amount: '1', reason: '主持人现场奖励' });
   const [guestSearch, setGuestSearch] = useState('');
@@ -94,6 +100,27 @@ export default function HostPage() {
 
   useEffect(() => { void load(); }, []);
   useLiveRefresh(() => load(), undefined, Boolean(data));
+
+  useEffect(() => {
+    if (mode !== 'games' || gameToolkit) return;
+    let active = true;
+    setGameToolkitLoading(true);
+    setGameToolkitError('');
+    void fetch('/api/host-games', { cache: 'no-store' })
+      .then(async (response) => {
+        const body = await responseBody(response);
+        if (response.status === 401) {
+          clearHostCache();
+          setData(null);
+          return;
+        }
+        if (!response.ok) throw new Error(body.error || '主持游戏题库加载失败');
+        if (active) setGameToolkit(body);
+      })
+      .catch((cause) => { if (active) setGameToolkitError(cause instanceof Error ? cause.message : '主持游戏题库加载失败'); })
+      .finally(() => { if (active) setGameToolkitLoading(false); });
+    return () => { active = false; };
+  }, [mode, gameToolkit, gameToolkitRetry]);
 
   async function login(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setError('');
@@ -294,10 +321,10 @@ export default function HostPage() {
 
     <section className="host-guidance-card" aria-label="主持人下一步"><div><small>{hostGuidance.eyebrow}</small><strong>{hostGuidance.title}</strong><p>{hostGuidance.detail}</p></div><button type="button" onClick={openHostGuidance}>{hostGuidance.action}<span aria-hidden="true">→</span></button></section>
 
-    <nav className="host-score-tabs" aria-label="主持人功能"><button className={mode === 'overview' ? 'active' : ''} aria-pressed={mode === 'overview'} onClick={() => { setMode('overview'); setMessage(''); setError(''); }}>全员总览</button><button className={mode === 'team' ? 'active' : ''} aria-pressed={mode === 'team'} onClick={() => { setMode('team'); setMessage(''); setError(''); }}>团队计分</button><button className={mode === 'guest' ? 'active' : ''} aria-pressed={mode === 'guest'} onClick={() => { setMode('guest'); setMessage(''); setError(''); }}>个人加分</button><button className={mode === 'finale' ? 'active' : ''} aria-pressed={mode === 'finale'} onClick={() => { setMode('finale'); setMessage(''); setError(''); }}>流程控制</button></nav>
+    <nav className="host-score-tabs" aria-label="主持人功能"><button className={mode === 'overview' ? 'active' : ''} aria-pressed={mode === 'overview'} onClick={() => { setMode('overview'); setMessage(''); setError(''); }}>全员总览</button><button className={mode === 'games' ? 'active' : ''} aria-pressed={mode === 'games'} onClick={() => { setMode('games'); setMessage(''); setError(''); }}>主持游戏</button><button className={mode === 'team' ? 'active' : ''} aria-pressed={mode === 'team'} onClick={() => { setMode('team'); setMessage(''); setError(''); }}>团队计分</button><button className={mode === 'guest' ? 'active' : ''} aria-pressed={mode === 'guest'} onClick={() => { setMode('guest'); setMessage(''); setError(''); }}>个人加分</button><button className={mode === 'finale' ? 'active' : ''} aria-pressed={mode === 'finale'} onClick={() => { setMode('finale'); setMessage(''); setError(''); }}>流程控制</button></nav>
 
     {mode === 'overview' && data.ceremonyAssignments.length > 0 && <section className="section-card host-score-panel"><div className="section-heading"><div><small>CEREMONY CHECK</small><h2>仪式任务确认</h2></div><span>{data.ceremonyAssignments.filter((assignment) => assignment.status === 'approved').length}/{data.ceremonyAssignments.length}</span></div><p className="muted">宾客可以先在任务页提交完成说明；主持人仍需在这里做最终现场确认。确认后系统才会正式通过任务并记录积分。</p><div className="host-roster-list">{data.ceremonyAssignments.map((assignment) => <form key={assignment.id} onSubmit={(event) => { event.preventDefault(); const ringVariant = String(new FormData(event.currentTarget).get('ringVariant') ?? '') || null; if (!window.confirm(`确认 ${assignment.guest?.name ?? '该宾客'} 已完成「${assignment.task?.title ?? '仪式任务'}」？确认后会立即通过并计分。`)) return; void completeCeremonyAssignment(assignment.id, ringVariant); }}><div><strong>{assignment.guest?.name ?? '未知宾客'}</strong><small>{assignment.task?.title ?? '仪式任务'} · {assignment.status === 'approved' ? '已完成并计分' : assignment.status === 'submitted' ? '宾客已提交 · 等待主持人确认' : '等待宾客完成或主持人确认'}</small></div>{assignment.task?.mission_code === 'P1-CER-002' && assignment.status !== 'approved' && <select name="ringVariant" aria-label={`${assignment.guest?.name ?? '宾客'}负责的戒指`} defaultValue={assignment.ring_variant ?? ''} required><option value="">选择负责戒指</option><option value="GROOM_RING">新郎戒指</option><option value="BRIDE_RING">新娘戒指</option></select>}<button type="submit" disabled={busy || offline || finalLocked || assignment.status === 'approved'}>{assignment.status === 'approved' ? '已完成 ✓' : '确认完成并计分'}</button></form>)}</div></section>}
-    {mode === 'overview' ? <section className="section-card host-score-panel"><div className="section-heading"><div><small>PRIVATE ROSTER</small><h2>分组、积分与身份</h2></div><span>{data.guests.length} 人</span></div><div className="host-roster-list">{data.guests.map((guest) => <article key={guest.id} className={(guest.role === 'spy' || guest.is_hidden_spy) && guest.drawn_at ? 'spy' : ''}><div><strong>{guest.name}</strong><small>{guest.team || '未分组'} · {guest.drawn_at ? '已抽卡' : guest.participation_mode === 'ACTIVE_PLAYER' ? '待抽卡' : '专属卡'}</small></div><span>{guest.eligible_for_personal_score ? `${guest.points} 分` : '不计分'}</span>{(guest.role === 'spy' || guest.is_hidden_spy) && guest.drawn_at && <b>恶作剧者</b>}</article>)}</div></section> : mode === 'team' ? <section className="section-card host-score-panel"><div className="section-heading"><div><small>TEAM SCORE</small><h2>记录团队挑战成绩</h2></div></div>
+    {mode === 'overview' ? <section className="section-card host-score-panel"><div className="section-heading"><div><small>PRIVATE ROSTER</small><h2>分组、积分与身份</h2></div><span>{data.guests.length} 人</span></div><div className="host-roster-list">{data.guests.map((guest) => <article key={guest.id} className={(guest.role === 'spy' || guest.is_hidden_spy) && guest.drawn_at ? 'spy' : ''}><div><strong>{guest.name}</strong><small>{guest.team || '未分组'} · {guest.drawn_at ? '已抽卡' : guest.participation_mode === 'ACTIVE_PLAYER' ? '待抽卡' : '专属卡'}</small></div><span>{guest.eligible_for_personal_score ? `${guest.points} 分` : '不计分'}</span>{(guest.role === 'spy' || guest.is_hidden_spy) && guest.drawn_at && <b>恶作剧者</b>}</article>)}</div></section> : mode === 'games' ? gameToolkit ? <HostGameToolkit data={gameToolkit}/> : <section className="section-card host-score-panel host-game-loading" aria-live="polite"><div className="section-heading"><div><small>LIVE GAME ASSISTANT</small><h2>现场游戏助手</h2></div></div>{gameToolkitError ? <><div className="notice error" role="alert">{gameToolkitError}</div><button type="button" onClick={() => { setGameToolkitError(''); setGameToolkitRetry((current) => current + 1); }}>重新加载题库</button></> : <div className="empty-state">{gameToolkitLoading ? '正在载入主持人专属题库…' : '准备载入题库…'}</div>}</section> : mode === 'team' ? <section className="section-card host-score-panel"><div className="section-heading"><div><small>TEAM SCORE</small><h2>记录团队挑战成绩</h2></div></div>
       <div className="team-total-list">{teamTotals.map((item) => <button type="button" disabled={finalLocked || data.game?.stage !== 'group_game' || Boolean(data.game?.team_clues_settled_at)} className={teamForm.team === item.team ? 'selected' : ''} key={item.team} onClick={() => setTeamForm({ ...teamForm, team: item.team })}><strong>{item.team}</strong><span>{item.points} 分</span></button>)}</div>
       {data.game?.stage !== 'group_game' && <div className="control-state">请先在“流程控制”进入婚宴互动 · 团队挑战；其他环节不能提前记录团队分。</div>}
       {data.game?.team_clues_settled_at && <div className="control-state on">团队积分已结算并锁定，不能继续计分。</div>}<form onSubmit={(event) => { event.preventDefault(); if (!window.confirm(`确认记录 ${teamForm.team} 本次 ${Number(teamForm.amount) > 0 ? '+' : ''}${teamForm.amount} 团队分？\n该分数会累加到当前团队总分。\n原因：${teamForm.reason}`)) return; void addScore({ type: 'adjustTeamPoints', team: teamForm.team, amount: Number(teamForm.amount), reason: teamForm.reason }, `${teamForm.team} 已记录 ${teamForm.amount} 分`); }}>
