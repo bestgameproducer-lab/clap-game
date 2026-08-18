@@ -67,6 +67,13 @@ export default function ScoreboardPage() {
   useEffect(() => {
     if (!('serviceWorker' in window.navigator)) return;
     let active = true;
+    let refreshing = false;
+    const refreshForNewVersion = () => {
+      if (!active || refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    };
+    window.navigator.serviceWorker.addEventListener('controllerchange', refreshForNewVersion);
     window.navigator.serviceWorker.register(SERVICE_WORKER_URL, { scope: '/', updateViaCache: 'none' })
       .then(async (registration) => {
         await registration.update();
@@ -74,7 +81,10 @@ export default function ScoreboardPage() {
         if (active) setOfflineReady(true);
       })
       .catch(() => { if (active) setOfflineReady(false); });
-    return () => { active = false; };
+    return () => {
+      active = false;
+      window.navigator.serviceWorker.removeEventListener('controllerchange', refreshForNewVersion);
+    };
   }, []);
 
   useEffect(() => {

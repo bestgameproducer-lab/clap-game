@@ -164,6 +164,59 @@ test(
         await db.exec(await readFile(new URL(`supabase/migrations/${name}`, root), 'utf8'));
       }
 
+      const exposedDefinerFunctions = (await db.query(
+        `select p.oid::regprocedure::text signature
+         from pg_proc p
+         join pg_namespace n on n.oid=p.pronamespace
+         where n.nspname='public' and p.prosecdef
+           and (
+             has_function_privilege('anon',p.oid,'EXECUTE')
+             or has_function_privilege('authenticated',p.oid,'EXECUTE')
+           )
+         order by 1`,
+      )).rows;
+      assert.deepEqual(
+        exposedDefinerFunctions,
+        [],
+        'no security-definer wedding RPC may be callable by browser database roles',
+      );
+
+      const unpinnedDefinerFunctions = (await db.query(
+        `select p.oid::regprocedure::text signature
+         from pg_proc p
+         join pg_namespace n on n.oid=p.pronamespace
+         where n.nspname='public' and p.prosecdef
+           and not exists (
+             select 1 from unnest(coalesce(p.proconfig,array[]::text[])) setting
+             where setting like 'search_path=%'
+           )
+         order by 1`,
+      )).rows;
+      assert.deepEqual(
+        unpinnedDefinerFunctions,
+        [],
+        'every security-definer wedding RPC must pin its search path',
+      );
+
+      const browserAccessibleTables = (await db.query(
+        `select c.oid::regclass::text relation
+         from pg_class c
+         join pg_namespace n on n.oid=c.relnamespace
+         where n.nspname='public' and c.relkind in ('r','p','v','m','S')
+           and (
+             has_any_column_privilege('anon',c.oid,'SELECT,INSERT,UPDATE,REFERENCES')
+             or has_table_privilege('anon',c.oid,'DELETE,TRUNCATE,TRIGGER')
+             or has_any_column_privilege('authenticated',c.oid,'SELECT,INSERT,UPDATE,REFERENCES')
+             or has_table_privilege('authenticated',c.oid,'DELETE,TRUNCATE,TRIGGER')
+           )
+         order by 1`,
+      )).rows;
+      assert.deepEqual(
+        browserAccessibleTables,
+        [],
+        'browser database roles must not read or mutate wedding tables directly',
+      );
+
       assert.equal(
         Number(await scalar(db, `select count(*) from clues where id=$1`, [preResetClueId])),
         0,

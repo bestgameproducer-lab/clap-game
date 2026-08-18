@@ -83,16 +83,30 @@ test('mobile client strips metadata through canvas compression before signed upl
 });
 
 test('private evidence stays outside public and offline data boundaries', async () => {
-  const [publicSource, serviceWorker, guestData, stationData, adminData] = await Promise.all([
+  const [publicSource, serviceWorker, guestData, stationData, adminData, evidenceData] = await Promise.all([
     readFile(new URL('../lib/data/public.ts', import.meta.url), 'utf8'),
     readFile(new URL('../public/sw.js', import.meta.url), 'utf8'),
     readFile(new URL('../lib/data/guest.ts', import.meta.url), 'utf8'),
     readFile(new URL('../lib/data/station.ts', import.meta.url), 'utf8'),
     readFile(new URL('../lib/data/admin.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../lib/data/evidence.ts', import.meta.url), 'utf8'),
   ]);
   assert.equal(publicSource.includes('evidence_'), false);
   assert.equal(serviceWorker.includes('task-evidence'), false);
   assert.match(guestData, /signEvidencePaths\(visibleAssignments\)/);
   assert.match(stationData, /signEvidencePaths\(visibleAssignments\)/);
   assert.match(adminData, /submissions: await signEvidencePaths/);
+  assert.match(evidenceData, /A temporary Storage\/signing failure must not hide the guest dashboard/);
+  assert.match(evidenceData, /catch \{[\s\S]*evidence_url: null/);
+});
+
+test('a temporary signed-photo outage degrades to an explicit retry message instead of a blank review', async () => {
+  const [guestPage, adminPage, stationPage] = await Promise.all([
+    readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../app/admin/page.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../app/station/page.tsx', import.meta.url), 'utf8'),
+  ]);
+  assert.match(guestPage, /evidence_uploaded_at && !assignment\.evidence_url[\s\S]*预览暂时无法打开/);
+  assert.match(adminPage, /submission\.evidence_uploaded_at && !submission\.evidence_url[\s\S]*验证照片暂时无法打开/);
+  assert.match(stationPage, /assignment\.evidence_uploaded_at && !assignment\.evidence_url[\s\S]*验证照片暂时无法打开/);
 });

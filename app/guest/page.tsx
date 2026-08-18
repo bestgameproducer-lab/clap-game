@@ -1573,6 +1573,7 @@ export default function GuestPage() {
               {renderPhaseTwoAction(assignment)}
               {renderTricksterSignal(assignment)}
               {assignment.evidence_url && <figure className="evidence-preview"><a href={assignment.evidence_url} target="_blank" rel="noreferrer"><img src={assignment.evidence_url} alt={`${assignment.task.title}的验证照片`} loading="lazy"/></a><figcaption>验证照片 · 仅你和工作人员可见</figcaption></figure>}
+              {assignment.evidence_uploaded_at && !assignment.evidence_url && <div className="inline-feedback error" role="status"><span>照片已经安全保存，但预览暂时无法打开；任务记录仍在，请稍后刷新。</span></div>}
               {assignment.completion_note && <div className="submission-note"><strong>我的完成说明</strong><span>{assignment.completion_note}</span></div>}
               {assignment.status === 'approved' && assignment.verification_note && <div className="submission-note approved"><strong>任务站核验记录</strong><span>{assignment.verification_note}</span></div>}
               {assignment.status === 'rejected' && <div className="task-feedback">任务站留言：{assignment.rejection_reason || '请补充验证后再次提交。'}</div>}
