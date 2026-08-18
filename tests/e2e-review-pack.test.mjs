@@ -58,7 +58,9 @@ test('完整婚礼彩排生成可下载且不接触生产数据的截图验收�
   assert.match(runner, /build-wedding-review-mobile\.mjs/);
   assert.match(mobileBuilder, /wedding-review-mobile\.pdf/);
   assert.match(mobileBuilder, /page\.pdf/);
-  assert.match(workflow, /actions\/upload-artifact@v4/);
+  assert.match(workflow, /actions\/checkout@v5/);
+  assert.match(workflow, /actions\/setup-node@v5/);
+  assert.match(workflow, /actions\/upload-artifact@v6/);
   assert.match(workflow, /wedding-review-pack-\$\{\{ github\.run_number \}\}/);
   assert.match(gitignore, /artifacts\/wedding-review-pack\//);
   assert.doesNotMatch(reviewSpec, /SUPABASE_SERVICE_ROLE_KEY|ADMIN_PASSWORD|invitationCodeHash|password_hash/);
