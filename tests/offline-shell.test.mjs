@@ -54,6 +54,9 @@ test('public scoreboard keeps only the already-rendered board in memory and repo
   assert.match(source, /setData\(\(current\) => current\)/);
   assert.match(source, /serviceWorker\.register\(SERVICE_WORKER_URL/);
   assert.match(source, /updateViaCache: 'none'/);
+  assert.match(source, /serviceWorker\.addEventListener\('controllerchange', refreshForNewVersion\)/);
+  assert.match(source, /window\.location\.reload\(\)/);
+  assert.match(source, /serviceWorker\.removeEventListener\('controllerchange', refreshForNewVersion\)/);
   assert.match(source, /window\.addEventListener\('offline', disconnect\)/);
   assert.match(source, /最近同步 \{lastSyncLabel\}/);
   assert.match(source, /离线刷新备用已准备/);

@@ -181,13 +181,23 @@ export async function removeStaffEvidence(assignmentId: string, actor: string, r
 export async function signEvidencePaths<T extends { evidence_path?: string | null }>(items: T[]) {
   const paths = [...new Set(items.flatMap((item) => item.evidence_path ? [item.evidence_path] : []))];
   if (paths.length === 0) return items.map((item) => ({ ...item, evidence_url: null }));
-  const { data, error } = await getSupabaseAdmin().storage
-    .from(TASK_EVIDENCE_BUCKET)
-    .createSignedUrls(paths, EVIDENCE_URL_TTL_SECONDS);
-  if (error || !data) throw new Error(`Unable to sign task evidence: ${error?.message ?? 'missing URLs'}`);
-  const signedByPath = new Map(data.map((item) => [item.path, item.signedUrl]));
-  return items.map((item) => ({
-    ...item,
-    evidence_url: item.evidence_path ? signedByPath.get(item.evidence_path) ?? null : null,
-  }));
+  try {
+    const { data, error } = await getSupabaseAdmin().storage
+      .from(TASK_EVIDENCE_BUCKET)
+      .createSignedUrls(paths, EVIDENCE_URL_TTL_SECONDS);
+    if (error || !data) return items.map((item) => ({ ...item, evidence_url: null }));
+    const signedByPath = new Map(data.flatMap((item) => (
+      item.path && typeof item.signedUrl === 'string' && item.signedUrl
+        ? [[item.path, item.signedUrl] as const]
+        : []
+    )));
+    return items.map((item) => ({
+      ...item,
+      evidence_url: item.evidence_path ? signedByPath.get(item.evidence_path) ?? null : null,
+    }));
+  } catch {
+    // A temporary Storage/signing failure must not hide the guest dashboard,
+    // task station, or operator console. The photo retries on the next refresh.
+    return items.map((item) => ({ ...item, evidence_url: null }));
+  }
 }

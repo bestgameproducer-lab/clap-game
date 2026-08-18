@@ -84,6 +84,42 @@ function collectPageErrors(page) {
   return errors;
 }
 
+async function expectCompactViewportSafe(page, label) {
+  await expect.poll(async () => page.evaluate(() => ({
+    overflow: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth,
+    clippedControls: [...document.querySelectorAll('button, a, input, select, textarea')]
+      .filter((element) => {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0
+          && (rect.left < -1 || rect.right > window.innerWidth + 1);
+      })
+      .map((element) => (element.textContent || element.getAttribute('aria-label') || element.tagName).trim().slice(0, 80)),
+  })), { message: `${label} must fit a 320px viewport` }).toEqual({ overflow: 0, clippedControls: [] });
+}
+
+async function expectAccessibleUiBasics(page, label) {
+  await expect.poll(async () => page.evaluate(() => {
+    const ids = [...document.querySelectorAll('[id]')].map((element) => element.id).filter(Boolean);
+    const duplicateIds = [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))];
+    const unlabeledControls = [...document.querySelectorAll('button, a, input, select, textarea')]
+      .filter((element) => {
+        const rect = element.getBoundingClientRect();
+        if (getComputedStyle(element).display === 'none' || rect.width === 0 || rect.height === 0) return false;
+        const text = (element.textContent || '').trim();
+        const explicitName = element.getAttribute('aria-label') || element.getAttribute('aria-labelledby') || element.getAttribute('title');
+        const labels = 'labels' in element ? [...element.labels].map((item) => item.textContent || '').join('').trim() : '';
+        return !text && !explicitName && !labels;
+      })
+      .map((element) => `${element.tagName.toLowerCase()}#${element.id || '(no-id)'}`);
+    const imagesWithoutAlt = [...document.querySelectorAll('img:not([alt])')]
+      .map((element) => element.getAttribute('src') || '(unknown image)');
+    return { duplicateIds, unlabeledControls, imagesWithoutAlt };
+  }), { message: `${label} must keep basic accessible names and unique ids` }).toEqual({
+    duplicateIds: [], unlabeledControls: [], imagesWithoutAlt: [],
+  });
+}
+
 async function acknowledgeGuestActivity(page) {
   const notice = page.getByRole('dialog').filter({ hasText: /欢迎回到婚礼任务|新的活动|任务收到更新|命运/ });
   const appeared = await notice.waitFor({ state: 'visible', timeout: 2_000 }).then(() => true).catch(() => false);
@@ -91,6 +127,73 @@ async function acknowledgeGuestActivity(page) {
   await notice.getByRole('button', { name: /知道了 · 查看更新|接受我的新命运 · 查看能力|收下结果 · 返回任务/ }).click();
   await expect(notice).toBeHidden();
 }
+
+test('320px 小屏仍可安全使用首页、宾客页和三个工作人员入口', async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await page.setViewportSize({ width: 320, height: 568 });
+
+  await page.goto('/');
+  await expect(page.getByRole('link', { name: /领取我的秘密身份/ })).toBeVisible();
+  await expectCompactViewportSafe(page, '首页');
+  await expectAccessibleUiBasics(page, '首页');
+
+  await page.route('**/api/guest-me', (route) => route.fulfill({ json: guestData }));
+  await page.route('**/api/registration/guests', (route) => route.fulfill({ json: { guests: [], registrationOpen: false } }));
+  await page.goto('/guest');
+  await acknowledgeGuestActivity(page);
+  await expect(page.getByRole('heading', { name: '我的秘密任务' })).toBeVisible();
+  await expectCompactViewportSafe(page, '宾客页');
+  await expectAccessibleUiBasics(page, '宾客页');
+
+  await page.unroute('**/api/guest-me');
+  await page.route('**/api/guest-me', (route) => route.fulfill({ json: {
+    ...guestData,
+    guest: { ...guest, id: 'guest-long-name', name: '陈天然和陈子宥 Tianran Chen & Ziyou Chen', team: '家人组', points: 123 },
+    assignments: [{
+      ...guestData.assignments[0], id: 'assignment-long-name',
+      task: { ...task, title: '拍摄一张新郎新娘与第一次见面的朋友共同入镜的幸福合影' },
+    }],
+  } }));
+  await page.goto('/guest');
+  await acknowledgeGuestActivity(page);
+  await expect(page.getByText('陈天然和陈子宥 Tianran Chen & Ziyou Chen')).toBeVisible();
+  await expectCompactViewportSafe(page, '超长姓名与任务宾客页');
+  await expectAccessibleUiBasics(page, '超长姓名与任务宾客页');
+
+  for (const path of ['/admin', '/host', '/station']) {
+    await page.unroute('**/api/guest-me');
+    await page.goto(path);
+    await expect(page.getByLabel('管理员密码')).toBeVisible();
+    await expectCompactViewportSafe(page, `${path} 登录页`);
+    await expectAccessibleUiBasics(page, `${path} 登录页`);
+  }
+
+  await page.route('**/api/admin-data', (route) => route.fulfill({ json: adminData }));
+  await page.goto('/admin');
+  await expect(page.getByText('开场与宾客状态')).toBeVisible();
+  await expectCompactViewportSafe(page, '主办方控制台');
+  await expectAccessibleUiBasics(page, '主办方控制台');
+
+  await page.route('**/api/host-data', (route) => route.fulfill({ json: hostData }));
+  await page.goto('/host');
+  await expect(page.getByRole('heading', { name: '主持人流程台' })).toBeVisible();
+  await expectCompactViewportSafe(page, '主持人流程台');
+  await expectAccessibleUiBasics(page, '主持人流程台');
+
+  await page.route('**/api/station-data', (route) => route.fulfill({ json: {
+    guests: [{ ...guest, login_name: 'test guest', claimed_at: '2026-08-01T11:00:00.000Z', eligible_for_personal_score: true, phase_two_eligible: true }],
+    assignments: guestData.assignments,
+    tasks: [], clues: [], manualTaskIdsByGuest: { [guest.id]: [] }, manualTaskReasonsByGuest: { [guest.id]: '' },
+    game: { ...game, rehearsal_run_id: '11111111-1111-4111-8111-111111111111', results_published_at: null, task_catalog_mode: 'live' },
+    finalLocked: false,
+  } }));
+  await page.goto('/station');
+  await expect(page.getByRole('heading', { name: '任务站' })).toBeVisible();
+  await expectCompactViewportSafe(page, '丘比特任务站');
+  await expectAccessibleUiBasics(page, '丘比特任务站');
+
+  expect(errors).toEqual([]);
+});
 
 test('宾客真实主页可浏览任务、团队积分并支持桌面滚动', async ({ page }) => {
   const errors = collectPageErrors(page);

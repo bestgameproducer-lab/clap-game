@@ -239,6 +239,7 @@ export default function StationPage() {
                 <div className="verification-note"><strong>核验要求</strong><span>{assignment.task?.verification_method}</span></div>
                 {assignment.completion_note && <div className="submission-note"><strong>宾客完成说明</strong><span>{assignment.completion_note}</span></div>}
                 {assignment.evidence_url && <figure className="evidence-preview compact"><a href={assignment.evidence_url} target="_blank" rel="noreferrer"><img src={assignment.evidence_url} alt={`${assignment.task?.title || '任务'}的验证照片`} loading="lazy"/></a><figcaption>点击查看验证照片</figcaption></figure>}
+                {assignment.evidence_uploaded_at && !assignment.evidence_url && <div className="inline-feedback error" role="status"><span>验证照片暂时无法打开，请刷新后重试，或当面核验后再处理。</span></div>}
                 {!finalResultsLocked && actionOpen && acceptsStaffPhoto && ['assigned','submitted','rejected'].includes(assignment.status) && <div className="evidence-controls station-evidence-controls">
                   <label htmlFor={`station-evidence-${assignment.id}`}>{assignment.evidence_url ? '更换验证照片' : '工作人员添加验证照片'}</label>
                   <input id={`station-evidence-${assignment.id}`} type="file" accept="image/*" disabled={busy || offline || evidenceBusyId === assignment.id} onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void uploadEvidence(assignment.id, file); }}/>
