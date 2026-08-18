@@ -52,6 +52,9 @@ test('shared visual system exposes focus, mobile hierarchy and reduced-motion st
   assert.match(styles, /\.host-guidance-card/);
   assert.match(styles, /\.station-filter-tabs/);
   assert.match(styles, /prefers-reduced-motion:reduce\)\{\*,\*::before,\*::after/);
+  assert.match(styles, /@media\(max-width:520px\)\{\.guest-missions-card>\.section-heading\{display:grid;grid-template-columns:minmax\(0,1fr\)/);
+  assert.match(styles, /\.guest-missions-card>\.section-heading small,\.guest-missions-card>\.section-heading h2\{white-space:nowrap\}/);
+  assert.match(styles, /\.guest-missions-card>\.section-heading>span\{[^}]*justify-self:start[^}]*white-space:nowrap/);
 });
 
 test('guest dashboard cards use one restrained wedding palette', async () => {

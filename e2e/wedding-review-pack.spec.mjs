@@ -212,7 +212,12 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await screenshot(page, '07-card-revealed', testInfo.project.name);
 
   await page.getByRole('button', { name: '我已经看清楚 · 收起卡片' }).click();
-  await expect(page.getByRole('heading', { name: '我的秘密任务' })).toBeVisible();
+  const missionHeading = page.getByRole('heading', { name: '我的秘密任务' });
+  await expect(missionHeading).toBeVisible();
+  await expect.poll(() => missionHeading.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return style.whiteSpace === 'nowrap' && element.scrollWidth <= element.clientWidth + 1;
+  })).toBe(true);
   await expandFirstMission(page);
   await expect(page.getByText('添加新郎新娘同框照片')).toBeVisible();
   await expect(page.getByText('拍摄照片或从相册选择')).toBeVisible();
