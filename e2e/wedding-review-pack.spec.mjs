@@ -482,7 +482,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   drawState.current = guestData({
     game: { ...game, stage: 'results', registration_open: false, voting_open: false, voting_round: 1, results_visible: true, scoreboard_visible: true, phase_one_completed_at: '2026-08-01T13:00:00.000Z', team_clues_settled_at: '2026-08-01T14:30:00.000Z', team_score_snapshot: { 海岛组: 13, 沙漠组: 20 } },
     existingVote: 'suspect-1',
-    results: { ...finale, votedTargetId: 'suspect-1', votedTargetName: '可疑宾客 A', voteCorrect: true, bonusPoints: 2 },
+    results: { ...finale, votedTargetId: 'suspect-1', votedTargetName: '可疑宾客 A', voteCorrect: true, teamCaught: true, bonusPoints: 2 },
   });
   await page.reload(); await dismissNotice(page);
   await expect(page.getByRole('heading', { name: '恶作剧者揭晓' })).toBeVisible();
@@ -650,14 +650,14 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
   await screenshot(page, '22b-admin-published-results', testInfo.project.name);
 
   const hostData = {
-    guests: [{ ...guest, name: '王倩怡', special_card_title: '' }, { ...guest, id: 'spy-host', name: '恶作剧者', role: 'spy', team: '沙漠组', special_card_title: '' }],
+    guests: [{ ...guest, name: '王倩怡', special_card_title: '' }, { ...guest, id: 'spy-host', name: '恶作剧者', role: 'spy', team: '沙漠组', special_card_title: '' }, { ...guest, id: 'family-host', name: '家人嘉宾', team: '家人组', participation_mode: 'HONOR_GUEST', phase_two_eligible: false, eligible_for_personal_score: true, special_card_title: '一路相伴', special_card_revealed_at: '2026-08-01T13:40:00.000Z' }],
     teamPoints: [{ id: 1, team: '海岛组', amount: 8, reason: '团队挑战' }], personalPoints: [],
     ceremonyAssignments: [
       { id: 'host-ring', status: 'assigned', ceremony_status: 'PENDING', ring_variant: null, guest: { id: 'ring-guest', name: '金星澄 Xingcheng Jin' }, task: { title: '戒指守护者', mission_code: 'P1-CER-002', category: 'ceremony' } },
       { id: 'host-speech', status: 'submitted', ceremony_status: 'PENDING', ring_variant: null, guest: { id: 'speech-guest', name: '晚宴致辞宾客 Speech Guest' }, task: { title: '晚宴致辞人', mission_code: 'P2-CEREMONY-001', category: 'ceremony' } },
       { id: 'host-officiant', status: 'approved', ceremony_status: 'COMPLETED', ring_variant: null, guest: { id: 'officiant-guest', name: '誓词引导宾客' }, task: { title: '誓词引导人', mission_code: 'P1-CER-001', category: 'ceremony' } },
     ],
-    game: { stage: 'group_game', voting_open: false, voting_round: 0, results_visible: false, team_clues_settled_at: null },
+    game: { stage: 'group_game', voting_open: false, voting_round: 0, results_visible: false, team_clues_settled_at: null, rehearsal_run_id: '00000000-0000-4000-8000-000000000023' },
     voteCount: 0, teamClueCounts: { 海岛组: 2, 沙漠组: 2 }, rankings: { personal: [], teams: [] }, finale: { tricksters: [], voteCounts: [] },
   };
   const hostState = { current: hostData };

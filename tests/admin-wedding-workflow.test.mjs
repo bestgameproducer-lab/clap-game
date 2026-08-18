@@ -40,7 +40,7 @@ test('终局结算按颁奖、团队结算、投票、揭晓和流水引导', as
   assert.match(finale, /onClick=\{toggleVoting\}/);
   assert.match(finale, /onClick=\{requestResultsToggle\}/);
   assert.match(finale, /confirmResultsToggle/);
-  assert.match(finale, /只结算个人奖励，团队挑战分不会变化/);
+  assert.match(finale, /抓住后投中 \+2、其他已投 \+1，逃脱队伍 \+0/);
   assert.match(finale, /id="final-awards"/);
   assert.match(finale, /id="final-points-ledger"/);
 });

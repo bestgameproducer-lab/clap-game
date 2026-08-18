@@ -15,8 +15,9 @@ test('published results expose a complete ranking only while the public scoreboa
   assert.match(publicData, /findUndetectedTricksterIds/);
 });
 
-test('guest finale links to the complete ranking and explains the correct-vote points', () => {
-  assert.match(guestPage, /投对恶作剧者获得 2 点个人积分/);
+test('guest finale links to the complete ranking and explains every capture reward outcome', () => {
+  assert.match(guestPage, /投中者 \+2 分，其他已投票者 \+1 分/);
+  assert.match(guestPage, /若恶作剧者逃脱，本队所有人都不获得投票分/);
   assert.match(guestPage, /href="\/scoreboard">查看全员最终积分排名/);
 });
 

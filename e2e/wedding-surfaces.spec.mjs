@@ -458,6 +458,48 @@ test('主持人可以进入团队、个人和流程控制台', async ({ page }) 
   expect(errors).toEqual([]);
 });
 
+test('主持人只能通过服务器为随机家人增加一分且不会提交团队分', async ({ page }) => {
+  const errors = collectPageErrors(page);
+  const runId = '22222222-2222-4222-8222-222222222222';
+  let awardRequest = null;
+  const familyGuest = {
+    ...guest,
+    id: 'family-random-1',
+    name: '家人嘉宾甲',
+    team: '家人组',
+    participation_mode: 'HONOR_GUEST',
+    phase_two_eligible: false,
+    eligible_for_personal_score: true,
+    drawn_at: null,
+  };
+  await page.route('**/api/host-data', (route) => route.fulfill({ json: {
+    ...hostData,
+    guests: [familyGuest, ...hostData.guests],
+    game: { ...hostData.game, rehearsal_run_id: runId, results_published_at: null },
+    finalLocked: false,
+  } }));
+  await page.route('**/api/host-action', async (route) => {
+    awardRequest = route.request().postDataJSON();
+    await route.fulfill({ json: { ok: true, award: { guest_id: familyGuest.id, guest_name: familyGuest.name, total: 6, amount: 1, replayed: false } } });
+  });
+
+  await page.goto('/host');
+  await page.getByRole('button', { name: '个人加分', exact: true }).click();
+  await expect(page.getByText('家人组没有团队分。', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: '随机抽取一位 · +1 分' }).click();
+  const confirmation = page.getByRole('dialog', { name: '确认家人组随机个人奖励' });
+  await expect(confirmation.getByText('不会增加任何团队分。', { exact: false })).toBeVisible();
+  await confirmation.getByRole('button', { name: '确认胜利并随机加分' }).click();
+  await expect(page.getByText('家人组随机奖励：家人嘉宾甲 +1 分 · 当前 6 分')).toBeVisible();
+
+  expect(awardRequest).toMatchObject({ type: 'awardRandomFamilyPoint', rehearsalRunId: runId });
+  expect(awardRequest.eventKey).toMatch(/^[0-9a-f-]{36}$/i);
+  expect(awardRequest).not.toHaveProperty('guestId');
+  expect(awardRequest).not.toHaveProperty('amount');
+  expect(awardRequest).not.toHaveProperty('reason');
+  expect(errors).toEqual([]);
+});
+
 test('主控、主持人和任务站都能真实提交个人积分并携带同一安全契约', async ({ page }) => {
   const errors = collectPageErrors(page);
   const runId = '11111111-1111-4111-8111-111111111111';
@@ -615,6 +657,7 @@ test('主控、主持人与公开大屏显示完整终局排名和实名投票�
       votedTargetId: 'final-1',
       votedTargetName: '宾客1',
       voteCorrect: true,
+      teamCaught: true,
       bonusPoints: 2,
     },
   } }));

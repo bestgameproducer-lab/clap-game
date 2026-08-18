@@ -65,8 +65,10 @@ export default function HostPage() {
   const [syncing, setSyncing] = useState(false);
   const [pendingFinaleAction, setPendingFinaleAction] = useState<FinaleAction | null>(null);
   const [pendingStage, setPendingStage] = useState('');
+  const [pendingFamilyAward, setPendingFamilyAward] = useState(false);
   const loadRequestRef = useRef(0);
   const pendingScoreRef = useRef<{ signature: string; eventKey: string } | null>(null);
+  const pendingFamilyScoreRef = useRef<string | null>(null);
 
   async function load(interactive = false) {
     const requestId = ++loadRequestRef.current;
@@ -123,6 +125,37 @@ export default function HostPage() {
       setMessage(`${success} · 当前 ${result.total} 分`); await load();
     } catch (cause) { if (!responseReceived) setOffline(true); setError(cause instanceof Error ? cause.message : '加分失败'); }
     finally { setBusy(false); }
+  }
+
+  async function awardRandomFamilyPoint() {
+    if (!navigator.onLine) { setOffline(true); setError('当前离线，联网后才能抽取家人组奖励'); return; }
+    setBusy(true); setError(''); setMessage('');
+    let responseReceived = false;
+    try {
+      const eventKey = pendingFamilyScoreRef.current ?? createEventKey();
+      pendingFamilyScoreRef.current = eventKey;
+      const response = await fetch('/api/host-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'awardRandomFamilyPoint',
+          eventKey,
+          rehearsalRunId: data?.game?.rehearsal_run_id,
+        }),
+      });
+      responseReceived = true;
+      const result = await responseBody(response);
+      if (response.status === 401) { clearHostCache(); setData(null); }
+      if (!response.ok) throw new Error(result.error || '家人组随机加分失败');
+      if (!result.award?.guest_name || Number(result.award?.amount) !== 1) throw new Error('服务器没有返回有效的家人组奖励结果');
+      pendingFamilyScoreRef.current = null;
+      setPendingFamilyAward(false);
+      setMessage(`家人组随机奖励：${result.award.guest_name} +1 分 · 当前 ${result.award.total} 分`);
+      await load();
+    } catch (cause) {
+      if (!responseReceived) setOffline(true);
+      setError(cause instanceof Error ? cause.message : '家人组随机加分失败');
+    } finally { setBusy(false); }
   }
 
   async function runFinaleAction(finaleAction: FinaleAction) {
@@ -208,6 +241,7 @@ export default function HostPage() {
   }, [data?.guests, guestSearch]);
   const effectiveGuestId = filteredGuests.some((guest) => guest.id === guestForm.guestId) ? guestForm.guestId : filteredGuests[0]?.id || '';
   const selectedGuest = data?.guests.find((guest) => guest.id === effectiveGuestId) ?? null;
+  const familyScoreEligibleCount = (data?.guests ?? []).filter((guest) => guest.team === '家人组' && guest.eligible_for_personal_score).length;
   const teamTotals = TEAMS.map((team) => ({ team, points: data?.game?.team_score_snapshot && data.game.team_clues_settled_at ? Number(data.game.team_score_snapshot[team] ?? 0) : (data?.teamPoints ?? []).filter((entry) => entry.team === team).reduce((sum, entry) => sum + entry.amount, 0) }));
   const competitiveDrawn = (data?.guests ?? []).filter((guest) => guest.participation_mode === 'ACTIVE_PLAYER'
     && guest.phase_two_eligible && TEAMS.includes(guest.team as typeof TEAMS[number]) && guest.drawn_at).length;
@@ -275,6 +309,10 @@ export default function HostPage() {
       {data.teamPoints.length > 0 && <details className="score-history"><summary>查看最近团队计分</summary>{data.teamPoints.slice(0,10).map((entry) => <div key={entry.id}><span><strong>{entry.team}</strong><small>{entry.reason}</small></span><b>{entry.amount > 0 ? '+' : ''}{entry.amount}</b></div>)}</details>}
     </section> : mode === 'guest' ? <section className="section-card host-score-panel"><div className="section-heading"><div><small>PERSONAL SCORE</small><h2>给宾客个人加分</h2></div></div>
       <p className="muted">这里只增加个人积分，不改变团队挑战分。家人组也可以获得个人积分，但不计入海岛组或沙漠组的团队分；每次加分都必须填写原因并记入流水。</p>
+      <section className="family-random-award" aria-label="家人组随机个人奖励"><div><small>FAMILY WIN REWARD</small><strong>家人组赢得现场游戏</strong><p>家人组没有团队分。每次确认由服务器从 {familyScoreEligibleCount} 位可计分家人中随机抽取 1 位，只增加该宾客 1 点个人积分。</p></div><button type="button" disabled={busy || offline || finalLocked || data.game?.stage !== 'group_game' || familyScoreEligibleCount === 0} onClick={() => setPendingFamilyAward(true)}>{finalLocked ? '终局后已冻结' : data.game?.stage !== 'group_game' ? '团队挑战时可用' : familyScoreEligibleCount === 0 ? '暂无可抽取家人' : '随机抽取一位 · +1 分'}</button></section>
+      {pendingFamilyAward && <section className="finale-confirmation family-award-confirmation" role="dialog" aria-modal="true" aria-label="确认家人组随机个人奖励"><div><small>请确认本轮胜利</small><strong>随机抽取家人组成员 +1 分</strong><p>确认后立即从 {familyScoreEligibleCount} 位可计分家人中随机抽取一位。抽中结果会显示在顶部并写入个人积分流水；不会增加任何团队分。</p></div><div><button type="button" disabled={busy || offline || finalLocked || data.game?.stage !== 'group_game'} onClick={() => void awardRandomFamilyPoint()}>{busy ? '抽取中…' : '确认胜利并随机加分'}</button><button type="button" className="secondary" disabled={busy} onClick={() => setPendingFamilyAward(false)}>取消</button></div></section>}
+      <div className="section-divider"/>
+      <h3 className="manual-score-heading">指定宾客加分</h3>
       <label htmlFor="guest-score-search">搜索宾客</label><input id="guest-score-search" type="search" value={guestSearch} onChange={(event) => setGuestSearch(event.target.value)} placeholder="输入姓名或组别"/>
       <label htmlFor="guest-score-person">选择宾客</label><select id="guest-score-person" value={effectiveGuestId} onChange={(event) => setGuestForm({ ...guestForm, guestId: event.target.value })}>{filteredGuests.length ? filteredGuests.map((guest) => <option key={guest.id} value={guest.id}>{guest.name} · {guest.participation_mode === 'HONOR_GUEST' ? guest.special_card_title : guest.team} · {guest.points} 分</option>) : <option value="">没有匹配的宾客</option>}</select>
       {selectedGuest && <div className="selected-score-target"><span>本次加分对象</span><strong>{selectedGuest.name}</strong><small>{selectedGuest.participation_mode === 'HONOR_GUEST' ? selectedGuest.special_card_title : selectedGuest.team} · 当前 {selectedGuest.points} 分</small></div>}
@@ -295,7 +333,7 @@ export default function HostPage() {
       {!data.game?.team_clues_settled_at && <div className={teamSettlementReady ? 'notice success' : 'notice error'} role="status">{teamSettlementReady ? '结算条件已齐备' : `结算条件尚未齐备：${teamSettlementStatus}${!hasBothTeamScores ? ' · 两队都必须明确记录最终成绩（0 分也要记录）' : ''}`}</div>}
       {!finalLocked && <div className="host-finale-actions">{data.game?.voting_open ? <button type="button" disabled={busy || offline} onClick={() => { setPendingStage(''); setPendingFinaleAction('close-voting'); }}>关闭本轮投票</button> : <>{!data.game?.team_clues_settled_at && <button type="button" disabled={busy || offline || data.game?.stage !== 'group_game' || !teamSettlementReady} onClick={() => { setPendingStage(''); setPendingFinaleAction('settle-team-clues'); }}>结算团队积分并发放线索</button>}<button type="button" disabled={busy || offline || !['group_game', 'voting'].includes(data.game?.stage || '') || !data.game?.team_clues_settled_at} onClick={() => { setPendingStage(''); setPendingFinaleAction('open-voting'); }}>开启新一轮投票</button>{(data.game?.voting_round ?? 0) > 0 && <button type="button" className="finale-publish-button" disabled={busy || offline || Boolean(data.game?.voting_open) || data.voteCount === 0} onClick={() => { setPendingStage(''); setPendingFinaleAction('publish-results'); }}>{data.voteCount === 0 ? '等待本轮投票' : '公布身份并结算'}</button>}</>}</div>}
       {!finalLocked && !data.game?.voting_open && data.game?.stage !== 'group_game' && data.game?.stage !== 'voting' && <p className="muted">请先在上方把婚礼流程切换到“团队挑战”，再开启最终投票。</p>}
-      {pendingFinaleAction && <section className="finale-confirmation" role="dialog" aria-label="确认主持人终局操作"><div><small>请确认现场操作</small><strong>{pendingFinaleAction === 'settle-team-clues' ? '结算团队积分并发放线索' : pendingFinaleAction === 'open-voting' ? '开启新一轮最终投票' : pendingFinaleAction === 'close-voting' ? '关闭本轮最终投票' : '公布身份并结算终局个人奖励'}</strong><p>{pendingFinaleAction === 'settle-team-clues' ? `${teamTotals.map((item) => `${item.team} ${item.points} 分`).join(' · ')}。确认后系统按排名自动发放线索，再开放投票。` : pendingFinaleAction === 'open-voting' ? '系统会关闭宾客注册并创建新一轮投票，每位宾客只能提交一次。' : pendingFinaleAction === 'close-voting' ? `已投 ${data.voteCount} / 应投 ${competitiveDrawn} / 缺席 ${missingFinalVotes}。关闭后可检查结果，再决定是否公布结算。` : `已投 ${data.voteCount} / 应投 ${competitiveDrawn} / 缺席 ${missingFinalVotes}。确认后将公开恶作剧者，结算投票命中与第二轮个人奖励；已冻结的团队挑战分不会变化。`}</p></div><div><button type="button" disabled={busy || (pendingFinaleAction === 'publish-results' && Boolean(data.game?.voting_open))} onClick={() => void runFinaleAction(pendingFinaleAction)}>{busy ? '处理中…' : '确认执行'}</button><button type="button" className="secondary" disabled={busy} onClick={() => setPendingFinaleAction(null)}>取消</button></div></section>}
+      {pendingFinaleAction && <section className="finale-confirmation" role="dialog" aria-label="确认主持人终局操作"><div><small>请确认现场操作</small><strong>{pendingFinaleAction === 'settle-team-clues' ? '结算团队积分并发放线索' : pendingFinaleAction === 'open-voting' ? '开启新一轮最终投票' : pendingFinaleAction === 'close-voting' ? '关闭本轮最终投票' : '公布身份并结算终局个人奖励'}</strong><p>{pendingFinaleAction === 'settle-team-clues' ? `${teamTotals.map((item) => `${item.team} ${item.points} 分`).join(' · ')}。确认后系统按排名自动发放线索，再开放投票。` : pendingFinaleAction === 'open-voting' ? '系统会关闭宾客注册并创建新一轮投票，每位宾客只能提交一次。' : pendingFinaleAction === 'close-voting' ? `已投 ${data.voteCount} / 应投 ${competitiveDrawn} / 缺席 ${missingFinalVotes}。关闭后可检查结果，再决定是否公布结算。` : `已投 ${data.voteCount} / 应投 ${competitiveDrawn} / 缺席 ${missingFinalVotes}。每队恶作剧者获得本队最高票即算抓住：投中者 +2，其他已投票者 +1；恶作剧者逃脱的队伍不加投票分。未投票者不加分，团队挑战分保持冻结。`}</p></div><div><button type="button" disabled={busy || (pendingFinaleAction === 'publish-results' && Boolean(data.game?.voting_open))} onClick={() => void runFinaleAction(pendingFinaleAction)}>{busy ? '处理中…' : '确认执行'}</button><button type="button" className="secondary" disabled={busy} onClick={() => setPendingFinaleAction(null)}>取消</button></div></section>}
       {data.game?.results_visible && <><div className="control-state on">结算具有幂等保护，重复刷新不会再次加分。</div><section className="host-finale-reveal" aria-label="恶作剧者与投票结果"><div className="section-heading"><div><small>FINAL REVEAL</small><h3>恶作剧者与追捕结果</h3></div></div><div className="revealed-grid">{data.finale.tricksters.map((guest) => <article className={guest.escaped ? 'escaped' : 'caught'} key={guest.id}><small>{guest.team}</small><strong>{guest.name}</strong><span>丘比特的恶作剧者</span><em>{guest.escaped ? '成功逃脱 · 完美伪装' : '已被队友识破'}</em></article>)}</div><h4>本轮投票明细</h4><div className="staff-vote-breakdown">{data.finale.voteCounts.map((guest) => <article key={guest.id}><div><strong>{guest.name}</strong><b>{guest.votes} 票</b></div><small>{guest.voters.map((voter) => `${voter.name}${voter.votes > 1 ? `（${voter.votes}票）` : ''}`).join('、')}</small></article>)}</div></section><section className="host-final-rankings" aria-label="最终积分排名"><div className="section-heading"><div><small>FINAL RANKING</small><h3>完整最终积分排名</h3></div><span>共 {data.rankings.personal.length} 人</span></div><div className="host-team-ranking">{data.rankings.teams.filter((team) => TEAMS.includes(team.team as typeof TEAMS[number])).map((team, index) => <article key={team.team}><b>{index + 1}</b><div><strong>{team.team}</strong><small>已锁定的团队挑战分</small></div><span>{team.points} 分</span></article>)}</div><h4>完整个人积分排名</h4>{data.rankings.personal.length ? <ol className="host-personal-ranking">{data.rankings.personal.map((guest, index) => <li className={guest.undetectedTrickster ? 'undetected-trickster' : ''} key={guest.id}><b>{String(index + 1).padStart(2, '0')}</b><div><strong>{guest.name}{guest.undetectedTrickster && <em>完美伪装</em>}</strong><small>{guest.team} · 完成 {guest.completedTasks} 项任务</small></div><span>{guest.points} 分</span></li>)}</ol> : <div className="empty-state">尚无个人积分。</div>}</section></>}
     </section>}
   </main>;

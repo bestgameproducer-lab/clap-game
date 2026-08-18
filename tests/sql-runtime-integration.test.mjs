@@ -1115,6 +1115,56 @@ test(
         6,
       );
 
+      // A family-game victory has a dedicated one-point operation. The server,
+      // not the browser, chooses the recipient from the eligible family pool;
+      // retries return the same recipient and the team ledger never changes.
+      const randomFamilyTeamLedgerBefore = Number(await scalar(db, `select count(*) from team_points_ledger`));
+      const randomFamilyEvent = await scalar(db, `select gen_random_uuid()`);
+      const randomFamilyAward = JSON.parse(await scalar(
+        db,
+        `select award_random_family_guest_point_for_run($1,'runtime-host',$2)::text`,
+        [randomFamilyEvent, runId],
+      ));
+      assert.equal(randomFamilyAward.amount, 1);
+      assert.equal(randomFamilyAward.replayed, false);
+      assert.equal(
+        Number(await scalar(
+          db,
+          `select count(*) from guests
+           where id=$1 and active and uses_app and eligible_for_personal_score
+             and team='家人组'`,
+          [randomFamilyAward.guest_id],
+        )),
+        1,
+        'the selected recipient is an eligible family guest',
+      );
+      const randomFamilyReplay = JSON.parse(await scalar(
+        db,
+        `select award_random_family_guest_point_for_run($1,'runtime-host',$2)::text`,
+        [randomFamilyEvent, runId],
+      ));
+      assert.equal(randomFamilyReplay.guest_id, randomFamilyAward.guest_id);
+      assert.equal(randomFamilyReplay.amount, 1);
+      assert.equal(randomFamilyReplay.replayed, true);
+      assert.equal(Number(await scalar(db, `select count(*) from points_ledger where event_key=$1`, [randomFamilyEvent])), 1);
+      assert.equal(Number(await scalar(db, `select count(*) from team_points_ledger`)), randomFamilyTeamLedgerBefore);
+      assert.equal(
+        Number(await scalar(
+          db,
+          `select count(*) from audit_log
+           where action='host.family_random_point' and target_id=$1
+             and details->>'event_key'=$2`,
+          [randomFamilyAward.guest_id, randomFamilyEvent],
+        )),
+        1,
+      );
+      await expectDatabaseError(
+        () => db.query(
+          `select award_random_family_guest_point_for_run(gen_random_uuid(),'runtime-host',gen_random_uuid())`,
+        ),
+        'rehearsal_run_mismatch',
+      );
+
       // Exercise the complete staff scoring contract against real PostgreSQL,
       // including the family-player boundary. Personal adjustments must be
       // retry-safe, audited, and completely isolated from the team ledger.
@@ -1275,13 +1325,15 @@ test(
 
       // Exercise the real final ballot and irreversible publication path. The
       // extra-vote ability must change the stored ballot weight (not merely the
-      // guest-facing copy), while a correct vote awards exactly two personal
-      // points and cannot mutate the already-frozen team snapshot.
+      // guest-facing copy). The fixtures force 海岛组 to catch its trickster
+      // and 沙漠组 to miss, covering +2, +1 and +0 without touching the frozen
+      // team snapshot.
       const extraVoteGuest = (await db.query(
         `select g.id,g.team,g.points
          from phase_two_profiles p join guests g on g.id=p.guest_id
          where p.primary_mission='EXTRA_VOTE' and p.extra_vote
            and p.unlocked_at is not null
+           and g.team='海岛组'
          order by g.team limit 1`,
       )).rows[0];
       assert.ok(extraVoteGuest, 'a real extra-vote guest must be unlocked in phase two');
@@ -1297,6 +1349,8 @@ test(
         `select team_score_snapshot::text from game_state where id=1`,
       );
       const teamLedgerAtSettlement = Number(await scalar(db, `select count(*) from team_points_ledger`));
+      const islandSpyPointsBeforeVote = Number(await scalar(db, `select points from guests where id=$1`, [islandSpyId]));
+      const desertSpyPointsBeforeVote = Number(await scalar(db, `select points from guests where id=$1`, [desertSpyId]));
 
       await db.query(
         `select set_game_flag_for_run('voting_open',true,'runtime-test',$1)`,
@@ -1339,6 +1393,28 @@ test(
         )),
         2,
         'a trickster who completed the true signal mission also receives a real double ballot',
+      );
+      const desertDecoyId = await scalar(
+        db,
+        `select id from guests
+         where active and drawn_at is not null and team='沙漠组'
+           and role<>'spy' and id<>$1
+         order by id limit 1`,
+        [copyTargetId],
+      );
+      await db.query(
+        `select cast_team_vote($1,$2,$3)`,
+        [desertSpyId, desertDecoyId, runId],
+      );
+      assert.equal(
+        Number(await scalar(
+          db,
+          `select vote_weight from votes
+           where voter_guest_id=$1 and voting_round=$2`,
+          [desertSpyId, votingRound],
+        )),
+        2,
+        'the desert trickster creates a deterministic escaped-team scenario',
       );
       const copyTargetTricksterId = await scalar(
         db,
@@ -1436,10 +1512,40 @@ test(
           `select amount from result_rewards
            where voting_round=$1 and reward_type='guest_detective'
              and guest_id=$2`,
+          [votingRound, islandSpyId],
+        )),
+        1,
+        'a submitted wrong voter receives one point only when the team catches its trickster',
+      );
+      assert.equal(
+        Number(await scalar(db, `select points from guests where id=$1`, [islandSpyId])),
+        islandSpyPointsBeforeVote + 1,
+      );
+      assert.equal(
+        Number(await scalar(
+          db,
+          `select coalesce(sum(amount),0) from result_rewards
+           where voting_round=$1 and reward_type='guest_detective'
+             and guest_id=$2`,
+          [votingRound, desertSpyId],
+        )),
+        0,
+        'a submitted voter receives no reward when the team trickster escapes',
+      );
+      assert.equal(
+        Number(await scalar(db, `select points from guests where id=$1`, [desertSpyId])),
+        desertSpyPointsBeforeVote,
+      );
+      assert.equal(
+        Number(await scalar(
+          db,
+          `select coalesce(sum(amount),0) from result_rewards
+           where voting_round=$1 and reward_type='guest_detective'
+             and guest_id=$2`,
           [votingRound, copyTargetId],
         )),
-        2,
-        'the Guiding Star vote reward is real but is not copyable task score',
+        copyTargetTeam === '海岛组' ? 2 : 0,
+        'the Guiding Star vote reward follows its team capture outcome and is not copyable task score',
       );
       assert.equal(
         Number(await scalar(
@@ -1528,6 +1634,21 @@ test(
           [familyGuestId, staffScoreEvent, runId],
         )),
         familyPointsBefore + 5,
+      );
+      const randomFamilyReplayAfterFinal = JSON.parse(await scalar(
+        db,
+        `select award_random_family_guest_point_for_run($1,'runtime-host',$2)::text`,
+        [randomFamilyEvent, runId],
+      ));
+      assert.equal(randomFamilyReplayAfterFinal.guest_id, randomFamilyAward.guest_id);
+      assert.equal(randomFamilyReplayAfterFinal.replayed, true);
+      assert.equal(Number(await scalar(db, `select count(*) from points_ledger where event_key=$1`, [randomFamilyEvent])), 1);
+      await expectDatabaseError(
+        () => db.query(
+          `select award_random_family_guest_point_for_run(gen_random_uuid(),'runtime-host',$1)`,
+          [runId],
+        ),
+        'final_results_locked',
       );
       await expectDatabaseError(
         () => db.query(
