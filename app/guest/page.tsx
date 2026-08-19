@@ -39,10 +39,12 @@ const PENDING_DILEMMA_MESSAGE = '秘密选择已密封提交';
 const PENDING_COPY_MESSAGE = '命运复制目标已锁定';
 const DINNER_MENU_STAGES = new Set(['task_round_2', 'banquet', 'group_game', 'voting', 'results']);
 const READ_REQUEST_TIMEOUT_MS = 10_000;
+const AVATAR_TRANSITION_HOLD_MS = 60_000;
 
 type RegistrationGuest = { id: string; name: string; loginName: string; hasPassword: boolean };
 type PlayerDirectoryEntry = { name: string; playerCode: string; avatarUrl: string | null };
 type AvatarUploadStage = 'authorizing' | 'uploading' | 'confirming' | 'refreshing';
+type ConfirmedAvatarTransition = { guestId: string; path: string; uploadedAt: string; expiresAt: number };
 type SecretCard = { team: string; role: string; storyRole: string; task: { id: string; title: string; description: string; verificationMethod: string; points: number }; drawnAt: string };
 type ConnectionRelationshipType = 'CUPID_ALLIANCE' | 'STAR_ALLIANCE' | 'TRICKSTER_CONNECTION';
 type PendingNotice =
@@ -387,6 +389,7 @@ export default function GuestPage() {
   const contentSnapshotRef = useRef<GuestActivitySnapshot | null>(null);
   const contentNoticeRef = useRef<ContentNotice | null>(null);
   const hasServerConfirmedDataRef = useRef(false);
+  const confirmedAvatarTransitionRef = useRef<ConfirmedAvatarTransition | null>(null);
 
   useEffect(() => {
     const reward = data?.assignments.find((assignment) => assignment.is_initial && assignment.completion_rank !== null && assignment.completion_rank >= 1 && assignment.completion_rank <= 3);
@@ -406,7 +409,29 @@ export default function GuestPage() {
       const response = await fetch('/api/guest-me', { cache: 'no-store', signal: controller.signal });
       if (requestId !== loadRequestRef.current) return false;
       if (response.ok) {
-        const nextData = await response.json() as GuestData;
+        let nextData = await response.json() as GuestData;
+        const confirmedAvatarTransition = confirmedAvatarTransitionRef.current;
+        if (confirmedAvatarTransition) {
+          const sameGuest = confirmedAvatarTransition.guestId === nextData.guest.id;
+          const serverHasConfirmedAvatar = sameGuest
+            && nextData.guest.avatar_path === confirmedAvatarTransition.path
+            && Boolean(nextData.guest.avatar_uploaded_at);
+          if (!sameGuest || serverHasConfirmedAvatar || Date.now() >= confirmedAvatarTransition.expiresAt) {
+            confirmedAvatarTransitionRef.current = null;
+          } else {
+            // The upload confirmation is authoritative. A slow or already
+            // in-flight refresh may still contain the pre-upload guest row;
+            // keep that stale response from flashing the selfie screen again.
+            nextData = {
+              ...nextData,
+              guest: {
+                ...nextData.guest,
+                avatar_path: confirmedAvatarTransition.path,
+                avatar_uploaded_at: confirmedAvatarTransition.uploadedAt,
+              },
+            };
+          }
+        }
         const activityAssignments = nextData.assignments.filter((assignment) => !(nextData.guest.role === 'spy' && assignment.task.category === 'hidden'));
         const nextSnapshot = normalizeActivitySnapshot({
           guestId: nextData.guest.id,
@@ -474,6 +499,7 @@ export default function GuestPage() {
         contentNoticeRef.current = null;
         contentSnapshotRef.current = null;
         hasServerConfirmedDataRef.current = false;
+        confirmedAvatarTransitionRef.current = null;
       }
       else {
         setOffline(true);
@@ -796,7 +822,7 @@ export default function GuestPage() {
   }
 
   async function uploadAvatar() {
-    if (!avatarImage) return;
+    if (!avatarImage || !data) return;
     setAvatarBusy(true); setAvatarUploadStage('authorizing'); setError(''); setMessage('');
     try {
       const authorization = await fetch('/api/guest-avatar', { method: 'POST' });
@@ -813,12 +839,32 @@ export default function GuestPage() {
       });
       const confirmationBody = await confirmation.json();
       if (!confirmation.ok) throw new Error(confirmationBody.error || '头像确认失败，请重试');
+      const uploadedAt = typeof confirmationBody.uploadedAt === 'string' && confirmationBody.uploadedAt
+        ? confirmationBody.uploadedAt
+        : new Date().toISOString();
+      const confirmedAvatarTransition: ConfirmedAvatarTransition = {
+        guestId: data.guest.id,
+        path: uploadInfo.path,
+        uploadedAt,
+        expiresAt: Date.now() + AVATAR_TRANSITION_HOLD_MS,
+      };
+      confirmedAvatarTransitionRef.current = confirmedAvatarTransition;
       setAvatarUploadStage('refreshing');
+      setData((current) => current && current.guest.id === confirmedAvatarTransition.guestId
+        ? {
+            ...current,
+            guest: {
+              ...current.guest,
+              avatar_path: confirmedAvatarTransition.path,
+              avatar_uploaded_at: confirmedAvatarTransition.uploadedAt,
+            },
+          }
+        : current);
+      setAvatarEditorOpen(false);
       setAvatarImage(null);
       setAvatarSourceFile(null);
       setAvatarPreview('');
       await load();
-      setAvatarEditorOpen(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '头像上传失败');
     } finally { setAvatarBusy(false); }
@@ -963,6 +1009,7 @@ export default function GuestPage() {
     }
     contentSnapshotRef.current = null; contentNoticeRef.current = null; setContentNotice(null);
     hasServerConfirmedDataRef.current = false;
+    confirmedAvatarTransitionRef.current = null;
     setData(null); setInvitationCode(''); setSelectedGuest(null); setClaimCode(''); setClaimCodeConfirm(''); setSearch(''); setShowSecrets(false); setSecretReaderOpen(false); setRevealedCard(null); setSpecialCardRevealed(false);
     setBusy(false);
   }
@@ -1202,7 +1249,7 @@ export default function GuestPage() {
     </section>
   </main>;
 
-  if (!avatarConfigured || avatarEditorOpen) return <main className="avatar-setup-shell">
+  if (avatarBusy || !avatarConfigured || avatarEditorOpen) return <main className="avatar-setup-shell">
     <section className="avatar-setup-card" aria-busy={avatarBusy}>
       <div className="eyebrow">ONE HAPPY MOMENT</div>
       <div className="step-row avatar-registration-progress" aria-label="注册共四步，当前第四步"><span className="done">1</span><i/><span className="done">2</span><i/><span className="done">3</span><i/><span className="active">4</span></div>
