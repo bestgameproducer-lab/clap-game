@@ -354,13 +354,14 @@ test('首次登录宾客完成婚礼自拍后才能进入游戏', async ({ page 
     avatarConfirmed = true;
     return route.fulfill({ json: { uploadedAt: '2026-08-01T11:30:00.000Z' } });
   });
-  await page.route('**/api/e2e-avatar-upload', (route) => {
+  await page.route('**/api/e2e-avatar-upload', async (route) => {
     const bytes = route.request().postDataBuffer();
     uploadedAvatarSignature = bytes ? {
       size: bytes.length,
       head: [...bytes.subarray(0, 16)],
       tail: [...bytes.subarray(Math.max(0, bytes.length - 16))],
     } : null;
+    await new Promise((resolve) => setTimeout(resolve, 500));
     return route.fulfill({ json: { ok: true } });
   });
   await page.goto('/guest');
@@ -411,6 +412,10 @@ test('首次登录宾客完成婚礼自拍后才能进入游戏', async ({ page 
     };
   });
   await page.getByRole('button', { name: '就用这张 · 进入婚礼游戏' }).click();
+  await expect(page.getByRole('heading', { name: /正在安全保存/ })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: '正在传送照片…' })).toBeVisible();
+  await expect(page.getByText('请不要关闭或刷新页面')).toBeVisible();
+  await expect(page.getByRole('button', { name: '重新拍摄婚礼自拍' })).toHaveCount(0);
   await expect.poll(() => uploadedAvatarSignature).not.toBeNull();
   expect(uploadedAvatarSignature).toEqual(approvedAvatarSignature);
   await expect(page.getByText('测试宾客')).toBeVisible();
