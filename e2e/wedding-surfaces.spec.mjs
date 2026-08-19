@@ -530,11 +530,13 @@ test('主持人可以进入游戏、团队、个人和流程控制台', async ({
   await page.getByRole('button', { name: '主持游戏', exact: true }).click();
   await expect(page.getByRole('heading', { name: '现场游戏助手' })).toBeVisible();
   await page.getByRole('button', { name: '开始海岛组答题' }).click();
-  await expect(page.getByText('法国的首都是哪里？')).toBeVisible();
+  const quickQuestion = page.locator('.quick-question-card > p');
+  const firstQuestion = await quickQuestion.innerText();
   await page.getByRole('button', { name: '显示答案' }).click();
-  await expect(page.getByText('巴黎', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '答对 · 下一题' }).click();
-  await expect(page.getByText('日本的首都是哪里？')).toBeVisible();
+  await expect(page.locator('.quick-answer.visible strong')).not.toHaveText('点击后仅主持人查看');
+  await page.getByRole('button', { name: '答错／超时 · 结束' }).click();
+  await page.getByRole('button', { name: '重排题序 · 从头挑战' }).click();
+  await expect(quickQuestion).not.toHaveText(firstQuestion);
   await page.getByRole('button', { name: /02.*你比划我猜/ }).click();
   await expect(page.getByText('开始后显示第一词')).toBeVisible();
   await page.getByRole('button', { name: '开始 5 分钟' }).click();
@@ -580,7 +582,7 @@ test('主持人只能通过服务器为随机家人增加一分且不会提交�
   });
 
   await page.goto('/host');
-  await page.getByRole('button', { name: '个人加分', exact: true }).click();
+  await page.getByRole('button', { name: '团队计分', exact: true }).click();
   await expect(page.getByText('家人组没有团队分。', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: '随机抽取一位 · +1 分' }).click();
   const confirmation = page.getByRole('dialog', { name: '确认家人组随机个人奖励' });

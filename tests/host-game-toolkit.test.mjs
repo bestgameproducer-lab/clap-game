@@ -37,6 +37,7 @@ test('快问快答每次挑战保留同一题组并生成与上次不同的题�
   assert.deepEqual([...firstOrder].sort((a, b) => a - b), [0,1,2,3,4,5,6,7,8,9]);
   assert.deepEqual([...retryOrder].sort((a, b) => a - b), [0,1,2,3,4,5,6,7,8,9]);
   assert.notDeepEqual(retryOrder, firstOrder);
+  assert.notEqual(retryOrder[0], firstOrder[0]);
   assert.match(component, /questionOrder: shuffledQuickQuestionOrder\(formalQuestions\.length, current\[quickTeam\]\.questionOrder, secureRandomIndex\)/);
   assert.match(component, /同一类别、同一组 10 道题；每次开始以及失败重来都会重新打乱题序/);
   assert.match(component, /重排题序 · 从头挑战/);

@@ -10,9 +10,9 @@ export function shuffledQuickQuestionOrder(
     const swapIndex = randomIndex(index + 1);
     [nextOrder[index], nextOrder[swapIndex]] = [nextOrder[swapIndex], nextOrder[index]];
   }
-  if (length > 1 && previousOrder.length === length
-      && nextOrder.every((question, index) => question === previousOrder[index])) {
-    [nextOrder[0], nextOrder[1]] = [nextOrder[1], nextOrder[0]];
+  if (length > 1 && previousOrder.length === length && nextOrder[0] === previousOrder[0]) {
+    const replacementIndex = nextOrder.findIndex((question) => question !== previousOrder[0]);
+    [nextOrder[0], nextOrder[replacementIndex]] = [nextOrder[replacementIndex], nextOrder[0]];
   }
   return nextOrder;
 }
