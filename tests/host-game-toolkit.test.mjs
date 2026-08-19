@@ -30,25 +30,24 @@ test('快问快答完整包含 10 类题目并明确正式题与备用题边界'
   assert.match(component, /答错／超时 · 结束/);
 });
 
-test('你比划我猜、随机数和新人问答都有独立的主持状态与防误用提示', () => {
+test('你比划我猜和随机数都有独立、适合现场使用的主持状态', () => {
   assert.equal((data.match(/^  \{ id: '[^']+', title: '[^']+', words:/gm) ?? []).length, 6);
   assert.match(component, /setCharadesSeconds\(300\)/);
   assert.match(component, /charadesUsedIndices/);
   assert.match(component, /crypto\.getRandomValues/);
   assert.match(component, /每次独立随机，数字可能重复/);
-  assert.match(component, /尚未填写，暂不能揭晓/);
-  assert.match(component, /disabled=\{!coupleQuestion\?\.answer\}/);
+  assert.match(component, /charadesEndsAt - Date\.now\(\)/);
+  assert.match(component, /等待你确认题目和答案后再启用，不展示半成品题库/);
 });
 
-test('新人默契问答先保留 20 个待确认问题，不伪造正式答案', () => {
-  for (const prompt of ['谁更喜欢梅西？', '谁先表白？', '谁更会记住纪念日？', '谁决定婚礼细节更多？']) assert.match(data, new RegExp(prompt.replace('？', '\\？')));
-  assert.match(data, /answer: null/);
-  assert.match(data, /id: index \+ 1/);
-  assert.match(component, /等待新人逐题确认答案后再正式使用/);
+test('第四个游戏等待正式题目，不向主持人暴露半成品功能', () => {
+  assert.doesNotMatch(data, /谁更喜欢梅西|coupleQuiz|answer: null/);
+  assert.doesNotMatch(component, /ToolkitMode = .*couple|揭晓答案|选择问题/);
+  assert.match(component, /04 · 稍后开放/);
 });
 
 test('五个主持入口和游戏工具在窄屏保留可点击布局', () => {
   assert.match(styles, /host-score-tabs\{grid-template-columns:repeat\(5,minmax\(0,1fr\)\)\}/);
-  assert.match(styles, /\.host-game-picker\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
-  assert.match(styles, /@media\(max-width:560px\)\{\.host-game-picker\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.host-game-picker\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.host-game-coming-soon\{/);
 });

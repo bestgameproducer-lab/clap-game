@@ -6,13 +6,12 @@ import type { HostGameToolkitData } from '@/lib/host-game-types';
 const QUICK_TEAMS = ['海岛组', '沙漠组', '家人组'] as const;
 type QuickTeam = typeof QUICK_TEAMS[number];
 type QuickRun = { status: 'ready' | 'playing' | 'stopped' | 'completed'; questionIndex: number; correctCount: number };
-type ToolkitMode = 'quick' | 'charades' | 'random' | 'couple';
+type ToolkitMode = 'quick' | 'charades' | 'random';
 
 const TOOL_OPTIONS: Array<{ id: ToolkitMode; number: string; title: string; subtitle: string }> = [
   { id: 'quick', number: '01', title: '快问快答', subtitle: '10 类正式题库' },
   { id: 'charades', number: '02', title: '你比划我猜', subtitle: '5 分钟轮换词库' },
   { id: 'random', number: '03', title: '田忌赛马', subtitle: '公平随机数字' },
-  { id: 'couple', number: '04', title: '一站到底', subtitle: '新人默契问答' },
 ];
 
 function initialQuickRuns(): Record<QuickTeam, QuickRun> {
@@ -46,6 +45,7 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
   const [charadesCategoryId, setCharadesCategoryId] = useState(data.charades[0]?.id ?? '');
   const [charadesSeconds, setCharadesSeconds] = useState(300);
   const [charadesRunning, setCharadesRunning] = useState(false);
+  const [charadesEndsAt, setCharadesEndsAt] = useState<number | null>(null);
   const [charadesCurrentIndex, setCharadesCurrentIndex] = useState<number | null>(null);
   const [charadesUsedIndices, setCharadesUsedIndices] = useState<number[]>([]);
   const [charadesHistory, setCharadesHistory] = useState<Array<{ word: string; result: 'correct' | 'skipped' }>>([]);
@@ -53,8 +53,6 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
   const [randomMax, setRandomMax] = useState('9');
   const [randomValue, setRandomValue] = useState<number | null>(null);
   const [randomHistory, setRandomHistory] = useState<number[]>([]);
-  const [coupleQuestionId, setCoupleQuestionId] = useState(data.coupleQuiz[0]?.id ?? 1);
-  const [coupleAnswerVisible, setCoupleAnswerVisible] = useState(false);
 
   const quickCategory = data.quickQuiz.find((item) => item.id === quickCategoryId) ?? data.quickQuiz[0];
   const formalQuestions = quickCategory?.questions.filter((question) => !question.backup) ?? [];
@@ -65,23 +63,20 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
   const currentCharadesWord = charadesCurrentIndex === null ? null : charadesCategory?.words[charadesCurrentIndex] ?? null;
   const charadesCorrect = charadesHistory.filter((item) => item.result === 'correct').length;
   const charadesSkipped = charadesHistory.filter((item) => item.result === 'skipped').length;
-  const coupleQuestion = data.coupleQuiz.find((item) => item.id === coupleQuestionId) ?? data.coupleQuiz[0];
-  const coupleReadyCount = data.coupleQuiz.filter((item) => item.answer !== null).length;
-  const coupleQuestionIndex = Math.max(data.coupleQuiz.findIndex((item) => item.id === coupleQuestion?.id), 0);
-
   useEffect(() => {
-    if (!charadesRunning) return;
-    const interval = window.setInterval(() => {
-      setCharadesSeconds((current) => {
-        if (current <= 1) {
-          setCharadesRunning(false);
-          return 0;
-        }
-        return current - 1;
-      });
-    }, 1000);
+    if (!charadesRunning || charadesEndsAt === null) return;
+    const synchronizeClock = () => {
+      const remaining = Math.max(0, Math.ceil((charadesEndsAt - Date.now()) / 1000));
+      setCharadesSeconds(remaining);
+      if (remaining === 0) {
+        setCharadesRunning(false);
+        setCharadesEndsAt(null);
+      }
+    };
+    synchronizeClock();
+    const interval = window.setInterval(synchronizeClock, 250);
     return () => window.clearInterval(interval);
-  }, [charadesRunning]);
+  }, [charadesEndsAt, charadesRunning]);
 
   function resetQuickCategory(categoryId: string) {
     setQuickCategoryId(categoryId);
@@ -116,6 +111,7 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
     setCharadesCategoryId(categoryId);
     setCharadesSeconds(300);
     setCharadesRunning(false);
+    setCharadesEndsAt(null);
     setCharadesCurrentIndex(null);
     setCharadesUsedIndices([]);
     setCharadesHistory([]);
@@ -127,6 +123,7 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
     if (!available.length) {
       setCharadesCurrentIndex(null);
       setCharadesRunning(false);
+      setCharadesEndsAt(null);
       return;
     }
     const next = available[secureRandomIndex(available.length)];
@@ -137,7 +134,17 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
   function startCharades() {
     if (charadesSeconds === 0) return;
     if (charadesCurrentIndex === null) drawCharadesWord();
+    setCharadesEndsAt(Date.now() + charadesSeconds * 1000);
     setCharadesRunning(true);
+  }
+
+  function pauseCharades() {
+    if (!charadesRunning) return;
+    if (charadesEndsAt !== null) {
+      setCharadesSeconds(Math.max(0, Math.ceil((charadesEndsAt - Date.now()) / 1000)));
+    }
+    setCharadesEndsAt(null);
+    setCharadesRunning(false);
   }
 
   function resolveCharadesWord(result: 'correct' | 'skipped') {
@@ -166,9 +173,10 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
   const activeTool = useMemo(() => TOOL_OPTIONS.find((item) => item.id === tool) ?? TOOL_OPTIONS[0], [tool]);
 
   return <section className="section-card host-score-panel host-game-toolkit">
-    <div className="section-heading host-game-heading"><div><small>LIVE GAME ASSISTANT</small><h2>现场游戏助手</h2></div><span>4 个游戏</span></div>
+    <div className="section-heading host-game-heading"><div><small>LIVE GAME ASSISTANT</small><h2>现场游戏助手</h2></div><span>3 个已开放</span></div>
     <p className="host-game-intro">只辅助主持、计时和抽题，不会自动切换婚礼环节或修改积分。游戏结束后请到“团队计分”或“个人加分”记录结果。</p>
     <nav className="host-game-picker" aria-label="选择现场游戏">{TOOL_OPTIONS.map((item) => <button type="button" key={item.id} className={tool === item.id ? 'active' : ''} aria-pressed={tool === item.id} onClick={() => setTool(item.id)}><small>{item.number}</small><strong>{item.title}</strong><span>{item.subtitle}</span></button>)}</nav>
+    <div className="host-game-coming-soon" role="note"><small>04 · 稍后开放</small><strong>一站到底 · 新人问答</strong><span>等待你确认题目和答案后再启用，不展示半成品题库。</span></div>
     <div className="host-game-current"><small>{activeTool.number} · HOST TOOL</small><strong>{activeTool.title}</strong></div>
 
     {tool === 'quick' && <section className="host-game-panel" aria-label="快问快答主持工具">
@@ -188,9 +196,9 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
       <div className="host-game-rules"><strong>现场规则</strong><p>每组 5 分钟。队员轮流比划、其余组员猜词；猜对后切换下一词。不能说出题目中的字，是否允许跳过由主持人现场统一执行。</p></div>
       <label htmlFor="charades-category">词库类别</label><select id="charades-category" value={charadesCategoryId} disabled={charadesRunning} onChange={(event) => resetCharades(event.target.value)}>{data.charades.map((item) => <option value={item.id} key={item.id}>{item.title} · {item.words.length} 词</option>)}</select>
       <div className={`charades-clock ${charadesSeconds <= 30 ? 'urgent' : ''}`}><small>剩余时间</small><strong>{formatClock(charadesSeconds)}</strong><span>{charadesRunning ? '计时进行中' : charadesSeconds === 0 ? '本轮时间到' : '等待主持人开始'}</span></div>
-      <div className="charades-word"><small>CURRENT WORD</small><strong>{currentCharadesWord ?? (charadesSeconds === 0 ? '本轮结束' : '开始后显示第一词')}</strong></div>
+      <div className="charades-word"><small>CURRENT WORD</small><strong>{charadesSeconds === 0 ? '本轮结束' : currentCharadesWord ?? '开始后显示第一词'}</strong></div>
       <div className="charades-stats"><span>答对 <b>{charadesCorrect}</b></span><span>跳过 <b>{charadesSkipped}</b></span><span>已使用 <b>{charadesUsedIndices.length}/{charadesCategory?.words.length ?? 0}</b></span></div>
-      <div className="charades-timer-actions"><button type="button" disabled={charadesSeconds === 0} onClick={() => charadesRunning ? setCharadesRunning(false) : startCharades()}>{charadesRunning ? '暂停计时' : charadesSeconds < 300 ? '继续计时' : '开始 5 分钟'}</button><button type="button" className="secondary" onClick={() => resetCharades()}>重置本轮</button></div>
+      <div className="charades-timer-actions"><button type="button" disabled={charadesSeconds === 0} onClick={() => charadesRunning ? pauseCharades() : startCharades()}>{charadesRunning ? '暂停计时' : charadesSeconds < 300 ? '继续计时' : '开始 5 分钟'}</button><button type="button" className="secondary" onClick={() => resetCharades()}>重置本轮</button></div>
       <div className="quick-action-row"><button type="button" disabled={!currentCharadesWord || charadesSeconds === 0} onClick={() => resolveCharadesWord('correct')}>猜对 · 下一词</button><button type="button" className="secondary" disabled={!currentCharadesWord || charadesSeconds === 0} onClick={() => resolveCharadesWord('skipped')}>跳过 · 换词</button></div>
       {charadesHistory.length > 0 && <details className="host-game-backups"><summary>查看本轮记录（{charadesHistory.length} 词）</summary>{[...charadesHistory].reverse().map((item, index) => <article key={`${item.word}-${index}`}><span>{item.result === 'correct' ? '答对' : '跳过'}</span><strong>{item.word}</strong></article>)}</details>}
     </section>}
@@ -206,12 +214,5 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
       {randomHistory.length > 0 && <div className="random-history"><strong>最近结果</strong><div>{randomHistory.map((item, index) => <span key={`${item}-${index}`}>{item}</span>)}</div><button type="button" className="text-button" onClick={() => { setRandomHistory([]); setRandomValue(null); }}>清空记录</button></div>}
     </section>}
 
-    {tool === 'couple' && <section className="host-game-panel" aria-label="一站到底新人问答工具">
-      <div className="host-game-rules"><strong>现场规则</strong><p>所有宾客站到自己判断的新郎侧或新娘侧。公布答案后，答对者加 1 分并留下继续；答错者淘汰。进行三轮或直到产生最后赢家。</p></div>
-      <div className={`couple-readiness ${coupleReadyCount === data.coupleQuiz.length ? 'ready' : ''}`}><div><small>ANSWER READINESS</small><strong>{coupleReadyCount}/{data.coupleQuiz.length} 个答案已确认</strong><p>{coupleReadyCount === data.coupleQuiz.length ? '题库可以正式主持。' : '问题已经整理完成，等待新人逐题确认答案后再正式使用。'}</p></div><span>{coupleReadyCount === data.coupleQuiz.length ? '可使用' : '待确认'}</span></div>
-      <label htmlFor="couple-question">选择问题</label><select id="couple-question" value={coupleQuestion?.id} onChange={(event) => { setCoupleQuestionId(Number(event.target.value)); setCoupleAnswerVisible(false); }}>{data.coupleQuiz.map((item) => <option value={item.id} key={item.id}>{String(item.id).padStart(2, '0')} · {item.prompt}{item.answer ? '' : '（待确认）'}</option>)}</select>
-      <div className="couple-question-card"><header><span>问题 {String(coupleQuestionIndex + 1).padStart(2, '0')} / {data.coupleQuiz.length}</span><b>{coupleQuestion?.answer ? '答案已确认' : '等待新人答案'}</b></header><p>{coupleQuestion?.prompt}</p><div className={`couple-answer ${coupleAnswerVisible ? 'visible' : ''}`}><small>正确答案</small><strong>{coupleQuestion?.answer ? coupleAnswerVisible ? coupleQuestion.answer : '先让宾客站队，再揭晓' : '尚未填写，暂不能揭晓'}</strong></div><button type="button" disabled={!coupleQuestion?.answer} onClick={() => setCoupleAnswerVisible((current) => !current)}>{coupleAnswerVisible ? '收起答案' : '揭晓答案'}</button></div>
-      <div className="couple-navigation"><button type="button" className="secondary" disabled={coupleQuestionIndex === 0} onClick={() => { setCoupleQuestionId(data.coupleQuiz[coupleQuestionIndex - 1].id); setCoupleAnswerVisible(false); }}>上一题</button><button type="button" className="secondary" disabled={coupleQuestionIndex >= data.coupleQuiz.length - 1} onClick={() => { setCoupleQuestionId(data.coupleQuiz[coupleQuestionIndex + 1].id); setCoupleAnswerVisible(false); }}>下一题</button></div>
-    </section>}
   </section>;
 }

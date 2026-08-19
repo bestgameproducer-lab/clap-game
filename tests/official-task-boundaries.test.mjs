@@ -108,11 +108,11 @@ test('operator UI keeps official tasks read-only and confines custom tasks to de
   assert.match(retirement, /before insert or update or delete on tasks/);
 });
 
-test('every automated assignment path resolves to the exact 23-task official manifest', async () => {
-  const [manifest, phaseOneDraw, jointFamily, phaseTwoAllocator, admin, station] = await Promise.all([
+test('every active automated assignment path resolves to the exact 22-task official manifest', async () => {
+  const [manifest, phaseOneDraw, familyRetirement, phaseTwoAllocator, admin, station] = await Promise.all([
     readFile(new URL('../lib/official-task-manifest.ts', import.meta.url), 'utf8'),
     readFile(new URL('../supabase/migrations/202607310011_fix_phase_one_team_coverage.sql', import.meta.url), 'utf8'),
-    readFile(new URL('../supabase/migrations/202608110001_add_joint_family_guest_account.sql', import.meta.url), 'utf8'),
+    readFile(new URL('../supabase/migrations/202608190001_retire_joint_family_guests.sql', import.meta.url), 'utf8'),
     readFile(new URL('../supabase/migrations/202608130032_make_phase_two_allocator_team_safe.sql', import.meta.url), 'utf8'),
     readFile(new URL('../app/admin/page.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app/station/page.tsx', import.meta.url), 'utf8'),
@@ -120,17 +120,17 @@ test('every automated assignment path resolves to the exact 23-task official man
   const expected = [
     'P1-CER-001', 'P1-CER-002', 'P1-CER-003', 'P1-CER-004',
     'P1-HEART-001', 'P1-STAR-001', 'P1-SOCIAL-001', 'P1-SOCIAL-002',
-    'P1-BONUS-001', 'P1-TRICKSTER-001', 'P1-FAMILY-001',
+    'P1-BONUS-001', 'P1-TRICKSTER-001',
     'P2-SOCIAL-001', 'P2-SOCIAL-002', 'P2-SOCIAL-003', 'P2-SOCIAL-004',
     'P2-CEREMONY-001', 'P2-HEART-001', 'P2-STAR-001', 'P2-LONELY-001',
     'P2-GUIDE-001', 'P2-TRICKSTER-001', 'P2-POWER-001', 'P2-LUCKY-001',
   ];
   const declared = [...manifest.matchAll(/^\s*\['(P[12]-[A-Z0-9-]+)'/gm)].map((match) => match[1]);
   assert.deepEqual(declared.sort(), expected.slice().sort());
-  assert.equal(new Set(declared).size, 23);
+  assert.equal(new Set(declared).size, 22);
 
   const automaticCodes = [...new Set(
-    [phaseOneDraw, jointFamily, phaseTwoAllocator]
+    [phaseOneDraw, phaseTwoAllocator]
       .flatMap((source) => [...source.matchAll(/'(P[12]-[A-Z0-9-]+)'/g)].map((match) => match[1])),
   )];
   for (const code of automaticCodes) assert.ok(expected.includes(code), `unexpected automatic task ${code}`);
@@ -139,7 +139,8 @@ test('every automated assignment path resolves to the exact 23-task official man
   assert.match(phaseOneDraw, /v_role='spy'[\s\S]*?mission_code in\('P1-SOCIAL-001','P1-SOCIAL-002'\)/);
   assert.match(phaseOneDraw, /case when t\.mission_code='P1-SOCIAL-001' then 2 else 1 end/);
   assert.match(phaseOneDraw, /case when t\.mission_code='P1-SOCIAL-002' then 1 else 0 end/);
-  assert.match(jointFamily, /mission_code='P1-FAMILY-001'/);
+  assert.match(familyRetirement, /mission_code='P1-FAMILY-001'/);
+  assert.match(familyRetirement, /set active=false,formal_allowed=false/);
   for (const code of expected.filter((value) => value.startsWith('P2-'))) assert.ok(phaseTwoAllocator.includes(code));
   assert.match(phaseTwoAllocator, /insert into assignments\(guest_id,task_id\)[\s\S]*?join tasks t on t\.mission_code=case p\.primary_mission/);
 

@@ -80,19 +80,6 @@ const charades: HostGameToolkitData['charades'] = [
   { id: 'places', title: '地点与出行', words: ['电影院', '动物园', '游乐园', '机场', '火车站', '健身房', '图书馆', '海边', '医院', '超市', '理发店', '露营', '爬山', '堵车', '坐过山车', '坐热气球', '迷路', '过马路'] },
 ];
 
-const couplePrompts = [
-  '谁更喜欢梅西？', '谁更早起？', '谁更爱吃辣？', '谁更会做饭？', '谁更爱拍照？',
-  '谁更常忘带东西？', '谁先表白？', '谁更爱计划旅行？', '谁更有方向感？', '谁更容易迟到？',
-  '谁更爱看电影？', '谁更爱运动？', '谁更会制造惊喜？', '谁更爱买东西？', '谁更怕虫子？',
-  '谁更容易先道歉？', '谁更爱黏人？', '谁更会记住纪念日？', '谁更爱唱歌？', '谁决定婚礼细节更多？',
-];
-
-const coupleQuiz: HostGameToolkitData['coupleQuiz'] = couplePrompts.map((prompt, index) => ({
-  id: index + 1,
-  prompt,
-  answer: null,
-}));
-
 export async function getHostGameToolkitData(): Promise<HostGameToolkitData> {
-  return { quickQuiz, charades, coupleQuiz };
+  return { quickQuiz, charades };
 }

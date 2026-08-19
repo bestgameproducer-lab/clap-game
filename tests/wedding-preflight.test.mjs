@@ -10,11 +10,10 @@ function completeFixture() {
     role: index === 0 ? 'spy' : 'guest', is_hidden_spy: false,
     drawn_at: null, team_locked: true, role_locked: true, participation_mode: 'ACTIVE_PLAYER', story_role: 'NONE', phase_two_eligible: true,
   })));
-  const taskFamily = Array.from({ length: 4 }, (_, index) => ({
+  const taskFamily = Array.from({ length: 3 }, (_, index) => ({
     id: `family-task-${index}`, active: true, team: '家人组', role: 'guest', is_hidden_spy: false,
     drawn_at: null, team_locked: true, role_locked: true, participation_mode: 'ACTIVE_PLAYER', story_role: 'NONE', phase_two_eligible: false,
   }));
-  taskFamily[3].login_name = 'Tianran Chen & Ziyou Chen';
   const honorFamily = Array.from({ length: 7 }, (_, index) => ({
     id: `family-honor-${index}`, active: true, team: '家人组', role: 'guest', is_hidden_spy: false,
     drawn_at: null, team_locked: true, role_locked: true, participation_mode: 'HONOR_GUEST', story_role: 'NONE', phase_two_eligible: false,
@@ -39,7 +38,7 @@ function completeFixture() {
   };
 }
 
-test('a complete 34-person, 33-account rehearsal configuration passes every preflight gate', () => {
+test('a complete 32-person, 32-account rehearsal configuration passes every preflight gate', () => {
   const result = buildWeddingPreflight(completeFixture());
   assert.equal(result.ready, true);
   assert.equal(result.blockedCount, 0);
@@ -48,9 +47,9 @@ test('a complete 34-person, 33-account rehearsal configuration passes every pref
   ]);
 });
 
-test('preflight blocks an incomplete 24-account first-act draw roster', () => {
+test('preflight blocks an incomplete 23-account first-act draw roster', () => {
   const fixture = completeFixture();
-  fixture.guests.find((guest) => guest.login_name === 'Tianran Chen & Ziyou Chen').active = false;
+  fixture.guests.find((guest) => guest.id === 'family-task-2').active = false;
   const result = buildWeddingPreflight(fixture);
   assert.equal(result.items.find((item) => item.id === 'phase-one-capacity')?.status, 'blocked');
   assert.equal(result.ready, false);

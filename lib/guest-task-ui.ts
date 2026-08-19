@@ -1,7 +1,6 @@
 const LIVE_PHOTO_EVIDENCE_MISSIONS = new Set([
   'P1-SOCIAL-001',
   'P1-SOCIAL-002',
-  'P1-FAMILY-001',
   'P2-SOCIAL-001',
   'P2-SOCIAL-002',
   'P2-SOCIAL-003',
@@ -54,7 +53,6 @@ export function guestPhotoEvidenceLabel(missionCode: string | null | undefined, 
   const labels: Record<string, string> = {
     'P1-SOCIAL-001': '添加与新朋友的合影',
     'P1-SOCIAL-002': '添加新郎新娘同框照片',
-    'P1-FAMILY-001': '添加两人的幸福合影',
     'P2-SOCIAL-001': '添加与新郎爸爸的碰杯合影',
     'P2-SOCIAL-002': '添加与新娘妈妈的碰杯合影',
     'P2-SOCIAL-003': '添加与新郎的主题合影（必需）',
@@ -71,7 +69,6 @@ export function guestCompletionNotePlaceholder(missionCode: string | null | unde
     'P1-CER-004': '例如：已在指定节点完成新娘应援。',
     'P1-SOCIAL-001': '例如：已与新朋友互相介绍并完成合影。',
     'P1-SOCIAL-002': '例如：已拍到新郎新娘同框的画面。',
-    'P1-FAMILY-001': '例如：两人已完成幸福留影。',
     'P2-SOCIAL-001': '例如：已送上祝福、碰杯并完成合影。',
     'P2-SOCIAL-002': '例如：已送上祝福、碰杯并完成合影。',
     'P2-SOCIAL-003': '例如：主题合影已上传，祝福和互动均已完成。',

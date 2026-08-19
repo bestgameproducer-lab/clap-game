@@ -113,11 +113,6 @@ const OFFICIAL_TASK_COPY = {
     description: '先用秘密暗号确认对方身份。确认暗号后，一方输入对方玩家编号发出邀请，对方在自己的页面接受即可建立同伴关系。',
     verification_method: '一方发起秘密邀请、另一方接受；系统记录同伴关系。',
   },
-  'P1-FAMILY-001': {
-    title: '双人幸福留影',
-    description: '这是陈天然和陈子宥共同完成的任务：请两个人一起拍一张开心的婚礼合影，留下今天的专属纪念。',
-    verification_method: '上传两人的婚礼合影，或向任务站工作人员出示照片。',
-  },
   'P2-SOCIAL-001': {
     title: '来自丘比特的敬意',
     description: '请在晚宴期间找到新郎的爸爸，送上一句真诚祝福，完成碰杯并合影。任何饮品均可，不要打断正式流程。',
@@ -195,7 +190,6 @@ const PHASE_ONE_TASKS = [
   ['P1-SOCIAL-002', 2, 3, 'all', 'standard', 'NONE', 'STANDARD', 'STANDARD', 'CONTROLLED_RANDOM', 'PHOTO'],
   ['P1-BONUS-001', 2, 2, 'guest', 'standard', 'NONE', 'INSTANT_BONUS', 'STANDARD', 'FIXED', 'SYSTEM_CONFIRM'],
   ['P1-TRICKSTER-001', 0, null, 'spy', 'hidden', 'NONE', 'TRICKSTER_SIGNAL', 'NO_PERSONAL', 'ROLE_FIXED', 'MUTUAL_CONFIRM'],
-  ['P1-FAMILY-001', 2, 1, 'all', 'standard', 'NONE', 'STANDARD', 'STANDARD', 'FIXED', 'PHOTO'],
 ] as const;
 
 const PHASE_TWO_TASKS = [

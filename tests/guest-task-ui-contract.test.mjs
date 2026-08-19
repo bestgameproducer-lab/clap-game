@@ -15,7 +15,6 @@ import { OFFICIAL_TASK_MANIFEST } from '../lib/official-task-manifest.ts';
 const expectedPhotoCodes = [
   'P1-SOCIAL-001',
   'P1-SOCIAL-002',
-  'P1-FAMILY-001',
   'P2-SOCIAL-001',
   'P2-SOCIAL-002',
   'P2-SOCIAL-003',
@@ -31,8 +30,8 @@ const expectedSubmissionCodes = [
   'P2-CEREMONY-001',
 ];
 
-test('all 23 official tasks expose photo controls only when their proof contract accepts a photo', () => {
-  assert.equal(OFFICIAL_TASK_MANIFEST.length, 23);
+test('all 22 official tasks expose photo controls only when their proof contract accepts a photo', () => {
+  assert.equal(OFFICIAL_TASK_MANIFEST.length, 22);
   assert.deepEqual([...LIVE_GUEST_PHOTO_EVIDENCE_MISSION_CODES].sort(), expectedPhotoCodes.sort());
   for (const task of OFFICIAL_TASK_MANIFEST) {
     assert.equal(
@@ -63,7 +62,6 @@ test('theme-photo missions cannot claim completion before the required photo exi
     assert.equal(requiresGuestPhotoBeforeSubmission(task.mission_code), false, task.mission_code);
   }
   assert.match(guestPhotoEvidenceLabel('P2-SOCIAL-003', false), /主题合影（必需）/);
-  assert.equal(guestPhotoEvidenceLabel('P1-FAMILY-001', false), '添加两人的幸福合影');
 });
 
 test('completion-note prompts match the official task instead of calling every mission a photo mission', () => {

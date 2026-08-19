@@ -74,18 +74,16 @@ export function buildWeddingPreflight(input: {
     && activeGuests.every((guest) => guest.story_role === 'NONE' || guest.role !== 'spy')
     && fixedCastReady;
   const missionPlayers = activeGuests.filter((guest) => guest.phase_two_eligible || guest.team === '家人组');
-  const jointFamilyReady = missionPlayers.some((guest) => guest.login_name?.trim().toLowerCase() === 'tianran chen & ziyou chen');
-  const phaseOneCapacityReady = missionPlayers.length === 24
+  const phaseOneCapacityReady = missionPlayers.length === 23
     && competitiveGuests.length === 20
-    && missionPlayers.filter((guest) => guest.team === '家人组').length === 4
-    && jointFamilyReady;
+    && missionPlayers.filter((guest) => guest.team === '家人组').length === 3;
   const items: PreflightItem[] = [
     item('game-state', '核心流程状态可用', input.hasGameState ? '数据库流程状态已读取' : '无法读取 game_state', input.hasGameState),
     item('invitation-code', '正式邀请码已设置', input.invitationCodeRotated ? '已由主办方安全更新' : '仍是公开示例码或尚未在后台确认', input.invitationCodeRotated),
-    item('guest-roster', '34 位宾客与 33 个登录账号', `${invitedGuests.length} 个账号可登录 · 家人组 ${familyGuests.length} 个账号 · 第二轮竞技玩家 ${competitiveGuests.length} 人`, invitedGuests.length === 33 && familyGuests.length === 11 && competitiveGuests.length === 20),
+    item('guest-roster', '32 位宾客与 32 个登录账号', `${invitedGuests.length} 个账号可登录 · 家人组 ${familyGuests.length} 个账号 · 第二轮竞技玩家 ${competitiveGuests.length} 人`, invitedGuests.length === 32 && familyGuests.length === 10 && competitiveGuests.length === 20),
     item('draw-capacity', '竞技组容量没有冲突', teamSummary.map((team) => `${team.team} ${team.total}/10`).join(' · '), capacityValid),
     item('official-missions', '两轮正式任务配置正确', `${officialCatalog.matchingCount}/${officialCatalog.totalCount} 项符合定稿${officialCatalogProblems.length ? ` · ${officialCatalogProblems.join(' · ')}` : ''}`, officialCatalog.ready),
-    item('phase-one-capacity', '第一轮 24 个任务账号可完整抽卡', `${missionPlayers.length}/24 个任务账号 · 竞技组 ${competitiveGuests.length}/20 · 家人任务账号 ${missionPlayers.filter((guest) => guest.team === '家人组').length}/4`, phaseOneCapacityReady),
+    item('phase-one-capacity', '第一轮 23 个任务账号可完整抽卡', `${missionPlayers.length}/23 个任务账号 · 竞技组 ${competitiveGuests.length}/20 · 家人任务账号 ${missionPlayers.filter((guest) => guest.team === '家人组').length}/3`, phaseOneCapacityReady),
     item('story-cast', '固定职务与随机图案池正确', `誓词 ${storyCounts.OFFICIANT} · 戒指 ${storyCounts.RING_KEEPER} · 应援 ${storyCounts.GROOM_CHEERLEADER + storyCounts.BRIDE_CHEERLEADER} · 已预设爱心 ${storyCounts.HEART_HOLDER}/5 · 已预设星星 ${storyCounts.STAR_HOLDER}/5`, storyCastReady),
   ];
   return {

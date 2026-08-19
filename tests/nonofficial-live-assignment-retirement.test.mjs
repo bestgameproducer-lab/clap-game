@@ -4,15 +4,22 @@ import test from 'node:test';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('live mode retires every unfinished task outside the exact official manifest', async () => {
-  const [migration, manifest] = await Promise.all([
+test('live mode retires every unfinished task outside the exact current official manifest', async () => {
+  const [migration, familyRetirement, manifest] = await Promise.all([
     read('supabase/migrations/202608130025_retire_nonofficial_live_assignments.sql'),
+    read('supabase/migrations/202608190001_retire_joint_family_guests.sql'),
     read('lib/official-task-manifest.ts'),
   ]);
   const expected = [...manifest.matchAll(/^\s*\['(P[12]-[A-Z0-9-]+)'/gm)].map((match) => match[1]).sort();
-  const guarded = [...migration.matchAll(/'(P[12]-[A-Z0-9-]+)'/g)].map((match) => match[1]);
+  const currentGuard = familyRetirement.slice(
+    familyRetirement.indexOf('create or replace function is_official_wedding_mission_code'),
+    familyRetirement.indexOf('revoke all on function is_official_wedding_mission_code'),
+  );
+  const guarded = [...currentGuard.matchAll(/'(P[12]-[A-Z0-9-]+)'/g)].map((match) => match[1]);
   assert.deepEqual([...new Set(guarded)].sort(), expected);
-  assert.equal(expected.length, 23);
+  assert.equal(expected.length, 22);
+  assert.match(migration, /'P1-FAMILY-001'/, 'historical 23-task guard remains auditable');
+  assert.doesNotMatch(currentGuard, /P1-FAMILY-001/);
   assert.match(migration, /state\.task_catalog_mode='live'/);
   assert.match(migration, /a\.status in\('assigned','submitted','rejected'\)/);
   assert.match(migration, /not is_official_wedding_mission_code\(t\.mission_code\)/);
