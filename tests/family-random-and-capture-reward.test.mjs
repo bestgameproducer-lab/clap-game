@@ -65,3 +65,13 @@ test('host and guest interfaces explain every new scoring outcome', () => {
   assert.match(guestPage, /本队未能抓住恶作剧者 · 本轮不加分/);
   assert.match(guestData, /teamCaught: ownTeamTrickster \? !ownTeamTrickster\.escaped : null/);
 });
+
+test('family random reward is located in team scoring and tab changes clear pending confirmations', () => {
+  const teamPanelStart = hostPage.indexOf(": mode === 'team' ?");
+  const personalPanelStart = hostPage.indexOf(": mode === 'guest' ?", teamPanelStart);
+  const familyReward = hostPage.indexOf('aria-label="家人组随机个人奖励"');
+  assert.ok(teamPanelStart >= 0 && personalPanelStart > teamPanelStart);
+  assert.ok(familyReward > teamPanelStart && familyReward < personalPanelStart);
+  assert.match(hostPage, /家人组也可以获得个人积分，胜出时使用下方随机奖励/);
+  assert.match(hostPage, /function selectMode\(nextMode: typeof mode\)[\s\S]*setPendingFamilyAward\(false\)/);
+});
