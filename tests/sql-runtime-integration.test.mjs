@@ -743,6 +743,23 @@ test(
       )), 3);
 
       const cluesBeforePhaseTwo = Number(await scalar(db, `select count(*) from guest_clues`));
+      assert.equal(
+        await scalar(db, `select stage from game_state where id=1`),
+        'ceremony_end',
+        'the second act can only be released after the ceremony has ended',
+      );
+      await expectDatabaseError(
+        () => db.query(
+          `select set_game_stage_for_run('banquet','runtime-test',$1)`,
+          [runId],
+        ),
+        'invalid_game_stage_transition',
+      );
+      assert.equal(
+        await scalar(db, `select stage from game_state where id=1`),
+        'ceremony_end',
+        'a skipped stage must leave the wedding state untouched',
+      );
       await db.query(
         `select set_game_stage_for_run('task_round_2','runtime-test',$1)`,
         [runId],
@@ -830,6 +847,23 @@ test(
          where t.mission_code='P2-POWER-001' and a.status='approved'
            and p.primary_mission='EXTRA_VOTE' and p.extra_vote`,
       )), 2);
+      const phaseTwoAssignmentCount = Number(await scalar(
+        db,
+        `select count(*) from assignments a join tasks t on t.id=a.task_id
+         where a.status<>'cancelled' and t.stage='task_round_2'
+           and is_official_wedding_mission_code(t.mission_code)`,
+      ));
+      assert.equal(phaseTwoAssignmentCount, 21);
+      await db.query(
+        `select set_game_stage_for_run('task_round_2','runtime-test',$1)`,
+        [runId],
+      );
+      assert.equal(Number(await scalar(
+        db,
+        `select count(*) from assignments a join tasks t on t.id=a.task_id
+         where a.status<>'cancelled' and t.stage='task_round_2'
+           and is_official_wedding_mission_code(t.mission_code)`,
+      )), phaseTwoAssignmentCount, 'repeating the current stage must not allocate a second set of tasks');
       assert.equal(
         Number(await scalar(db, `select count(*) from guest_clues`)),
         cluesBeforePhaseTwo,
@@ -886,7 +920,15 @@ test(
       // Team clues exist only because the operator created them for this run,
       // and are delivered to every member (including the trickster) only after
       // an explicit, immutable team-score settlement.
+      await expectDatabaseError(
+        () => db.query(`select set_game_stage_for_run('group_game','runtime-test',$1)`, [runId]),
+        'invalid_game_stage_transition',
+      );
       await db.query(`select set_game_stage_for_run('banquet','runtime-test',$1)`, [runId]);
+      await expectDatabaseError(
+        () => db.query(`select set_game_stage_for_run('task_round_2','runtime-test',$1)`, [runId]),
+        'invalid_game_stage_transition',
+      );
 
       // Banquet is still an active second-round task window. Exercise the
       // run-scoped public RPCs against the fully migrated function chain so a
@@ -991,6 +1033,10 @@ test(
       );
 
       await db.query(`select set_game_stage_for_run('group_game','runtime-test',$1)`, [runId]);
+      await expectDatabaseError(
+        () => db.query(`select set_game_stage_for_run('banquet','runtime-test',$1)`, [runId]),
+        'invalid_game_stage_transition',
+      );
       const islandClueIds = (await db.query(
         `insert into clues(title,content,group_name,team_scope,active,level)
          values('海岛身份线索','runtime island identity','身份线索','海岛组',true,1),

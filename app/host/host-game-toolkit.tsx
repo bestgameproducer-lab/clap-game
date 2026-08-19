@@ -2,10 +2,16 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { HostGameToolkitData } from '@/lib/host-game-types';
+import { shuffledQuickQuestionOrder } from '@/lib/quick-quiz-order';
 
 const QUICK_TEAMS = ['海岛组', '沙漠组', '家人组'] as const;
 type QuickTeam = typeof QUICK_TEAMS[number];
-type QuickRun = { status: 'ready' | 'playing' | 'stopped' | 'completed'; questionIndex: number; correctCount: number };
+type QuickRun = {
+  status: 'ready' | 'playing' | 'stopped' | 'completed';
+  questionIndex: number;
+  correctCount: number;
+  questionOrder: number[];
+};
 type ToolkitMode = 'quick' | 'charades' | 'random';
 
 const TOOL_OPTIONS: Array<{ id: ToolkitMode; number: string; title: string; subtitle: string }> = [
@@ -16,9 +22,9 @@ const TOOL_OPTIONS: Array<{ id: ToolkitMode; number: string; title: string; subt
 
 function initialQuickRuns(): Record<QuickTeam, QuickRun> {
   return {
-    海岛组: { status: 'ready', questionIndex: 0, correctCount: 0 },
-    沙漠组: { status: 'ready', questionIndex: 0, correctCount: 0 },
-    家人组: { status: 'ready', questionIndex: 0, correctCount: 0 },
+    海岛组: { status: 'ready', questionIndex: 0, correctCount: 0, questionOrder: [] },
+    沙漠组: { status: 'ready', questionIndex: 0, correctCount: 0, questionOrder: [] },
+    家人组: { status: 'ready', questionIndex: 0, correctCount: 0, questionOrder: [] },
   };
 }
 
@@ -58,7 +64,7 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
   const formalQuestions = quickCategory?.questions.filter((question) => !question.backup) ?? [];
   const backupQuestions = quickCategory?.questions.filter((question) => question.backup) ?? [];
   const quickRun = quickRuns[quickTeam];
-  const currentQuickQuestion = formalQuestions[quickRun.questionIndex];
+  const currentQuickQuestion = formalQuestions[quickRun.questionOrder[quickRun.questionIndex] ?? quickRun.questionIndex];
   const charadesCategory = data.charades.find((item) => item.id === charadesCategoryId) ?? data.charades[0];
   const currentCharadesWord = charadesCurrentIndex === null ? null : charadesCategory?.words[charadesCurrentIndex] ?? null;
   const charadesCorrect = charadesHistory.filter((item) => item.result === 'correct').length;
@@ -86,18 +92,30 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
   }
 
   function startQuickRun() {
-    setQuickRuns((current) => ({ ...current, [quickTeam]: { status: 'playing', questionIndex: 0, correctCount: 0 } }));
+    setQuickRuns((current) => ({
+      ...current,
+      [quickTeam]: {
+        status: 'playing',
+        questionIndex: 0,
+        correctCount: 0,
+        questionOrder: shuffledQuickQuestionOrder(formalQuestions.length, current[quickTeam].questionOrder, secureRandomIndex),
+      },
+    }));
     setQuickAnswerVisible(false);
   }
 
   function markQuickCorrect() {
     if (quickRun.status !== 'playing') return;
-    setQuickRuns((current) => ({
-      ...current,
-      [quickTeam]: quickRun.questionIndex >= formalQuestions.length - 1
-        ? { status: 'completed', questionIndex: quickRun.questionIndex, correctCount: quickRun.correctCount + 1 }
-        : { status: 'playing', questionIndex: quickRun.questionIndex + 1, correctCount: quickRun.correctCount + 1 },
-    }));
+    setQuickRuns((current) => {
+      const activeRun = current[quickTeam];
+      if (activeRun.status !== 'playing') return current;
+      return {
+        ...current,
+        [quickTeam]: activeRun.questionIndex >= formalQuestions.length - 1
+          ? { ...activeRun, status: 'completed', correctCount: activeRun.correctCount + 1 }
+          : { ...activeRun, questionIndex: activeRun.questionIndex + 1, correctCount: activeRun.correctCount + 1 },
+      };
+    });
     setQuickAnswerVisible(false);
   }
 
@@ -180,14 +198,14 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
     <div className="host-game-current"><small>{activeTool.number} · HOST TOOL</small><strong>{activeTool.title}</strong></div>
 
     {tool === 'quick' && <section className="host-game-panel" aria-label="快问快答主持工具">
-      <div className="host-game-rules"><strong>现场规则</strong><p>三组使用同一类别、同一题序；每人依次回答一题，建议限时 3 秒。答错、超时或跳过立即结束本组挑战，并且不要公布正确答案。最先连续答对 10 题的组赢得本类别。</p></div>
+      <div className="host-game-rules"><strong>现场规则</strong><p>三组使用同一类别、同一组 10 道题；每次开始以及失败重来都会重新打乱题序。每人依次回答一题，建议限时 3 秒。答错、超时或跳过立即结束本组挑战，并且不要公布正确答案。最先连续答对 10 题的组赢得本类别。</p></div>
       <label htmlFor="quick-category">本轮题目类别</label><select id="quick-category" value={quickCategoryId} onChange={(event) => resetQuickCategory(event.target.value)}>{data.quickQuiz.map((item) => <option value={item.id} key={item.id}>{item.title} · 10 题</option>)}</select>
       <div className="quick-team-tabs" role="group" aria-label="当前答题组">{QUICK_TEAMS.map((team) => { const run = quickRuns[team]; return <button type="button" key={team} className={quickTeam === team ? 'active' : ''} onClick={() => { setQuickTeam(team); setQuickAnswerVisible(false); }}><strong>{team}</strong><span>{run.status === 'completed' ? '已通关' : run.status === 'stopped' ? `${run.correctCount}/10 结束` : run.status === 'playing' ? `${run.questionIndex + 1}/10 答题中` : '等待开始'}</span></button>; })}</div>
-      {quickRun.status === 'completed' ? <div className="quick-complete-state"><small>CATEGORY CLEARED</small><strong>{quickTeam}连续答对 10 题</strong><p>本类别已经通关。请按现场赛制记录胜出类别或进入下一类别。</p><button type="button" className="secondary" onClick={startQuickRun}>重新挑战本类别</button></div> : <div className="quick-question-card">
+      {quickRun.status === 'completed' ? <div className="quick-complete-state"><small>CATEGORY CLEARED</small><strong>{quickTeam}连续答对 10 题</strong><p>本类别已经通关。请按现场赛制记录胜出类别或进入下一类别。</p><button type="button" className="secondary" onClick={startQuickRun}>重排题序 · 再次挑战</button></div> : <div className="quick-question-card">
         <header><span>{quickRun.status === 'ready' ? '等待开始' : quickRun.status === 'stopped' ? '本组已结束' : `正式题 ${String(quickRun.questionIndex + 1).padStart(2, '0')} / 10`}</span><b>{quickCategory?.title}</b></header>
         <p>{currentQuickQuestion?.prompt ?? '题目载入中'}</p>
         <div className={`quick-answer ${quickAnswerVisible ? 'visible' : ''}`}><small>主持人答案</small><strong>{quickAnswerVisible ? currentQuickQuestion?.answer : '点击后仅主持人查看'}</strong></div>
-        {quickRun.status === 'playing' ? <><button type="button" className="secondary host-answer-toggle" aria-pressed={quickAnswerVisible} onClick={() => setQuickAnswerVisible((current) => !current)}>{quickAnswerVisible ? '隐藏答案' : '显示答案'}</button><div className="quick-action-row"><button type="button" onClick={markQuickCorrect}>答对 · 下一题</button><button type="button" className="danger" onClick={stopQuickRun}>答错／超时 · 结束</button></div></> : <button type="button" onClick={startQuickRun}>{quickRun.status === 'stopped' ? '从第 1 题重新挑战' : `开始${quickTeam}答题`}</button>}
+        {quickRun.status === 'playing' ? <><button type="button" className="secondary host-answer-toggle" aria-pressed={quickAnswerVisible} onClick={() => setQuickAnswerVisible((current) => !current)}>{quickAnswerVisible ? '隐藏答案' : '显示答案'}</button><div className="quick-action-row"><button type="button" onClick={markQuickCorrect}>答对 · 下一题</button><button type="button" className="danger" onClick={stopQuickRun}>答错／超时 · 结束</button></div></> : <button type="button" onClick={startQuickRun}>{quickRun.status === 'stopped' ? '重排题序 · 从头挑战' : `开始${quickTeam}答题`}</button>}
       </div>}
       <details className="host-game-backups"><summary>平分加赛／替换题（2 题）</summary>{backupQuestions.map((question, index) => <article key={question.prompt}><span>备用 {index + 1}</span><strong>{question.prompt}</strong><small>答案：{question.answer}</small></article>)}</details>
     </section>}

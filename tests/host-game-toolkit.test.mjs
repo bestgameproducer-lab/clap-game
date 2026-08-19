@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { shuffledQuickQuestionOrder } from '../lib/quick-quiz-order.ts';
 
 const [page, component, route, data, styles] = await Promise.all([
   readFile(new URL('../app/host/page.tsx', import.meta.url), 'utf8'),
@@ -28,6 +29,18 @@ test('快问快答完整包含 10 类题目并明确正式题与备用题边界'
   assert.match(component, /答错、超时或跳过立即结束本组挑战，并且不要公布正确答案/);
   assert.match(component, /平分加赛／替换题（2 题）/);
   assert.match(component, /答错／超时 · 结束/);
+});
+
+test('快问快答每次挑战保留同一题组并生成与上次不同的题序', () => {
+  const firstOrder = shuffledQuickQuestionOrder(10, [], () => 0);
+  const retryOrder = shuffledQuickQuestionOrder(10, firstOrder, () => 0);
+  assert.deepEqual([...firstOrder].sort((a, b) => a - b), [0,1,2,3,4,5,6,7,8,9]);
+  assert.deepEqual([...retryOrder].sort((a, b) => a - b), [0,1,2,3,4,5,6,7,8,9]);
+  assert.notDeepEqual(retryOrder, firstOrder);
+  assert.notEqual(retryOrder[0], firstOrder[0]);
+  assert.match(component, /questionOrder: shuffledQuickQuestionOrder\(formalQuestions\.length, current\[quickTeam\]\.questionOrder, secureRandomIndex\)/);
+  assert.match(component, /同一类别、同一组 10 道题；每次开始以及失败重来都会重新打乱题序/);
+  assert.match(component, /重排题序 · 从头挑战/);
 });
 
 test('你比划我猜和随机数都有独立、适合现场使用的主持状态', () => {
