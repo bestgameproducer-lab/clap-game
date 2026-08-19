@@ -86,10 +86,6 @@ const hostGameData = {
     { prompt: '挪威的首都是哪里？', answer: '奥斯陆', backup: true },
   ] }],
   charades: [{ id: 'wedding', title: '婚礼与爱情', words: ['交换戒指', '抛捧花', '求婚'] }],
-  coupleQuiz: [
-    { id: 1, prompt: '谁更喜欢梅西？', answer: null },
-    { id: 2, prompt: '谁先表白？', answer: '新郎' },
-  ],
 };
 
 function collectPageErrors(page) {
@@ -162,7 +158,7 @@ test('320px 小屏仍可安全使用首页、宾客页和三个工作人员入�
   await page.unroute('**/api/guest-me');
   await page.route('**/api/guest-me', (route) => route.fulfill({ json: {
     ...guestData,
-    guest: { ...guest, id: 'guest-long-name', name: '陈天然和陈子宥 Tianran Chen & Ziyou Chen', team: '家人组', points: 123 },
+    guest: { ...guest, id: 'guest-long-name', name: '超长姓名测试宾客 Alexandra Wedding Guest', team: '家人组', points: 123 },
     assignments: [{
       ...guestData.assignments[0], id: 'assignment-long-name',
       task: { ...task, title: '拍摄一张新郎新娘与第一次见面的朋友共同入镜的幸福合影' },
@@ -170,7 +166,7 @@ test('320px 小屏仍可安全使用首页、宾客页和三个工作人员入�
   } }));
   await page.goto('/guest');
   await acknowledgeGuestActivity(page);
-  await expect(page.getByText('陈天然和陈子宥 Tianran Chen & Ziyou Chen')).toBeVisible();
+  await expect(page.getByText('超长姓名测试宾客 Alexandra Wedding Guest')).toBeVisible();
   await expectCompactViewportSafe(page, '超长姓名与任务宾客页');
   await expectAccessibleUiBasics(page, '超长姓名与任务宾客页');
 
@@ -239,6 +235,63 @@ test('宾客真实主页可浏览任务、团队积分并支持桌面滚动', as
   await page.getByRole('button', { name: '看完菜单 · 返回游戏' }).click();
   await page.mouse.wheel(0, 700);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  expect(errors).toEqual([]);
+});
+
+test('海岛、沙漠与家人组在宾客主页拥有醒目且可区分的组别视觉', async ({ page }, testInfo) => {
+  const errors = collectPageErrors(page);
+  let currentTeam = '海岛组';
+  let currentGuest = guestData.guest;
+  await page.route('**/api/guest-me', (route) => route.fulfill({ json: {
+    ...guestData,
+    guest: { ...currentGuest, team: currentTeam },
+    teamScores: currentTeam === '海岛组'
+      ? [{ team: '海岛组', points: 3 }, { team: '沙漠组', points: 2 }]
+      : [{ team: '沙漠组', points: 3 }, { team: '海岛组', points: 2 }],
+  } }));
+  await page.route('**/api/registration/guests', (route) => route.fulfill({ json: { guests: [], registrationOpen: false } }));
+
+  await page.goto('/guest');
+  await acknowledgeGuestActivity(page);
+  await expect(page.locator('main.dashboard-shell.team-island')).toBeVisible();
+  await expect(page.getByLabel('你的组别：海岛组')).toBeVisible();
+  await expect(page.getByText('YOUR TEAM · 你的组别')).toBeVisible();
+  await expect(page.locator('.guest-team-score-grid article.mine')).toContainText('海岛组');
+  await expectCompactViewportSafe(page, '海岛组宾客主页');
+  if (process.env.WEDDING_CAPTURE_TEAM_PREVIEW === '1') {
+    await page.screenshot({ path: testInfo.outputPath('island-team-preview.png'), fullPage: true });
+  }
+
+  currentTeam = '沙漠组';
+  await page.reload();
+  await acknowledgeGuestActivity(page);
+  await expect(page.locator('main.dashboard-shell.team-desert')).toBeVisible();
+  await expect(page.getByLabel('你的组别：沙漠组')).toBeVisible();
+  await expect(page.getByText('YOUR TEAM · 你的组别')).toBeVisible();
+  await expect(page.locator('.guest-team-score-grid article.mine')).toContainText('沙漠组');
+  await expectCompactViewportSafe(page, '沙漠组宾客主页');
+  if (process.env.WEDDING_CAPTURE_TEAM_PREVIEW === '1') {
+    await page.screenshot({ path: testInfo.outputPath('desert-team-preview.png'), fullPage: true });
+  }
+
+  currentTeam = '家人组';
+  currentGuest = {
+    ...guestData.guest,
+    participation_mode: 'HONOR_GUEST',
+    special_card_revealed_at: '2026-08-01T12:30:00.000Z',
+    special_card_title: '亲爱的家人',
+    eligible_for_mission: false,
+    eligible_for_secret_role: false,
+  };
+  await page.reload();
+  await acknowledgeGuestActivity(page);
+  await expect(page.locator('main.dashboard-shell.team-family')).toBeVisible();
+  await expect(page.getByLabel('你的组别：家人组')).toBeVisible();
+  await expect(page.getByText('FAMILY GROUP · 你的组别')).toBeVisible();
+  await expectCompactViewportSafe(page, '家人组宾客主页');
+  if (process.env.WEDDING_CAPTURE_TEAM_PREVIEW === '1') {
+    await page.screenshot({ path: testInfo.outputPath('family-team-preview.png'), fullPage: true });
+  }
   expect(errors).toEqual([]);
 });
 
@@ -490,9 +543,8 @@ test('主持人可以进入游戏、团队、个人和流程控制台', async ({
   await page.getByRole('button', { name: '奖励数 1–10' }).click();
   await page.getByRole('button', { name: '随机抽取一个数字' }).click();
   await expect(page.locator('.random-result strong')).not.toHaveText('—');
-  await page.getByRole('button', { name: /04.*一站到底/ }).click();
-  await expect(page.getByText('尚未填写，暂不能揭晓')).toBeVisible();
-  await expect(page.getByRole('button', { name: '揭晓答案' })).toBeDisabled();
+  await expect(page.getByText('一站到底 · 新人问答')).toBeVisible();
+  await expect(page.getByText('等待你确认题目和答案后再启用，不展示半成品题库。')).toBeVisible();
   await page.getByRole('button', { name: '团队计分', exact: true }).click();
   await expect(page.getByRole('heading', { name: '记录团队挑战成绩' })).toBeVisible();
   await page.getByRole('button', { name: '个人加分', exact: true }).click();

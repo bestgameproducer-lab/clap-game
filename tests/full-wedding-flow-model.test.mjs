@@ -65,17 +65,17 @@ function completeAutoPairedMission(assignments, ledger, guestId, symbol) {
   return 2;
 }
 
-test('the 33-account wedding grain is 20 competitors, 11 family accounts and 2 principals', () => {
+test('the 32-account wedding grain is 20 competitors, 10 family accounts and 2 principals', () => {
   const accounts = [
     ...Array.from({ length: 10 }, (_, i) => ({ id: `island-${i}`, team: '海岛组', mode: 'ACTIVE_PLAYER' })),
     ...Array.from({ length: 10 }, (_, i) => ({ id: `desert-${i}`, team: '沙漠组', mode: 'ACTIVE_PLAYER' })),
-    ...Array.from({ length: 4 }, (_, i) => ({ id: `family-player-${i}`, team: '家人组', mode: 'ACTIVE_PLAYER' })),
+    ...Array.from({ length: 3 }, (_, i) => ({ id: `family-player-${i}`, team: '家人组', mode: 'ACTIVE_PLAYER' })),
     ...Array.from({ length: 7 }, (_, i) => ({ id: `family-honor-${i}`, team: '家人组', mode: 'HONOR_GUEST' })),
     ...Array.from({ length: 2 }, (_, i) => ({ id: `principal-${i}`, team: null, mode: 'PRINCIPAL' })),
   ];
-  assert.equal(accounts.length, 33);
+  assert.equal(accounts.length, 32);
   assert.equal(accounts.filter((guest) => COMPETITIVE_TEAMS.includes(guest.team)).length, 20);
-  assert.equal(accounts.filter((guest) => guest.team === '家人组').length, 11);
+  assert.equal(accounts.filter((guest) => guest.team === '家人组').length, 10);
   assert.equal(accounts.filter((guest) => guest.mode === 'PRINCIPAL').length, 2);
 });
 

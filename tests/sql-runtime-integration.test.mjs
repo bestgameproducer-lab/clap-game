@@ -374,7 +374,7 @@ test(
            and eligible_for_mission
          order by login_name`,
       )).rows;
-      assert.equal(missionPlayers.length, 24, 'the formal first act has exactly 24 mission accounts');
+      assert.equal(missionPlayers.length, 23, 'the formal first act has exactly 23 mission accounts');
       for (const player of missionPlayers) {
         await db.query(`select * from draw_guest_card($1,$2)`, [player.id, runId]);
       }
@@ -383,7 +383,7 @@ test(
         `select count(*) from guests
          where active and uses_app and participation_mode='ACTIVE_PLAYER'
            and eligible_for_mission and drawn_at is not null`,
-      )), 24);
+      )), 23);
       assert.equal(Number(await scalar(
         db,
         `select count(*) from guests g
@@ -410,7 +410,6 @@ test(
           'P1-CER-002': 2,
           'P1-CER-003': 1,
           'P1-CER-004': 1,
-          'P1-FAMILY-001': 1,
           'P1-HEART-001': 5,
           'P1-SOCIAL-001': 3,
           'P1-SOCIAL-002': 3,
@@ -425,7 +424,7 @@ test(
            join tasks t on t.id=a.task_id
            where a.is_initial and lower(g.login_name) in(
              'yifan yu','xingcheng jin','andao chen','siran li','moshuang xu',
-             'feifei xie','luyi sun','tianran chen & ziyou chen'
+             'feifei xie','luyi sun'
            ) order by lower(g.login_name)`,
         )).rows,
         [
@@ -434,7 +433,6 @@ test(
           { login_name: 'luyi sun', mission_code: 'P1-BONUS-001' },
           { login_name: 'moshuang xu', mission_code: 'P1-CER-004' },
           { login_name: 'siran li', mission_code: 'P1-CER-003' },
-          { login_name: 'tianran chen & ziyou chen', mission_code: 'P1-FAMILY-001' },
           { login_name: 'xingcheng jin', mission_code: 'P1-CER-002' },
           { login_name: 'yifan yu', mission_code: 'P1-CER-001' },
         ],

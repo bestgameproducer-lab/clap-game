@@ -620,7 +620,7 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
     settledTeamClueIds: { '海岛组': [], '沙漠组': [] },
     storageReconciliationFailed: false,
     preflight: { ready: true, blockedCount: 0, items: [
-      { id: 'roster', label: '34 位宾客与 33 个登录账号', detail: '名单与组别已经确认', status: 'ready' },
+      { id: 'roster', label: '32 位宾客与 32 个登录账号', detail: '名单与组别已经确认', status: 'ready' },
       { id: 'missions', label: '第一轮任务容量', detail: '正式任务池可完成抽卡', status: 'ready' },
     ] },
     rehearsalResetPreview: emptyReset,
@@ -682,11 +682,6 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
       { prompt: '挪威的首都是哪里？', answer: '奥斯陆', backup: true },
     ] }],
     charades: [{ id: 'wedding', title: '婚礼与爱情', words: ['交换戒指', '抛捧花', '求婚', '接亲', '敬酒', '婚礼誓词'] }],
-    coupleQuiz: [
-      { id: 1, prompt: '谁更喜欢梅西？', answer: null },
-      { id: 2, prompt: '谁更早起？', answer: null },
-      { id: 3, prompt: '谁先表白？', answer: null },
-    ],
   };
   await page.route('**/api/host-data', (route) => route.fulfill({ json: hostState.current }));
   await page.route('**/api/host-games', (route) => route.fulfill({ json: hostGameData }));
@@ -708,8 +703,6 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
   await screenshot(page, '23h-host-charades', testInfo.project.name);
   await page.getByRole('button', { name: /田忌赛马/ }).click();
   await screenshot(page, '23i-host-random-number', testInfo.project.name);
-  await page.getByRole('button', { name: /一站到底/ }).click();
-  await screenshot(page, '23j-host-couple-quiz-pending', testInfo.project.name);
   hostState.current = { ...hostData, game: { ...hostData.game, stage: 'task_round_2' } };
   await page.reload();
   await page.getByRole('button', { name: '流程控制', exact: true }).click();

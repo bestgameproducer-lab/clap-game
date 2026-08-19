@@ -31,7 +31,6 @@ function buildFirstAct(seed) {
     ['luyi', '沙漠组', 'P1-BONUS-001'],
     ['yirui', '海岛组', 'P1-SOCIAL-001'],
     ['ziyang', '家人组', 'P1-SOCIAL-002'],
-    ['tianran-ziyou', '家人组', 'P1-FAMILY-001'],
   ].map(([id, team, mission]) => ({ id, team, mission, spy: false }));
 
   const flex = shuffled([
@@ -114,7 +113,6 @@ test('official assignment-mode metadata describes the real allocator source', ()
     ['P1-HEART-001', 'CONTROLLED_RANDOM'], ['P1-STAR-001', 'CONTROLLED_RANDOM'],
     ['P1-SOCIAL-001', 'CONTROLLED_RANDOM'], ['P1-SOCIAL-002', 'CONTROLLED_RANDOM'],
     ['P1-BONUS-001', 'FIXED'], ['P1-TRICKSTER-001', 'ROLE_FIXED'],
-    ['P1-FAMILY-001', 'FIXED'],
     ['P2-SOCIAL-001', 'CONTROLLED_RANDOM'], ['P2-SOCIAL-002', 'CONTROLLED_RANDOM'],
     ['P2-SOCIAL-003', 'CONTROLLED_RANDOM'], ['P2-SOCIAL-004', 'CONTROLLED_RANDOM'],
     ['P2-CEREMONY-001', 'FIXED'],
@@ -123,14 +121,14 @@ test('official assignment-mode metadata describes the real allocator source', ()
     ['P2-TRICKSTER-001', 'ROLE_FIXED'],
     ['P2-POWER-001', 'CONTROLLED_RANDOM'], ['P2-LUCKY-001', 'CONTROLLED_RANDOM'],
   ]);
-  assert.equal(expected.size, 23);
+  assert.equal(expected.size, 22);
   assert.deepEqual(
     new Map(OFFICIAL_TASK_MANIFEST.map((task) => [task.mission_code, task.assignment_mode])),
     expected,
   );
 });
 
-test('forward migration aligns all 23 rows and preserves the full formal catalog gate', async () => {
+test('historical assignment-mode migration aligned the former 23-row catalog', async () => {
   const migration = await read('supabase/migrations/202608140009_align_official_assignment_mode_metadata.sql');
   assert.match(migration, /get diagnostics v_count=row_count;[\s\S]*v_count<>23/);
   assert.match(migration, /pg_get_functiondef\('public\.formal_wedding_catalog_ready\(\)'::regprocedure\)/);
@@ -146,7 +144,7 @@ test('30 deterministic draw orders preserve P1 capacity and P2 no-repeat-photo i
     ['P1-CER-001', 1], ['P1-CER-002', 2], ['P1-CER-003', 1], ['P1-CER-004', 1],
     ['P1-HEART-001', 5], ['P1-STAR-001', 5],
     ['P1-SOCIAL-001', 3], ['P1-SOCIAL-002', 3],
-    ['P1-BONUS-001', 2], ['P1-FAMILY-001', 1],
+    ['P1-BONUS-001', 2],
   ]);
   const expectedSecondAct = new Map([
     ['P2-SOCIAL-001', 1], ['P2-SOCIAL-002', 1],
@@ -158,8 +156,8 @@ test('30 deterministic draw orders preserve P1 capacity and P2 no-repeat-photo i
 
   for (let seed = 1; seed <= 30; seed += 1) {
     const firstAct = buildFirstAct(seed);
-    assert.equal(firstAct.length, 24, `seed ${seed}: first-act account count`);
-    assert.equal(new Set(firstAct.map((player) => player.id)).size, 24, `seed ${seed}: duplicate first-act account`);
+    assert.equal(firstAct.length, 23, `seed ${seed}: first-act account count`);
+    assert.equal(new Set(firstAct.map((player) => player.id)).size, 23, `seed ${seed}: duplicate first-act account`);
     for (const [mission, count] of expectedFirstAct) {
       assert.equal(firstAct.filter((player) => player.mission === mission).length, count, `seed ${seed}: ${mission}`);
     }
