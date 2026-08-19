@@ -71,14 +71,18 @@ test('guest dashboard cards use one restrained wedding palette', async () => {
 
 test('guest dashboard makes the assigned team prominent without relying on color alone', async () => {
   const [source, styles] = await Promise.all([read('app/guest/page.tsx'), read('app/styles.css')]);
-  assert.match(source, /const guestTeamClass = data\.guest\.team === '海岛组' \? 'team-island' : data\.guest\.team === '沙漠组' \? 'team-desert' : 'team-neutral'/);
+  assert.match(source, /const guestTeamClass = data\.guest\.team === '海岛组' \? 'team-island' : data\.guest\.team === '沙漠组' \? 'team-desert' : data\.guest\.team === '家人组' \? 'team-family' : 'team-neutral'/);
   assert.match(source, /className={`dashboard-shell \$\{guestTeamClass\}/);
-  assert.match(source, /className="hero-team-banner" aria-label={`\$\{isHonorGuest \? '你的荣誉身份' : '你的组别'\}：\$\{guestTeamLabel\}`}/);
+  assert.match(source, /className="hero-team-banner" aria-label={`你的组别：\$\{guestTeamLabel\}`}/);
   assert.match(source, /YOUR TEAM · 你的组别/);
+  assert.match(source, /data\.guest\.team === '沙漠组' \? '☼'/);
+  assert.match(source, /data\.guest\.team === '家人组' \? '⌂'/);
+  assert.doesNotMatch(source, /data\.guest\.team === '沙漠组' \? '✦'/);
   assert.match(styles, /\.dashboard-shell\.team-island \.mission-hero:not\(\.trickster-real-hero\)/);
   assert.match(styles, /\.dashboard-shell\.team-desert \.mission-hero:not\(\.trickster-real-hero\)/);
   assert.match(styles, /\.team-island \.hero-team-banner/);
   assert.match(styles, /\.team-desert \.hero-team-banner/);
+  assert.match(styles, /\.team-family \.hero-team-banner/);
   assert.match(styles, /\.dashboard-shell\.team-island \.guest-team-score-grid article\.mine/);
   assert.match(styles, /\.dashboard-shell\.team-desert \.guest-team-score-grid article\.mine/);
 });

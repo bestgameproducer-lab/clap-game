@@ -242,12 +242,13 @@ test('宾客真实主页可浏览任务、团队积分并支持桌面滚动', as
   expect(errors).toEqual([]);
 });
 
-test('海岛与沙漠组在宾客主页拥有醒目且可区分的组别视觉', async ({ page }, testInfo) => {
+test('海岛、沙漠与家人组在宾客主页拥有醒目且可区分的组别视觉', async ({ page }, testInfo) => {
   const errors = collectPageErrors(page);
   let currentTeam = '海岛组';
+  let currentGuest = guestData.guest;
   await page.route('**/api/guest-me', (route) => route.fulfill({ json: {
     ...guestData,
-    guest: { ...guestData.guest, team: currentTeam },
+    guest: { ...currentGuest, team: currentTeam },
     teamScores: currentTeam === '海岛组'
       ? [{ team: '海岛组', points: 3 }, { team: '沙漠组', points: 2 }]
       : [{ team: '沙漠组', points: 3 }, { team: '海岛组', points: 2 }],
@@ -275,6 +276,25 @@ test('海岛与沙漠组在宾客主页拥有醒目且可区分的组别视觉',
   await expectCompactViewportSafe(page, '沙漠组宾客主页');
   if (process.env.WEDDING_CAPTURE_TEAM_PREVIEW === '1') {
     await page.screenshot({ path: testInfo.outputPath('desert-team-preview.png'), fullPage: true });
+  }
+
+  currentTeam = '家人组';
+  currentGuest = {
+    ...guestData.guest,
+    participation_mode: 'HONOR_GUEST',
+    special_card_revealed_at: '2026-08-01T12:30:00.000Z',
+    special_card_title: '亲爱的家人',
+    eligible_for_mission: false,
+    eligible_for_secret_role: false,
+  };
+  await page.reload();
+  await acknowledgeGuestActivity(page);
+  await expect(page.locator('main.dashboard-shell.team-family')).toBeVisible();
+  await expect(page.getByLabel('你的组别：家人组')).toBeVisible();
+  await expect(page.getByText('FAMILY GROUP · 你的组别')).toBeVisible();
+  await expectCompactViewportSafe(page, '家人组宾客主页');
+  if (process.env.WEDDING_CAPTURE_TEAM_PREVIEW === '1') {
+    await page.screenshot({ path: testInfo.outputPath('family-team-preview.png'), fullPage: true });
   }
   expect(errors).toEqual([]);
 });
