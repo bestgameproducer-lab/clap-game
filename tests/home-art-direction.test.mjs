@@ -11,15 +11,12 @@ test('home invitation carries the Bali estate and cat Cupid story without obscur
     readFile(new URL('../app/manifest.ts', import.meta.url), 'utf8'),
   ]);
   assert.match(home, /<BaliInvitationScene\/>/);
-  assert.match(scene, /import Image from 'next\/image'/);
-  assert.match(scene, /<Image/);
-  assert.match(scene, /sizes="\(max-width: 420px\) calc\(100vw - 64px\), 540px"/);
-  assert.match(scene, /quality=\{68\}/);
+  assert.match(scene, /<picture>/);
+  assert.match(scene, /bali-cat-cupid-estate-v1-1080[.]webp/);
+  assert.match(scene, /type="image\/webp"/);
   assert.match(scene, /fetchPriority="high"/);
-  assert.match(scene, /placeholder="blur"/);
-  assert.match(scene, /blurDataURL="data:image\/svg\+xml/);
-  assert.match(scene, /priority/);
-  assert.doesNotMatch(scene, /<img/);
+  assert.match(scene, /loading="eager"/);
+  assert.match(scene, /<img/);
   assert.match(home, /className="home-couple-signature">Zimin <em>&amp;<\/em> Anrong/);
   assert.doesNotMatch(home, /NEXT_PUBLIC_WEDDING_TITLE/);
   assert.match(home, /<WeddingSignature compact\/>/);

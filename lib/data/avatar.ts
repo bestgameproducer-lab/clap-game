@@ -1,9 +1,12 @@
 import 'server-only';
 import { ApiError } from '../errors';
+import { SignedUrlReuseCache } from '../signed-url-reuse-cache';
 import { getSupabaseAdmin } from '../supabase';
 
 export const GUEST_AVATAR_BUCKET = 'guest-avatars';
 const AVATAR_URL_TTL_SECONDS = 10 * 60;
+const AVATAR_URL_REUSE_MS = 8 * 60 * 1000;
+const avatarUrlCache = new SignedUrlReuseCache(AVATAR_URL_REUSE_MS, 128);
 
 function throwAvatarRpcError(error: { message: string }, action: string): never {
   if (error.message.includes('guest_rehearsal_run_mismatch')
@@ -39,12 +42,20 @@ export async function confirmGuestAvatar(guestId: string, path: string, rehearsa
     p_rehearsal_run_id: rehearsalRunId,
   });
   if (error) throwAvatarRpcError(error, 'Unable to confirm guest avatar');
+  avatarUrlCache.invalidate(path);
   return { uploadedAt: data as string };
 }
 
 export async function signAvatarPaths<T extends { avatar_path?: string | null }>(items: T[]) {
   const paths = [...new Set(items.flatMap((item) => item.avatar_path ? [item.avatar_path] : []))];
   if (paths.length === 0) return items.map((item) => ({ ...item, avatar_url: null }));
+  const cachedByPath = avatarUrlCache.read(paths);
+  if (cachedByPath.size === paths.length) {
+    return items.map((item) => ({
+      ...item,
+      avatar_url: item.avatar_path ? cachedByPath.get(item.avatar_path) ?? null : null,
+    }));
+  }
   try {
     const { data, error } = await getSupabaseAdmin().storage
       .from(GUEST_AVATAR_BUCKET)
@@ -55,6 +66,7 @@ export async function signAvatarPaths<T extends { avatar_path?: string | null }>
         ? [[item.path, item.signedUrl] as const]
         : []
     )));
+    for (const [path, signedUrl] of signedByPath) avatarUrlCache.write(path, signedUrl);
     return items.map((item) => ({
       ...item,
       avatar_url: item.avatar_path ? signedByPath.get(item.avatar_path) ?? null : null,

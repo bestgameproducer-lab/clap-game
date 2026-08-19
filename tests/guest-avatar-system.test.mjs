@@ -79,6 +79,12 @@ test('avatar upload is authenticated, same-origin, compressed, and server-confir
   assert.match(config, /camera=\(self\)/);
   assert.match(page, /照片左右反了？点此翻转/);
   assert.match(page, /prepareAvatar\(avatarSourceFile, !avatarMirrored\)/);
+  assert.match(page, /type AvatarUploadStage = 'authorizing' \| 'uploading' \| 'confirming' \| 'refreshing'/);
+  assert.match(page, /setAvatarUploadStage\('uploading'\)[\s\S]*setAvatarUploadStage\('confirming'\)[\s\S]*setAvatarUploadStage\('refreshing'\)/);
+  assert.match(page, /avatarBusy \? <div className="avatar-upload-status" role="status" aria-live="polite">/);
+  assert.match(page, /请不要关闭或刷新页面/);
+  assert.match(page, /准备上传[\s\S]*传送照片[\s\S]*保存确认/);
+  assert.doesNotMatch(page, /avatarBusy \? '正在上传你的头像…'/);
 });
 
 test('avatar object names are isolated per rehearsal run so stale signed uploads cannot replace formal selfies', () => {
@@ -113,6 +119,13 @@ test('the dashboard avatar remains prominent beside the guest name', async () =>
 test('the circular selfie preview keeps its retake hint centered and readable', async () => {
   const styles = await read('app/styles.css');
   assert.match(styles, /\.avatar-retake-trigger>span\{[^}]*left:50%;right:auto;[^}]*max-width:calc\(100% - 32px\)[^}]*transform:translateX\(-50%\)[^}]*white-space:nowrap/);
+});
+
+test('slow avatar uploads replace the camera controls with an accessible progress state', async () => {
+  const styles = await read('app/styles.css');
+  assert.match(styles, /\.avatar-upload-status\{[^}]*min-height:300px[^}]*place-items:center/);
+  assert.match(styles, /\.avatar-upload-spinner\{[^}]*animation:avatar-upload-spin/);
+  assert.match(styles, /@media\(prefers-reduced-motion:reduce\)/);
 });
 
 test('the admin guest manager receives private signed avatars and reports real progress', async () => {
