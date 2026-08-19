@@ -80,6 +80,7 @@ test('guest dashboard makes the assigned team prominent without relying on color
   assert.doesNotMatch(source, /data\.guest\.team === '沙漠组' \? '✦'/);
   assert.match(styles, /\.dashboard-shell\.team-island \.mission-hero:not\(\.trickster-real-hero\)/);
   assert.match(styles, /\.dashboard-shell\.team-desert \.mission-hero:not\(\.trickster-real-hero\)/);
+  assert.match(styles, /\.dashboard-shell\.team-family \.mission-hero:not\(\.trickster-real-hero\)/);
   assert.match(styles, /\.team-island \.hero-team-banner/);
   assert.match(styles, /\.team-desert \.hero-team-banner/);
   assert.match(styles, /\.team-family \.hero-team-banner/);
