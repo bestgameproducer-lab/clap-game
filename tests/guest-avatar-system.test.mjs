@@ -51,7 +51,7 @@ test('avatar upload is authenticated, same-origin, compressed, and server-confir
   assert.doesNotMatch(page, /capture="user"/);
   assert.doesNotMatch(page, /使用系统相机/);
   assert.match(page, /const avatarConfigured = Boolean\(data\?\.guest\.avatar_path && data\?\.guest\.avatar_uploaded_at\)/);
-  assert.match(page, /if \(!avatarConfigured \|\| avatarEditorOpen\) return/);
+  assert.match(page, /if \(avatarBusy \|\| !avatarConfigured \|\| avatarEditorOpen\) return/);
   assert.match(page, /onError=\{\(\) => setAvatarImageFailed\(true\)\}/);
   assert.match(page, /failedDirectoryAvatarCodes\[player\.playerCode\]/);
   assert.match(data, /if \(error \|\| !data\) return items\.map/);
@@ -81,6 +81,8 @@ test('avatar upload is authenticated, same-origin, compressed, and server-confir
   assert.match(page, /prepareAvatar\(avatarSourceFile, !avatarMirrored\)/);
   assert.match(page, /type AvatarUploadStage = 'authorizing' \| 'uploading' \| 'confirming' \| 'refreshing'/);
   assert.match(page, /setAvatarUploadStage\('uploading'\)[\s\S]*setAvatarUploadStage\('confirming'\)[\s\S]*setAvatarUploadStage\('refreshing'\)/);
+  assert.match(page, /confirmedAvatarTransitionRef\.current = confirmedAvatarTransition[\s\S]*setData\(\(current\)[\s\S]*avatar_path: confirmedAvatarTransition\.path[\s\S]*setAvatarEditorOpen\(false\)[\s\S]*await load\(\)/);
+  assert.match(page, /serverHasConfirmedAvatar[\s\S]*confirmedAvatarTransitionRef\.current = null[\s\S]*keep that stale response from flashing the selfie screen again/);
   assert.match(page, /avatarBusy \? <div className="avatar-upload-status" role="status" aria-live="polite">/);
   assert.match(page, /请不要关闭或刷新页面/);
   assert.match(page, /准备上传[\s\S]*传送照片[\s\S]*保存确认/);
