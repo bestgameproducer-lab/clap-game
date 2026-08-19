@@ -2,10 +2,13 @@ import 'server-only';
 import { ApiError } from '../errors';
 import { isTaskActionOpenAtStage, taskActionClosedMessage } from '../game-rules';
 import { acceptsGuestPhotoEvidence } from '../guest-task-ui';
+import { SignedUrlReuseCache } from '../signed-url-reuse-cache';
 import { getSupabaseAdmin } from '../supabase';
 
 export const TASK_EVIDENCE_BUCKET = 'task-evidence';
 const EVIDENCE_URL_TTL_SECONDS = 10 * 60;
+const EVIDENCE_URL_REUSE_MS = 8 * 60 * 1000;
+const evidenceUrlCache = new SignedUrlReuseCache(EVIDENCE_URL_REUSE_MS, 512);
 
 function throwEvidenceRpcError(error: { message: string }, action: string, taskStage?: string | null): never {
   if (error.message.includes('rehearsal_run_mismatch')
@@ -117,6 +120,7 @@ export async function confirmGuestEvidence(assignmentId: string, guestId: string
     p_rehearsal_run_id: rehearsalRunId,
   });
   if (error) await throwEvidenceRpcErrorForAssignment(error, 'Unable to confirm evidence upload', assignmentId);
+  evidenceUrlCache.invalidate(path);
 }
 
 export async function removeGuestEvidence(assignmentId: string, guestId: string, rehearsalRunId: string) {
@@ -129,6 +133,7 @@ export async function removeGuestEvidence(assignmentId: string, guestId: string,
   });
   if (error) await throwEvidenceRpcErrorForAssignment(error, 'Unable to clear task evidence', assignmentId);
   if (typeof path === 'string' && path) {
+    evidenceUrlCache.invalidate(path);
     const { error: storageError } = await db.storage.from(TASK_EVIDENCE_BUCKET).remove([path]);
     if (storageError) throw new Error(`Unable to remove task evidence: ${storageError.message}`);
   }
@@ -158,6 +163,7 @@ export async function confirmStaffEvidence(assignmentId: string, path: string, a
     p_rehearsal_run_id: rehearsalRunId,
   });
   if (error) await throwEvidenceRpcErrorForAssignment(error, 'Unable to confirm staff evidence upload', assignmentId);
+  evidenceUrlCache.invalidate(path);
 }
 
 export async function removeStaffEvidence(assignmentId: string, actor: string, rehearsalRunId: string) {
@@ -173,6 +179,7 @@ export async function removeStaffEvidence(assignmentId: string, actor: string, r
   });
   if (error) await throwEvidenceRpcErrorForAssignment(error, 'Unable to clear staff task evidence', assignmentId);
   if (typeof path === 'string' && path) {
+    evidenceUrlCache.invalidate(path);
     const { error: storageError } = await db.storage.from(TASK_EVIDENCE_BUCKET).remove([path]);
     if (storageError) throw new Error(`Unable to remove staff task evidence: ${storageError.message}`);
   }
@@ -181,6 +188,13 @@ export async function removeStaffEvidence(assignmentId: string, actor: string, r
 export async function signEvidencePaths<T extends { evidence_path?: string | null }>(items: T[]) {
   const paths = [...new Set(items.flatMap((item) => item.evidence_path ? [item.evidence_path] : []))];
   if (paths.length === 0) return items.map((item) => ({ ...item, evidence_url: null }));
+  const cachedByPath = evidenceUrlCache.read(paths);
+  if (cachedByPath.size === paths.length) {
+    return items.map((item) => ({
+      ...item,
+      evidence_url: item.evidence_path ? cachedByPath.get(item.evidence_path) ?? null : null,
+    }));
+  }
   try {
     const { data, error } = await getSupabaseAdmin().storage
       .from(TASK_EVIDENCE_BUCKET)
@@ -191,6 +205,7 @@ export async function signEvidencePaths<T extends { evidence_path?: string | nul
         ? [[item.path, item.signedUrl] as const]
         : []
     )));
+    for (const [path, signedUrl] of signedByPath) evidenceUrlCache.write(path, signedUrl);
     return items.map((item) => ({
       ...item,
       evidence_url: item.evidence_path ? signedByPath.get(item.evidence_path) ?? null : null,

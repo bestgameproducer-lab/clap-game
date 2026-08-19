@@ -666,7 +666,30 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
     voteCount: 0, teamClueCounts: { 海岛组: 2, 沙漠组: 2 }, rankings: { personal: [], teams: [] }, finale: { tricksters: [], voteCounts: [] },
   };
   const hostState = { current: hostData };
+  const hostGameData = {
+    quickQuiz: [{ id: 'world-capitals', title: '世界首都', questions: [
+      { prompt: '法国的首都是哪里？', answer: '巴黎', backup: false },
+      { prompt: '日本的首都是哪里？', answer: '东京', backup: false },
+      { prompt: '意大利的首都是哪里？', answer: '罗马', backup: false },
+      { prompt: '泰国的首都是哪里？', answer: '曼谷', backup: false },
+      { prompt: '埃及的首都是哪里？', answer: '开罗', backup: false },
+      { prompt: '加拿大的首都是哪里？', answer: '渥太华', backup: false },
+      { prompt: '澳大利亚的首都是哪里？', answer: '堪培拉', backup: false },
+      { prompt: '巴西的首都是哪里？', answer: '巴西利亚', backup: false },
+      { prompt: '土耳其的首都是哪里？', answer: '安卡拉', backup: false },
+      { prompt: '新西兰的首都是哪里？', answer: '惠灵顿', backup: false },
+      { prompt: '葡萄牙的首都是哪里？', answer: '里斯本', backup: true },
+      { prompt: '挪威的首都是哪里？', answer: '奥斯陆', backup: true },
+    ] }],
+    charades: [{ id: 'wedding', title: '婚礼与爱情', words: ['交换戒指', '抛捧花', '求婚', '接亲', '敬酒', '婚礼誓词'] }],
+    coupleQuiz: [
+      { id: 1, prompt: '谁更喜欢梅西？', answer: null },
+      { id: 2, prompt: '谁更早起？', answer: null },
+      { id: 3, prompt: '谁先表白？', answer: null },
+    ],
+  };
   await page.route('**/api/host-data', (route) => route.fulfill({ json: hostState.current }));
+  await page.route('**/api/host-games', (route) => route.fulfill({ json: hostGameData }));
   await page.goto('/host');
   await expect(page.getByRole('heading', { name: '主持人流程台' })).toBeVisible();
   await screenshot(page, '23a-host-overview', testInfo.project.name);
@@ -678,6 +701,15 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
   await screenshot(page, '23c-host-team-score', testInfo.project.name);
   await page.getByRole('button', { name: '个人加分', exact: true }).click();
   await screenshot(page, '23d-host-personal-score', testInfo.project.name);
+  await page.getByRole('button', { name: '主持游戏', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '现场游戏助手' })).toBeVisible();
+  await screenshot(page, '23g-host-quick-quiz', testInfo.project.name);
+  await page.getByRole('button', { name: /你比划我猜/ }).click();
+  await screenshot(page, '23h-host-charades', testInfo.project.name);
+  await page.getByRole('button', { name: /田忌赛马/ }).click();
+  await screenshot(page, '23i-host-random-number', testInfo.project.name);
+  await page.getByRole('button', { name: /一站到底/ }).click();
+  await screenshot(page, '23j-host-couple-quiz-pending', testInfo.project.name);
   hostState.current = { ...hostData, game: { ...hostData.game, stage: 'task_round_2' } };
   await page.reload();
   await page.getByRole('button', { name: '流程控制', exact: true }).click();

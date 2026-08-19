@@ -38,6 +38,7 @@ test('完整婚礼彩排生成可下载且不接触生产数据的截图验收�
     '17-guest-results', '20-admin-opening', '21-admin-live-flow', '22-admin-finale',
     '22b-admin-published-results', '23-host-console', '23a-host-overview', '23b-host-published-results',
     '23c-host-team-score', '23d-host-personal-score', '23e-host-stage-confirmation', '23f-host-ceremony-confirmation',
+    '23g-host-quick-quiz', '23h-host-charades', '23i-host-random-number', '23j-host-couple-quiz-pending',
     '24-station-review', '25-public-finale',
     '31-task-status-hierarchy', '32-dinner-speech-submitted',
     '40-role-wedding-guardian', '40b-role-officiant', '40c-role-ring-keeper',
@@ -66,7 +67,7 @@ test('完整婚礼彩排生成可下载且不接触生产数据的截图验收�
   assert.doesNotMatch(reviewSpec, /SUPABASE_SERVICE_ROLE_KEY|ADMIN_PASSWORD|invitationCodeHash|password_hash/);
 });
 
-test('视觉验收清单与全部 86 张截图保持一一对应', () => {
+test('视觉验收清单与全部 90 张截图保持一一对应', () => {
   const generatedTaskFiles = OFFICIAL_TASK_MANIFEST.map((task) => `30-task-${task.mission_code.toLowerCase()}`);
   const screenshotFiles = new Set([
     ...[...reviewSpec.matchAll(/screenshot\(page,\s*'([^']+)'/g)].map((match) => match[1]),
@@ -78,6 +79,6 @@ test('视觉验收清单与全部 86 张截图保持一一对应', () => {
     ...[...manifestSource.matchAll(/\['([^']+)',\s*'/g)].map((match) => match[1]),
     ...generatedTaskFiles,
   ]);
-  assert.equal(screenshotFiles.size, 86);
+  assert.equal(screenshotFiles.size, 90);
   assert.deepEqual([...screenshotFiles].sort(), [...manifestFiles].sort());
 });
