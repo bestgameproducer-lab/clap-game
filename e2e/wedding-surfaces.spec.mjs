@@ -242,6 +242,43 @@ test('宾客真实主页可浏览任务、团队积分并支持桌面滚动', as
   expect(errors).toEqual([]);
 });
 
+test('海岛与沙漠组在宾客主页拥有醒目且可区分的组别视觉', async ({ page }, testInfo) => {
+  const errors = collectPageErrors(page);
+  let currentTeam = '海岛组';
+  await page.route('**/api/guest-me', (route) => route.fulfill({ json: {
+    ...guestData,
+    guest: { ...guestData.guest, team: currentTeam },
+    teamScores: currentTeam === '海岛组'
+      ? [{ team: '海岛组', points: 3 }, { team: '沙漠组', points: 2 }]
+      : [{ team: '沙漠组', points: 3 }, { team: '海岛组', points: 2 }],
+  } }));
+  await page.route('**/api/registration/guests', (route) => route.fulfill({ json: { guests: [], registrationOpen: false } }));
+
+  await page.goto('/guest');
+  await acknowledgeGuestActivity(page);
+  await expect(page.locator('main.dashboard-shell.team-island')).toBeVisible();
+  await expect(page.getByLabel('你的组别：海岛组')).toBeVisible();
+  await expect(page.getByText('YOUR TEAM · 你的组别')).toBeVisible();
+  await expect(page.locator('.guest-team-score-grid article.mine')).toContainText('海岛组');
+  await expectCompactViewportSafe(page, '海岛组宾客主页');
+  if (process.env.WEDDING_CAPTURE_TEAM_PREVIEW === '1') {
+    await page.screenshot({ path: testInfo.outputPath('island-team-preview.png'), fullPage: true });
+  }
+
+  currentTeam = '沙漠组';
+  await page.reload();
+  await acknowledgeGuestActivity(page);
+  await expect(page.locator('main.dashboard-shell.team-desert')).toBeVisible();
+  await expect(page.getByLabel('你的组别：沙漠组')).toBeVisible();
+  await expect(page.getByText('YOUR TEAM · 你的组别')).toBeVisible();
+  await expect(page.locator('.guest-team-score-grid article.mine')).toContainText('沙漠组');
+  await expectCompactViewportSafe(page, '沙漠组宾客主页');
+  if (process.env.WEDDING_CAPTURE_TEAM_PREVIEW === '1') {
+    await page.screenshot({ path: testInfo.outputPath('desert-team-preview.png'), fullPage: true });
+  }
+  expect(errors).toEqual([]);
+});
+
 test('离开后重新打开仍会收到升级任务结算，且双方提交前不泄露选择', async ({ page }) => {
   const dilemmaTask = {
     title: '星光抉择', description: '你与星光伙伴将面对丘比特留下的最后一道默契考验。',

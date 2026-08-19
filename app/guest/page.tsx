@@ -1304,6 +1304,10 @@ export default function GuestPage() {
   const dinnerMenuVisible = DINNER_MENU_STAGES.has(data.game?.stage ?? '');
   const isActivePlayer = data.guest.participation_mode === 'ACTIVE_PLAYER';
   const isHonorGuest = data.guest.participation_mode === 'HONOR_GUEST';
+  const guestTeamClass = data.guest.team === '海岛组' ? 'team-island' : data.guest.team === '沙漠组' ? 'team-desert' : 'team-neutral';
+  const guestTeamLabel = isHonorGuest ? data.guest.special_card_title || '亲爱的家人' : data.guest.team;
+  const guestTeamSymbol = data.guest.team === '海岛组' ? '≈' : data.guest.team === '沙漠组' ? '✦' : '♡';
+  const guestTeamEnglish = data.guest.team === '海岛组' ? 'ISLAND' : data.guest.team === '沙漠组' ? 'DESERT' : 'HONOR';
   const isTrickster = data.guest.role === 'spy' || data.guest.is_hidden_spy;
   const hasPublicIdentity = isHonorGuest || PUBLIC_STORY_ROLES.has(data.guest.story_role) || Boolean(data.game?.results_visible);
   const identityVisible = hasPublicIdentity || showSecrets;
@@ -1529,10 +1533,11 @@ export default function GuestPage() {
     </section>;
   }
 
-  return <main className={`dashboard-shell ${usesTricksterFacade && secretReaderOpen ? 'trickster-dashboard-revealed' : ''} ${isFocusMode ? 'guest-focus-mode' : ''}`}>
+  return <main className={`dashboard-shell ${guestTeamClass} ${usesTricksterFacade && secretReaderOpen ? 'trickster-dashboard-revealed' : ''} ${isFocusMode ? 'guest-focus-mode' : ''}`}>
     <section className={`mission-hero ${usesTricksterFacade && secretReaderOpen ? 'trickster-real-hero' : ''}`}>
       <div className="eyebrow">丘比特的婚礼考验</div>
-      <div className="hero-line"><div className="guest-hero-profile"><button type="button" className="guest-avatar-button" aria-label="更新我的玩家头像" onClick={() => setAvatarEditorOpen(true)}>{avatarDisplayUrl ? <img src={avatarDisplayUrl} alt="我的玩家头像" onError={() => setAvatarImageFailed(true)}/> : <span className="guest-avatar-fallback" aria-hidden="true">{data.guest.name.trim().slice(0, 1)}</span>}</button><div><span className="team-chip">{isHonorGuest ? data.guest.special_card_title || '亲爱的家人' : data.guest.team}</span><h1>{data.guest.name}</h1></div></div>{data.guest.eligible_for_personal_score && <button type="button" className="score-orb" aria-label={`查看我的积分流水，当前 ${data.guest.points} 分`} onClick={() => setScoreLedgerOpen(true)}><strong>{data.guest.points}</strong><small>积分明细</small></button>}</div>
+      <div className="hero-team-banner" aria-label={`${isHonorGuest ? '你的荣誉身份' : '你的组别'}：${guestTeamLabel}`}><span className="hero-team-symbol" aria-hidden="true">{guestTeamSymbol}</span><span className="hero-team-copy"><small>{isHonorGuest ? 'HONOR IDENTITY · 荣誉身份' : 'YOUR TEAM · 你的组别'}</small><strong>{guestTeamLabel}</strong></span><em aria-hidden="true">{guestTeamEnglish}</em></div>
+      <div className="hero-line"><div className="guest-hero-profile"><button type="button" className="guest-avatar-button" aria-label="更新我的玩家头像" onClick={() => setAvatarEditorOpen(true)}>{avatarDisplayUrl ? <img src={avatarDisplayUrl} alt="我的玩家头像" onError={() => setAvatarImageFailed(true)}/> : <span className="guest-avatar-fallback" aria-hidden="true">{data.guest.name.trim().slice(0, 1)}</span>}</button><div><h1>{data.guest.name}</h1></div></div>{data.guest.eligible_for_personal_score && <button type="button" className="score-orb" aria-label={`查看我的积分流水，当前 ${data.guest.points} 分`} onClick={() => setScoreLedgerOpen(true)}><strong>{data.guest.points}</strong><small>积分明细</small></button>}</div>
       <div className="hero-player-code"><div><small>我的玩家编号</small><strong>{data.guest.player_code}</strong></div><div className="hero-code-actions"><button type="button" className={playerCodeCopied ? 'copied' : ''} onClick={() => void copyMainPlayerCode()}>{playerCodeCopied ? '已复制 ✓' : '复制'}</button><button type="button" onClick={() => void openPlayerDirectory()}>宾客列表</button></div></div>
       <div className={`identity-strip ${identityVisible || (usesTricksterFacade && secretReaderOpen) ? 'visible' : 'concealed'} ${isTrickster && identityVisible && !data.game?.results_visible && (!usesTricksterFacade || secretReaderOpen) ? 'trickster-identity' : ''} ${usesTricksterFacade && secretReaderOpen ? 'trickster-real-identity' : ''}`}>
         <div className="identity-strip-heading">
