@@ -1016,7 +1016,8 @@ export default function GuestPage() {
     contentSnapshotRef.current = null; contentNoticeRef.current = null; setContentNotice(null);
     hasServerConfirmedDataRef.current = false;
     confirmedAvatarTransitionRef.current = null;
-    setData(null); setInvitationCode(''); setSelectedGuest(null); setClaimCode(''); setClaimCodeConfirm(''); setSearch(''); setShowSecrets(false); setSecretReaderOpen(false); setRevealedCard(null); setSpecialCardRevealed(false);
+    setData(null); setGuests(null); setDeviceAccessChecking(true); setInvitationCode(''); setSelectedGuest(null); setClaimCode(''); setClaimCodeConfirm(''); setSearch(''); setShowSecrets(false); setSecretReaderOpen(false); setRevealedCard(null); setSpecialCardRevealed(false);
+    await restoreInvitationAccess();
     setBusy(false);
   }
 
