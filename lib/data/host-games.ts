@@ -80,6 +80,26 @@ const charades: HostGameToolkitData['charades'] = [
   { id: 'places', title: '地点与出行', words: ['电影院', '动物园', '游乐园', '机场', '火车站', '健身房', '图书馆', '海边', '医院', '超市', '理发店', '露营', '爬山', '堵车', '坐过山车', '坐热气球', '迷路', '过马路'] },
 ];
 
+const coupleQuiz: HostGameToolkitData['coupleQuiz'] = [
+  { prompt: '谁更喜欢梅西？', answer: '新郎' },
+  { prompt: '谁更喜欢游泳？', answer: '新娘' },
+  { prompt: '谁更爱喝 Diet Coke？', answer: '新郎' },
+  { prompt: '谁更早起床？', answer: '新娘' },
+  { prompt: '谁更喜欢喝水？', answer: '新郎' },
+  { prompt: '谁更喜欢吃鹅肝？', answer: '新娘' },
+  { prompt: '谁更喜欢吃黄焖鸡米饭？', answer: '新郎' },
+  { prompt: '谁更喜欢提前很久到机场？', answer: '新郎' },
+  { prompt: '谁更喜欢喝咖啡？', answer: '新娘' },
+  { prompt: '谁会写书法？', answer: '新娘' },
+  { prompt: '谁会弹钢琴？', answer: '新郎' },
+  { prompt: '在《英雄联盟》里，谁更喜欢玩豹女？', answer: '新娘' },
+  { prompt: '在《英雄联盟》里，谁更喜欢玩时光老头？', answer: '新娘' },
+  { prompt: '旅行时，谁更常负责做攻略？', answer: '新娘' },
+  { prompt: '平时谁负责盛米饭？', answer: '新娘' },
+  { prompt: '谁玩《动物森友会》更多？', answer: '新郎' },
+  { prompt: '谁的拿手菜是番茄牛尾汤？', answer: '新娘' },
+];
+
 export async function getHostGameToolkitData(): Promise<HostGameToolkitData> {
-  return { quickQuiz, charades };
+  return { quickQuiz, charades, coupleQuiz };
 }

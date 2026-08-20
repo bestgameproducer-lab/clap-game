@@ -50,17 +50,22 @@ test('你比划我猜和随机数都有独立、适合现场使用的主持状�
   assert.match(component, /crypto\.getRandomValues/);
   assert.match(component, /每次独立随机，数字可能重复/);
   assert.match(component, /charadesEndsAt - Date\.now\(\)/);
-  assert.match(component, /等待你确认题目和答案后再启用，不展示半成品题库/);
 });
 
-test('第四个游戏等待正式题目，不向主持人暴露半成品功能', () => {
-  assert.doesNotMatch(data, /谁更喜欢梅西|coupleQuiz|answer: null/);
-  assert.doesNotMatch(component, /ToolkitMode = .*couple|揭晓答案|选择问题/);
-  assert.match(component, /04 · 稍后开放/);
+test('第四个游戏使用 17 道已确认的新人问答并默认隐藏答案', () => {
+  assert.equal((data.match(/^  \{ prompt: /gm) ?? []).length, 17);
+  assert.match(data, /\{ prompt: '谁更喜欢梅西？', answer: '新郎' \}/);
+  assert.match(data, /\{ prompt: '谁更喜欢游泳？', answer: '新娘' \}/);
+  assert.match(data, /\{ prompt: '谁的拿手菜是番茄牛尾汤？', answer: '新娘' \}/);
+  assert.match(component, /ToolkitMode = 'quick' \| 'charades' \| 'random' \| 'couple'/);
+  assert.match(component, /17 道新人问答/);
+  assert.match(component, /揭晓前请保持隐藏/);
+  assert.match(component, /重新洗牌 · 从头开始/);
+  assert.doesNotMatch(component, /04 · 稍后开放/);
 });
 
 test('五个主持入口和游戏工具在窄屏保留可点击布局', () => {
   assert.match(styles, /host-score-tabs\{grid-template-columns:repeat\(5,minmax\(0,1fr\)\)\}/);
-  assert.match(styles, /\.host-game-picker\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
-  assert.match(styles, /\.host-game-coming-soon\{/);
+  assert.match(styles, /\.host-game-picker\{grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+  assert.match(styles, /@media\(max-width:560px\)\{\.host-game-picker\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
 });

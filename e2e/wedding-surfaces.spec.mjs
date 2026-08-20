@@ -86,6 +86,11 @@ const hostGameData = {
     { prompt: '挪威的首都是哪里？', answer: '奥斯陆', backup: true },
   ] }],
   charades: [{ id: 'wedding', title: '婚礼与爱情', words: ['交换戒指', '抛捧花', '求婚'] }],
+  coupleQuiz: [
+    { prompt: '谁更喜欢梅西？', answer: '新郎' },
+    { prompt: '谁更喜欢游泳？', answer: '新娘' },
+    { prompt: '谁会弹钢琴？', answer: '新郎' },
+  ],
 };
 
 function collectPageErrors(page) {
@@ -545,8 +550,14 @@ test('主持人可以进入游戏、团队、个人和流程控制台', async ({
   await page.getByRole('button', { name: '奖励数 1–10' }).click();
   await page.getByRole('button', { name: '随机抽取一个数字' }).click();
   await expect(page.locator('.random-result strong')).not.toHaveText('—');
-  await expect(page.getByText('一站到底 · 新人问答')).toBeVisible();
-  await expect(page.getByText('等待你确认题目和答案后再启用，不展示半成品题库。')).toBeVisible();
+  await page.getByRole('button', { name: /04.*一站到底/ }).click();
+  await expect(page.getByRole('region', { name: '一站到底新人问答主持工具' })).toBeVisible();
+  await page.getByRole('button', { name: '洗牌并开始新人问答' }).click();
+  await expect(page.locator('.couple-answer strong')).toHaveText('揭晓前请保持隐藏');
+  await page.getByRole('button', { name: '揭晓答案' }).click();
+  await expect(page.locator('.couple-answer.visible strong')).toHaveText(/新郎|新娘/);
+  await page.getByRole('button', { name: '下一题' }).click();
+  await expect(page.locator('.couple-answer strong')).toHaveText('揭晓前请保持隐藏');
   await page.getByRole('button', { name: '团队计分', exact: true }).click();
   await expect(page.getByRole('heading', { name: '记录团队挑战成绩' })).toBeVisible();
   await page.getByRole('button', { name: '个人加分', exact: true }).click();
