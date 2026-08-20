@@ -71,6 +71,7 @@ export async function getPublicScoreboard() {
     {
       leaderLimit: game.results_visible ? scoreboardGuests.length : 10,
       priorityGuestIds: undetectedTricksterIds,
+      tricksterGuestIds: game.results_visible ? new Set(revealedRoles.map((guest) => guest.id)) : undefined,
     },
   );
 

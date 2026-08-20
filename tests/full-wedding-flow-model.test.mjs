@@ -241,9 +241,9 @@ test('an escaped trickster is promoted without mutating personal or frozen team 
   ]);
 });
 
-test('extra-vote ability completes at unlock without points, rank, clues or guest action', async () => {
+test('Double Verdict completes at unlock without immediate points, rank, clues or guest action', async () => {
   const [migration, manifest, finalFallback, luckySettlement] = await Promise.all([
-    read('supabase/migrations/202608130035_complete_extra_vote_on_unlock.sql'),
+    read('supabase/migrations/202608200002_bouquet_lucky_and_double_verdict.sql'),
     read('lib/official-task-manifest.ts'),
     read('supabase/migrations/202607310019_settle_phase_two_power_assignments.sql'),
     read('supabase/migrations/202607310028_phase_two_finale_clue_polish.sql'),
@@ -253,11 +253,15 @@ test('extra-vote ability completes at unlock without points, rank, clues or gues
   assert.match(migration, /t\.mechanic='INSTANT_BONUS' and t\.score_policy='NO_PERSONAL'/);
   assert.match(migration, /p\.primary_mission='EXTRA_VOTE' and p\.extra_vote[\s\S]*p\.unlocked_at is not null/);
   assert.match(migration, /a\.status in\('assigned','submitted','rejected'\)/);
-  assert.match(migration, /verification_note='额外一票已解锁，最终投票自动按两票计算'/);
+  assert.match(migration, /verification_note='双重裁决已解锁：最终投票按两票计算，成功抓捕且投对时获得 4 分'/);
   assert.match(migration, /perform settle_phase_two_lucky\(p_actor\);[\s\S]*perform complete_phase_two_extra_vote_assignments\(p_actor\);/);
-  assert.match(migration, /points_awarded',0[\s\S]*completion_rank_awarded',false[\s\S]*clues_awarded',0/);
-  assert.doesNotMatch(migration, /insert into points_ledger|insert into guest_clues|completion_rank\s*=/);
-  assert.match(manifest, /'P2-POWER-001'[\s\S]*额外一票已解锁。[\s\S]*最终投票自动按两票计算/);
+  assert.match(migration, /points_awarded_at_unlock',0[\s\S]*completion_rank_awarded',false[\s\S]*clues_awarded',0/);
+  const completionFunction = migration.slice(
+    migration.indexOf('create or replace function complete_phase_two_extra_vote_assignments'),
+    migration.indexOf('revoke all on function complete_phase_two_extra_vote_assignments'),
+  );
+  assert.doesNotMatch(completionFunction, /insert into points_ledger|insert into guest_clues|completion_rank\s*=/);
+  assert.match(manifest, /'P2-POWER-001'[\s\S]*系统会自动将你的选择按两票计算[\s\S]*个人投票奖励也会从 2 分翻倍为 4 分/);
 
   // The older reveal-time close remains in place for historical rows, while
   // the lucky card already follows the same immediate-completion semantics.

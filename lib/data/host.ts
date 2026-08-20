@@ -105,6 +105,7 @@ export async function getHostDashboardData() {
   const rankings = buildPublicScoreboard(eligibleGuests, rankingAssignments, roundVotes, frozenTeamPoints, {
     leaderLimit: game.data?.results_visible ? eligibleGuests.length : 10,
     priorityGuestIds: undetectedTricksterIds,
+    tricksterGuestIds: game.data?.results_visible ? new Set(eligibleTeamTricksters.map((guest) => guest.id)) : undefined,
   });
   return {
     guests: orderedGuests,

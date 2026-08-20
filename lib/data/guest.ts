@@ -118,12 +118,12 @@ export async function submitPhaseTwoCopyChoice(guestId: string, targetGuestId: s
     p_guest_id: guestId, p_target_guest_id: targetGuestId, p_rehearsal_run_id: rehearsalRunId,
   });
   if (error) throwIfStaleGuestRun(error);
-  if (error?.message.includes('phase_two_action_closed')) throw new ApiError(409, '当前环节尚未开放或已经关闭命运复制');
-  if (error?.message.includes('phase_two_copy_forbidden')) throw new ApiError(403, '你没有命运复制任务');
+  if (error?.message.includes('phase_two_action_closed')) throw new ApiError(409, '当前环节尚未开放或已经关闭偷心行动');
+  if (error?.message.includes('phase_two_copy_forbidden')) throw new ApiError(403, '你没有偷心行动任务');
   if (error?.message.includes('phase_two_copy_self')) throw new ApiError(400, '不能选择自己');
-  if (error?.message.includes('phase_two_copy_target_invalid')) throw new ApiError(400, '这个玩家不能作为复制目标');
-  if (error?.message.includes('phase_two_choice_locked')) throw new ApiError(409, '复制目标已经提交，不能修改');
-  if (error) throw new Error(`Unable to submit phase two copy choice: ${error.message}`);
+  if (error?.message.includes('phase_two_copy_target_invalid')) throw new ApiError(400, '这个玩家不能作为偷分目标');
+  if (error?.message.includes('phase_two_choice_locked')) throw new ApiError(409, '偷分目标已经提交，不能修改');
+  if (error) throw new Error(`Unable to submit Lonely Cupid target: ${error.message}`);
 }
 
 export async function drawGuestCard(guestId: string, rehearsalRunId: string) {

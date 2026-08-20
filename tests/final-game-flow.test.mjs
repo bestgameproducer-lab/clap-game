@@ -21,7 +21,7 @@ const adminRoute = await readFile(new URL('../app/api/admin-action/route.ts', im
 const loginRoute = await readFile(new URL('../app/api/admin-login/route.ts', import.meta.url), 'utf8');
 const adminPage = await readFile(new URL('../app/admin/page.tsx', import.meta.url), 'utf8');
 
-test('final phase-one catalogue has exact capacities and fixed named allocations', () => {
+test('historical phase-one catalogue keeps its original capacities and named allocations auditable', () => {
   for (const row of [
     "('P1-CER-001',5,1)", "('P1-CER-002',3,2)", "('P1-CER-003',3,1)", "('P1-CER-004',3,1)",
     "('P1-HEART-001',2,5)", "('P1-STAR-001',2,5)", "('P1-SOCIAL-001',2,2)",

@@ -771,14 +771,14 @@ test('主控、主持人与公开大屏显示完整终局排名和实名投票�
   await page.route('**/api/host-data', (route) => route.fulfill({ json: { ...hostData, game: finalGame, voteCount: 2, rankings: { personal, teams: [] }, finale } }));
   await page.goto('/host');
   await page.getByRole('button', { name: '流程控制', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '完整最终积分排名' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '完整最终排名' })).toBeVisible();
   await expect(page.getByText('宾客20')).toBeVisible();
   await expect(page.getByText('家人嘉宾', { exact: true })).toBeVisible();
 
   await page.route('**/api/admin-data', (route) => route.fulfill({ json: { ...adminData, game: finalGame, rankings: { personal, teams: [] }, finale } }));
   await page.goto('/admin');
   await page.locator('.admin-panel-tabs').getByRole('button', { name: '终局结算', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '完整最终个人积分排名' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '完整最终个人排名' })).toBeVisible();
   await expect(page.getByText('投票者A（2票）、投票者B')).toBeVisible();
   await expect(page.getByText('宾客20')).toBeVisible();
   await expect(page.getByText('家人嘉宾', { exact: true })).toBeVisible();

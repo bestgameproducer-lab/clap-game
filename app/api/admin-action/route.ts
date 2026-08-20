@@ -175,7 +175,7 @@ export async function POST(request: Request) {
       await configurePhaseTwoProfile({
         guestId: requiredUuid(body.guestId, '宾客 ID'),
         primaryMission: body.primaryMission ? requiredEnum(body.primaryMission, '第二轮主任务', PHASE_TWO_PRIMARY_MISSIONS) : null,
-        extraVote: requiredBoolean(body.extraVote, '额外投票权'),
+        extraVote: requiredBoolean(body.extraVote, '双重裁决票权'),
         superLucky: requiredBoolean(body.superLucky, '超级幸运星'),
         isCaptain: requiredBoolean(body.isCaptain, '队长身份'),
         interactionTheme: optionalString(body.interactionTheme, '合影主题', 120),

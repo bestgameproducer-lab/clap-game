@@ -59,7 +59,7 @@ test('host and guest interfaces explain every new scoring outcome', () => {
   assert.match(hostPage, /不会增加任何团队分/);
   assert.match(hostPage, /type: 'awardRandomFamilyPoint'/);
   assert.match(styles, /\.family-random-award/);
-  assert.match(guestPage, /投中者 \+2 分，其他已投票者 \+1 分/);
+  assert.match(guestPage, /普通投中者 \+2 分，双重裁决者投中 \+4 分，其他已投票者 \+1 分/);
   assert.match(guestPage, /若恶作剧者逃脱，本队所有人都不获得投票分/);
   assert.match(guestPage, /本队成功抓出恶作剧者 · 你获得参与奖励/);
   assert.match(guestPage, /本队未能抓住恶作剧者 · 本轮不加分/);

@@ -108,17 +108,16 @@ test('operator UI keeps official tasks read-only and confines custom tasks to de
   assert.match(retirement, /before insert or update or delete on tasks/);
 });
 
-test('every active automated assignment path resolves to the exact 22-task official manifest', async () => {
-  const [manifest, phaseOneDraw, familyRetirement, phaseTwoAllocator, admin, station] = await Promise.all([
+test('every active automated assignment path resolves to the exact 21-task official manifest', async () => {
+  const [manifest, currentRules, familyRetirement, admin, station] = await Promise.all([
     readFile(new URL('../lib/official-task-manifest.ts', import.meta.url), 'utf8'),
-    readFile(new URL('../supabase/migrations/202607310011_fix_phase_one_team_coverage.sql', import.meta.url), 'utf8'),
+    readFile(new URL('../supabase/migrations/202608200002_bouquet_lucky_and_double_verdict.sql', import.meta.url), 'utf8'),
     readFile(new URL('../supabase/migrations/202608190001_retire_joint_family_guests.sql', import.meta.url), 'utf8'),
-    readFile(new URL('../supabase/migrations/202608130032_make_phase_two_allocator_team_safe.sql', import.meta.url), 'utf8'),
     readFile(new URL('../app/admin/page.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app/station/page.tsx', import.meta.url), 'utf8'),
   ]);
   const expected = [
-    'P1-CER-001', 'P1-CER-002', 'P1-CER-003', 'P1-CER-004',
+    'P1-CER-001', 'P1-CER-002', 'P1-BOUQUET-001',
     'P1-HEART-001', 'P1-STAR-001', 'P1-SOCIAL-001', 'P1-SOCIAL-002',
     'P1-BONUS-001', 'P1-TRICKSTER-001',
     'P2-SOCIAL-001', 'P2-SOCIAL-002', 'P2-SOCIAL-003', 'P2-SOCIAL-004',
@@ -127,22 +126,20 @@ test('every active automated assignment path resolves to the exact 22-task offic
   ];
   const declared = [...manifest.matchAll(/^\s*\['(P[12]-[A-Z0-9-]+)'/gm)].map((match) => match[1]);
   assert.deepEqual(declared.sort(), expected.slice().sort());
-  assert.equal(new Set(declared).size, 22);
+  assert.equal(new Set(declared).size, 21);
 
-  const automaticCodes = [...new Set(
-    [phaseOneDraw, phaseTwoAllocator]
-      .flatMap((source) => [...source.matchAll(/'(P[12]-[A-Z0-9-]+)'/g)].map((match) => match[1])),
-  )];
-  for (const code of automaticCodes) assert.ok(expected.includes(code), `unexpected automatic task ${code}`);
-  assert.match(phaseOneDraw, /mission_code=case v_guest\.story_role/);
-  assert.match(phaseOneDraw, /mission_code in\('P1-SOCIAL-001','P1-SOCIAL-002'\)/);
-  assert.match(phaseOneDraw, /v_role='spy'[\s\S]*?mission_code in\('P1-SOCIAL-001','P1-SOCIAL-002'\)/);
-  assert.match(phaseOneDraw, /case when t\.mission_code='P1-SOCIAL-001' then 2 else 1 end/);
-  assert.match(phaseOneDraw, /case when t\.mission_code='P1-SOCIAL-002' then 1 else 0 end/);
+  const currentGuard = currentRules.slice(
+    currentRules.indexOf('create or replace function is_official_wedding_mission_code'),
+    currentRules.indexOf('revoke all on function is_official_wedding_mission_code'),
+  );
+  const guarded = [...currentGuard.matchAll(/'(P[12]-[A-Z0-9-]+)'/g)].map((match) => match[1]);
+  assert.deepEqual([...new Set(guarded)].sort(), expected.slice().sort());
+  assert.match(currentRules, /mission_code='P1-BOUQUET-001'[\s\S]*assigned_guest\.phase_two_eligible\)<2/);
+  assert.match(currentRules, /p\.primary_mission='SUPER_LUCKY'[\s\S]*lower\(g\.login_name\) in\('feifei xie','luyi sun'\)/);
   assert.match(familyRetirement, /mission_code='P1-FAMILY-001'/);
   assert.match(familyRetirement, /set active=false,formal_allowed=false/);
-  for (const code of expected.filter((value) => value.startsWith('P2-'))) assert.ok(phaseTwoAllocator.includes(code));
-  assert.match(phaseTwoAllocator, /insert into assignments\(guest_id,task_id\)[\s\S]*?join tasks t on t\.mission_code=case p\.primary_mission/);
+  for (const code of expected.filter((value) => value.startsWith('P2-'))) assert.ok(currentRules.includes(code));
+  assert.match(currentRules, /insert into assignments\(guest_id,task_id\)[\s\S]*?join tasks t on t\.mission_code=case p\.primary_mission/);
 
   assert.match(admin, /演示任务不会进入正式任务清单/);
   assert.match(admin, /!\/\^P\[12\]-\/i/);

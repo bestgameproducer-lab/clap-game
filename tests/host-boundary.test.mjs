@@ -39,8 +39,9 @@ test('host finale exposes personal and team rankings after result publication', 
   assert.match(dataSource, /buildPublicScoreboard/);
   assert.match(dataSource, /rankings: \{ personal: rankings\.leaders, teams: rankings\.teams \}/);
   assert.match(page, /data\.game\?\.results_visible/);
-  assert.match(page, /最终积分排名/);
-  assert.match(page, /完整个人积分排名/);
+  assert.match(page, /完整最终排名/);
+  assert.match(page, /完整个人排名/);
+  assert.match(page, /逃脱者置顶、被识破者置底且均不显示积分/);
   assert.match(page, /data\.rankings\.personal\.length/);
 });
 

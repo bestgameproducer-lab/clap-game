@@ -406,10 +406,9 @@ test(
         )).rows.map((row) => [row.mission_code, row.count])),
         {
           'P1-BONUS-001': 2,
+          'P1-BOUQUET-001': 2,
           'P1-CER-001': 1,
           'P1-CER-002': 2,
-          'P1-CER-003': 1,
-          'P1-CER-004': 1,
           'P1-HEART-001': 5,
           'P1-SOCIAL-001': 3,
           'P1-SOCIAL-002': 3,
@@ -423,20 +422,30 @@ test(
            from assignments a join guests g on g.id=a.guest_id
            join tasks t on t.id=a.task_id
            where a.is_initial and lower(g.login_name) in(
-             'yifan yu','xingcheng jin','andao chen','siran li','moshuang xu',
-             'feifei xie','luyi sun'
+             'yifan yu','xingcheng jin','andao chen','feifei xie','luyi sun'
            ) order by lower(g.login_name)`,
         )).rows,
         [
           { login_name: 'andao chen', mission_code: 'P1-CER-002' },
           { login_name: 'feifei xie', mission_code: 'P1-BONUS-001' },
           { login_name: 'luyi sun', mission_code: 'P1-BONUS-001' },
-          { login_name: 'moshuang xu', mission_code: 'P1-CER-004' },
-          { login_name: 'siran li', mission_code: 'P1-CER-003' },
           { login_name: 'xingcheng jin', mission_code: 'P1-CER-002' },
           { login_name: 'yifan yu', mission_code: 'P1-CER-001' },
         ],
       );
+      assert.equal(Number(await scalar(
+        db,
+        `select count(*) from guests
+         where lower(login_name) in('siran li','moshuang xu')
+           and story_role not in('GROOM_CHEERLEADER','BRIDE_CHEERLEADER')`,
+      )), 2, 'Siran and Moshuang no longer hold fixed cheerleader roles');
+      assert.equal(Number(await scalar(
+        db,
+        `select count(*) from assignments a join guests g on g.id=a.guest_id
+         join tasks t on t.id=a.task_id
+         where lower(g.login_name) in('siran li','moshuang xu')
+           and t.mission_code in('P1-CER-003','P1-CER-004')`,
+      )), 0, 'retired cheerleader cards are never assigned');
       assert.deepEqual(
         (await db.query(
           `select g.team,t.mission_code
@@ -460,18 +469,20 @@ test(
 
       // Use the real fixed staff-confirmed mission to prove approval awards
       // points only. No assignment completion may grant or create a clue.
+      const officialAssignment = (await db.query(
+        `select a.id,a.guest_id
+         from assignments a join tasks t on t.id=a.task_id
+         where t.mission_code='P1-BOUQUET-001' and a.is_initial
+         order by a.created_at limit 1`,
+      )).rows[0];
+      assert.ok(officialAssignment, 'a random bouquet task must exist');
       const officialTaskId = await scalar(
         db,
         `select id from tasks
-         where mission_code='P1-CER-003' and active and formal_allowed limit 1`,
+         where mission_code='P1-BOUQUET-001' and active and formal_allowed limit 1`,
       );
       assert.ok(officialTaskId, 'official first-round task must exist');
-      const officialGuestId = await scalar(
-        db,
-        `select id from guests
-         where active and story_role='GROOM_CHEERLEADER' limit 1`,
-      );
-      assert.ok(officialGuestId, 'the matching fixed-role guest must exist');
+      const officialGuestId = officialAssignment.guest_id;
       await db.query(`update game_state set stage='ceremony_end' where id=1`);
       const assignmentId = await scalar(
         db,
@@ -581,6 +592,14 @@ test(
       );
       assert.equal(await scalar(db, `select status from assignments where id=$1`, [acceptedSocial.assignment_id]), 'approved');
       assert.equal(await scalar(db, `select status from assignment_mutual_confirmations where id=$1`, [acceptedConfirmationId]), 'ACTIVE');
+      assert.deepEqual(
+        (await db.query(
+          `select completion_rank,early_bonus_points from assignments where id=$1`,
+          [acceptedSocial.assignment_id],
+        )).rows[0],
+        { completion_rank: null, early_bonus_points: 0 },
+        'peer confirmation cannot consume the staff-verified first-three honor',
+      );
       await db.query(
         `select respond_assignment_mutual_confirmation($1,$2,true,$3)`,
         [acceptedConfirmationId, acceptedTarget.id, runId],
@@ -614,6 +633,43 @@ test(
         'a mistaken invitation remains rejectable during the ceremony pause',
       );
       await db.query(`update game_state set stage='ceremony_end' where id=1`);
+
+      // A trickster's ordinary-looking photo assignment must now award its
+      // visible two camouflage points without consuming the real guests'
+      // staff-verified first-three honor.
+      const tricksterFacade = (await db.query(
+        `select a.id,a.guest_id,a.status
+         from assignments a join tasks t on t.id=a.task_id
+         join guests g on g.id=a.guest_id
+         where a.is_initial and g.role='spy'
+           and t.mission_code in('P1-SOCIAL-001','P1-SOCIAL-002')
+         order by a.id limit 1`,
+      )).rows[0];
+      assert.ok(tricksterFacade, 'one trickster facade is available for score regression');
+      if (tricksterFacade.status === 'assigned') {
+        await db.query(
+          `select complete_assignment_at_station_for_run($1,'runtime-test','伪装任务现场确认',$2)`,
+          [tricksterFacade.id, runId],
+        );
+      }
+      assert.deepEqual(
+        (await db.query(
+          `select status,completion_rank,early_bonus_points
+           from assignments where id=$1`,
+          [tricksterFacade.id],
+        )).rows[0],
+        { status: 'approved', completion_rank: null, early_bonus_points: 0 },
+        'camouflage points do not consume the first-three completion honor',
+      );
+      assert.equal(
+        Number(await scalar(
+          db,
+          `select coalesce(sum(amount),0) from points_ledger where assignment_id=$1`,
+          [tricksterFacade.id],
+        )),
+        2,
+        'the approved facade still contributes two visible personal points',
+      );
 
       // A demo task may reuse a production mechanic, but system completion
       // must select the exact official mission code rather than the oldest
@@ -830,7 +886,7 @@ test(
         `select count(*) from assignments a join tasks t on t.id=a.task_id
          where a.status<>'cancelled' and t.stage='task_round_2'
            and is_official_wedding_mission_code(t.mission_code)`,
-      )), 21, 'twenty primary cards plus Louise secondary lucky ability are released');
+      )), 20, 'all twenty phase-two players receive exactly one primary card');
       assert.equal(Number(await scalar(
         db,
         `select count(*) from phase_two_profiles p join guests g on g.id=p.guest_id
@@ -853,7 +909,7 @@ test(
          where a.status<>'cancelled' and t.stage='task_round_2'
            and is_official_wedding_mission_code(t.mission_code)`,
       ));
-      assert.equal(phaseTwoAssignmentCount, 21);
+      assert.equal(phaseTwoAssignmentCount, 20);
       await db.query(
         `select set_game_stage_for_run('task_round_2','runtime-test',$1)`,
         [runId],
@@ -1512,6 +1568,16 @@ test(
         { voting_open: false, results_visible: false },
         'a direct privileged update cannot publish results into an open-vote state',
       );
+      const copyGuestPointsBeforeFinal = Number(await scalar(
+        db,
+        `select points from guests where id=$1`,
+        [copyGuestId],
+      ));
+      const copyTargetPointsBeforeFinal = Number(await scalar(
+        db,
+        `select points from guests where id=$1`,
+        [copyTargetId],
+      ));
       await db.query(
         `select set_game_flag_for_run('results_visible',true,'runtime-test',$1)`,
         [runId],
@@ -1543,12 +1609,12 @@ test(
              and guest_id=$2`,
           [votingRound, extraVoteGuest.id],
         )),
-        2,
-        'a correct trickster vote awards exactly two personal points',
+        4,
+        'Double Verdict doubles the correct-vote personal reward to four points',
       );
       assert.equal(
         Number(await scalar(db, `select points from guests where id=$1`, [extraVoteGuest.id])),
-        Number(extraVoteGuest.points) + 2,
+        Number(extraVoteGuest.points) + 4,
       );
       assert.equal(
         Number(await scalar(
@@ -1604,14 +1670,22 @@ test(
         4,
         'the leading Guiding Star receives the official captain reward first',
       );
+      const copyGuestVoteReward = Number(await scalar(
+        db,
+        `select coalesce(sum(amount),0) from result_rewards
+         where voting_round=$1 and reward_type='guest_detective'
+           and guest_id=$2`,
+        [votingRound, copyGuestId],
+      ));
+      const copyTargetVoteReward = copyTargetTeam === '海岛组' ? 2 : 0;
       assert.equal(
         Number(await scalar(
           db,
           `select settled_points from phase_two_copy_choices where guest_id=$1`,
           [copyGuestId],
         )),
-        4,
-        'Lonely Cupid copies the official captain task reward only',
+        3,
+        'Lonely Cupid transfers exactly three points at the finale',
       );
       assert.equal(
         Number(await scalar(
@@ -1620,10 +1694,68 @@ test(
            from points_ledger l
            join assignments a on a.id=l.assignment_id
            join tasks t on t.id=a.task_id
-           where l.guest_id=$1 and t.mission_code='P2-LONELY-001'`,
+          where l.guest_id=$1 and t.mission_code='P2-LONELY-001'`,
           [copyGuestId],
         )),
-        4,
+        3,
+        'the Lonely Cupid receives the positive side of the transfer once',
+      );
+      assert.equal(
+        Number(await scalar(
+          db,
+          `select amount from points_ledger
+           where guest_id=$1 and assignment_id is null
+             and reason='孤单丘比特 · 被偷走 3 分'`,
+          [copyTargetId],
+        )),
+        -3,
+        'the locked target receives the exact negative side of the transfer',
+      );
+      assert.equal(
+        Number(await scalar(db, `select points from guests where id=$1`, [copyGuestId])),
+        copyGuestPointsBeforeFinal + copyGuestVoteReward + 3,
+        'the Lonely Cupid total includes its ordinary vote reward plus the transfer',
+      );
+      assert.equal(
+        Number(await scalar(db, `select points from guests where id=$1`, [copyTargetId])),
+        copyTargetPointsBeforeFinal + copyTargetVoteReward + 4 - 3,
+        'the target total includes vote and captain rewards before losing three points',
+      );
+      const copyGuestPointsAfterFinal = Number(await scalar(
+        db,
+        `select points from guests where id=$1`,
+        [copyGuestId],
+      ));
+      const copyTargetPointsAfterFinal = Number(await scalar(
+        db,
+        `select points from guests where id=$1`,
+        [copyTargetId],
+      ));
+      await db.query(`select settle_phase_two_copy_and_captain('runtime-retry')`);
+      assert.deepEqual(
+        {
+          lonely: Number(await scalar(db, `select points from guests where id=$1`, [copyGuestId])),
+          target: Number(await scalar(db, `select points from guests where id=$1`, [copyTargetId])),
+          positiveEntries: Number(await scalar(
+            db,
+            `select count(*) from points_ledger
+             where guest_id=$1 and reason='孤单丘比特 · 偷心行动'`,
+            [copyGuestId],
+          )),
+          negativeEntries: Number(await scalar(
+            db,
+            `select count(*) from points_ledger
+             where guest_id=$1 and reason='孤单丘比特 · 被偷走 3 分'`,
+            [copyTargetId],
+          )),
+        },
+        {
+          lonely: copyGuestPointsAfterFinal,
+          target: copyTargetPointsAfterFinal,
+          positiveEntries: 1,
+          negativeEntries: 1,
+        },
+        'a finale retry cannot transfer the same three points twice',
       );
       assert.equal(
         await scalar(db, `select team_score_snapshot::text from game_state where id=1`),

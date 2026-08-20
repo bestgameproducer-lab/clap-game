@@ -25,8 +25,6 @@ function buildFirstAct(seed) {
     ['yifan', '海岛组', 'P1-CER-001'],
     ['xingcheng', '家人组', 'P1-CER-002'],
     ['andao', '家人组', 'P1-CER-002'],
-    ['siran', '沙漠组', 'P1-CER-003'],
-    ['moshuang', '沙漠组', 'P1-CER-004'],
     ['feifei', '海岛组', 'P1-BONUS-001'],
     ['luyi', '沙漠组', 'P1-BONUS-001'],
     ['yirui', '海岛组', 'P1-SOCIAL-001'],
@@ -35,7 +33,7 @@ function buildFirstAct(seed) {
 
   const flex = shuffled([
     ...Array.from({ length: 7 }, (_, index) => ({ id: `island-flex-${index}`, team: '海岛组' })),
-    ...Array.from({ length: 7 }, (_, index) => ({ id: `desert-flex-${index}`, team: '沙漠组' })),
+    ...Array.from({ length: 9 }, (_, index) => ({ id: `desert-flex-${index}`, team: '沙漠组' })),
   ], seed);
 
   const spies = TEAMS.map((team) => ({
@@ -51,8 +49,18 @@ function buildFirstAct(seed) {
     spy: false,
   }));
   const photoIds = new Set(ordinaryPhotos.map((player) => player.id));
-  const symbolPool = shuffled(
+  const bouquetPool = shuffled(
     ordinaryPool.filter((player) => !photoIds.has(player.id)),
+    seed ^ 0x85ebca6b,
+  );
+  const bouquets = bouquetPool.slice(0, 2).map((player) => ({
+    ...player,
+    mission: 'P1-BOUQUET-001',
+    spy: false,
+  }));
+  const bouquetIds = new Set(bouquets.map((player) => player.id));
+  const symbolPool = shuffled(
+    ordinaryPool.filter((player) => !photoIds.has(player.id) && !bouquetIds.has(player.id)),
     seed ^ 0x9e3779b9,
   );
   const symbols = symbolPool.map((player, index) => ({
@@ -61,7 +69,7 @@ function buildFirstAct(seed) {
     spy: false,
   }));
 
-  return [...fixed, ...spies, ...ordinaryPhotos, ...symbols];
+  return [...fixed, ...spies, ...ordinaryPhotos, ...bouquets, ...symbols];
 }
 
 function allocateSecondAct(firstAct, seed) {
@@ -85,6 +93,10 @@ function allocateSecondAct(firstAct, seed) {
   stars.slice(0, 4).forEach((player) => take(player, 'P2-STAR-001'));
   take(stars[4], 'P2-GUIDE-001');
 
+  for (const login of ['feifei', 'luyi']) {
+    take(competitive.find((player) => player.id === login), 'P2-LUCKY-001');
+  }
+
   let remaining = shuffled(
     competitive.filter((player) => !selectedIds.has(player.id)).map((player) => ({
       ...player,
@@ -98,18 +110,16 @@ function allocateSecondAct(firstAct, seed) {
     take(winner, 'P2-POWER-001');
     remaining = remaining.filter((player) => player.id !== winner.id);
   }
-  const lucky = remaining.find((player) => player.hadScoredFirstActPhoto) ?? remaining[0];
-  take(lucky, 'P2-LUCKY-001');
-  remaining = remaining.filter((player) => player.id !== lucky.id);
   const dinnerCodes = ['P2-SOCIAL-001', 'P2-SOCIAL-002', 'P2-SOCIAL-003', 'P2-SOCIAL-004'];
-  remaining.forEach((player, index) => take(player, dinnerCodes[index]));
+  const shuffledDinnerCodes = shuffled(dinnerCodes, seed ^ 29);
+  remaining.forEach((player, index) => take(player, shuffledDinnerCodes[index]));
   return selected;
 }
 
 test('official assignment-mode metadata describes the real allocator source', () => {
   const expected = new Map([
     ['P1-CER-001', 'FIXED'], ['P1-CER-002', 'FIXED'],
-    ['P1-CER-003', 'FIXED'], ['P1-CER-004', 'FIXED'],
+    ['P1-BOUQUET-001', 'CONTROLLED_RANDOM'],
     ['P1-HEART-001', 'CONTROLLED_RANDOM'], ['P1-STAR-001', 'CONTROLLED_RANDOM'],
     ['P1-SOCIAL-001', 'CONTROLLED_RANDOM'], ['P1-SOCIAL-002', 'CONTROLLED_RANDOM'],
     ['P1-BONUS-001', 'FIXED'], ['P1-TRICKSTER-001', 'ROLE_FIXED'],
@@ -119,9 +129,9 @@ test('official assignment-mode metadata describes the real allocator source', ()
     ['P2-HEART-001', 'RELATIONSHIP'], ['P2-STAR-001', 'RELATIONSHIP'],
     ['P2-LONELY-001', 'RELATIONSHIP'], ['P2-GUIDE-001', 'RELATIONSHIP'],
     ['P2-TRICKSTER-001', 'ROLE_FIXED'],
-    ['P2-POWER-001', 'CONTROLLED_RANDOM'], ['P2-LUCKY-001', 'CONTROLLED_RANDOM'],
+    ['P2-POWER-001', 'CONTROLLED_RANDOM'], ['P2-LUCKY-001', 'FIXED'],
   ]);
-  assert.equal(expected.size, 22);
+  assert.equal(expected.size, 21);
   assert.deepEqual(
     new Map(OFFICIAL_TASK_MANIFEST.map((task) => [task.mission_code, task.assignment_mode])),
     expected,
@@ -141,17 +151,15 @@ test('historical assignment-mode migration aligned the former 23-row catalog', a
 
 test('30 deterministic draw orders preserve P1 capacity and P2 no-repeat-photo invariants', () => {
   const expectedFirstAct = new Map([
-    ['P1-CER-001', 1], ['P1-CER-002', 2], ['P1-CER-003', 1], ['P1-CER-004', 1],
+    ['P1-CER-001', 1], ['P1-CER-002', 2], ['P1-BOUQUET-001', 2],
     ['P1-HEART-001', 5], ['P1-STAR-001', 5],
     ['P1-SOCIAL-001', 3], ['P1-SOCIAL-002', 3],
     ['P1-BONUS-001', 2],
   ]);
   const expectedSecondAct = new Map([
-    ['P2-SOCIAL-001', 1], ['P2-SOCIAL-002', 1],
-    ['P2-SOCIAL-003', 1], ['P2-SOCIAL-004', 1],
     ['P2-CEREMONY-001', 1], ['P2-HEART-001', 4], ['P2-STAR-001', 4],
     ['P2-LONELY-001', 1], ['P2-GUIDE-001', 1], ['P2-TRICKSTER-001', 2],
-    ['P2-POWER-001', 2], ['P2-LUCKY-001', 1],
+    ['P2-POWER-001', 2], ['P2-LUCKY-001', 2],
   ]);
 
   for (let seed = 1; seed <= 30; seed += 1) {
@@ -173,10 +181,20 @@ test('30 deterministic draw orders preserve P1 capacity and P2 no-repeat-photo i
     for (const [mission, count] of expectedSecondAct) {
       assert.equal(secondAct.filter((player) => player.mission === mission).length, count, `seed ${seed}: ${mission}`);
     }
+    assert.equal(
+      secondAct.filter((player) => player.mission.startsWith('P2-SOCIAL-')).length,
+      3,
+      `seed ${seed}: exactly three banquet social cards`,
+    );
     assert.deepEqual(
       secondAct.filter((player) => player.mission === 'P2-POWER-001').map((player) => player.team).sort(),
       [...TEAMS].sort(),
       `seed ${seed}: one extra vote per team`,
+    );
+    assert.deepEqual(
+      secondAct.filter((player) => player.mission === 'P2-LUCKY-001').map((player) => player.id).sort(),
+      ['feifei', 'luyi'],
+      `seed ${seed}: both fixed lucky stars receive the same primary ability`,
     );
     assert.equal(
       secondAct.filter((player) => player.mission.startsWith('P2-SOCIAL-'))

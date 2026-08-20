@@ -36,7 +36,7 @@ test('host desk exposes a ceremony confirmation control', async () => {
 
 test('guest ceremony cards can report completion while host approval remains authoritative', async () => {
   const [page, taskUi] = await Promise.all([read('app/guest/page.tsx'), read('lib/guest-task-ui.ts')]);
-  for (const missionCode of ['P1-CER-001', 'P1-CER-002', 'P1-CER-003', 'P1-CER-004', 'P2-CEREMONY-001']) {
+  for (const missionCode of ['P1-CER-001', 'P1-CER-002', 'P1-BOUQUET-001', 'P2-CEREMONY-001']) {
     assert.match(taskUi, new RegExp(`'${missionCode}'`));
   }
   assert.match(page, /我已完成 · 提交验证/);

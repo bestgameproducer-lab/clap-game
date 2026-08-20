@@ -58,19 +58,16 @@ export function buildWeddingPreflight(input: {
     officialCatalog.mismatches.length ? `配置错误 ${officialCatalog.mismatches.map((entry) => `${entry.missionCode}(${entry.fields.join('/')})`).join('、')}` : '',
     officialCatalog.unexpectedActiveCodes.length ? `未收录 ${officialCatalog.unexpectedActiveCodes.join('、')}` : '',
   ].filter(Boolean);
-  const storyCounts = Object.fromEntries(['OFFICIANT','RING_KEEPER','GROOM_CHEERLEADER','BRIDE_CHEERLEADER','HEART_HOLDER','STAR_HOLDER']
+  const storyCounts = Object.fromEntries(['OFFICIANT','RING_KEEPER','HEART_HOLDER','STAR_HOLDER']
     .map((role) => [role, activeGuests.filter((guest) => guest.story_role === role).length]));
   const normalizedCast = new Map(activeGuests.map((guest) => [guest.login_name?.trim().toLowerCase(), guest.story_role ?? 'NONE']));
   const fixedCastReady = normalizedCast.get('yifan yu') === 'OFFICIANT'
     && normalizedCast.get('xingcheng jin') === 'RING_KEEPER'
-    && normalizedCast.get('andao chen') === 'RING_KEEPER'
-    && normalizedCast.get('siran li') === 'GROOM_CHEERLEADER'
-    && normalizedCast.get('moshuang xu') === 'BRIDE_CHEERLEADER';
+    && normalizedCast.get('andao chen') === 'RING_KEEPER';
   const storyCastReady = storyCounts.OFFICIANT === 1 && storyCounts.RING_KEEPER === 2
-    && storyCounts.GROOM_CHEERLEADER === 1 && storyCounts.BRIDE_CHEERLEADER === 1
     && storyCounts.HEART_HOLDER <= 5
     && storyCounts.STAR_HOLDER <= 5
-    && activeGuests.every((guest) => ['NONE','OFFICIANT','RING_KEEPER','GROOM_CHEERLEADER','BRIDE_CHEERLEADER','HEART_HOLDER','STAR_HOLDER'].includes(guest.story_role ?? 'NONE'))
+    && activeGuests.every((guest) => ['NONE','OFFICIANT','RING_KEEPER','HEART_HOLDER','STAR_HOLDER'].includes(guest.story_role ?? 'NONE'))
     && activeGuests.every((guest) => guest.story_role === 'NONE' || guest.role !== 'spy')
     && fixedCastReady;
   const missionPlayers = activeGuests.filter((guest) => guest.phase_two_eligible || guest.team === '家人组');
@@ -84,7 +81,7 @@ export function buildWeddingPreflight(input: {
     item('draw-capacity', '竞技组容量没有冲突', teamSummary.map((team) => `${team.team} ${team.total}/10`).join(' · '), capacityValid),
     item('official-missions', '两轮正式任务配置正确', `${officialCatalog.matchingCount}/${officialCatalog.totalCount} 项符合定稿${officialCatalogProblems.length ? ` · ${officialCatalogProblems.join(' · ')}` : ''}`, officialCatalog.ready),
     item('phase-one-capacity', '第一轮 23 个任务账号可完整抽卡', `${missionPlayers.length}/23 个任务账号 · 竞技组 ${competitiveGuests.length}/20 · 家人任务账号 ${missionPlayers.filter((guest) => guest.team === '家人组').length}/3`, phaseOneCapacityReady),
-    item('story-cast', '固定职务与随机图案池正确', `誓词 ${storyCounts.OFFICIANT} · 戒指 ${storyCounts.RING_KEEPER} · 应援 ${storyCounts.GROOM_CHEERLEADER + storyCounts.BRIDE_CHEERLEADER} · 已预设爱心 ${storyCounts.HEART_HOLDER}/5 · 已预设星星 ${storyCounts.STAR_HOLDER}/5`, storyCastReady),
+    item('story-cast', '固定职务与随机任务池正确', `誓词 ${storyCounts.OFFICIANT} · 戒指 ${storyCounts.RING_KEEPER} · 手捧花随机名额 2 · 已预设爱心 ${storyCounts.HEART_HOLDER}/5 · 已预设星星 ${storyCounts.STAR_HOLDER}/5`, storyCastReady),
   ];
   return {
     items,

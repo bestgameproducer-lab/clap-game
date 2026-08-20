@@ -23,7 +23,7 @@ function preflightFixture() {
     story_role: 'NONE',
     phase_two_eligible: true,
   })));
-  const familyPlayers = Array.from({ length: 4 }, (_, index) => ({
+  const familyPlayers = Array.from({ length: 3 }, (_, index) => ({
     id: `family-player-${index}`, active: true, team: '家人组', role: 'guest', is_hidden_spy: false,
     drawn_at: null, team_locked: true, role_locked: true, participation_mode: 'ACTIVE_PLAYER',
     story_role: 'NONE', phase_two_eligible: false,
@@ -42,8 +42,6 @@ function preflightFixture() {
   guests[1].story_role = 'OFFICIANT';
   guests[20].story_role = 'RING_KEEPER';
   guests[21].story_role = 'RING_KEEPER';
-  guests[2].story_role = 'GROOM_CHEERLEADER';
-  guests[3].story_role = 'BRIDE_CHEERLEADER';
   return {
     guests,
     tasks: OFFICIAL_TASK_MANIFEST.map((task, index) => ({ id: `task-${index}`, ...task })),

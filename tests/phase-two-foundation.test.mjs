@@ -29,10 +29,10 @@ test('phase two configuration is private, audited, and server validated', () => 
   assert.match(migration, /revoke all on phase_two_profiles,phase_two_dilemmas,phase_two_copy_choices from public,anon,authenticated/);
   assert.match(migration, /'phase_two\.profile_configure'/);
   assert.match(adminRoute, /requiredEnum\(body\.primaryMission, '第二轮主任务', PHASE_TWO_PRIMARY_MISSIONS\)/);
-  assert.match(adminRoute, /requiredBoolean\(body\.extraVote, '额外投票权'\)/);
+  assert.match(adminRoute, /requiredBoolean\(body\.extraVote, '双重裁决票权'\)/);
   assert.match(adminPage, /第二轮任务配置/);
   assert.match(adminPage, /双重裁决/);
-  assert.match(adminPage, /丘比特幸运星/);
+  assert.match(adminPage, /超级幸运星/);
 });
 
 test('phase two mission catalogue is forward-only and fail-closed around unresolved coverage', () => {

@@ -16,13 +16,14 @@ test('published results expose a complete ranking only while the public scoreboa
 });
 
 test('guest finale links to the complete ranking and explains every capture reward outcome', () => {
-  assert.match(guestPage, /投中者 \+2 分，其他已投票者 \+1 分/);
+  assert.match(guestPage, /普通投中者 \+2 分，双重裁决者投中 \+4 分，其他已投票者 \+1 分/);
   assert.match(guestPage, /若恶作剧者逃脱，本队所有人都不获得投票分/);
   assert.match(guestPage, /href="\/scoreboard">查看全员最终积分排名/);
 });
 
-test('final ranking explains undetected trickster priority without inventing a trickster score', () => {
+test('final ranking uses only the reveal outcome for trickster placement', () => {
   assert.match(scoreboardPage, /完美伪装/);
-  assert.match(scoreboardPage, /其个人积分不额外增加/);
+  assert.match(scoreboardPage, /成功逃脱者置顶，被识破者置底，两者均不显示积分/);
+  assert.match(scoreboardPage, /tricksterResult \? '终局按身份结果结算'/);
   assert.doesNotMatch(scoreboardPage, /恶作剧得分|间谍分/);
 });
