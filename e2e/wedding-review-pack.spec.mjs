@@ -334,7 +334,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await screenshot(page, '11c-lonely-cupid-awakening', testInfo.project.name);
   await dismissNotice(page);
   await expandFirstMission(page);
-  await expect(page.getByLabel('选择要复制命运的玩家')).toBeVisible();
+  await expect(page.getByLabel('选择要偷走 3 分的玩家')).toBeVisible();
   await screenshot(page, '11d-lonely-cupid-choice', testInfo.project.name);
 
   const dilemmaTask = officialTask('P2-STAR-001');
@@ -651,7 +651,7 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
   };
   await page.reload();
   await page.locator('.admin-panel-tabs').getByRole('button', { name: '终局结算', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '完整最终个人积分排名' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '完整最终个人排名' })).toBeVisible();
   await screenshot(page, '22b-admin-published-results', testInfo.project.name);
 
   const hostData = {
@@ -722,7 +722,7 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
   };
   await page.reload();
   await page.getByRole('button', { name: '流程控制', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '完整最终积分排名' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '完整最终排名' })).toBeVisible();
   await screenshot(page, '23b-host-published-results', testInfo.project.name);
 
   const stationTask = { id: 'station-task', ...couplePhotoTask };
