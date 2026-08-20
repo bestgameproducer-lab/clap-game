@@ -682,6 +682,11 @@ test('@desktop-review 工作人员与公开终局视觉旅程', async ({ page },
       { prompt: '挪威的首都是哪里？', answer: '奥斯陆', backup: true },
     ] }],
     charades: [{ id: 'wedding', title: '婚礼与爱情', words: ['交换戒指', '抛捧花', '求婚', '接亲', '敬酒', '婚礼誓词'] }],
+    coupleQuiz: [
+      { prompt: '谁更喜欢梅西？', answer: '新郎' },
+      { prompt: '谁更喜欢游泳？', answer: '新娘' },
+      { prompt: '谁会弹钢琴？', answer: '新郎' },
+    ],
   };
   await page.route('**/api/host-data', (route) => route.fulfill({ json: hostState.current }));
   await page.route('**/api/host-games', (route) => route.fulfill({ json: hostGameData }));

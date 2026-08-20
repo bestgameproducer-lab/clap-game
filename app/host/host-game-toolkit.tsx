@@ -12,12 +12,13 @@ type QuickRun = {
   correctCount: number;
   questionOrder: number[];
 };
-type ToolkitMode = 'quick' | 'charades' | 'random';
+type ToolkitMode = 'quick' | 'charades' | 'random' | 'couple';
 
 const TOOL_OPTIONS: Array<{ id: ToolkitMode; number: string; title: string; subtitle: string }> = [
   { id: 'quick', number: '01', title: '快问快答', subtitle: '10 类正式题库' },
   { id: 'charades', number: '02', title: '你比划我猜', subtitle: '5 分钟轮换词库' },
   { id: 'random', number: '03', title: '田忌赛马', subtitle: '公平随机数字' },
+  { id: 'couple', number: '04', title: '一站到底', subtitle: '17 道新人问答' },
 ];
 
 function initialQuickRuns(): Record<QuickTeam, QuickRun> {
@@ -59,6 +60,10 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
   const [randomMax, setRandomMax] = useState('9');
   const [randomValue, setRandomValue] = useState<number | null>(null);
   const [randomHistory, setRandomHistory] = useState<number[]>([]);
+  const [coupleQuestionOrder, setCoupleQuestionOrder] = useState<number[]>([]);
+  const [coupleQuestionIndex, setCoupleQuestionIndex] = useState(0);
+  const [coupleStarted, setCoupleStarted] = useState(false);
+  const [coupleAnswerVisible, setCoupleAnswerVisible] = useState(false);
 
   const quickCategory = data.quickQuiz.find((item) => item.id === quickCategoryId) ?? data.quickQuiz[0];
   const formalQuestions = quickCategory?.questions.filter((question) => !question.backup) ?? [];
@@ -69,6 +74,7 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
   const currentCharadesWord = charadesCurrentIndex === null ? null : charadesCategory?.words[charadesCurrentIndex] ?? null;
   const charadesCorrect = charadesHistory.filter((item) => item.result === 'correct').length;
   const charadesSkipped = charadesHistory.filter((item) => item.result === 'skipped').length;
+  const currentCoupleQuestion = data.coupleQuiz[coupleQuestionOrder[coupleQuestionIndex] ?? coupleQuestionIndex];
   useEffect(() => {
     if (!charadesRunning || charadesEndsAt === null) return;
     const synchronizeClock = () => {
@@ -188,13 +194,24 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
     setRandomHistory((current) => [next, ...current].slice(0, 12));
   }
 
+  function startCoupleQuiz() {
+    setCoupleQuestionOrder((current) => shuffledQuickQuestionOrder(data.coupleQuiz.length, current, secureRandomIndex));
+    setCoupleQuestionIndex(0);
+    setCoupleAnswerVisible(false);
+    setCoupleStarted(true);
+  }
+
+  function moveCoupleQuestion(direction: -1 | 1) {
+    setCoupleQuestionIndex((current) => Math.min(Math.max(current + direction, 0), data.coupleQuiz.length - 1));
+    setCoupleAnswerVisible(false);
+  }
+
   const activeTool = useMemo(() => TOOL_OPTIONS.find((item) => item.id === tool) ?? TOOL_OPTIONS[0], [tool]);
 
   return <section className="section-card host-score-panel host-game-toolkit">
-    <div className="section-heading host-game-heading"><div><small>LIVE GAME ASSISTANT</small><h2>现场游戏助手</h2></div><span>3 个已开放</span></div>
+    <div className="section-heading host-game-heading"><div><small>LIVE GAME ASSISTANT</small><h2>现场游戏助手</h2></div><span>4 个已开放</span></div>
     <p className="host-game-intro">只辅助主持、计时和抽题，不会自动切换婚礼环节或修改积分。游戏结束后请到“团队计分”或“个人加分”记录结果。</p>
     <nav className="host-game-picker" aria-label="选择现场游戏">{TOOL_OPTIONS.map((item) => <button type="button" key={item.id} className={tool === item.id ? 'active' : ''} aria-pressed={tool === item.id} onClick={() => setTool(item.id)}><small>{item.number}</small><strong>{item.title}</strong><span>{item.subtitle}</span></button>)}</nav>
-    <div className="host-game-coming-soon" role="note"><small>04 · 稍后开放</small><strong>一站到底 · 新人问答</strong><span>等待你确认题目和答案后再启用，不展示半成品题库。</span></div>
     <div className="host-game-current"><small>{activeTool.number} · HOST TOOL</small><strong>{activeTool.title}</strong></div>
 
     {tool === 'quick' && <section className="host-game-panel" aria-label="快问快答主持工具">
@@ -230,6 +247,19 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
       <button type="button" disabled={!randomRangeValid} onClick={drawRandomNumber}>随机抽取一个数字</button>
       <p className="random-note">每次独立随机，数字可能重复。历史仅保留本页面最近 12 次，不写入游戏数据。</p>
       {randomHistory.length > 0 && <div className="random-history"><strong>最近结果</strong><div>{randomHistory.map((item, index) => <span key={`${item}-${index}`}>{item}</span>)}</div><button type="button" className="text-button" onClick={() => { setRandomHistory([]); setRandomValue(null); }}>清空记录</button></div>}
+    </section>}
+
+    {tool === 'couple' && <section className="host-game-panel" aria-label="一站到底新人问答主持工具">
+      <div className="host-game-rules"><strong>现场规则</strong><p>所有宾客先选择站在新郎或新娘身边。主持人读题并给出选择时间，再揭晓答案；答错者离场，答对者留下，直到剩下最后一位或最后一组。题目只显示在主持人设备，答案默认隐藏。</p></div>
+      <div className={`couple-readiness ${coupleStarted ? 'ready' : ''}`}><div><small>NEWLYWED QUIZ</small><strong>{data.coupleQuiz.length} 道正式题目已准备</strong><p>{coupleStarted ? '答案默认隐藏；切换题目时会自动再次隐藏。' : '点击开始后随机排列题序，重新开始会再次洗牌。'}</p></div><span>{coupleStarted ? '进行中' : '准备就绪'}</span></div>
+      {!coupleStarted ? <button type="button" disabled={data.coupleQuiz.length === 0} onClick={startCoupleQuiz}>洗牌并开始新人问答</button> : <div className="couple-question-card">
+        <header><span>题目 {String(coupleQuestionIndex + 1).padStart(2, '0')} / {data.coupleQuiz.length}</span><b>新郎还是新娘</b></header>
+        <p>{currentCoupleQuestion?.prompt ?? '题目载入中'}</p>
+        <div className={`couple-answer ${coupleAnswerVisible ? 'visible' : ''}`}><small>主持人答案</small><strong>{coupleAnswerVisible ? currentCoupleQuestion?.answer : '揭晓前请保持隐藏'}</strong></div>
+        <button type="button" className="secondary host-answer-toggle" aria-pressed={coupleAnswerVisible} onClick={() => setCoupleAnswerVisible((current) => !current)}>{coupleAnswerVisible ? '隐藏答案' : '揭晓答案'}</button>
+        <div className="couple-navigation"><button type="button" className="secondary" disabled={coupleQuestionIndex === 0} onClick={() => moveCoupleQuestion(-1)}>上一题</button><button type="button" disabled={coupleQuestionIndex >= data.coupleQuiz.length - 1} onClick={() => moveCoupleQuestion(1)}>下一题</button></div>
+        <button type="button" className="text-button" onClick={startCoupleQuiz}>重新洗牌 · 从头开始</button>
+      </div>}
     </section>}
 
   </section>;
