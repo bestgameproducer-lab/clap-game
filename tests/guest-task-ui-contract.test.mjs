@@ -25,13 +25,12 @@ const expectedSubmissionCodes = [
   ...expectedPhotoCodes,
   'P1-CER-001',
   'P1-CER-002',
-  'P1-CER-003',
-  'P1-CER-004',
+  'P1-BOUQUET-001',
   'P2-CEREMONY-001',
 ];
 
-test('all 22 official tasks expose photo controls only when their proof contract accepts a photo', () => {
-  assert.equal(OFFICIAL_TASK_MANIFEST.length, 22);
+test('all 21 official tasks expose photo controls only when their proof contract accepts a photo', () => {
+  assert.equal(OFFICIAL_TASK_MANIFEST.length, 21);
   assert.deepEqual([...LIVE_GUEST_PHOTO_EVIDENCE_MISSION_CODES].sort(), expectedPhotoCodes.sort());
   for (const task of OFFICIAL_TASK_MANIFEST) {
     assert.equal(
@@ -67,6 +66,7 @@ test('theme-photo missions cannot claim completion before the required photo exi
 test('completion-note prompts match the official task instead of calling every mission a photo mission', () => {
   assert.match(guestCompletionNotePlaceholder('P1-CER-001'), /誓词引导/);
   assert.match(guestCompletionNotePlaceholder('P1-CER-002'), /戒指/);
+  assert.match(guestCompletionNotePlaceholder('P1-BOUQUET-001'), /手捧花/);
   assert.match(guestCompletionNotePlaceholder('P2-CEREMONY-001'), /晚宴致辞/);
   assert.match(guestCompletionNotePlaceholder('P1-SOCIAL-002'), /新郎新娘同框/);
   assert.doesNotMatch(guestCompletionNotePlaceholder('P1-CER-001'), /合影/);
@@ -89,7 +89,7 @@ test('zero-point official missions explain their real reward instead of displayi
   assert.equal(labels.get('P2-GUIDE-001'), '团队奖励');
   assert.equal(labels.get('P1-TRICKSTER-001'), '能力解锁');
   assert.equal(labels.get('P2-TRICKSTER-001'), '身份任务');
-  assert.equal(labels.get('P2-POWER-001'), '额外一票');
+  assert.equal(labels.get('P2-POWER-001'), '两票 · 投对 4 分');
   assert.equal(labels.get('P2-LUCKY-001'), '快照 + 2');
   for (const task of OFFICIAL_TASK_MANIFEST.filter((candidate) => candidate.points === 0)) {
     assert.notEqual(labels.get(task.mission_code), '0 分', task.mission_code);

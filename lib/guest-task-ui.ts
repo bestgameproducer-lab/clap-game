@@ -10,8 +10,7 @@ const LIVE_PHOTO_EVIDENCE_MISSIONS = new Set([
 const LIVE_GUEST_CONFIRMATION_MISSIONS = new Set([
   'P1-CER-001',
   'P1-CER-002',
-  'P1-CER-003',
-  'P1-CER-004',
+  'P1-BOUQUET-001',
   'P2-CEREMONY-001',
 ]);
 
@@ -65,8 +64,7 @@ export function guestCompletionNotePlaceholder(missionCode: string | null | unde
   const placeholders: Record<string, string> = {
     'P1-CER-001': '例如：已按主持人提示完成誓词引导。',
     'P1-CER-002': '例如：已按提示安全送达戒指。',
-    'P1-CER-003': '例如：已在指定节点完成新郎应援。',
-    'P1-CER-004': '例如：已在指定节点完成新娘应援。',
+    'P1-BOUQUET-001': '例如：仪式结束后，我接到或由新人送得手捧花。',
     'P1-SOCIAL-001': '例如：已与新朋友互相介绍并完成合影。',
     'P1-SOCIAL-002': '例如：已拍到新郎新娘同框的画面。',
     'P2-SOCIAL-001': '例如：已送上祝福、碰杯并完成合影。',
@@ -89,7 +87,7 @@ export function guestMissionRewardLabel(input: {
   if (input.points > 0) return `${input.points} 分`;
 
   const missionLabels: Record<string, string> = {
-    'P2-POWER-001': '额外一票',
+    'P2-POWER-001': '两票 · 投对 4 分',
     'P2-LUCKY-001': '快照 + 2',
   };
   if (input.missionCode && missionLabels[input.missionCode]) {

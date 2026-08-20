@@ -42,7 +42,7 @@ test('完整婚礼彩排生成可下载且不接触生产数据的截图验收�
     '24-station-review', '25-public-finale',
     '31-task-status-hierarchy', '32-dinner-speech-submitted',
     '40-role-wedding-guardian', '40b-role-officiant', '40c-role-ring-keeper',
-    '40d-role-groom-cheerleader', '40e-role-bride-cheerleader', '40f-role-heart-holder',
+    '40d-role-siran-random-player', '40e-role-moshuang-random-player', '40f-role-heart-holder',
     '40g-role-star-holder', '40h-role-trickster-truth', '40i-role-family-honor-guest',
   ]) assert.match(reviewSpec, new RegExp(screenshot));
   assert.match(reviewSpec, /for \(const \[index, task\] of OFFICIAL_TASK_MANIFEST\.entries\(\)\)/);
@@ -67,7 +67,7 @@ test('完整婚礼彩排生成可下载且不接触生产数据的截图验收�
   assert.doesNotMatch(reviewSpec, /SUPABASE_SERVICE_ROLE_KEY|ADMIN_PASSWORD|invitationCodeHash|password_hash/);
 });
 
-test('视觉验收清单与全部 88 张截图保持一一对应', () => {
+test('视觉验收清单与全部 87 张截图保持一一对应', () => {
   const generatedTaskFiles = OFFICIAL_TASK_MANIFEST.map((task) => `30-task-${task.mission_code.toLowerCase()}`);
   const screenshotFiles = new Set([
     ...[...reviewSpec.matchAll(/screenshot\(page,\s*'([^']+)'/g)].map((match) => match[1]),
@@ -79,6 +79,6 @@ test('视觉验收清单与全部 88 张截图保持一一对应', () => {
     ...[...manifestSource.matchAll(/\['([^']+)',\s*'/g)].map((match) => match[1]),
     ...generatedTaskFiles,
   ]);
-  assert.equal(screenshotFiles.size, 88);
+  assert.equal(screenshotFiles.size, 87);
   assert.deepEqual([...screenshotFiles].sort(), [...manifestFiles].sort());
 });

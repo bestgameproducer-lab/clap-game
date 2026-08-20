@@ -44,7 +44,7 @@ test('long private content opens in a scrollable reader with an explicit privacy
 test('only ceremony story roles and published identities bypass the privacy mask', async () => {
   const page = await readFile(pageUrl, 'utf8');
 
-  assert.match(page, /const PUBLIC_STORY_ROLES = new Set\(\['OFFICIANT', 'RING_KEEPER', 'GROOM_CHEERLEADER', 'BRIDE_CHEERLEADER'\]\)/);
+  assert.match(page, /const PUBLIC_STORY_ROLES = new Set\(\['OFFICIANT', 'RING_KEEPER'\]\)/);
   assert.match(page, /isHonorGuest \|\| PUBLIC_STORY_ROLES\.has\(data\.guest\.story_role\) \|\| Boolean\(data\.game\?\.results_visible\)/);
   assert.doesNotMatch(page.slice(page.indexOf('const PUBLIC_STORY_ROLES'), page.indexOf('function CardScene')), /HEART_HOLDER|STAR_HOLDER/);
   assert.match(page, /STORY_ROLE_LABELS\[data\.guest\.story_role\]/);

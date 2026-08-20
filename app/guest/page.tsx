@@ -127,13 +127,19 @@ const ROLE_LABELS: Record<string, { title: string; note: string }> = {
 const STORY_ROLE_LABELS: Record<string, { title: string; note: string }> = {
   OFFICIANT: { title: '誓词引导人', note: '在工作人员提示的环节，引导新人完成誓词。请在仪式开始前保守这个秘密。' },
   RING_KEEPER: { title: '戒指守护者', note: '在工作人员提示后领取戒指盒，并在交换戒指环节将它送到新人身边。' },
-  GROOM_CHEERLEADER: { title: '新郎应援者', note: '等待主持人的合适节点，再送出为新郎准备的那句应援。' },
-  BRIDE_CHEERLEADER: { title: '新娘应援者', note: '等待主持人的合适节点，再送出为新娘准备的那句应援。' },
   HEART_HOLDER: { title: '爱心寻觅者', note: '藏好你的半颗爱心，悄悄寻找持有另一半爱心的伙伴。' },
   STAR_HOLDER: { title: '星光寻觅者', note: '藏好你的半颗星光，悄悄寻找持有另一半星星的伙伴。' },
 };
 
-const PUBLIC_STORY_ROLES = new Set(['OFFICIANT', 'RING_KEEPER', 'GROOM_CHEERLEADER', 'BRIDE_CHEERLEADER']);
+const PUBLIC_STORY_ROLES = new Set(['OFFICIANT', 'RING_KEEPER']);
+
+function isGuestMissionActionOpen(missionCode: string | null | undefined, taskStage: string, gameStage: string | null | undefined) {
+  if (missionCode === 'P1-BOUQUET-001'
+      && !['ceremony_end', 'task_round_2', 'banquet', 'group_game'].includes(gameStage ?? '')) {
+    return false;
+  }
+  return isTaskActionOpenAtStage(taskStage, gameStage);
+}
 
 function CardScene({ className, label, disabled = false, onActivate, children }: {
   className: string;
@@ -162,7 +168,7 @@ function phaseTwoAwakening(data: GuestData): Omit<ContentNotice, 'snapshot'> | n
   };
   if (data.phaseTwo.mission === 'EXTRA_VOTE' && data.phaseTwo.extraVote) return {
     title: '丘比特交给你第二次裁决',
-    detail: '你的第二轮特殊能力「双重裁决」已经解锁。最终投票时仍只选择一名本队玩家，系统会自动将你的选择按 2 票计算；无需额外提交任务，身份揭晓前请保密。',
+    detail: '你的第二轮特殊能力「双重裁决」已经解锁。最终投票仍只选择一名本队玩家，但系统会按 2 票计算；如果本队成功抓出恶作剧者且你投对，个人奖励会从 2 分翻倍为 4 分。身份揭晓前请保密。',
     variant: 'awakening',
     awakeningKind: 'EXTRA_VOTE',
   };
@@ -1413,8 +1419,8 @@ export default function GuestPage() {
   const actionableIncomingConfirmationCount = phaseOneInteractionsOpen
     ? incomingConfirmationCount + incomingSymbolRelationships.length
     : 0;
-  const rejectedAssignment = openAssignments.find((assignment) => assignment.status === 'rejected' && isTaskActionOpenAtStage(assignment.task.stage, data.game?.stage));
-  const actionableAssignment = rejectedAssignment ?? openAssignments.find((assignment) => assignment.status === 'assigned' && isTaskActionOpenAtStage(assignment.task.stage, data.game?.stage));
+  const rejectedAssignment = openAssignments.find((assignment) => assignment.status === 'rejected' && isGuestMissionActionOpen(assignment.task.mission_code, assignment.task.stage, data.game?.stage));
+  const actionableAssignment = rejectedAssignment ?? openAssignments.find((assignment) => assignment.status === 'assigned' && isGuestMissionActionOpen(assignment.task.mission_code, assignment.task.stage, data.game?.stage));
   const waitingAssignment = openAssignments.find((assignment) => assignment.status === 'submitted');
   const primaryAction = data.game?.results_visible
     ? { label: '最终结果已经公布', detail: '查看身份揭晓、最终积分和今晚的婚礼荣誉。', button: '查看最终结果', target: 'guest-results', tone: 'complete' }
@@ -1606,7 +1612,7 @@ export default function GuestPage() {
     {usesTricksterFacade && secretReaderOpen && incomingTricksterRelationship && <section className="notice error trickster-private-pending" role="status"><strong>一项秘密同伴确认正在等待</strong><span>{incomingTricksterRelationship.partnerName} 已通过暗号找到你。请在下方真正任务中确认或拒绝。</span></section>}
     {isActivePlayer && showPrimaryAction && <section className={`guest-primary-action ${primaryAction.tone}`} aria-label="现在请做"><div><small>现在请做</small><strong>{primaryAction.label}</strong><p>{primaryAction.detail}</p></div><button type="button" onClick={focusPrimaryAction}>{primaryAction.button}<span aria-hidden="true">→</span></button></section>}
     {isActivePlayer && data.phaseTwo?.mission === 'TEAM_CAPTAIN' && data.phaseTwo.isCaptain && data.phaseTwo.unlockedAt && data.phaseTwo.originVerified && <section className="captain-public-note"><small>LEADING STAR</small><strong>你是本队的领航星队长</strong><p>这是可以公开的身份。你可以主动告诉队友，并在团队环节组织协作。</p></section>}
-    {isActivePlayer && data.phaseTwo?.mission === 'EXTRA_VOTE' && data.phaseTwo.extraVote && data.phaseTwo.unlockedAt && <section className="extra-vote-power-note" aria-live="polite"><small>DOUBLE VERDICT</small><strong>额外一票已解锁</strong><p>最终投票仍只选择一名本队玩家，系统会自动将你的选择按 2 票计算；无需额外提交任务，身份揭晓前请保密。</p></section>}
+    {isActivePlayer && data.phaseTwo?.mission === 'EXTRA_VOTE' && data.phaseTwo.extraVote && data.phaseTwo.unlockedAt && <section className="extra-vote-power-note" aria-live="polite"><small>DOUBLE VERDICT</small><strong>双重裁决已解锁</strong><p>最终投票仍只选择一名本队玩家，但系统会按 2 票计算；如果本队成功抓出恶作剧者且你投对，个人奖励会从 2 分翻倍为 4 分。无需额外提交，身份揭晓前请保密。</p></section>}
     {isActivePlayer && isTricksterGuest && secretReaderOpen && tricksterSignalCompleted && <section className={`section-card trickster-power-note ${tricksterExtraVoteUnlocked ? 'active' : 'pending'}`} aria-live="polite"><small>{tricksterExtraVoteUnlocked ? 'SECRET POWER UNLOCKED' : 'SECRET POWER ACQUIRED'}</small><strong>{tricksterExtraVoteUnlocked ? '额外一票已解锁' : '真正任务完成 · 能力已获得'}</strong><p>{tricksterExtraVoteUnlocked ? '最终投票时仍只选择一位玩家，系统会立即将你的选择按 2 票保存；无需再次提交，身份揭晓前请继续保密。' : '你已经找到恶作剧者同伴。婚宴前奏开启第二轮后，额外一票会自动解锁；无需再次提交，身份揭晓前请继续保密。'}</p></section>}
     {isActivePlayer && data.game?.stage === 'task_round_1' && <div className="connection-banner ceremony-pause" role="status">婚礼仪式进行中 · 照片上传、任务提交，以及发起或接受玩家确认暂时暂停；误邀仍可拒绝。仪式结束后会自动恢复。</div>}
     {teamScores.length > 0 && <section className="section-card guest-team-score-card"><div className="section-heading"><div><small>TEAM SCORE</small><h2>团队实时积分</h2></div><span>LIVE</span></div><div className="guest-team-score-grid">{teamScores.map((team, index) => <article className={team.team === data.guest.team ? 'mine' : ''} key={team.team}><small>第 {index + 1} 名</small><strong>{team.team}</strong><b>{team.points} 分</b>{team.team === data.guest.team && <span>我的团队</span>}</article>)}</div><small className="team-score-sync-note">主持人现场计分后自动更新</small></section>}
@@ -1623,7 +1629,7 @@ export default function GuestPage() {
           : null
         : dashboardAssignments.map((assignment, index) => {
           const isDilemmaTask = ['P2-HEART-001','P2-STAR-001'].includes(assignment.task.mission_code ?? '');
-          const actionOpen = isTaskActionOpenAtStage(assignment.task.stage, data.game?.stage);
+          const actionOpen = isGuestMissionActionOpen(assignment.task.mission_code, assignment.task.stage, data.game?.stage);
           const canSubmit = actionOpen && ['assigned', 'rejected'].includes(assignment.status);
           const guestSelfSubmissionAllowed = acceptsGuestSelfSubmission({ missionCode: assignment.task.mission_code, mechanic: assignment.task.mechanic, catalogMode: data.game?.task_catalog_mode });
           const requiresPhoto = requiresGuestPhotoBeforeSubmission(assignment.task.mission_code);
@@ -1655,7 +1661,7 @@ export default function GuestPage() {
       {completedAssignments.length > 0 && <button type="button" className="completed-missions-toggle" aria-expanded={completedMissionsOpen} onClick={() => setCompletedMissionsOpen((open) => !open)}><span>{completedMissionsOpen ? '收起已完成记录' : `已完成任务（${completedAssignments.length}）· 默认收起`}</span><b aria-hidden="true">{completedMissionsOpen ? '↑' : '↓'}</b></button>}
     </section>}
     {isActivePlayer && data.clues.length > 0 && <section className="section-card guest-clues-card" id="guest-clues"><div className="section-heading"><div><small>TEAM CLUES</small><h2>我的团队线索</h2></div><span>{data.clues.length}</span></div>{guestClueGroups.map((group) => <section className="guest-clue-group" key={group.name}><h3>{group.name}</h3>{group.clues.map((clue) => <div className="clue" key={clue.id}><strong>{clue.title}</strong><p>{clue.content}</p></div>)}</section>)}</section>}
-    {data.votingEligible && data.game?.voting_open && <section className="section-card guest-vote-card" id="guest-vote"><div className="section-heading"><div><small>FINAL VOTE</small><h2>谁是恶作剧者？</h2></div><span>第 {data.game.voting_round} 轮</span></div><p className="muted">只能选择本队宾客。每人只有一次机会，确认后不能改票。若恶作剧者获得本队最高票：投中者 +2 分，其他已投票者 +1 分；若恶作剧者逃脱，本队所有人都不获得投票分。未投票者不加分。</p><div className="vote-grid">{data.candidates.map((candidate) => <button type="button" disabled={busy || offline || Boolean(data.existingVote)} className={(data.existingVote || selectedVoteTargetId) === candidate.id ? 'vote-choice selected' : 'vote-choice'} key={candidate.id} onClick={() => { setSelectedVoteTargetId(candidate.id); setVoteError(''); }}>{(data.existingVote || selectedVoteTargetId) === candidate.id ? '✓ ' : ''}{candidate.name}</button>)}</div>{!data.existingVote && <div className="vote-confirm-row"><span>{selectedVoteTargetId ? `已选择：${data.candidates.find((candidate) => candidate.id === selectedVoteTargetId)?.name ?? ''}` : '请先选择一位宾客'}</span><button type="button" disabled={busy || offline || !selectedVoteTargetId} onClick={() => void vote(selectedVoteTargetId)}>确认投票</button></div>}{voteError && <div className="inline-feedback error" role="alert"><span>{voteError}</span><button type="button" aria-label="关闭投票错误" onClick={() => setVoteError('')}>×</button></div>}{data.existingVote && <p className="vote-offline-note">你的本轮投票已安全保存。</p>}{offline && <p className="vote-offline-note">恢复网络后才能提交投票。</p>}</section>}
+    {data.votingEligible && data.game?.voting_open && <section className="section-card guest-vote-card" id="guest-vote"><div className="section-heading"><div><small>FINAL VOTE</small><h2>谁是恶作剧者？</h2></div><span>第 {data.game.voting_round} 轮</span></div><p className="muted">只能选择本队宾客。每人只有一次机会，确认后不能改票。若恶作剧者获得本队最高票：普通投中者 +2 分，双重裁决者投中 +4 分，其他已投票者 +1 分；若恶作剧者逃脱，本队所有人都不获得投票分。未投票者不加分。</p><div className="vote-grid">{data.candidates.map((candidate) => <button type="button" disabled={busy || offline || Boolean(data.existingVote)} className={(data.existingVote || selectedVoteTargetId) === candidate.id ? 'vote-choice selected' : 'vote-choice'} key={candidate.id} onClick={() => { setSelectedVoteTargetId(candidate.id); setVoteError(''); }}>{(data.existingVote || selectedVoteTargetId) === candidate.id ? '✓ ' : ''}{candidate.name}</button>)}</div>{!data.existingVote && <div className="vote-confirm-row"><span>{selectedVoteTargetId ? `已选择：${data.candidates.find((candidate) => candidate.id === selectedVoteTargetId)?.name ?? ''}` : '请先选择一位宾客'}</span><button type="button" disabled={busy || offline || !selectedVoteTargetId} onClick={() => void vote(selectedVoteTargetId)}>确认投票</button></div>}{voteError && <div className="inline-feedback error" role="alert"><span>{voteError}</span><button type="button" aria-label="关闭投票错误" onClick={() => setVoteError('')}>×</button></div>}{data.existingVote && <p className="vote-offline-note">你的本轮投票已安全保存。</p>}{offline && <p className="vote-offline-note">恢复网络后才能提交投票。</p>}</section>}
     {data.game?.voting_open && !data.votingEligible && <section className="section-card guest-vote-card" id="guest-vote"><div className="section-heading"><div><small>FINAL VOTE</small><h2>本轮不参与投票</h2></div><span>无需操作</span></div><div className="empty-state"><strong>最终投票由海岛组和沙漠组的第二轮正式玩家完成。</strong><p>你无需提交；结果公布后，仍可查看恶作剧者揭晓和最终个人积分排名。</p></div></section>}
     {isActivePlayer && data.game?.results_visible && data.results && <section className="reveal-card guest-results-card" id="guest-results"><small>THE FINAL REVEAL</small><h2>恶作剧者揭晓</h2>{data.results.votedTargetName ? <div className={`vote-verdict ${data.results.teamCaught && data.results.bonusPoints > 0 ? 'correct' : 'missed'}`}><span>你投给了 {data.results.votedTargetName}</span><strong>{data.results.teamCaught ? data.results.voteCorrect ? `本队成功抓出恶作剧者 · 你投中并获得 ${data.results.bonusPoints} 分` : `本队成功抓出恶作剧者 · 你获得参与奖励 ${data.results.bonusPoints} 分` : data.results.voteCorrect ? '你投中了，但本队最高票未能抓住恶作剧者 · 本轮不加分' : '本队未能抓住恶作剧者 · 本轮不加分'}</strong></div> : data.votingEligible ? <div className="vote-verdict missed"><strong>你没有提交最终投票 · 本轮不加分</strong></div> : <div className="vote-verdict neutral"><strong>你无需参加本轮投票</strong><span>结果已为你开放，可以直接查看恶作剧者揭晓和最终排名。</span></div>}<div className="guest-trickster-reveal">{data.results.tricksters.map((trickster) => { const tally = data.results?.voteCounts.find((candidate) => candidate.id === trickster.id); return <article key={trickster.id}><header><div><span>{trickster.team}</span><strong>{trickster.name}</strong></div><b className={trickster.escaped ? 'escaped' : 'caught'}>{trickster.escaped ? '成功逃脱' : '已被识破'}</b></header><div className="guest-ballot-trace"><span>{tally?.votes ?? 0} 票</span><p>{tally?.voters.length ? tally.voters.map((voter) => `${voter.name}${voter.votes > 1 ? `（${voter.votes}票）` : ''}`).join('、') : '无人投票'}</p></div></article>; })}</div><a className="final-ranking-link" href="/scoreboard">查看全员最终积分排名</a><p>除了以上恶作剧者，其他参与玩家均为婚礼守护者。</p></section>}
     {isHonorGuest && data.game?.results_visible && <section className="reveal-card guest-results-card" id="guest-results"><small>THE FINAL RANKING</small><h2>今晚结果已经公布</h2><p>你的现场互动个人积分已进入最终榜单；家人组不计算团队名次。</p><a className="final-ranking-link" href="/scoreboard">查看全员最终积分排名</a></section>}

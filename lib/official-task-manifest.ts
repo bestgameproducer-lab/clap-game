@@ -73,15 +73,10 @@ const OFFICIAL_TASK_COPY = {
     description: '请在工作人员通知后领取指定戒指盒，并在交换戒指环节按照提示送到新人身边。',
     verification_method: '由主持人确认戒指已经安全送达。',
   },
-  'P1-CER-003': {
-    title: '新郎应援者',
-    description: '在新郎入场或主持人给出提示时说：“新郎今天太帅了！”不要打断誓词或正式讲话。',
-    verification_method: '由主持人在指定节点后确认。',
-  },
-  'P1-CER-004': {
-    title: '新娘应援者',
-    description: '在新娘入场或主持人给出提示时说：“新娘今天太美了！”不要打断誓词或正式讲话。',
-    verification_method: '由主持人在指定节点后确认。',
+  'P1-BOUQUET-001': {
+    title: '手捧花的幸运',
+    description: '仪式结束后，如果你接到手捧花，或由新人亲手将手捧花送给你，即可获得 8 点个人积分。请不要争抢或打扰仪式；只有真实获得手捧花才算完成。',
+    verification_method: '由主持人确认你在仪式结束后接到或获得手捧花。',
   },
   'P1-HEART-001': {
     title: '寻找爱心伙伴',
@@ -165,8 +160,8 @@ const OFFICIAL_TASK_COPY = {
   },
   'P2-POWER-001': {
     title: '双重裁决',
-    description: '额外一票已解锁。最终投票时你仍只选择一名本队玩家，系统会自动将你的选择按两票计算；投票权重在身份揭晓前保密。',
-    verification_method: '第二阶段开启时由系统立即标记完成；最终投票自动按两票计算。',
+    description: '最终投票时你仍只选择一名本队玩家，系统会自动将你的选择按两票计算。如果本队成功抓出恶作剧者且你投对，个人投票奖励也会从 2 分翻倍为 4 分；投错仍为 1 分，未抓住则为 0 分。身份揭晓前请保密。',
+    verification_method: '第二阶段开启时由系统立即标记完成；最终投票自动按两票计算，并在投对且成功抓捕时发放 4 分。',
   },
   'P2-LUCKY-001': {
     title: '超级幸运星',
@@ -182,8 +177,7 @@ function copyFor(missionCode: keyof typeof OFFICIAL_TASK_COPY) {
 const PHASE_ONE_TASKS = [
   ['P1-CER-001', 5, 1, 'guest', 'ceremony', 'OFFICIANT', 'STANDARD', 'STANDARD', 'FIXED', 'HOST_CONFIRM'],
   ['P1-CER-002', 3, 2, 'guest', 'ceremony', 'RING_KEEPER', 'STANDARD', 'STANDARD', 'FIXED', 'HOST_CONFIRM'],
-  ['P1-CER-003', 3, 1, 'guest', 'ceremony', 'GROOM_CHEERLEADER', 'STANDARD', 'STANDARD', 'FIXED', 'HOST_CONFIRM'],
-  ['P1-CER-004', 3, 1, 'guest', 'ceremony', 'BRIDE_CHEERLEADER', 'STANDARD', 'STANDARD', 'FIXED', 'HOST_CONFIRM'],
+  ['P1-BOUQUET-001', 8, 2, 'guest', 'ceremony', 'NONE', 'STANDARD', 'STANDARD', 'CONTROLLED_RANDOM', 'HOST_CONFIRM'],
   ['P1-HEART-001', 2, 5, 'guest', 'standard', 'HEART_HOLDER', 'HEART_MATCH', 'STANDARD', 'CONTROLLED_RANDOM', 'MUTUAL_CONFIRM'],
   ['P1-STAR-001', 2, 5, 'guest', 'standard', 'STAR_HOLDER', 'STAR_MATCH', 'STANDARD', 'CONTROLLED_RANDOM', 'MUTUAL_CONFIRM'],
   ['P1-SOCIAL-001', 2, 3, 'all', 'standard', 'NONE', 'STANDARD', 'STANDARD', 'CONTROLLED_RANDOM', 'PHOTO'],
@@ -204,7 +198,7 @@ const PHASE_TWO_TASKS = [
   ['P2-GUIDE-001', 0, 1, 'guest', 'standard', 'TEAM_CAPTAIN', 'NO_PERSONAL', 'RELATIONSHIP', 'SYSTEM'],
   ['P2-TRICKSTER-001', 0, 2, 'guest', 'hidden', 'TRICKSTER_MISSION', 'NO_PERSONAL', 'ROLE_FIXED', 'SYSTEM'],
   ['P2-POWER-001', 0, 2, 'guest', 'hidden', 'INSTANT_BONUS', 'NO_PERSONAL', 'CONTROLLED_RANDOM', 'SYSTEM'],
-  ['P2-LUCKY-001', 0, 1, 'guest', 'hidden', 'INSTANT_BONUS', 'NO_PERSONAL', 'CONTROLLED_RANDOM', 'SYSTEM'],
+  ['P2-LUCKY-001', 0, 2, 'guest', 'hidden', 'INSTANT_BONUS', 'NO_PERSONAL', 'FIXED', 'SYSTEM'],
 ] as const;
 
 export const OFFICIAL_TASK_MANIFEST: readonly OfficialTaskSpec[] = [

@@ -23,9 +23,9 @@ function completeFixture() {
     drawn_at: null, team_locked: false, role_locked: false, participation_mode: 'PRINCIPAL', story_role: 'NONE', phase_two_eligible: false,
   }));
   const guests = [...competitiveGuests, ...taskFamily, ...honorFamily, ...principals];
-  const storyRoles = ['OFFICIANT','RING_KEEPER','RING_KEEPER','GROOM_CHEERLEADER','BRIDE_CHEERLEADER'];
-  const storyIndexes = [1,20,21,2,3];
-  const fixedLoginNames = ['yifan yu','xingcheng jin','andao chen','siran li','moshuang xu'];
+  const storyRoles = ['OFFICIANT','RING_KEEPER','RING_KEEPER'];
+  const storyIndexes = [1,20,21];
+  const fixedLoginNames = ['yifan yu','xingcheng jin','andao chen'];
   storyIndexes.forEach((guestIndex, index) => { guests[guestIndex].login_name = fixedLoginNames[index]; });
   storyRoles.forEach((role, index) => { guests[storyIndexes[index]].story_role = role; });
   const tasks = [
@@ -75,7 +75,7 @@ test('preflight accepts fixed teams whose roles are still random', () => {
 
 test('preflight allows random heart and star casting but blocks incomplete fixed roles and missions', () => {
   const fixture = completeFixture();
-  fixture.guests.find((guest) => guest.story_role === 'GROOM_CHEERLEADER').story_role = 'NONE';
+  fixture.guests.find((guest) => guest.story_role === 'OFFICIANT').story_role = 'NONE';
   fixture.tasks = fixture.tasks.filter((task) => task.mission_code !== 'P1-STAR-001');
   const result = buildWeddingPreflight(fixture);
   assert.equal(result.items.find((item) => item.id === 'story-cast')?.status, 'blocked');

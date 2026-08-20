@@ -12,7 +12,7 @@ test('guest dashboard promotes one contextual action and collapses completed mis
   assert.match(source, /incomingConfirmationCount \+ incomingSymbolRelationships\.length/);
   assert.match(source, /actionableIncomingConfirmationCount > 0/);
   assert.match(source, /const showPrimaryAction = !isFocusMode && \(actionableIncomingConfirmationCount > 0 \|\| Boolean\(rejectedAssignment\)\)/);
-  assert.match(source, /assignment\.status === 'rejected' && isTaskActionOpenAtStage/);
+  assert.match(source, /assignment\.status === 'rejected' && isGuestMissionActionOpen/);
   assert.match(source, /guest-primary-action/);
   assert.match(source, /completedMissionsOpen/);
   assert.match(source, /待处理 \{actionableAssignments\.length\} · 待审核 \{waitingAssignments\.length\} · 已完成/);

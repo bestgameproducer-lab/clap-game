@@ -95,8 +95,6 @@ async function routeGuestData(page, initialData) {
 const STORY_ROLE_TASKS = {
   OFFICIANT: 'P1-CER-001',
   RING_KEEPER: 'P1-CER-002',
-  GROOM_CHEERLEADER: 'P1-CER-003',
-  BRIDE_CHEERLEADER: 'P1-CER-004',
   HEART_HOLDER: 'P1-HEART-001',
   STAR_HOLDER: 'P1-STAR-001',
 };
@@ -119,7 +117,7 @@ function phaseTwoReviewState(missionCode) {
 
 function taskVisualState(task, index) {
   const phaseTwoTask = task.stage === 'task_round_2';
-  const spyTask = ['P1-TRICKSTER-001', 'P2-TRICKSTER-001', 'P2-POWER-001'].includes(task.mission_code);
+  const spyTask = ['P1-TRICKSTER-001', 'P2-TRICKSTER-001'].includes(task.mission_code);
   const completedTask = ['P1-BONUS-001', 'P2-POWER-001', 'P2-LUCKY-001'].includes(task.mission_code);
   const storyRole = task.story_role_scope && task.story_role_scope !== 'NONE' ? task.story_role_scope : 'NONE';
   const symbolPairing = task.mission_code === 'P1-HEART-001'
@@ -390,8 +388,8 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   drawState.current = guestData({
     guest: { ...guest, points: 8 },
     game: { ...game, stage: 'banquet', registration_open: false, phase_one_completed_at: '2026-08-01T13:00:00.000Z' },
-    assignments: [assignment('lucky-1', luckyTask, 'approved', { verification_note: '系统已完成幸运积分翻倍。' })],
-    pointLedger: [{ id: 'ledger-1', label: '第一轮任务积分', amount: 4, createdAt: '2026-08-01T12:30:00.000Z' }, { id: 'ledger-2', label: '丘比特幸运星 · 第一轮积分翻倍', amount: 4, createdAt: '2026-08-01T13:30:00.000Z' }],
+    assignments: [assignment('lucky-1', luckyTask, 'approved', { verification_note: '超级幸运星已结算：第一幕积分快照 + 2' })],
+    pointLedger: [{ id: 'ledger-1', label: '第一轮任务积分', amount: 4, createdAt: '2026-08-01T12:30:00.000Z' }, { id: 'ledger-2', label: '超级幸运星 · 第一幕积分快照 + 2', amount: 6, createdAt: '2026-08-01T13:30:00.000Z' }],
     phaseTwo: { mission: 'SUPER_LUCKY', extraVote: false, superLucky: true, isCaptain: false, unlockedAt: '2026-08-01T13:30:00.000Z', phaseOnePointsSnapshot: 4, luckySettled: true, captainSettled: false, originVerified: true, dilemma: null, copyChoice: null, copyCandidates: [] },
   });
   await page.reload(); await dismissNotice(page);
@@ -399,7 +397,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   if (!(await scoreLedgerClose.isVisible().catch(() => false))) {
     await page.getByRole('button', { name: /查看我的积分流水/ }).click();
   }
-  await expect(page.getByText('丘比特幸运星 · 第一轮积分翻倍')).toBeVisible();
+  await expect(page.getByText('超级幸运星 · 第一幕积分快照 + 2')).toBeVisible();
   await screenshot(page, '12g-lucky-star-ledger', testInfo.project.name);
   await scoreLedgerClose.click();
 
@@ -494,7 +492,7 @@ test('@mobile-review 宾客完整视觉旅程', async ({ page }, testInfo) => {
   await screenshot(page, '17-guest-results', testInfo.project.name);
 });
 
-test('@mobile-review 23 项正式任务逐项视觉矩阵', async ({ page }, testInfo) => {
+test('@mobile-review 21 项正式任务逐项视觉矩阵', async ({ page }, testInfo) => {
   test.setTimeout(180_000);
   const state = await routeGuestData(page, guestData());
   for (const [index, task] of OFFICIAL_TASK_MANIFEST.entries()) {
@@ -503,10 +501,12 @@ test('@mobile-review 23 项正式任务逐项视觉矩阵', async ({ page }, tes
     else await page.reload();
     await dismissNotice(page);
 
-    const isSpyTask = ['P1-TRICKSTER-001', 'P2-TRICKSTER-001', 'P2-POWER-001'].includes(task.mission_code);
-    if (isSpyTask) {
+    const isTrueSpyTask = ['P1-TRICKSTER-001', 'P2-TRICKSTER-001'].includes(task.mission_code);
+    const needsPrivateReader = isTrueSpyTask || task.mission_code === 'P2-POWER-001';
+    if (needsPrivateReader) {
       await page.getByRole('button', { name: '展开查看' }).click();
-      await expect(page.getByText('真实界面已展开')).toBeVisible();
+      if (isTrueSpyTask) await expect(page.getByText('真实界面已展开')).toBeVisible();
+      else await page.getByRole('button', { name: '隐藏并关闭秘密内容' }).click();
     }
 
     const completedToggle = page.locator('.completed-missions-toggle');
@@ -521,7 +521,7 @@ test('@mobile-review 23 项正式任务逐项视觉矩阵', async ({ page }, tes
       await expect(missionCard).toContainText(task.verification_method);
     }
 
-    if (['P1-CER-001', 'P1-CER-002', 'P1-CER-003', 'P1-CER-004', 'P2-CEREMONY-001'].includes(task.mission_code)) {
+    if (['P1-CER-001', 'P1-CER-002', 'P1-BOUQUET-001', 'P2-CEREMONY-001'].includes(task.mission_code)) {
       await expect(missionCard.getByRole('button', { name: '我已完成 · 提交验证' })).toBeVisible();
     }
     if (['P2-SOCIAL-003', 'P2-SOCIAL-004'].includes(task.mission_code)) {
@@ -538,7 +538,7 @@ test('@mobile-review 任务状态层级与驳回恢复视觉核验', async ({ pa
     assignments: [
       assignment('status-rejected', officialTask('P1-SOCIAL-002'), 'rejected', { rejection_reason: '照片中没有同时看到新郎和新娘，请补拍后再次提交。', completion_note: '已经上传一张现场照片。' }),
       assignment('status-current', officialTask('P1-CER-002'), 'assigned'),
-      assignment('status-waiting', officialTask('P1-CER-003'), 'submitted', { completion_note: '已在主持人提示后完成应援。' }),
+      assignment('status-waiting', officialTask('P1-BOUQUET-001'), 'submitted', { completion_note: '仪式结束后已接到手捧花。' }),
       assignment('status-complete', officialTask('P1-SOCIAL-001'), 'approved', { verification_note: '任务站已核验合影与双方确认。' }),
     ],
   }));
@@ -571,8 +571,8 @@ test('@mobile-review 公开与秘密角色逐项视觉矩阵', async ({ page }, 
     { file: '40-role-wedding-guardian', title: '婚礼守护者', taskCode: 'P1-SOCIAL-002', storyRole: 'NONE' },
     { file: '40b-role-officiant', title: '誓词引导人', taskCode: STORY_ROLE_TASKS.OFFICIANT, storyRole: 'OFFICIANT', public: true },
     { file: '40c-role-ring-keeper', title: '戒指守护者', taskCode: STORY_ROLE_TASKS.RING_KEEPER, storyRole: 'RING_KEEPER', public: true },
-    { file: '40d-role-groom-cheerleader', title: '新郎应援者', taskCode: STORY_ROLE_TASKS.GROOM_CHEERLEADER, storyRole: 'GROOM_CHEERLEADER', public: true },
-    { file: '40e-role-bride-cheerleader', title: '新娘应援者', taskCode: STORY_ROLE_TASKS.BRIDE_CHEERLEADER, storyRole: 'BRIDE_CHEERLEADER', public: true },
+    { file: '40d-role-siran-random-player', title: '婚礼守护者', taskCode: 'P1-BOUQUET-001', storyRole: 'NONE', guestName: '李思冉 Siran Li' },
+    { file: '40e-role-moshuang-random-player', title: '婚礼守护者', taskCode: 'P1-SOCIAL-001', storyRole: 'NONE', guestName: '徐莫双 Moshuang Xu' },
     { file: '40f-role-heart-holder', title: '爱心寻觅者', taskCode: STORY_ROLE_TASKS.HEART_HOLDER, storyRole: 'HEART_HOLDER' },
     { file: '40g-role-star-holder', title: '星光寻觅者', taskCode: STORY_ROLE_TASKS.STAR_HOLDER, storyRole: 'STAR_HOLDER' },
     { file: '40h-role-trickster-truth', title: '丘比特的恶作剧者', taskCode: 'P1-TRICKSTER-001', storyRole: 'NONE', spy: true },
@@ -586,7 +586,7 @@ test('@mobile-review 公开与秘密角色逐项视觉矩阵', async ({ page }, 
         ? { symbol: 'STAR', status: 'AVAILABLE', fragmentSide: 'RIGHT', pendingRelationshipId: null, finalizedAt: null }
         : null;
     state.current = guestData({
-      guest: { ...guest, role: roleCase.spy ? 'spy' : 'guest', story_role: roleCase.storyRole },
+      guest: { ...guest, name: roleCase.guestName ?? guest.name, role: roleCase.spy ? 'spy' : 'guest', story_role: roleCase.storyRole },
       game: { ...game, stage: 'ceremony_end', registration_open: false },
       assignments: [assignment(`role-${index}`, task)],
       missionStory: { ...baseStory, symbolPairing },

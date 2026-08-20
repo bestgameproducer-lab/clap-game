@@ -19,7 +19,7 @@ function ensureNoDatabaseError(error: { message: string } | null, fallback: stri
     if (error.message.includes('invalid_game_stage_transition')) throw new ApiError(409, '婚礼环节只能按顺序进入；请刷新页面确认当前环节和下一步');
     if (error.message.includes('hidden_spy_feature_retired')) throw new ApiError(409, '隐藏恶作剧者与实体任务卡功能已经取消');
     if (error.message.includes('official_task_catalog_locked')) throw new ApiError(409, '正式婚礼任务由版本化任务清单维护，后台只能查看，不能现场修改');
-    if (error.message.includes('formal_wedding_preflight_not_ready')) throw new ApiError(409, '正式婚礼尚未通过开场检查；请回到“开场与宾客”查看红色待处理项，补齐名单、固定职务或 23 项正式任务后再开放注册');
+    if (error.message.includes('formal_wedding_preflight_not_ready')) throw new ApiError(409, '正式婚礼尚未通过开场检查；请回到“开场与宾客”查看红色待处理项，补齐名单、固定职务或 21 项正式任务后再开放注册');
     if (error.message.includes('live_custom_task_catalog_locked')) throw new ApiError(409, '当前是正式婚礼模式，不能新建或编辑临时任务；请只使用已确认的正式任务清单');
     if (error.message.includes('live_custom_task_assignment_forbidden')) throw new ApiError(409, '当前是正式婚礼模式，不能人工派发或改派临时任务');
     if (error.message.includes('clue_not_earned_in_current_rehearsal')) throw new ApiError(409, '这条线索不在本次团队结算已经赢得的线索中，不能人工发放');

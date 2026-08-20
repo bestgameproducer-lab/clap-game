@@ -3,7 +3,7 @@ export const MANUAL_GAME_STAGES = ['registration', 'waiting', 'task_round_1', 'c
 export const TASK_STAGES = ['task_round_1', 'task_round_2', 'group_game'] as const;
 export const GAME_ROLES = ['guest', 'spy'] as const;
 export const PARTICIPATION_MODES = ['ACTIVE_PLAYER', 'HONOR_GUEST', 'PRINCIPAL'] as const;
-export const STORY_ROLES = ['NONE', 'OFFICIANT', 'RING_KEEPER', 'GROOM_CHEERLEADER', 'BRIDE_CHEERLEADER', 'HEART_HOLDER', 'STAR_HOLDER'] as const;
+export const STORY_ROLES = ['NONE', 'OFFICIANT', 'RING_KEEPER', 'HEART_HOLDER', 'STAR_HOLDER'] as const;
 export const PHASE_TWO_PRIMARY_MISSIONS = [
   'TOAST_GROOM_FATHER', 'TOAST_BRIDE_MOTHER', 'INTERACT_WITH_GROOM', 'INTERACT_WITH_BRIDE',
   'DINNER_SPEECH', 'HEART_DILEMMA', 'STAR_DILEMMA', 'COPY_SCORE', 'TEAM_CAPTAIN', 'TRICKSTER',

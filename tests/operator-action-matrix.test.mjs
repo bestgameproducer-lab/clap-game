@@ -135,5 +135,5 @@ test('opening registration points the operator to the exact failed preflight scr
   const adminData = await read('lib/data/admin.ts');
   assert.match(adminData, /formal_wedding_preflight_not_ready/);
   assert.match(adminData, /回到“开场与宾客”查看红色待处理项/);
-  assert.match(adminData, /23 项正式任务/);
+  assert.match(adminData, /21 项正式任务/);
 });

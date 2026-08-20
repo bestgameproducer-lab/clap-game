@@ -406,10 +406,9 @@ test(
         )).rows.map((row) => [row.mission_code, row.count])),
         {
           'P1-BONUS-001': 2,
+          'P1-BOUQUET-001': 2,
           'P1-CER-001': 1,
           'P1-CER-002': 2,
-          'P1-CER-003': 1,
-          'P1-CER-004': 1,
           'P1-HEART-001': 5,
           'P1-SOCIAL-001': 3,
           'P1-SOCIAL-002': 3,
@@ -423,20 +422,30 @@ test(
            from assignments a join guests g on g.id=a.guest_id
            join tasks t on t.id=a.task_id
            where a.is_initial and lower(g.login_name) in(
-             'yifan yu','xingcheng jin','andao chen','siran li','moshuang xu',
-             'feifei xie','luyi sun'
+             'yifan yu','xingcheng jin','andao chen','feifei xie','luyi sun'
            ) order by lower(g.login_name)`,
         )).rows,
         [
           { login_name: 'andao chen', mission_code: 'P1-CER-002' },
           { login_name: 'feifei xie', mission_code: 'P1-BONUS-001' },
           { login_name: 'luyi sun', mission_code: 'P1-BONUS-001' },
-          { login_name: 'moshuang xu', mission_code: 'P1-CER-004' },
-          { login_name: 'siran li', mission_code: 'P1-CER-003' },
           { login_name: 'xingcheng jin', mission_code: 'P1-CER-002' },
           { login_name: 'yifan yu', mission_code: 'P1-CER-001' },
         ],
       );
+      assert.equal(Number(await scalar(
+        db,
+        `select count(*) from guests
+         where lower(login_name) in('siran li','moshuang xu')
+           and story_role not in('GROOM_CHEERLEADER','BRIDE_CHEERLEADER')`,
+      )), 2, 'Siran and Moshuang no longer hold fixed cheerleader roles');
+      assert.equal(Number(await scalar(
+        db,
+        `select count(*) from assignments a join guests g on g.id=a.guest_id
+         join tasks t on t.id=a.task_id
+         where lower(g.login_name) in('siran li','moshuang xu')
+           and t.mission_code in('P1-CER-003','P1-CER-004')`,
+      )), 0, 'retired cheerleader cards are never assigned');
       assert.deepEqual(
         (await db.query(
           `select g.team,t.mission_code
@@ -460,18 +469,20 @@ test(
 
       // Use the real fixed staff-confirmed mission to prove approval awards
       // points only. No assignment completion may grant or create a clue.
+      const officialAssignment = (await db.query(
+        `select a.id,a.guest_id
+         from assignments a join tasks t on t.id=a.task_id
+         where t.mission_code='P1-BOUQUET-001' and a.is_initial
+         order by a.created_at limit 1`,
+      )).rows[0];
+      assert.ok(officialAssignment, 'a random bouquet task must exist');
       const officialTaskId = await scalar(
         db,
         `select id from tasks
-         where mission_code='P1-CER-003' and active and formal_allowed limit 1`,
+         where mission_code='P1-BOUQUET-001' and active and formal_allowed limit 1`,
       );
       assert.ok(officialTaskId, 'official first-round task must exist');
-      const officialGuestId = await scalar(
-        db,
-        `select id from guests
-         where active and story_role='GROOM_CHEERLEADER' limit 1`,
-      );
-      assert.ok(officialGuestId, 'the matching fixed-role guest must exist');
+      const officialGuestId = officialAssignment.guest_id;
       await db.query(`update game_state set stage='ceremony_end' where id=1`);
       const assignmentId = await scalar(
         db,
@@ -875,7 +886,7 @@ test(
         `select count(*) from assignments a join tasks t on t.id=a.task_id
          where a.status<>'cancelled' and t.stage='task_round_2'
            and is_official_wedding_mission_code(t.mission_code)`,
-      )), 21, 'twenty primary cards plus Louise secondary lucky ability are released');
+      )), 20, 'all twenty phase-two players receive exactly one primary card');
       assert.equal(Number(await scalar(
         db,
         `select count(*) from phase_two_profiles p join guests g on g.id=p.guest_id
@@ -898,7 +909,7 @@ test(
          where a.status<>'cancelled' and t.stage='task_round_2'
            and is_official_wedding_mission_code(t.mission_code)`,
       ));
-      assert.equal(phaseTwoAssignmentCount, 21);
+      assert.equal(phaseTwoAssignmentCount, 20);
       await db.query(
         `select set_game_stage_for_run('task_round_2','runtime-test',$1)`,
         [runId],
@@ -1598,12 +1609,12 @@ test(
              and guest_id=$2`,
           [votingRound, extraVoteGuest.id],
         )),
-        2,
-        'a correct trickster vote awards exactly two personal points',
+        4,
+        'Double Verdict doubles the correct-vote personal reward to four points',
       );
       assert.equal(
         Number(await scalar(db, `select points from guests where id=$1`, [extraVoteGuest.id])),
-        Number(extraVoteGuest.points) + 2,
+        Number(extraVoteGuest.points) + 4,
       );
       assert.equal(
         Number(await scalar(
