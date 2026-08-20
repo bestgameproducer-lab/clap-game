@@ -42,6 +42,16 @@ test('registration API exposes only the RPC-permitted roster and mobile copy exp
   assert.match(page, /新宾客注册已结束；已设置密码的宾客仍可登录/);
 });
 
+test('logging out refreshes claimed-password state before another guest signs in', async () => {
+  const page = await readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8');
+  const logout = page.slice(page.indexOf('async function logout()'), page.indexOf('async function drawCard()'));
+
+  assert.match(logout, /setGuests\(null\)/);
+  assert.match(logout, /setDeviceAccessChecking\(true\)/);
+  assert.match(logout, /await restoreInvitationAccess\(\)/);
+  assert.ok(logout.indexOf('setGuests(null)') < logout.indexOf('await restoreInvitationAccess()'));
+});
+
 test('the latest guest claim and rehearsal reset serialize on the game-state row', async () => {
   const [latestRoster, reset] = await Promise.all([
     readFile(latestRosterMigrationUrl, 'utf8'),
