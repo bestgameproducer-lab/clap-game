@@ -21,8 +21,9 @@ test('guest finale links to the complete ranking and explains every capture rewa
   assert.match(guestPage, /href="\/scoreboard">查看全员最终积分排名/);
 });
 
-test('final ranking explains undetected trickster priority without inventing a trickster score', () => {
+test('final ranking uses only the reveal outcome for trickster placement', () => {
   assert.match(scoreboardPage, /完美伪装/);
-  assert.match(scoreboardPage, /其个人积分不额外增加/);
+  assert.match(scoreboardPage, /成功逃脱者置顶，被识破者置底，两者均不显示积分/);
+  assert.match(scoreboardPage, /tricksterResult \? '终局按身份结果结算'/);
   assert.doesNotMatch(scoreboardPage, /恶作剧得分|间谍分/);
 });

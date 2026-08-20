@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     if (action === 'dilemma') {
       await submitPhaseTwoDilemma(guestId, requiredEnum(body.choice, '秘密选择', DILEMMA_CHOICES), rehearsalRunId);
     } else {
-      await submitPhaseTwoCopyChoice(guestId, requiredUuid(body.targetGuestId, '复制目标'), rehearsalRunId);
+      await submitPhaseTwoCopyChoice(guestId, requiredUuid(body.targetGuestId, '偷分目标'), rehearsalRunId);
     }
     return noStoreJson({ ok: true });
   } catch (error) {

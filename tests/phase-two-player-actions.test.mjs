@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const migration = await readFile(new URL('../supabase/migrations/202607310002_phase_two_player_actions.sql', import.meta.url), 'utf8');
 const copyScopeFix = await readFile(new URL('../supabase/migrations/202608140002_fix_copy_score_settlement_scope.sql', import.meta.url), 'utf8');
+const stealMigration = await readFile(new URL('../supabase/migrations/202608200001_trickster_camouflage_and_lonely_cupid_steal.sql', import.meta.url), 'utf8');
 const route = await readFile(new URL('../app/api/phase-two-action/route.ts', import.meta.url), 'utf8');
 const guestData = await readFile(new URL('../lib/data/guest.ts', import.meta.url), 'utf8');
 const guestPage = await readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8');
@@ -12,7 +13,7 @@ test('phase-two player mutations are authenticated, same-origin, and validated',
   assert.match(route, /assertSameOrigin\(request\)/);
   assert.match(route, /await requireGuestContext\(\)/);
   assert.match(route, /requiredEnum\(body\.choice, '秘密选择', DILEMMA_CHOICES\)/);
-  assert.match(route, /requiredUuid\(body\.targetGuestId, '复制目标'\)/);
+  assert.match(route, /requiredUuid\(body\.targetGuestId, '偷分目标'\)/);
   assert.match(guestData, /rpc\('submit_phase_two_dilemma'/);
   assert.match(guestData, /rpc\('submit_phase_two_copy_choice'/);
 });
@@ -67,8 +68,20 @@ test('guest task cards expose explicit locked, waiting, settled, and offline sta
   assert.match(guestPage, /你的选择已密封保存/);
   assert.match(guestPage, /双方选择已经揭晓/);
   assert.match(guestPage, /确认提交 · 不可修改/);
-  assert.match(guestPage, /命运已经选定/);
+  assert.match(guestPage, /偷心目标已经锁定/);
   assert.match(guestPage, /disabled=\{busy \|\| offline \|\| !actionOpen/);
+});
+
+test('Lonely Cupid transfers exactly three points once at final reveal', () => {
+  assert.match(stealMigration, /v_transfer_points constant integer:=3/);
+  assert.match(stealMigration, /points_ledger\(guest_id,amount,reason,actor\)[\s\S]*-v_transfer_points/);
+  assert.match(stealMigration, /points_ledger\(guest_id,assignment_id,amount,reason,actor\)[\s\S]*v_transfer_points/);
+  assert.match(stealMigration, /update guests set points=points-v_transfer_points/);
+  assert.match(stealMigration, /update guests set points=points\+v_transfer_points/);
+  assert.match(stealMigration, /v_choice\.settled_at is null/);
+  assert.match(stealMigration, /settled_points=v_transfer_points,settled_at=now\(\)/);
+  assert.match(stealMigration, /for update/);
+  assert.match(stealMigration, /lonely_cupid_target_may_go_negative',true/);
 });
 
 test('star dilemma explains the full payoff matrix before either choice is submitted', () => {

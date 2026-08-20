@@ -71,9 +71,10 @@ test('honor guests can rank personally without creating a placeholder team', () 
   assert.deepEqual(result.teams[0], { team: '玫瑰组', points: 0, guests: 1, completedTasks: 0 });
 });
 
-test('puts an undetected trickster first without changing personal points', () => {
+test('ranks escaped tricksters first and caught tricksters last without comparing camouflage points', () => {
   const finalGuests = [
     { id: 'spy', name: 'Hidden', team: '玫瑰组', points: 1 },
+    { id: 'caught', name: 'Caught', team: '琥珀组', points: 999 },
     { id: 'top', name: 'Suspect', team: '玫瑰组', points: 12 },
     { id: 'winner', name: 'Winner', team: '琥珀组', points: 20 },
   ];
@@ -85,6 +86,7 @@ test('puts an undetected trickster first without changing personal points', () =
   const result = buildPublicScoreboard(finalGuests, [], finalVotes, [], {
     leaderLimit: finalGuests.length,
     priorityGuestIds: undetected,
+    tricksterGuestIds: new Set(['spy', 'caught']),
   });
 
   assert.deepEqual([...undetected], ['spy']);
@@ -92,6 +94,8 @@ test('puts an undetected trickster first without changing personal points', () =
   assert.equal(result.leaders[0].points, 1);
   assert.equal(result.leaders[0].undetectedTrickster, true);
   assert.equal(result.leaders[1].id, 'winner');
+  assert.equal(result.leaders.at(-1)?.id, 'caught');
+  assert.equal(result.leaders.at(-1)?.caughtTrickster, true);
 });
 
 test('a trickster tied for the team highest vote count is considered detected', () => {

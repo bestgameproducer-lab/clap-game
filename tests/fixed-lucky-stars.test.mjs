@@ -3,15 +3,22 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const migrationUrl = new URL('../supabase/migrations/202608160004_fix_lucky_stars_and_guest_task_flow.sql', import.meta.url);
+const namingMigrationUrl = new URL('../supabase/migrations/202608200001_trickster_camouflage_and_lonely_cupid_steal.sql', import.meta.url);
 
 test('Feifei and Louise keep the two fixed Cupid lucky powers in act two', async () => {
-  const migration = await readFile(migrationUrl, 'utf8');
+  const [migration, namingMigration] = await Promise.all([
+    readFile(migrationUrl, 'utf8'),
+    readFile(namingMigrationUrl, 'utf8'),
+  ]);
   assert.match(migration, /lower\(g\.login_name\)='feifei xie'/);
   assert.match(migration, /lower\(g\.login_name\)='luyi sun'/);
   assert.match(migration, /p\.super_lucky and lower\(g\.login_name\) in\('feifei xie','luyi sun'\)/);
   assert.match(migration, /mission_code='P2-LUCKY-001'/);
   assert.match(migration, /fixed_first_act_lucky/);
   assert.match(migration, /initial_lucky_bonus',2/);
+  assert.match(namingMigration, /where mission_code='P2-LUCKY-001'/);
+  assert.match(namingMigration, /title='超级幸运星'/);
+  assert.match(namingMigration, /第一阶段积分快照 \+ 2/);
 });
 
 test('live repair preserves unfinished banquet work and refuses unsafe reassignment', async () => {

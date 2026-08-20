@@ -90,7 +90,7 @@ export function guestMissionRewardLabel(input: {
 
   const missionLabels: Record<string, string> = {
     'P2-POWER-001': '额外一票',
-    'P2-LUCKY-001': '积分翻倍',
+    'P2-LUCKY-001': '快照 + 2',
   };
   if (input.missionCode && missionLabels[input.missionCode]) {
     return missionLabels[input.missionCode];
@@ -98,7 +98,7 @@ export function guestMissionRewardLabel(input: {
 
   const mechanicLabels: Record<string, string> = {
     SECRET_DILEMMA: '按选择结算',
-    COPY_SCORE: '命运复制',
+    COPY_SCORE: '偷心行动',
     TEAM_CAPTAIN: '团队奖励',
     TRICKSTER_SIGNAL: '能力解锁',
     TRICKSTER_MISSION: '身份任务',

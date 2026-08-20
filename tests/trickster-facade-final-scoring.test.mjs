@@ -4,19 +4,23 @@ import test from 'node:test';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('the latest approval definition preserves zero-point trickster facades', async () => {
-  const migration = await read('supabase/migrations/202608140001_restore_trickster_facade_no_score.sql');
-  const approval = migration.slice(
-    migration.indexOf('create or replace function approve_assignment'),
-    migration.indexOf('revoke all on function approve_assignment'),
-  );
+test('the latest rule restores ordinary facade points but excludes them from final placement', async () => {
+  const [migration, core, scoreboard] = await Promise.all([
+    read('supabase/migrations/202608200001_trickster_camouflage_and_lonely_cupid_steal.sql'),
+    read('lib/scoreboard-core.ts'),
+    read('app/scoreboard/page.tsx'),
+  ]);
 
-  assert.match(approval, /select points,role into v_total,v_guest_role/);
-  assert.match(approval, /v_score_policy='NO_PERSONAL'[\s\S]*v_task_stage='task_round_1' and v_guest_role='spy'[\s\S]*then 0/);
-  assert.match(approval, /if v_assignment\.is_initial and v_points>0 then/);
-  assert.match(approval, /trickster_facade_no_score/);
-  assert.doesNotMatch(approval, /insert into guest_clues|reward_clue_id\s*=\s*[^n]/);
-  assert.match(migration, /existing_runtime_rows_untouched',true/);
+  assert.match(migration, /v_points:=case when v_score_policy='NO_PERSONAL' then 0 else v_task_points end/);
+  assert.doesNotMatch(migration, /v_task_stage='task_round_1' and v_guest_role='spy'\) then 0/);
+  assert.match(migration, /p_actor not like 'system:%'/);
+  assert.match(migration, /not \(v_task_stage='task_round_1' and v_guest_role='spy'\)/);
+  assert.match(migration, /'trickster_facade_visible_points',2/);
+  assert.match(migration, /'trickster_facade_early_honor_eligible',false/);
+  assert.match(core, /tricksterGuestIds/);
+  assert.match(core, /rankingBucket\(a\.id\) - rankingBucket\(b\.id\)/);
+  assert.match(scoreboard, /成功逃脱者置顶，被识破者置底，两者均不显示积分/);
+  assert.match(scoreboard, /tricksterResult \? '终局按身份结果结算'/);
 });
 
 test('every staff and mutual-confirmation completion path still converges on the fixed approval function', async () => {

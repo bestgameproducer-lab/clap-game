@@ -85,12 +85,12 @@ test('zero-point official missions explain their real reward instead of displayi
 
   assert.equal(labels.get('P2-HEART-001'), '按选择结算');
   assert.equal(labels.get('P2-STAR-001'), '按选择结算');
-  assert.equal(labels.get('P2-LONELY-001'), '命运复制');
+  assert.equal(labels.get('P2-LONELY-001'), '偷心行动');
   assert.equal(labels.get('P2-GUIDE-001'), '团队奖励');
   assert.equal(labels.get('P1-TRICKSTER-001'), '能力解锁');
   assert.equal(labels.get('P2-TRICKSTER-001'), '身份任务');
   assert.equal(labels.get('P2-POWER-001'), '额外一票');
-  assert.equal(labels.get('P2-LUCKY-001'), '积分翻倍');
+  assert.equal(labels.get('P2-LUCKY-001'), '快照 + 2');
   for (const task of OFFICIAL_TASK_MANIFEST.filter((candidate) => candidate.points === 0)) {
     assert.notEqual(labels.get(task.mission_code), '0 分', task.mission_code);
   }

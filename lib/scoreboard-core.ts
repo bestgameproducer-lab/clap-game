@@ -10,6 +10,7 @@ export type ScoreboardTeamPoint = { team: string; amount: number };
 export type ScoreboardOptions = {
   leaderLimit?: number;
   priorityGuestIds?: ReadonlySet<string>;
+  tricksterGuestIds?: ReadonlySet<string>;
 };
 
 export type PersonalRankingParticipant = {
@@ -92,6 +93,12 @@ export function buildPublicScoreboard(
     teams.set(entry.team, current);
   }
 
+  const rankingBucket = (guestId: string) => {
+    if (options.priorityGuestIds?.has(guestId)) return 0;
+    if (options.tricksterGuestIds?.has(guestId)) return 2;
+    return 1;
+  };
+
   return {
     // Completed assignment counts are display-only context. They cannot break
     // a team-score tie because the formal team-clue settlement treats equal
@@ -102,10 +109,19 @@ export function buildPublicScoreboard(
       // Ability cards and hidden roles can create additional zero-point
       // approved assignments. Keep that count informational so secret role
       // allocation can never become an undocumented ranking advantage.
-      .sort((a, b) => Number(options.priorityGuestIds?.has(b.id) ?? false) - Number(options.priorityGuestIds?.has(a.id) ?? false)
-        || b.points - a.points || a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
+      // At reveal, a trickster's accumulated score has served its camouflage
+      // purpose and no longer participates in placement. Escaped tricksters
+      // lead the finale, caught tricksters move below every ordinary guest,
+      // and equal trickster outcomes use a deterministic name/id order only.
+      .sort((a, b) => rankingBucket(a.id) - rankingBucket(b.id)
+        || (rankingBucket(a.id) === 1 ? b.points - a.points : 0)
+        || a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
       .slice(0, options.leaderLimit ?? 10)
-      .map((guest) => ({ ...guest, undetectedTrickster: options.priorityGuestIds?.has(guest.id) ?? false })),
+      .map((guest) => ({
+        ...guest,
+        undetectedTrickster: options.priorityGuestIds?.has(guest.id) ?? false,
+        caughtTrickster: Boolean(options.tricksterGuestIds?.has(guest.id) && !options.priorityGuestIds?.has(guest.id)),
+      })),
     voteCounts: guests
       .map((guest) => ({
         id: guest.id,

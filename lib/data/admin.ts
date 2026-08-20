@@ -206,6 +206,7 @@ export async function getAdminDashboardData(actor: string) {
   const rankings = buildPublicScoreboard(rankingGuests, rankingAssignments, currentRoundVotes, frozenTeamPoints, {
     leaderLimit: game?.results_visible ? rankingGuests.length : 10,
     priorityGuestIds: undetectedTricksterIds,
+    tricksterGuestIds: game?.results_visible ? new Set(tricksters.map((guest) => guest.id)) : undefined,
   });
   const recordedPendingRehearsalCleanup = (results[18].data ?? []).find((record) =>
     (Array.isArray(record.evidence_paths) && record.evidence_paths.length > 0)
