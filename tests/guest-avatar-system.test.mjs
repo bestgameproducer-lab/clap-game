@@ -144,12 +144,24 @@ test('the admin guest manager receives private signed avatars and reports real p
   assert.match(adminPage, /\{claimed\}\/\{activeGuests\.length\} 已认领/);
   assert.match(adminPage, /\{avatarCount\}[\s\S]*已上传头像/);
   assert.match(adminPage, /\{drawn\}[\s\S]*已完成抽卡/);
+  assert.match(adminPage, /const drawEligibleGuests = activeGuests\.filter\(\(guest\) => guest\.eligible_for_mission\)/);
+  assert.match(adminPage, /\{drawn\}\/\{drawEligibleGuests\.length\} 任务卡/);
+  assert.match(adminPage, /专属卡宾客无需抽取任务卡/);
+  assert.match(adminPage, /guest\.eligible_for_mission \? '待抽卡' : '专属卡'/);
+  assert.doesNotMatch(adminPage, /\{drawn\}\/\{activeGuests\.length\} 抽卡/);
   assert.match(adminPage, /guest\.avatar_url \? <img className="guest-avatar"/);
   assert.match(adminPage, /guest-progress-search/);
   assert.match(adminPage, /guest-progress-filter/);
   assert.doesNotMatch(adminPage, /\{activeGuests\.length\}\/\{data\.guests\.length\}/);
   assert.match(styles, /\.guest-progress-summary/);
   assert.match(styles, /\.guest-management-toolbar/);
+});
+
+test('staff surfaces do not tell special-card guests to draw a mission card', async () => {
+  const stationPage = await read('app/station/page.tsx');
+
+  assert.match(stationPage, /item\.participation_mode === 'ACTIVE_PLAYER' \? '待抽卡' : '专属卡'/);
+  assert.doesNotMatch(stationPage, /item\.claimed_at \? '待抽卡' : '未认领'/);
 });
 
 test('space-heavy admin guest controls are collapsed by default', async () => {
