@@ -343,9 +343,9 @@ test('离开后重新打开仍会收到升级任务结算，且双方提交前�
   await expect(page.getByText('伙伴选择「独占」· 获得 5 分')).toBeVisible();
 });
 
-test('恶作剧者完成真正任务后在真实界面看到已生效的额外一票', async ({ page }) => {
+test('恶作剧者真正任务完成卡在窄屏完整展开并在第二轮显示额外一票', async ({ page }) => {
   const errors = collectPageErrors(page);
-  const tricksterData = {
+  const state = { current: {
     ...guestData,
     guest: { ...guest, role: 'spy', name: '测试恶作剧者' },
     assignments: [{
@@ -363,17 +363,40 @@ test('恶作剧者完成真正任务后在真实界面看到已生效的额外�
     },
     phaseTwo: {
       mission: 'TRICKSTER', extraVote: false, superLucky: false, isCaptain: false,
-      unlockedAt: '2026-08-01T13:30:00.000Z', phaseOnePointsSnapshot: 0,
+      unlockedAt: null, phaseOnePointsSnapshot: 0,
       luckySettled: false, captainSettled: false, originVerified: true,
       dilemma: null, copyChoice: null, copyCandidates: [],
     },
-  };
-  await page.route('**/api/guest-me', (route) => route.fulfill({ json: tricksterData }));
+  } };
+  await page.route('**/api/guest-me', (route) => route.fulfill({ json: state.current }));
   await page.route('**/api/registration/guests', (route) => route.fulfill({ json: { guests: [], registrationOpen: false } }));
+  await page.setViewportSize({ width: 393, height: 852 });
   await page.goto('/guest');
   await acknowledgeGuestActivity(page);
 
   await expect(page.getByText('额外一票已解锁')).toHaveCount(0);
+  await page.getByRole('button', { name: '展开查看' }).click();
+  const pendingPower = page.locator('.trickster-power-note.pending');
+  await expect(pendingPower).toContainText('真正任务完成 · 能力已获得');
+  await expect(pendingPower).toContainText('婚宴前奏开启第二轮后');
+  await expect.poll(() => pendingPower.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const paragraph = element.querySelector('p');
+    const cardRect = element.getBoundingClientRect();
+    const paragraphRect = paragraph?.getBoundingClientRect();
+    return {
+      flexShrink: style.flexShrink,
+      contentFits: element.scrollHeight <= element.clientHeight + 1,
+      paragraphFits: Boolean(paragraphRect && paragraphRect.bottom <= cardRect.bottom + 1),
+    };
+  })).toEqual({ flexShrink: '0', contentFits: true, paragraphFits: true });
+
+  state.current = {
+    ...state.current,
+    phaseTwo: { ...state.current.phaseTwo, unlockedAt: '2026-08-01T13:30:00.000Z' },
+  };
+  await page.reload();
+  await acknowledgeGuestActivity(page);
   await page.getByRole('button', { name: '展开查看' }).click();
   await expect(page.getByText('额外一票已解锁', { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/系统会立即将你的选择按 2 票保存/)).toBeVisible();
@@ -537,8 +560,7 @@ test('主持人可以进入游戏、团队、个人和流程控制台', async ({
   await page.getByRole('button', { name: '开始海岛组答题' }).click();
   const quickQuestion = page.locator('.quick-question-card > p');
   const firstQuestion = await quickQuestion.innerText();
-  await page.getByRole('button', { name: '显示答案' }).click();
-  await expect(page.locator('.quick-answer.visible strong')).not.toHaveText('点击后仅主持人查看');
+  await expect(page.locator('.quick-answer.visible strong')).not.toHaveText('答案载入中');
   await page.getByRole('button', { name: '答错／超时 · 结束' }).click();
   await page.getByRole('button', { name: '重排题序 · 从头挑战' }).click();
   await expect(quickQuestion).not.toHaveText(firstQuestion);
@@ -553,11 +575,9 @@ test('主持人可以进入游戏、团队、个人和流程控制台', async ({
   await page.getByRole('button', { name: /04.*一站到底/ }).click();
   await expect(page.getByRole('region', { name: '一站到底新人问答主持工具' })).toBeVisible();
   await page.getByRole('button', { name: '洗牌并开始新人问答' }).click();
-  await expect(page.locator('.couple-answer strong')).toHaveText('揭晓前请保持隐藏');
-  await page.getByRole('button', { name: '揭晓答案' }).click();
   await expect(page.locator('.couple-answer.visible strong')).toHaveText(/新郎|新娘/);
   await page.getByRole('button', { name: '下一题' }).click();
-  await expect(page.locator('.couple-answer strong')).toHaveText('揭晓前请保持隐藏');
+  await expect(page.locator('.couple-answer.visible strong')).toHaveText(/新郎|新娘/);
   await page.getByRole('button', { name: '团队计分', exact: true }).click();
   await expect(page.getByRole('heading', { name: '记录团队挑战成绩' })).toBeVisible();
   await page.getByRole('button', { name: '个人加分', exact: true }).click();
