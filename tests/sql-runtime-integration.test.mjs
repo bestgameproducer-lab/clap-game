@@ -866,6 +866,35 @@ test(
       assert.equal(Number(await scalar(
         db,
         `select count(*)
+         from symbol_pairing_assignments s
+         join assignments a on a.guest_id=s.guest_id and a.is_initial
+         join tasks t on t.id=a.task_id
+         where s.status='UNPAIRED_FINAL' and a.status='cancelled'
+           and t.mission_code=case when s.symbol='HEART'
+             then 'P1-HEART-001' else 'P1-STAR-001' end
+           and coalesce((
+             select sum(l.amount) from points_ledger l
+             where l.assignment_id=a.id or (
+               l.guest_id=a.guest_id
+               and l.event_key=md5(
+                 'unmatched-symbol-live-reversal:'||a.id::text
+               )::uuid
+             )
+           ),0)=0`,
+      )), 2, 'unmatched heart and star holders keep their act-two roles but receive zero pairing points');
+      assert.equal(Number(await scalar(
+        db,
+        `select count(*)
+         from symbol_pairing_assignments s
+         join assignments a on a.guest_id=s.guest_id and a.is_initial
+         join tasks t on t.id=a.task_id
+         where s.status='PAIRED' and a.status='approved'
+           and t.mission_code=case when s.symbol='HEART'
+             then 'P1-HEART-001' else 'P1-STAR-001' end`,
+      )), 8, 'all eight paired holders complete the two-point act-one mission');
+      assert.equal(Number(await scalar(
+        db,
+        `select count(*)
          from phase_two_profiles p
          join symbol_pairing_assignments s on s.guest_id=p.guest_id
          join assignments a on a.guest_id=p.guest_id and a.status<>'cancelled'
