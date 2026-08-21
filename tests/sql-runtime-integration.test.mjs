@@ -287,13 +287,34 @@ test(
       // active family accounts, fixed cast, two deterministic trickster
       // facades and the random pools form one complete 24-account allocation.
       const runId = await scalar(db, `select rehearsal_run_id from game_state where id=1`);
+      const finalCompetitiveTeams = (await db.query(
+        `select login_name,team,role from guests
+         where active and uses_app and participation_mode='ACTIVE_PLAYER'
+           and phase_two_eligible
+         order by login_name`,
+      )).rows;
+      assert.deepEqual(
+        finalCompetitiveTeams.filter((guest) => guest.team === '沙漠组').map((guest) => guest.login_name),
+        ['Chulan Fan','Fangzhou Chen','Jialai Jin','Junheng Liu','Qianyi Wang','Siran Li','Yifan Yu','Yue Liu','Zikun Zheng','Zixi Wang'],
+        'the organizer-approved desert team must be locked by the final roster migration',
+      );
+      assert.deepEqual(
+        finalCompetitiveTeams.filter((guest) => guest.team === '海岛组').map((guest) => guest.login_name),
+        ['Feifei Xie','Huijie Huang','Luyi Sun','Moshuang Xu','Ruochen Xu','Tang-Ling Yeh','Tianyi Shi','Wenli Xu','Yi Ren','Yirui Zhang'],
+        'all other competitive guests must be locked to the island team',
+      );
+      assert.deepEqual(
+        finalCompetitiveTeams.filter((guest) => guest.role === 'spy').map((guest) => guest.login_name),
+        ['Fangzhou Chen','Huijie Huang'],
+        'Fangzhou and Huijie must be the two preset tricksters',
+      );
       const islandSpyId = await scalar(
         db,
         `select id from guests where lower(login_name)='huijie huang'`,
       );
       const desertSpyId = await scalar(
         db,
-        `select id from guests where lower(login_name)='junheng liu'`,
+        `select id from guests where lower(login_name)='fangzhou chen'`,
       );
       await db.query(
         `select set_registration_open_for_run(false,'runtime-test',$1)`,
