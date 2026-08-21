@@ -48,7 +48,6 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
   const [quickCategoryId, setQuickCategoryId] = useState(data.quickQuiz[0]?.id ?? '');
   const [quickTeam, setQuickTeam] = useState<QuickTeam>('海岛组');
   const [quickRuns, setQuickRuns] = useState(initialQuickRuns);
-  const [quickAnswerVisible, setQuickAnswerVisible] = useState(false);
   const [charadesCategoryId, setCharadesCategoryId] = useState(data.charades[0]?.id ?? '');
   const [charadesSeconds, setCharadesSeconds] = useState(300);
   const [charadesRunning, setCharadesRunning] = useState(false);
@@ -63,7 +62,6 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
   const [coupleQuestionOrder, setCoupleQuestionOrder] = useState<number[]>([]);
   const [coupleQuestionIndex, setCoupleQuestionIndex] = useState(0);
   const [coupleStarted, setCoupleStarted] = useState(false);
-  const [coupleAnswerVisible, setCoupleAnswerVisible] = useState(false);
 
   const quickCategory = data.quickQuiz.find((item) => item.id === quickCategoryId) ?? data.quickQuiz[0];
   const formalQuestions = quickCategory?.questions.filter((question) => !question.backup) ?? [];
@@ -94,7 +92,6 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
     setQuickCategoryId(categoryId);
     setQuickRuns(initialQuickRuns());
     setQuickTeam('海岛组');
-    setQuickAnswerVisible(false);
   }
 
   function startQuickRun() {
@@ -107,7 +104,6 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
         questionOrder: shuffledQuickQuestionOrder(formalQuestions.length, current[quickTeam].questionOrder, secureRandomIndex),
       },
     }));
-    setQuickAnswerVisible(false);
   }
 
   function markQuickCorrect() {
@@ -122,13 +118,11 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
           : { ...activeRun, questionIndex: activeRun.questionIndex + 1, correctCount: activeRun.correctCount + 1 },
       };
     });
-    setQuickAnswerVisible(false);
   }
 
   function stopQuickRun() {
     if (quickRun.status !== 'playing') return;
     setQuickRuns((current) => ({ ...current, [quickTeam]: { ...quickRun, status: 'stopped' } }));
-    setQuickAnswerVisible(false);
   }
 
   function resetCharades(categoryId = charadesCategoryId) {
@@ -197,13 +191,11 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
   function startCoupleQuiz() {
     setCoupleQuestionOrder((current) => shuffledQuickQuestionOrder(data.coupleQuiz.length, current, secureRandomIndex));
     setCoupleQuestionIndex(0);
-    setCoupleAnswerVisible(false);
     setCoupleStarted(true);
   }
 
   function moveCoupleQuestion(direction: -1 | 1) {
     setCoupleQuestionIndex((current) => Math.min(Math.max(current + direction, 0), data.coupleQuiz.length - 1));
-    setCoupleAnswerVisible(false);
   }
 
   const activeTool = useMemo(() => TOOL_OPTIONS.find((item) => item.id === tool) ?? TOOL_OPTIONS[0], [tool]);
@@ -215,14 +207,14 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
     <div className="host-game-current"><small>{activeTool.number} · HOST TOOL</small><strong>{activeTool.title}</strong></div>
 
     {tool === 'quick' && <section className="host-game-panel" aria-label="快问快答主持工具">
-      <div className="host-game-rules"><strong>现场规则</strong><p>三组使用同一类别、同一组 10 道题；每次开始以及失败重来都会重新打乱题序。每人依次回答一题，建议限时 3 秒。答错、超时或跳过立即结束本组挑战，并且不要公布正确答案。最先连续答对 10 题的组赢得本类别。</p></div>
+      <div className="host-game-rules"><strong>现场规则</strong><p>三组使用同一类别、同一组 10 道题；每次开始以及失败重来都会重新打乱题序。每人依次回答一题，建议限时 3 秒。主持人设备始终显示答案；答错、超时或跳过时立即结束本组挑战，不要向队员公布正确答案。最先连续答对 10 题的组赢得本类别。</p></div>
       <label htmlFor="quick-category">本轮题目类别</label><select id="quick-category" value={quickCategoryId} onChange={(event) => resetQuickCategory(event.target.value)}>{data.quickQuiz.map((item) => <option value={item.id} key={item.id}>{item.title} · 10 题</option>)}</select>
-      <div className="quick-team-tabs" role="group" aria-label="当前答题组">{QUICK_TEAMS.map((team) => { const run = quickRuns[team]; return <button type="button" key={team} className={quickTeam === team ? 'active' : ''} onClick={() => { setQuickTeam(team); setQuickAnswerVisible(false); }}><strong>{team}</strong><span>{run.status === 'completed' ? '已通关' : run.status === 'stopped' ? `${run.correctCount}/10 结束` : run.status === 'playing' ? `${run.questionIndex + 1}/10 答题中` : '等待开始'}</span></button>; })}</div>
+      <div className="quick-team-tabs" role="group" aria-label="当前答题组">{QUICK_TEAMS.map((team) => { const run = quickRuns[team]; return <button type="button" key={team} className={quickTeam === team ? 'active' : ''} onClick={() => setQuickTeam(team)}><strong>{team}</strong><span>{run.status === 'completed' ? '已通关' : run.status === 'stopped' ? `${run.correctCount}/10 结束` : run.status === 'playing' ? `${run.questionIndex + 1}/10 答题中` : '等待开始'}</span></button>; })}</div>
       {quickRun.status === 'completed' ? <div className="quick-complete-state"><small>CATEGORY CLEARED</small><strong>{quickTeam}连续答对 10 题</strong><p>本类别已经通关。请按现场赛制记录胜出类别或进入下一类别。</p><button type="button" className="secondary" onClick={startQuickRun}>重排题序 · 再次挑战</button></div> : <div className="quick-question-card">
         <header><span>{quickRun.status === 'ready' ? '等待开始' : quickRun.status === 'stopped' ? '本组已结束' : `正式题 ${String(quickRun.questionIndex + 1).padStart(2, '0')} / 10`}</span><b>{quickCategory?.title}</b></header>
         <p>{currentQuickQuestion?.prompt ?? '题目载入中'}</p>
-        <div className={`quick-answer ${quickAnswerVisible ? 'visible' : ''}`}><small>主持人答案</small><strong>{quickAnswerVisible ? currentQuickQuestion?.answer : '点击后仅主持人查看'}</strong></div>
-        {quickRun.status === 'playing' ? <><button type="button" className="secondary host-answer-toggle" aria-pressed={quickAnswerVisible} onClick={() => setQuickAnswerVisible((current) => !current)}>{quickAnswerVisible ? '隐藏答案' : '显示答案'}</button><div className="quick-action-row"><button type="button" onClick={markQuickCorrect}>答对 · 下一题</button><button type="button" className="danger" onClick={stopQuickRun}>答错／超时 · 结束</button></div></> : <button type="button" onClick={startQuickRun}>{quickRun.status === 'stopped' ? '重排题序 · 从头挑战' : `开始${quickTeam}答题`}</button>}
+        <div className="quick-answer visible"><small>主持人答案 · 始终显示</small><strong>{currentQuickQuestion?.answer ?? '答案载入中'}</strong></div>
+        {quickRun.status === 'playing' ? <div className="quick-action-row"><button type="button" onClick={markQuickCorrect}>答对 · 下一题</button><button type="button" className="danger" onClick={stopQuickRun}>答错／超时 · 结束</button></div> : <button type="button" onClick={startQuickRun}>{quickRun.status === 'stopped' ? '重排题序 · 从头挑战' : `开始${quickTeam}答题`}</button>}
       </div>}
       <details className="host-game-backups"><summary>平分加赛／替换题（2 题）</summary>{backupQuestions.map((question, index) => <article key={question.prompt}><span>备用 {index + 1}</span><strong>{question.prompt}</strong><small>答案：{question.answer}</small></article>)}</details>
     </section>}
@@ -250,13 +242,12 @@ export function HostGameToolkit({ data }: { data: HostGameToolkitData }) {
     </section>}
 
     {tool === 'couple' && <section className="host-game-panel" aria-label="一站到底新人问答主持工具">
-      <div className="host-game-rules"><strong>现场规则</strong><p>所有宾客先选择站在新郎或新娘身边。主持人读题并给出选择时间，再揭晓答案；答错者离场，答对者留下，直到剩下最后一位或最后一组。题目只显示在主持人设备，答案默认隐藏。</p></div>
-      <div className={`couple-readiness ${coupleStarted ? 'ready' : ''}`}><div><small>NEWLYWED QUIZ</small><strong>{data.coupleQuiz.length} 道正式题目已准备</strong><p>{coupleStarted ? '答案默认隐藏；切换题目时会自动再次隐藏。' : '点击开始后随机排列题序，重新开始会再次洗牌。'}</p></div><span>{coupleStarted ? '进行中' : '准备就绪'}</span></div>
+      <div className="host-game-rules"><strong>现场规则</strong><p>所有宾客先选择站在新郎或新娘身边。主持人读题并给出选择时间，等宾客站定后口头公布答案；答错者离场，答对者留下，直到剩下最后一位或最后一组。题目和答案始终显示在主持人设备。</p></div>
+      <div className={`couple-readiness ${coupleStarted ? 'ready' : ''}`}><div><small>NEWLYWED QUIZ</small><strong>{data.coupleQuiz.length} 道正式题目已准备</strong><p>{coupleStarted ? '题目和答案同时显示；下一题无需再次点击揭晓。' : '点击开始后随机排列题序，重新开始会再次洗牌。'}</p></div><span>{coupleStarted ? '进行中' : '准备就绪'}</span></div>
       {!coupleStarted ? <button type="button" disabled={data.coupleQuiz.length === 0} onClick={startCoupleQuiz}>洗牌并开始新人问答</button> : <div className="couple-question-card">
         <header><span>题目 {String(coupleQuestionIndex + 1).padStart(2, '0')} / {data.coupleQuiz.length}</span><b>新郎还是新娘</b></header>
         <p>{currentCoupleQuestion?.prompt ?? '题目载入中'}</p>
-        <div className={`couple-answer ${coupleAnswerVisible ? 'visible' : ''}`}><small>主持人答案</small><strong>{coupleAnswerVisible ? currentCoupleQuestion?.answer : '揭晓前请保持隐藏'}</strong></div>
-        <button type="button" className="secondary host-answer-toggle" aria-pressed={coupleAnswerVisible} onClick={() => setCoupleAnswerVisible((current) => !current)}>{coupleAnswerVisible ? '隐藏答案' : '揭晓答案'}</button>
+        <div className="couple-answer visible"><small>主持人答案 · 始终显示</small><strong>{currentCoupleQuestion?.answer ?? '答案载入中'}</strong></div>
         <div className="couple-navigation"><button type="button" className="secondary" disabled={coupleQuestionIndex === 0} onClick={() => moveCoupleQuestion(-1)}>上一题</button><button type="button" disabled={coupleQuestionIndex >= data.coupleQuiz.length - 1} onClick={() => moveCoupleQuestion(1)}>下一题</button></div>
         <button type="button" className="text-button" onClick={startCoupleQuiz}>重新洗牌 · 从头开始</button>
       </div>}

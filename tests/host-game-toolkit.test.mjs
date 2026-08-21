@@ -26,7 +26,8 @@ test('快问快答完整包含 10 类题目并明确正式题与备用题边界'
   for (const title of ['世界首都', '中国省会／首府', '国家货币', '中国省份简称', '中国城市地标', '成语补字', '数字与时间', '动物与自然', '生活科学', '食物与日常']) assert.match(data, new RegExp(title));
   assert.match(data, /\['澳大利亚的首都是哪里？', '堪培拉'\]/);
   assert.match(data, /\['人体最大的器官是什么？', '皮肤'\]/);
-  assert.match(component, /答错、超时或跳过立即结束本组挑战，并且不要公布正确答案/);
+  assert.match(component, /主持人设备始终显示答案；答错、超时或跳过时立即结束本组挑战/);
+  assert.match(component, /不要向队员公布正确答案/);
   assert.match(component, /平分加赛／替换题（2 题）/);
   assert.match(component, /答错／超时 · 结束/);
 });
@@ -52,14 +53,21 @@ test('你比划我猜和随机数都有独立、适合现场使用的主持状�
   assert.match(component, /charadesEndsAt - Date\.now\(\)/);
 });
 
-test('第四个游戏使用 17 道已确认的新人问答并默认隐藏答案', () => {
+test('所有主持题库答案默认直接显示且无需额外揭晓', () => {
   assert.equal((data.match(/^  \{ prompt: /gm) ?? []).length, 17);
   assert.match(data, /\{ prompt: '谁更喜欢梅西？', answer: '新郎' \}/);
   assert.match(data, /\{ prompt: '谁更喜欢游泳？', answer: '新娘' \}/);
   assert.match(data, /\{ prompt: '谁的拿手菜是番茄牛尾汤？', answer: '新娘' \}/);
   assert.match(component, /ToolkitMode = 'quick' \| 'charades' \| 'random' \| 'couple'/);
   assert.match(component, /17 道新人问答/);
-  assert.match(component, /揭晓前请保持隐藏/);
+  assert.match(component, /quick-answer visible/);
+  assert.match(component, /couple-answer visible/);
+  assert.match(component, /主持人答案 · 始终显示/);
+  assert.doesNotMatch(component, /quickAnswerVisible|coupleAnswerVisible/);
+  assert.doesNotMatch(component, />显示答案</);
+  assert.doesNotMatch(component, />隐藏答案</);
+  assert.doesNotMatch(component, />揭晓答案</);
+  assert.doesNotMatch(component, /揭晓前请保持隐藏/);
   assert.match(component, /重新洗牌 · 从头开始/);
   assert.doesNotMatch(component, /04 · 稍后开放/);
 });
