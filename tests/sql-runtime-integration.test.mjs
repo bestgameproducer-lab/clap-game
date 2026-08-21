@@ -308,6 +308,11 @@ test(
         ['Fangzhou Chen','Huijie Huang'],
         'Fangzhou and Huijie must be the two preset tricksters',
       );
+      assert.equal(
+        await scalar(db, `select formal_wedding_roster_ready()`),
+        true,
+        'the database opening gate must accept the organizer-approved final teams and tricksters',
+      );
       const islandSpyId = await scalar(
         db,
         `select id from guests where lower(login_name)='huijie huang'`,
