@@ -22,27 +22,23 @@ function shuffled(values, seed) {
 
 function buildFirstAct(seed) {
   const fixed = [
-    ['yifan', '海岛组', 'P1-CER-001'],
+    ['yifan', '沙漠组', 'P1-CER-001'],
     ['xingcheng', '家人组', 'P1-CER-002'],
     ['andao', '家人组', 'P1-CER-002'],
     ['feifei', '海岛组', 'P1-BONUS-001'],
-    ['luyi', '沙漠组', 'P1-BONUS-001'],
+    ['luyi', '海岛组', 'P1-BONUS-001'],
     ['yirui', '海岛组', 'P1-SOCIAL-001'],
     ['ziyang', '家人组', 'P1-SOCIAL-002'],
   ].map(([id, team, mission]) => ({ id, team, mission, spy: false }));
 
-  const flex = shuffled([
-    ...Array.from({ length: 7 }, (_, index) => ({ id: `island-flex-${index}`, team: '海岛组' })),
-    ...Array.from({ length: 9 }, (_, index) => ({ id: `desert-flex-${index}`, team: '沙漠组' })),
+  const spies = [
+    { id: 'huijie', team: '海岛组', mission: 'P1-SOCIAL-001', spy: true },
+    { id: 'fangzhou', team: '沙漠组', mission: 'P1-SOCIAL-002', spy: true },
+  ];
+  const ordinaryPool = shuffled([
+    ...Array.from({ length: 6 }, (_, index) => ({ id: `island-flex-${index}`, team: '海岛组' })),
+    ...Array.from({ length: 8 }, (_, index) => ({ id: `desert-flex-${index}`, team: '沙漠组' })),
   ], seed);
-
-  const spies = TEAMS.map((team) => ({
-    ...flex.find((player) => player.team === team),
-    mission: team === '海岛组' ? 'P1-SOCIAL-001' : 'P1-SOCIAL-002',
-    spy: true,
-  }));
-  const spyIds = new Set(spies.map((player) => player.id));
-  const ordinaryPool = flex.filter((player) => !spyIds.has(player.id));
   const ordinaryPhotos = TEAMS.map((team) => ({
     ...ordinaryPool.find((player) => player.team === team),
     mission: team === '海岛组' ? 'P1-SOCIAL-001' : 'P1-SOCIAL-002',
@@ -50,7 +46,7 @@ function buildFirstAct(seed) {
   }));
   const photoIds = new Set(ordinaryPhotos.map((player) => player.id));
   const bouquetPool = shuffled(
-    ordinaryPool.filter((player) => !photoIds.has(player.id)),
+    ordinaryPool.filter((player) => player.team === '沙漠组' && !photoIds.has(player.id)),
     seed ^ 0x85ebca6b,
   );
   const bouquets = bouquetPool.slice(0, 2).map((player) => ({
@@ -149,7 +145,7 @@ test('historical assignment-mode migration aligned the former 23-row catalog', a
   assert.doesNotMatch(migration, /update\s+assignments|update\s+guests|insert\s+into\s+points_ledger/i);
 });
 
-test('30 deterministic draw orders preserve P1 capacity and P2 no-repeat-photo invariants', () => {
+test('30 deterministic final-roster draw orders preserve P1 capacity and P2 no-repeat-photo invariants', () => {
   const expectedFirstAct = new Map([
     ['P1-CER-001', 1], ['P1-CER-002', 2], ['P1-BOUQUET-001', 2],
     ['P1-HEART-001', 5], ['P1-STAR-001', 5],
@@ -173,6 +169,18 @@ test('30 deterministic draw orders preserve P1 capacity and P2 no-repeat-photo i
       firstAct.filter((player) => player.spy).map((player) => player.team).sort(),
       [...TEAMS].sort(),
       `seed ${seed}: one trickster per team`,
+    );
+    assert.deepEqual(
+      TEAMS.map((team) => firstAct.filter((player) => player.team === team
+        && ['P1-HEART-001', 'P1-STAR-001'].includes(player.mission)).length),
+      [5, 5],
+      `seed ${seed}: five relationship roles per team leave one exclusive power candidate`,
+    );
+    assert.equal(
+      firstAct.filter((player) => player.mission === 'P1-BOUQUET-001')
+        .every((player) => player.team === '沙漠组'),
+      true,
+      `seed ${seed}: final-roster bouquet pool preserves the no-repeat banquet-photo contract`,
     );
 
     const secondAct = allocateSecondAct(firstAct, seed);
