@@ -5,6 +5,7 @@ import test from 'node:test';
 const castMigration = await readFile(new URL('../supabase/migrations/202608030004_unlock_trickster_vote_after_signal.sql', import.meta.url), 'utf8');
 const syncMigration = castMigration;
 const guestPage = await readFile(new URL('../app/guest/page.tsx', import.meta.url), 'utf8');
+const styles = await readFile(new URL('../app/styles.css', import.meta.url), 'utf8');
 
 test('completed true trickster signal casts a real double-weight ballot after phase two opens', () => {
   const castVote = castMigration.slice(castMigration.indexOf('create or replace function cast_team_vote'));
@@ -30,4 +31,12 @@ test('true trickster dashboard clearly distinguishes acquired and unlocked vote 
   assert.match(guestPage, /真正任务完成 · 能力已获得/);
   assert.match(guestPage, /额外一票已解锁/);
   assert.match(guestPage, /系统会立即将你的选择按 2 票保存/);
+});
+
+test('trickster completion cards do not inherit the global nowrap pending badge style', () => {
+  assert.match(guestPage, /trickster-power-note \$\{tricksterExtraVoteUnlocked \? 'power-active' : 'power-pending'\}/);
+  assert.match(guestPage, /trickster-vote-unlock \$\{tricksterExtraVoteUnlocked \? 'power-active' : 'power-pending'\}/);
+  assert.match(styles, /\.trickster-power-note\{[^}]*max-width:100%[^}]*overflow:hidden[^}]*white-space:normal/);
+  assert.match(styles, /\.trickster-power-note small,[^{]+\{[^}]*white-space:normal[^}]*overflow-wrap:anywhere/);
+  assert.doesNotMatch(guestPage, /trickster-power-note \$\{tricksterExtraVoteUnlocked \? 'active' : 'pending'\}/);
 });
