@@ -376,7 +376,7 @@ test('恶作剧者真正任务完成卡在窄屏完整展开并在第二轮显�
 
   await expect(page.getByText('额外一票已解锁')).toHaveCount(0);
   await page.getByRole('button', { name: '展开查看' }).click();
-  const pendingPower = page.locator('.trickster-power-note.pending');
+  const pendingPower = page.locator('.trickster-power-note.power-pending');
   await expect(pendingPower).toContainText('真正任务完成 · 能力已获得');
   await expect(pendingPower).toContainText('婚宴前奏开启第二轮后');
   await expect.poll(() => pendingPower.evaluate((element) => {
