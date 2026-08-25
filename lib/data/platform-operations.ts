@@ -16,6 +16,14 @@ import {
 } from '../platform/data-policy';
 import { createPlatformServerClient } from '../platform/supabase-server';
 import type { PlatformReviewDecision } from '../validation/platform-operations';
+import type { PlatformRuntimeAttestationStage, PlatformRuntimeChecklist } from '../platform/runtime-readiness';
+
+export type PlatformRuntimeAttestationDto = {
+  id: string;
+  stage: PlatformRuntimeAttestationStage;
+  note: string;
+  createdAt: string;
+};
 
 export type PlatformReviewQueueItem = {
   id: string;
@@ -62,6 +70,9 @@ export type PlatformProvisioningQueueItem = {
     deploymentRef: string;
     status: 'registered' | 'verified' | 'ready' | 'suspended' | 'archived';
     registeredAt: string;
+    verifiedAt: string | null;
+    readyAt: string | null;
+    attestations: PlatformRuntimeAttestationDto[];
   };
 };
 
@@ -95,6 +106,16 @@ type RuntimeInstanceRow = {
   deployment_ref: string;
   status: NonNullable<PlatformProvisioningQueueItem['instance']>['status'];
   registered_at: string;
+  verified_at: string | null;
+  ready_at: string | null;
+};
+
+type RuntimeAttestationRow = {
+  id: string;
+  instance_id: string;
+  stage: PlatformRuntimeAttestationStage;
+  note: string;
+  created_at: string;
 };
 
 export async function listPlatformReviewQueue(staffUserId: string) {
@@ -134,7 +155,7 @@ export async function listPlatformProvisioningQueue(staffUserId: string): Promis
   const { data, error } = await client
     .from('platform_projects')
     .select('id,partner_one,partner_two,wedding_date,location,plan_id,current_version,updated_at')
-    .eq('status', 'provisioning')
+    .in('status', ['provisioning', 'ready'])
     .order('updated_at', { ascending: true })
     .limit(100);
   if (error) throw new Error(`Unable to list platform provisioning queue: ${error.message}`);
@@ -144,14 +165,25 @@ export async function listPlatformProvisioningQueue(staffUserId: string): Promis
   const [entitlementsResult, manifestsResult, instancesResult] = await Promise.all([
     client.from('platform_entitlements').select('project_id,status').in('project_id', projectIds),
     client.from('platform_provisioning_manifests').select('project_id,project_version,manifest_hash,created_at').in('project_id', projectIds),
-    client.from('platform_runtime_instances').select('id,project_id,project_version,manifest_hash,target_origin,deployment_ref,status,registered_at').in('project_id', projectIds),
+    client.from('platform_runtime_instances').select('id,project_id,project_version,manifest_hash,target_origin,deployment_ref,status,registered_at,verified_at,ready_at').in('project_id', projectIds),
   ]);
   if (entitlementsResult.error) throw new Error(`Unable to read provisioning entitlements: ${entitlementsResult.error.message}`);
   if (manifestsResult.error) throw new Error(`Unable to read provisioning manifests: ${manifestsResult.error.message}`);
   if (instancesResult.error) throw new Error(`Unable to read runtime instances: ${instancesResult.error.message}`);
   const entitlements = new Map(((entitlementsResult.data ?? []) as ProvisioningEntitlementRow[]).map((row) => [row.project_id, row.status]));
   const manifests = new Map(((manifestsResult.data ?? []) as ProvisioningManifestRow[]).map((row) => [row.project_id, row]));
-  const instances = new Map(((instancesResult.data ?? []) as RuntimeInstanceRow[]).map((row) => [row.project_id, row]));
+  const instanceRows = (instancesResult.data ?? []) as RuntimeInstanceRow[];
+  const attestationResult = instanceRows.length
+    ? await client.from('platform_runtime_instance_attestations').select('id,instance_id,stage,note,created_at').in('instance_id', instanceRows.map((row) => row.id)).order('created_at', { ascending: true })
+    : { data: [], error: null };
+  if (attestationResult.error) throw new Error(`Unable to read runtime instance attestations: ${attestationResult.error.message}`);
+  const attestationsByInstance = new Map<string, PlatformRuntimeAttestationDto[]>();
+  for (const row of (attestationResult.data ?? []) as RuntimeAttestationRow[]) {
+    const current = attestationsByInstance.get(row.instance_id) ?? [];
+    current.push({ id: row.id, stage: row.stage, note: row.note, createdAt: row.created_at });
+    attestationsByInstance.set(row.instance_id, current);
+  }
+  const instances = new Map(instanceRows.map((row) => [row.project_id, row]));
   return projects.map((project) => {
     const manifest = manifests.get(project.id);
     const instance = instances.get(project.id);
@@ -174,9 +206,44 @@ export async function listPlatformProvisioningQueue(staffUserId: string): Promis
         deploymentRef: instance.deployment_ref,
         status: instance.status,
         registeredAt: instance.registered_at,
+        verifiedAt: instance.verified_at,
+        readyAt: instance.ready_at,
+        attestations: attestationsByInstance.get(instance.id) ?? [],
       } : null,
     };
   });
+}
+
+export async function attestPlatformRuntimeInstance(
+  staffUserId: string,
+  projectId: string,
+  eventKey: string,
+  stage: PlatformRuntimeAttestationStage,
+  checklist: PlatformRuntimeChecklist,
+  note: string,
+) {
+  if (!staffUserId) throw new ApiError(403, '此账号没有平台运营权限');
+  const client = await createPlatformServerClient();
+  const { data, error } = await client.rpc('platform_attest_runtime_instance', {
+    p_event_key: eventKey,
+    p_project_id: projectId,
+    p_stage: stage,
+    p_checklist: checklist,
+    p_note: note,
+  }).single();
+  if (error) {
+    if (error.message.includes('platform_staff_required')) throw new ApiError(403, '此账号没有平台运营权限');
+    if (error.message.includes('platform_project_not_found')) throw new ApiError(404, '没有找到这个客户项目');
+    if (error.message.includes('platform_instance_attestation_invalid')) throw new ApiError(400, '实例核验清单或记录格式不正确');
+    if (error.message.includes('platform_instance_not_found')) throw new ApiError(404, '这场婚礼还没有登记独立实例');
+    if (error.message.includes('platform_instance_attestation_out_of_order')) throw new ApiError(409, '实例核验步骤顺序不正确，请刷新后继续');
+    if (error.message.includes('platform_instance_attestation_prerequisite')) throw new ApiError(409, '清单、权益或实例版本已变化，请重新核对');
+    if (error.message.includes('platform_instance_attestation_exists')) throw new ApiError(409, '这个核验阶段已经由其他操作记录');
+    if (error.message.includes('platform_event_conflict')) throw new ApiError(409, '操作编号已经用于其他请求');
+    throw new Error(`Unable to attest platform runtime instance: ${error.message}`);
+  }
+  if (!data) throw new Error('Unable to attest platform runtime instance: missing response');
+  return data;
 }
 
 export async function registerPlatformRuntimeInstance(

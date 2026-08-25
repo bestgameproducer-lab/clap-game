@@ -3582,7 +3582,7 @@
 .provisioningCard header small,.provisioningCard header p { margin: 0; color: #8d7468; font-size: 10px; }
 .preflightReady,.preflightWaiting { align-self: start; padding: 7px 10px; border-radius: 999px; font-size: 8px; font-weight: 850; }
 .preflightReady { background: #dce8d7; color: #52674e; }.preflightWaiting { background: #eee1d5; color: #8a654f; }
-.provisioningChecks { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 7px; margin-top: 17px; }
+.provisioningChecks { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; margin-top: 17px; }
 .provisioningChecks span { padding: 11px; border-radius: 11px; background: #e6eee1; color: #52674e; font-size: 10px; line-height: 1.45; }.provisioningChecks .checkWaiting { background: #f0e5dc; color: #876c60; }
 .manifestLockButton { width: 100%; min-height: 46px; margin: 15px 0 0; border-radius: 999px; background: #6a4036; color: white; }
 .manifestLocked,.manifestConfirmation { margin-top: 15px; padding: 16px; border-radius: 15px; background: #3f2e29; color: white; }
@@ -3603,6 +3603,43 @@
 .instanceRegistered strong { margin-top: 5px; font-size: 13px; }
 .instanceRegistered code { margin-top: 5px; overflow-wrap: anywhere; color: #617362; font-size: 9px; }
 .instanceRegistered a { padding: 10px 13px; border-radius: 999px; background: #4f684f; color: white; font-size: 10px; }
+.runtimeAttestationPanel,.runtimeReadyCard { margin-top:13px; padding:20px; border:1px solid rgba(92,62,48,.14); border-radius:18px; background:#faf5ee; }
+.runtimeAttestationPanel > header { display:flex; justify-content:space-between; gap:18px; align-items:start; }
+.runtimeAttestationPanel > header small,.runtimeAttestationPanel > header strong { display:block; }
+.runtimeAttestationPanel > header small { color:#9a6b52; font-size:9px; font-weight:900; letter-spacing:.12em; }
+.runtimeAttestationPanel > header strong { margin-top:5px; color:#4e382f; font-size:16px; }
+.runtimeAttestationPanel > header > span { padding:6px 9px; border-radius:999px; color:#775f53; background:#eadfd5; font-size:8px; font-weight:800; }
+.runtimeAttestationNotice { margin:12px 0 0; padding:12px 14px; border-radius:12px; color:#746259; background:#efe5dc; font-size:10px; line-height:1.6; }
+.runtimeChecklist { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:13px; }
+.runtimeCheckPending,.runtimeCheckDone { display:grid; grid-template-columns:28px minmax(0,1fr); gap:10px; align-items:center; min-height:58px; padding:12px; border:1px solid rgba(146,82,61,.16); border-radius:13px; color:#735f56; background:#f8ebe6; cursor:pointer; }
+.runtimeCheckDone { border-color:rgba(75,111,71,.2); color:#496047; background:#e7efe2; }
+.runtimeCheckPending input,.runtimeCheckDone input { position:absolute; opacity:0; pointer-events:none; }
+.runtimeCheckPending b,.runtimeCheckDone b { display:grid; width:27px; height:27px; place-items:center; border-radius:50%; color:white; background:#a35746; }
+.runtimeCheckDone b { background:#587153; }
+.runtimeCheckPending span,.runtimeCheckDone span { font-size:10px; line-height:1.5; }
+.runtimeAttestationNote { display:grid; gap:7px; margin-top:13px; color:#665047; font-size:10px; font-weight:800; }
+.runtimeAttestationNote textarea { min-height:92px; padding:13px; resize:vertical; border:1px solid rgba(92,62,48,.2); border-radius:13px; color:#40312b; background:#fffdf8; font:inherit; line-height:1.6; }
+.runtimeAttestationNote small { justify-self:end; color:#937b70; font-size:8px; font-weight:600; }
+.runtimeAttestationMessage { margin:10px 0 0; color:#775c50; font-size:10px; }
+.runtimeAttestationContinue { width:100%; min-height:44px; margin-top:13px; border-radius:999px; color:white; background:#684338; }
+.runtimeAttestationContinue:disabled { cursor:not-allowed; opacity:.45; }
+.runtimeAttestationConfirm { margin-top:13px; padding:16px; border-radius:14px; color:white; background:#49332c; }
+.runtimeAttestationConfirm p { margin:7px 0 0; color:#dbcac1; font-size:10px; line-height:1.6; }
+.runtimeAttestationConfirm > div { display:flex; gap:8px; margin-top:12px; }
+.runtimeAttestationConfirm button { margin:0; padding:9px 13px; border-radius:999px; color:white; background:#b77854; }
+.runtimeAttestationConfirm button + button { color:#49332c; background:#ded0c7; }
+.runtimeAttestationHistory { display:grid; gap:7px; margin-top:13px; }
+.runtimeAttestationHistory article { padding:11px 13px; border-radius:11px; background:rgba(255,255,255,.58); }
+.runtimeAttestationHistory small { color:#817168; font-size:8px; font-weight:800; }
+.runtimeAttestationHistory p { margin:5px 0 0; color:#64534b; font-size:10px; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
+.runtimeReadyCard { display:grid; grid-template-columns:minmax(0,1fr) 42px; color:#42553f; border-color:rgba(75,111,71,.2); background:#e5eee0; }
+.runtimeReadyCard small,.runtimeReadyCard strong { display:block; }
+.runtimeReadyCard small { color:#6d8268; font-size:9px; font-weight:900; letter-spacing:.12em; }
+.runtimeReadyCard strong { margin-top:5px; font-size:15px; }
+.runtimeReadyCard > div > p { margin:7px 0 0; color:#667461; font-size:10px; line-height:1.6; }
+.runtimeReadyCard > span { display:grid; width:40px; height:40px; place-items:center; border-radius:50%; color:white; background:#597153; font-size:16px; }
+.runtimeReadyCard .runtimeAttestationHistory { grid-column:1 / -1; }
+.runtimeAttestationUnavailable { margin:13px 0 0; padding:13px; border-radius:12px; color:#7b665c; background:#eee4dc; font-size:10px; }
 
 .templateDetailShell {
   --platform-ink: #241b18;
@@ -4559,6 +4596,10 @@
   .operatorConfirmation > div {
     grid-template-columns: 1fr;
   }
+
+  .runtimeChecklist { grid-template-columns:1fr; }
+
+  .runtimeAttestationPanel > header,.runtimeAttestationConfirm > div { display:grid; grid-template-columns:1fr; }
 
   .provisioningCard { padding: 22px; }
 

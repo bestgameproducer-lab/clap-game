@@ -1,7 +1,26 @@
 import { optionalString, requiredEnum, requiredString, requiredUuid, type JsonObject } from '../validation';
 import { ApiError } from '../errors';
+import {
+  getPlatformRuntimeChecklist,
+  isPlatformRuntimeChecklistComplete,
+  type PlatformRuntimeAttestationStage,
+  type PlatformRuntimeChecklist,
+} from '../platform/runtime-readiness';
 
 export type PlatformReviewDecision = 'approved' | 'changes_requested';
+
+const OBVIOUS_RUNTIME_SECRET_PATTERNS = [
+  /(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?):\/\/[^\s/:@]+:[^\s@]+@/i,
+  /\b(?:sb_secret_|sk_(?:live|test)_|sk-(?:live-|test-)?)[A-Za-z0-9_-]{12,}\b/,
+  /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/,
+];
+
+function rejectObviousRuntimeSecret(value: string) {
+  if (OBVIOUS_RUNTIME_SECRET_PATTERNS.some((pattern) => pattern.test(value))) {
+    throw new ApiError(400, '核验记录不能包含数据库连接串、API 密钥或登录令牌');
+  }
+  return value;
+}
 
 export function readPlatformOperatorReviewInput(body: JsonObject) {
   const decision = requiredEnum(body.decision, '审核决定', ['approved', 'changes_requested'] as const);
@@ -50,5 +69,33 @@ export function readPlatformInstanceRegistrationInput(body: JsonObject) {
     eventKey: requiredUuid(body.eventKey, '操作编号'),
     targetOrigin: parsed.origin.toLowerCase(),
     deploymentRef,
+  };
+}
+
+export function readPlatformRuntimeAttestationInput(body: JsonObject) {
+  if (Object.keys(body).sort().join(',') !== 'checklist,eventKey,note,stage') {
+    throw new ApiError(400, '实例核验请求包含不支持的字段');
+  }
+  const stage = requiredEnum(
+    body.stage,
+    '实例核验阶段',
+    ['verification', 'readiness'] as const,
+  ) as PlatformRuntimeAttestationStage;
+  if (!body.checklist || typeof body.checklist !== 'object' || Array.isArray(body.checklist)) {
+    throw new ApiError(400, '实例核验清单格式不正确');
+  }
+  const checklist = body.checklist as PlatformRuntimeChecklist;
+  if (!isPlatformRuntimeChecklistComplete(stage, checklist)) {
+    const missing = getPlatformRuntimeChecklist(stage)
+      .filter((item) => checklist[item.id] !== true)
+      .map((item) => item.label);
+    throw new ApiError(400, missing.length ? `请先完成：${missing.join('、')}` : '实例核验清单格式不正确');
+  }
+  const note = rejectObviousRuntimeSecret(requiredString(body.note, '核验记录', 1000));
+  return {
+    eventKey: requiredUuid(body.eventKey, '操作编号'),
+    stage,
+    checklist,
+    note,
   };
 }

@@ -271,7 +271,7 @@ test('provisioning manifests are staff-only, immutable, downloadable, and exclud
   assert.match(route, /readPlatformManifestLockInput/);
   assert.match(route, /Cache-Control.*private, no-store/);
   assert.match(route, /Content-Disposition/);
-  assert.match(data, /\.eq\('status', 'provisioning'\)/);
+  assert.match(data, /\.in\('status', \['provisioning', 'ready'\]\)/);
   assert.match(data, /platform_lock_provisioning_manifest/);
   assert.match(queue, /不创建 Vercel、Supabase、域名或付费资源/);
   assert.match(queue, /故事原文、禁忌备注、主持备注、宾客数据或密钥/);
@@ -290,7 +290,7 @@ test('runtime instance registration is staff-only, entitlement-gated, idempotent
   assert.match(route, /requirePlatformStaff\(\)/);
   assert.match(route, /readPlatformInstanceRegistrationInput/);
   assert.match(data, /platform_register_runtime_instance/);
-  assert.match(data, /\.from\('platform_runtime_instances'\)\.select\('id,project_id,project_version,manifest_hash,target_origin,deployment_ref,status,registered_at'\)/);
+  assert.match(data, /\.from\('platform_runtime_instances'\)\.select\('id,project_id,project_version,manifest_hash,target_origin,deployment_ref,status,registered_at,verified_at,ready_at'\)/);
   assert.match(validation, /parsed\.protocol !== 'https:'/);
   assert.match(validation, /parsed\.username/);
   assert.match(validation, /parsed\.pathname !== '\/'/);
@@ -305,6 +305,41 @@ test('runtime instance registration is staff-only, entitlement-gated, idempotent
   assert.match(migration, /pg_advisory_xact_lock/);
   assert.doesNotMatch(migration, /api_key|access_token|refresh_token|password|credential/i);
   assert.doesNotMatch(route + queue + data, /SUPABASE_SERVICE_ROLE_KEY|service_role/);
+});
+
+test('runtime readiness is staff-only, manually attested in order, audited, and never performs a network probe', () => {
+  const route = read('app/api/platform/operations/projects/[projectId]/instance/attestation/route.ts');
+  const validation = read('lib/validation/platform-operations.ts');
+  const data = read('lib/data/platform-operations.ts');
+  const ui = read('app/platform/operations/runtime-readiness-attestation.tsx');
+  const queue = read('app/platform/operations/platform-provisioning-queue.tsx');
+  const model = read('lib/platform/runtime-readiness.ts');
+  const migration = read('platform-control-plane/migrations/202608250015_runtime_readiness_attestations.sql');
+
+  assert.match(route, /assertSameOrigin\(request\)/);
+  assert.match(route, /requirePlatformStaff\(\)/);
+  assert.match(route, /readPlatformRuntimeAttestationInput/);
+  assert.match(validation, /checklist,eventKey,note,stage/);
+  assert.match(validation, /isPlatformRuntimeChecklistComplete/);
+  assert.match(validation, /OBVIOUS_RUNTIME_SECRET_PATTERNS/);
+  assert.match(data, /platform_attest_runtime_instance/);
+  assert.match(data, /platform_runtime_instance_attestations/);
+  assert.match(model, /publicOriginOpened/);
+  assert.match(model, /manifestHashMatched/);
+  assert.match(model, /mobileGuestFlowPassed/);
+  assert.match(model, /fallbackMaterialsReady/);
+  assert.match(ui, /平台不会自动访问实例/);
+  assert.match(model, /至少使用两台手机跑通签到、身份与任务界面/);
+  assert.match(ui, /二次确认|确认把项目标记/);
+  assert.match(queue, /RuntimeReadinessAttestation/);
+  assert.match(migration, /create table public\.platform_runtime_instance_attestations/);
+  assert.match(migration, /platform_runtime_checklist_is_valid/);
+  assert.match(migration, /platform_instance_attestation_out_of_order/);
+  assert.match(migration, /platform_instance_attestation_prerequisite/);
+  assert.match(migration, /runtime_instance_verified/);
+  assert.match(migration, /runtime_instance_ready/);
+  assert.match(migration, /update public\.platform_projects p set status = 'ready'/);
+  assert.doesNotMatch(route + data + ui + migration, /fetch\(['"]https?:|dns\.|resolve4|resolve6|SERVICE_ROLE|service_role/i);
 });
 
 test('template content pack is locally editable, strictly validated, versioned, and delivered as plain configuration', () => {

@@ -107,6 +107,8 @@ test(
     const eventEighteen = '30000000-0000-4000-8000-000000000018';
     const eventNineteen = '30000000-0000-4000-8000-000000000019';
     const eventTwenty = '30000000-0000-4000-8000-000000000020';
+    const eventTwentyOne = '30000000-0000-4000-8000-000000000021';
+    const eventTwentyTwo = '30000000-0000-4000-8000-000000000022';
     const secondDraftId = '20000000-0000-4000-8000-000000000002';
     const inviteHash = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
     const secondInviteHash = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
@@ -151,6 +153,19 @@ test(
       rosterAuthorityConfirmed: true,
       guestNoticeConfirmed: true,
       isolatedRuntimeRequired: true,
+    });
+    const verificationChecklist = JSON.stringify({
+      publicOriginOpened: true,
+      manifestHashMatched: true,
+      isolatedDataStoreConfirmed: true,
+      staffAccessConfirmed: true,
+      noSecretsConfirmed: true,
+    });
+    const readinessChecklist = JSON.stringify({
+      mobileGuestFlowPassed: true,
+      operatorFlowPassed: true,
+      stageTransitionsPassed: true,
+      fallbackMaterialsReady: true,
     });
 
     try {
@@ -535,6 +550,51 @@ test(
       );
       assert.equal(instanceRetry.rows[0].id, instance.rows[0].id);
 
+      await assert.rejects(
+        db.query(
+          "select * from platform_attest_runtime_instance($1::uuid, $2::uuid, 'readiness', $3::jsonb, $4)",
+          [eventTwentyTwo, projectId, readinessChecklist, 'Attempted out of order'],
+        ),
+        /platform_instance_attestation_out_of_order/,
+      );
+      await assert.rejects(
+        db.query(
+          "select * from platform_attest_runtime_instance($1::uuid, $2::uuid, 'verification', $3::jsonb, $4)",
+          [eventTwentyOne, projectId, JSON.stringify({ ...JSON.parse(verificationChecklist), manifestHashMatched: false }), 'Incomplete verification'],
+        ),
+        /platform_instance_attestation_invalid/,
+      );
+      await assert.rejects(
+        db.query(
+          "select * from platform_attest_runtime_instance($1::uuid, $2::uuid, 'verification', $3::jsonb, $4)",
+          [eventTwentyOne, projectId, JSON.stringify(verificationChecklist), 'postgresql://operator:secret@db.example.com/platform'],
+        ),
+        /platform_instance_attestation_invalid/,
+      );
+      const verified = await db.query(
+        "select * from platform_attest_runtime_instance($1::uuid, $2::uuid, 'verification', $3::jsonb, $4)",
+        [eventTwentyOne, projectId, verificationChecklist, 'Checked Safari and Chrome against approved manifest'],
+      );
+      assert.equal(verified.rows[0].instance_status, 'verified');
+      assert.ok(verified.rows[0].verified_at);
+      assert.equal(verified.rows[0].ready_at, null);
+      const verifiedRetry = await db.query(
+        "select * from platform_attest_runtime_instance($1::uuid, $2::uuid, 'verification', $3::jsonb, $4)",
+        [eventTwentyOne, projectId, verificationChecklist, 'Checked Safari and Chrome against approved manifest'],
+      );
+      assert.equal(verifiedRetry.rows[0].attestation_id, verified.rows[0].attestation_id);
+
+      const readyInstance = await db.query(
+        "select * from platform_attest_runtime_instance($1::uuid, $2::uuid, 'readiness', $3::jsonb, $4)",
+        [eventTwentyTwo, projectId, readinessChecklist, 'Full mobile and operator rehearsal completed with fallback materials'],
+      );
+      assert.equal(readyInstance.rows[0].instance_status, 'ready');
+      assert.ok(readyInstance.rows[0].ready_at);
+      const readyProject = await db.query('select status from platform_projects where id = $1', [projectId]);
+      assert.equal(readyProject.rows[0].status, 'ready');
+      const attestationCount = await db.query('select count(*)::int count from platform_runtime_instance_attestations where project_id = $1', [projectId]);
+      assert.equal(attestationCount.rows[0].count, 2);
+
       await db.exec('reset role');
       await db.query('delete from auth.users where id = $1', [operator]);
       const retainedAudit = await db.query(`
@@ -543,12 +603,14 @@ test(
           (select count(*)::int from platform_project_reviews) reviews,
           (select count(*)::int from platform_audit_log) audits,
           (select count(*)::int from platform_runtime_instances) instances,
+          (select count(*)::int from platform_runtime_instance_attestations) attestations,
           (select count(*)::int from platform_runtime_instances where registered_by_user_id is null) anonymous_instances,
+          (select count(*)::int from platform_runtime_instance_attestations where attested_by_user_id is null) anonymous_attestations,
           (select count(*)::int from platform_project_versions where actor_user_id is null) anonymous_versions,
           (select count(*)::int from platform_project_reviews where reviewer_user_id is null) anonymous_reviews,
           (select count(*)::int from platform_audit_log where actor_user_id is null) anonymous_audits
       `);
-      assert.deepEqual(retainedAudit.rows[0], { versions: 9, reviews: 2, audits: 17, instances: 1, anonymous_instances: 1, anonymous_versions: 2, anonymous_reviews: 2, anonymous_audits: 4 });
+      assert.deepEqual(retainedAudit.rows[0], { versions: 9, reviews: 2, audits: 19, instances: 1, attestations: 2, anonymous_instances: 1, anonymous_attestations: 2, anonymous_versions: 2, anonymous_reviews: 2, anonymous_audits: 6 });
     } finally {
       try { await db.exec('reset role'); } catch {}
       await db.close();
