@@ -123,6 +123,11 @@ test(
         { prompt: 'Who plans every trip?', answer: 'partnerTwo' },
         { prompt: 'Who prefers Messi?', answer: 'partnerOne' },
       ],
+      quickQuizQuestions: [
+        { prompt: 'How many months are in a year?', answer: '12' },
+        { prompt: 'How many colors are in a rainbow?', answer: '7' },
+      ],
+      charadesWords: ['wedding cake', 'bouquet', 'honeymoon'],
     });
 
     try {
@@ -375,6 +380,8 @@ test(
       assert.equal(manifest.rows[0].manifest.experience.templateContent.teamOneName, 'Ocean Team');
       assert.equal(manifest.rows[0].manifest.experience.templateContent.openingScript, 'Welcome to {{couple}} in {{location}}.');
       assert.equal(manifest.rows[0].manifest.experience.templateContent.quizQuestions.length, 2);
+      assert.equal(manifest.rows[0].manifest.experience.templateContent.quickQuizQuestions[0].answer, '12');
+      assert.deepEqual(manifest.rows[0].manifest.experience.templateContent.charadesWords, ['wedding cake', 'bouquet', 'honeymoon']);
       assert.deepEqual(manifest.rows[0].manifest.safeguards, {
         containsCredentials: false,
         containsGuestRuntimeData: false,

@@ -17,11 +17,18 @@ export type PlatformQuizQuestion = {
   answer: 'partnerOne' | 'partnerTwo' | 'both';
 };
 
+export type PlatformQuickQuizQuestion = {
+  prompt: string;
+  answer: string;
+};
+
 export type PlatformTemplateContent = {
   teamOneName: string;
   teamTwoName: string;
   openingScript: string;
   quizQuestions: PlatformQuizQuestion[];
+  quickQuizQuestions: PlatformQuickQuizQuestion[];
+  charadesWords: string[];
 };
 
 export const PLATFORM_TEMPLATE_VARIABLES = ['partnerOne', 'partnerTwo', 'couple', 'location', 'weddingDate'] as const;
@@ -31,6 +38,11 @@ export const DEFAULT_PLATFORM_TEMPLATE_CONTENT: PlatformTemplateContent = {
   teamTwoName: '沙漠组',
   openingScript: '欢迎来到 {{couple}} 的婚礼游戏。今晚请跟随主持人提示，一起完成属于你们的故事。',
   quizQuestions: [],
+  quickQuizQuestions: [
+    { prompt: '一年有多少个月？', answer: '12 个月' },
+    { prompt: '彩虹通常有几种颜色？', answer: '7 种' },
+  ],
+  charadesWords: ['交换戒指', '手捧花', '蜜月旅行', '婚礼蛋糕', '干杯', '拍合照'],
 };
 
 export type PlatformContentBrief = {
@@ -125,13 +137,41 @@ export function isPlatformTemplateContent(value: unknown): value is PlatformTemp
       && typeof question.prompt === 'string'
       && ['partnerOne', 'partnerTwo', 'both'].includes(question.answer),
     ))
+    && (content.quickQuizQuestions === undefined || (
+      Array.isArray(content.quickQuizQuestions)
+      && content.quickQuizQuestions.every((question) => Boolean(
+        question
+        && typeof question === 'object'
+        && !Array.isArray(question)
+        && typeof question.prompt === 'string'
+        && typeof question.answer === 'string',
+      ))
+    ))
+    && (content.charadesWords === undefined || (
+      Array.isArray(content.charadesWords)
+      && content.charadesWords.every((word) => typeof word === 'string')
+    ))
   );
 }
 
+export function normalizePlatformTemplateContent(value: unknown): PlatformTemplateContent {
+  if (!isPlatformTemplateContent(value)) {
+    return {
+      ...DEFAULT_PLATFORM_TEMPLATE_CONTENT,
+      quizQuestions: [],
+      quickQuizQuestions: DEFAULT_PLATFORM_TEMPLATE_CONTENT.quickQuizQuestions.map((question) => ({ ...question })),
+      charadesWords: [...DEFAULT_PLATFORM_TEMPLATE_CONTENT.charadesWords],
+    };
+  }
+  return {
+    ...value,
+    quickQuizQuestions: value.quickQuizQuestions ?? DEFAULT_PLATFORM_TEMPLATE_CONTENT.quickQuizQuestions.map((question) => ({ ...question })),
+    charadesWords: value.charadesWords ?? [...DEFAULT_PLATFORM_TEMPLATE_CONTENT.charadesWords],
+  };
+}
+
 export function getWeddingTemplateContent(draft: WeddingDraft): PlatformTemplateContent {
-  return isPlatformTemplateContent(draft.templateContent)
-    ? draft.templateContent
-    : { ...DEFAULT_PLATFORM_TEMPLATE_CONTENT, quizQuestions: [] };
+  return normalizePlatformTemplateContent(draft.templateContent);
 }
 
 export function ensureWeddingDraftId(draft: WeddingDraft): WeddingDraft {
@@ -157,7 +197,12 @@ export function createDefaultDraft(plan: PlatformPlanId = 'buyout'): WeddingDraf
     modules: [...DEFAULT_MODULES],
     storyNote: '',
     contentBrief: { ...DEFAULT_PLATFORM_CONTENT_BRIEF },
-    templateContent: { ...DEFAULT_PLATFORM_TEMPLATE_CONTENT, quizQuestions: [] },
+    templateContent: {
+      ...DEFAULT_PLATFORM_TEMPLATE_CONTENT,
+      quizQuestions: [],
+      quickQuizQuestions: DEFAULT_PLATFORM_TEMPLATE_CONTENT.quickQuizQuestions.map((question) => ({ ...question })),
+      charadesWords: [...DEFAULT_PLATFORM_TEMPLATE_CONTENT.charadesWords],
+    },
   };
 }
 
@@ -246,6 +291,8 @@ export function buildWeddingBrief(draft: WeddingDraft) {
     `团队名称：${templateContent.teamOneName} / ${templateContent.teamTwoName}`,
     `开场口播：${templateContent.openingScript}`,
     templateContent.quizQuestions.length ? `新人问答：${templateContent.quizQuestions.length} 题` : '新人问答：尚未添加',
+    `快问快答：${templateContent.quickQuizQuestions.length} 题`,
+    `你比划我猜：${templateContent.charadesWords.length} 个词`,
     '',
     '说明：此文件是第一版需求摘要，不代表最终报价、合同或交付承诺。',
   ].filter(Boolean).join('\n');

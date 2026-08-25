@@ -2338,6 +2338,19 @@
 .quizBuilderList input,.quizBuilderList select { min-width: 0; min-height: 41px; margin: 0; padding: 0 11px; border: 1px solid rgba(92,62,49,.18); border-radius: 11px; background: white; color: #3f302a; }
 .quizBuilderList article > button { min-height: 41px; margin: 0; padding: 0 11px; border-radius: 999px; background: #ecddd4; color: #754f42; font-size: 8px; }
 .quizBuilderEmpty { margin-top: 12px; padding: 17px; border: 1px dashed rgba(94,63,50,.2); border-radius: 15px; color: #8b756a; font-size: 10px; text-align: center; }
+.moduleContentBanks { display: grid; gap: 14px; margin-top: 22px; padding-top: 4px; border-top: 1px solid rgba(94,63,50,.12); }
+.moduleContentBanks > section { min-width: 0; }
+.quickQuizBuilderList { display: grid; gap: 9px; margin-top: 12px; }
+.quickQuizBuilderList article { display: grid; grid-template-columns: 34px minmax(0,1fr) minmax(180px,.6fr) auto; align-items: end; gap: 10px; padding: 13px; border: 1px solid rgba(92,62,49,.13); border-radius: 15px; background: #fffaf5; }
+.quickQuizBuilderList article > span { align-self: center; color: #b48368; font: 700 12px Georgia,serif; }
+.quickQuizBuilderList label { display: grid; gap: 6px; color: #725b50; font-size: 8px; font-weight: 800; }
+.quickQuizBuilderList input { min-width: 0; min-height: 41px; margin: 0; padding: 0 11px; border: 1px solid rgba(92,62,49,.18); border-radius: 11px; background: white; color: #3f302a; }
+.quickQuizBuilderList article > button,.charadesBuilderList button { min-height: 41px; margin: 0; padding: 0 11px; border-radius: 999px; background: #ecddd4; color: #754f42; font-size: 8px; }
+.charadesBuilderList { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 8px; margin-top: 12px; }
+.charadesBuilderList label { display: grid; grid-template-columns: 26px minmax(0,1fr) auto; align-items: center; gap: 7px; padding: 9px; border: 1px solid rgba(92,62,49,.13); border-radius: 13px; background: #fffaf5; }
+.charadesBuilderList label > span { color: #b48368; font: 700 9px Georgia,serif; }
+.charadesBuilderList input { min-width: 0; min-height: 39px; margin: 0; padding: 0 10px; border: 1px solid rgba(92,62,49,.18); border-radius: 10px; background: white; color: #3f302a; }
+.moduleBankDisabled { margin-top: 20px; padding: 16px; border-radius: 14px; background: #eee4dc; color: #816b60; font-size: 9px; line-height: 1.6; }
 .cloudTemplateSummary { margin-top: 12px; padding: 15px; border-radius: 15px; background: #f2e8df; color: #60493f; }
 .cloudTemplateSummary small,.cloudTemplateSummary strong,.cloudTemplateSummary span { display: block; }
 .cloudTemplateSummary small { color: #a17460; font-size: 7px; font-weight: 900; letter-spacing: .12em; }
@@ -4385,11 +4398,13 @@
   }
 
   .teamNameGrid,
-  .quizBuilderList article {
+  .quizBuilderList article,
+  .quickQuizBuilderList article {
     grid-template-columns: 1fr;
   }
 
-  .quizBuilderList article > span { display: none; }
+  .quizBuilderList article > span,
+  .quickQuizBuilderList article > span { display: none; }
 
   .quizBuilderHeading { align-items: flex-start; }
 

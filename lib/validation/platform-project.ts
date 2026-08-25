@@ -13,6 +13,7 @@ import {
   isWeddingDraft,
   PLATFORM_TEMPLATE_VARIABLES,
   type PlatformContentBrief,
+  type PlatformQuickQuizQuestion,
   type PlatformQuizQuestion,
   type PlatformTemplateContent,
   type WeddingDraft,
@@ -79,6 +80,23 @@ function validateQuizQuestions(value: unknown): PlatformQuizQuestion[] {
   });
 }
 
+function validateQuickQuizQuestions(value: unknown): PlatformQuickQuizQuestion[] {
+  if (!Array.isArray(value) || value.length > 30) throw new ApiError(400, '快问快答最多可以设置 30 题');
+  return value.map((question, index) => {
+    if (!question || typeof question !== 'object' || Array.isArray(question)) throw new ApiError(400, `第 ${index + 1} 道快问快答格式不正确`);
+    const item = question as Record<string, unknown>;
+    return {
+      prompt: plainTemplateText(item.prompt, `第 ${index + 1} 道快问题目`, 180),
+      answer: plainTemplateText(item.answer, `第 ${index + 1} 道快问答案`, 120),
+    };
+  });
+}
+
+function validateCharadesWords(value: unknown) {
+  if (!Array.isArray(value) || value.length > 80) throw new ApiError(400, '你比划我猜最多可以设置 80 个词');
+  return value.map((word, index) => plainTemplateText(word, `第 ${index + 1} 个比划词`, 40));
+}
+
 export function readPlatformProjectSaveInput(body: JsonObject): PlatformProjectSaveInput {
   if (!isWeddingDraft(body.draft)) throw new ApiError(400, '婚礼方案格式不正确');
   const input = body.draft;
@@ -116,6 +134,8 @@ export function readPlatformProjectSaveInput(body: JsonObject): PlatformProjectS
         teamTwoName: plainTemplateText(templateContent.teamTwoName, '第二组名称', 40),
         openingScript: plainTemplateText(templateContent.openingScript, '主持人开场口播', 800, true),
         quizQuestions: validateQuizQuestions(templateContent.quizQuestions),
+        quickQuizQuestions: validateQuickQuizQuestions(templateContent.quickQuizQuestions),
+        charadesWords: validateCharadesWords(templateContent.charadesWords),
       },
     },
   };

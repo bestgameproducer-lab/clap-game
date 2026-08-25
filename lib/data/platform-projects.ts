@@ -4,9 +4,8 @@ import type { PlatformProjectSaveInput } from '../validation/platform-project';
 import { createPlatformServerClient } from '../platform/supabase-server';
 import {
   DEFAULT_PLATFORM_CONTENT_BRIEF,
-  DEFAULT_PLATFORM_TEMPLATE_CONTENT,
   isPlatformContentBrief,
-  isPlatformTemplateContent,
+  normalizePlatformTemplateContent,
   type PlatformContentBrief,
   type PlatformTemplateContent,
 } from '../platform/draft';
@@ -145,7 +144,7 @@ function toDto(row: PlatformProjectRow, accessRole: PlatformProjectDto['accessRo
     modules: row.modules,
     storyNote: row.story_note,
     contentBrief: isPlatformContentBrief(row.content_brief) ? row.content_brief : { ...DEFAULT_PLATFORM_CONTENT_BRIEF },
-    templateContent: isPlatformTemplateContent(row.template_content) ? row.template_content : { ...DEFAULT_PLATFORM_TEMPLATE_CONTENT, quizQuestions: [] },
+    templateContent: normalizePlatformTemplateContent(row.template_content),
     version: row.current_version,
     updatedAt: row.updated_at,
     accessRole,

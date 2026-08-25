@@ -136,6 +136,9 @@ test('control-plane migrations own projects, content briefs, versions, entitleme
   assert.match(sql, /platform_template_content_is_valid/);
   assert.match(sql, /platform_project_versions_template_content/);
   assert.match(sql, /'templateContent', v_template_content/);
+  assert.match(sql, /platform_template_content_v1_is_valid/);
+  assert.match(sql, /jsonb_array_length\(p_value -> 'quickQuizQuestions'\) > 30/);
+  assert.match(sql, /jsonb_array_length\(p_value -> 'charadesWords'\) > 80/);
   assert.match(sql, /add column action text not null default 'draft_save'/);
   assert.match(sql, /content_brief/);
   assert.match(sql, /revoke execute on function public\.platform_save_project_draft[\s\S]*from authenticated/);
@@ -301,11 +304,15 @@ test('template content pack is locally editable, strictly validated, versioned, 
   assert.match(draft, /renderPlatformTemplateText/);
   assert.match(intake, /TEMPLATE CONTENT PACK/);
   assert.match(intake, /新人问答题库/);
+  assert.match(intake, /组队快问快答题库/);
+  assert.match(intake, /你比划我猜词库/);
   assert.match(intake, /最终会以纯文字替换，不执行 HTML、脚本或代码/);
   assert.match(intake, /实际口播预览/);
   assert.match(validation, /\[<>\]/);
   assert.match(validation, /包含不支持的变量/);
   assert.match(validation, /新人问答最多可以设置 20 题/);
+  assert.match(validation, /快问快答最多可以设置 30 题/);
+  assert.match(validation, /你比划我猜最多可以设置 80 个词/);
   assert.match(data, /platform_save_customized_project_draft_v4/);
   assert.match(data, /p_template_content: draft\.templateContent/);
   assert.match(review, /project\.templateContent\.openingScript/);
@@ -315,5 +322,10 @@ test('template content pack is locally editable, strictly validated, versioned, 
   assert.match(migration, /coalesce\(public\.platform_project_access_role\(v_receipt_project_id\), ''\) not in \('owner', 'editor'\)/);
   assert.match(migration, /snapshot = version\.snapshot \|\| jsonb_build_object\('template_content'/);
   assert.match(migration, /'templateContent', v_template_content/);
+  const teamBankMigration = read('platform-control-plane/migrations/202608250009_team_game_content_banks.sql');
+  assert.match(teamBankMigration, /platform_template_content_v1_is_valid/);
+  assert.match(teamBankMigration, /quickQuizQuestions/);
+  assert.match(teamBankMigration, /charadesWords/);
+  assert.doesNotMatch(read('app/guest/page.tsx'), /templateContent|quickQuizQuestions|charadesWords/);
   assert.doesNotMatch(intake + validation + data, /dangerouslySetInnerHTML|eval\(|new Function/);
 });

@@ -86,6 +86,16 @@ export function ContentIntake() {
     updateTemplate('quizQuestions', [...templateContent.quizQuestions, { prompt: '', answer: 'partnerOne' }]);
   }
 
+  function addQuickQuizQuestion() {
+    if (!templateContent || templateContent.quickQuizQuestions.length >= 30) return;
+    updateTemplate('quickQuizQuestions', [...templateContent.quickQuizQuestions, { prompt: '', answer: '' }]);
+  }
+
+  function addCharadesWord() {
+    if (!templateContent || templateContent.charadesWords.length >= 80) return;
+    updateTemplate('charadesWords', [...templateContent.charadesWords, '']);
+  }
+
   function appendTemplateVariable(variable: (typeof PLATFORM_TEMPLATE_VARIABLES)[number]) {
     if (!templateContent) return;
     const spacer = templateContent.openingScript.endsWith(' ') || !templateContent.openingScript ? '' : ' ';
@@ -173,6 +183,27 @@ export function ContentIntake() {
               <button type="button" aria-label={`删除第 ${index + 1} 题`} onClick={() => updateTemplate('quizQuestions', templateContent.quizQuestions.filter((_, itemIndex) => itemIndex !== index))}>删除</button>
             </article>
           ))}</div> : <div className={styles.quizBuilderEmpty}>还没有新人问答。可以先保存空题库，之后再和婚礼策划师一起补充。</div>}
+          {draft.modules.includes('team-games') ? (
+            <div className={styles.moduleContentBanks}>
+              <section>
+                <div className={styles.quizBuilderHeading}><div><strong>组队快问快答题库</strong><small>最多 30 题 · 问题和答案只给主持人与运营审核查看</small></div><button type="button" onClick={addQuickQuizQuestion} disabled={templateContent.quickQuizQuestions.length >= 30}>＋ 添加题目</button></div>
+                {templateContent.quickQuizQuestions.length ? <div className={styles.quickQuizBuilderList}>{templateContent.quickQuizQuestions.map((question, index) => (
+                  <article key={index}>
+                    <span>{String(index + 1).padStart(2, '0')}</span>
+                    <label>问题<input maxLength={180} value={question.prompt} onChange={(event) => updateTemplate('quickQuizQuestions', templateContent.quickQuizQuestions.map((item, itemIndex) => itemIndex === index ? { ...item, prompt: event.target.value } : item))} placeholder="例如：一年有多少个月？" /></label>
+                    <label>答案<input maxLength={120} value={question.answer} onChange={(event) => updateTemplate('quickQuizQuestions', templateContent.quickQuizQuestions.map((item, itemIndex) => itemIndex === index ? { ...item, answer: event.target.value } : item))} placeholder="例如：12 个月" /></label>
+                    <button type="button" aria-label={`删除第 ${index + 1} 道快问快答`} onClick={() => updateTemplate('quickQuizQuestions', templateContent.quickQuizQuestions.filter((_, itemIndex) => itemIndex !== index))}>删除</button>
+                  </article>
+                ))}</div> : <div className={styles.quizBuilderEmpty}>还没有快问快答题目；可以添加自己的题库。</div>}
+              </section>
+              <section>
+                <div className={styles.quizBuilderHeading}><div><strong>你比划我猜词库</strong><small>最多 80 个词 · 建议使用适合现场表演的短词</small></div><button type="button" onClick={addCharadesWord} disabled={templateContent.charadesWords.length >= 80}>＋ 添加词语</button></div>
+                {templateContent.charadesWords.length ? <div className={styles.charadesBuilderList}>{templateContent.charadesWords.map((word, index) => (
+                  <label key={index}><span>{String(index + 1).padStart(2, '0')}</span><input maxLength={40} value={word} onChange={(event) => updateTemplate('charadesWords', templateContent.charadesWords.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} placeholder="例如：手捧花" /><button type="button" aria-label={`删除第 ${index + 1} 个比划词`} onClick={() => updateTemplate('charadesWords', templateContent.charadesWords.filter((_, itemIndex) => itemIndex !== index))}>删除</button></label>
+                ))}</div> : <div className={styles.quizBuilderEmpty}>还没有你比划我猜词语；可以添加自己的词库。</div>}
+              </section>
+            </div>
+          ) : <div className={styles.moduleBankDisabled}>当前方案没有选择“组队游戏”，因此团队游戏题库不会进入交付。返回方案定制器选中该模块后即可编辑。</div>}
         </fieldset>
 
         <section className={styles.contentNext}>
