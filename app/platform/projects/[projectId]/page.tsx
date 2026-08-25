@@ -73,7 +73,8 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
     throw error;
   }
 
-  const { project, versions, entitlement } = details;
+  const { project, versions, entitlement, reviews } = details;
+  const latestReview = reviews[0] ?? null;
   const plan = PLATFORM_PLANS.find((item) => item.id === project.planId) ?? PLATFORM_PLANS[0];
   const theme = PLATFORM_THEMES.find((item) => item.id === project.themeId) ?? PLATFORM_THEMES[0];
   const tone = PLATFORM_TONES.find((item) => item.id === project.toneId) ?? PLATFORM_TONES[0];
@@ -108,6 +109,13 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
 
         <section className={styles.cloudOwnershipNotice}><strong>仅账号本人可见</strong><p>这个页面由登录会话、项目所有者过滤和数据库行级权限共同保护，不包含宾客身份、照片、积分或任何正式婚礼运行数据。</p><span>{user.email}</span></section>
 
+        {latestReview ? (
+          <section className={latestReview.decision === 'changes_requested' ? styles.customerReviewChanges : styles.customerReviewApproved}>
+            <div><p className={styles.eyebrow}>{latestReview.decision === 'changes_requested' ? 'CHANGES REQUESTED' : 'CONTENT APPROVED'}</p><h2>{latestReview.decision === 'changes_requested' ? '平台已退回修改，项目重新开放编辑。' : '内容审核已经通过。'}</h2></div>
+            <div><small>第 {latestReview.round} 轮审核 · 基于 V{latestReview.projectVersion - 1}</small><p>{latestReview.note || '内容已通过审核，下一步由平台工作人员准备独立婚礼实例。'}</p><time dateTime={latestReview.createdAt}>{new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(latestReview.createdAt))}</time></div>
+          </section>
+        ) : null}
+
         <div className={styles.cloudDetailGrid}>
           <section className={styles.cloudDetailPanel}>
             <div className={styles.projectPanelHeading}><div><small>SELECTED EXPERIENCE</small><h2>方案结构</h2></div><span>{modules.length} 个模块</span></div>
@@ -137,7 +145,7 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
           <ProjectReviewAction projectId={project.id} status={project.status} missingItems={missingReviewItems} />
         </section>
 
-        <section className={styles.cloudDetailNext}><div><p className={styles.eyebrow}>{project.status === 'draft' ? 'CONTINUE SAFELY' : 'REVIEW IN PROGRESS'}</p><h2>{project.status === 'draft' ? '继续编辑时，先把云端版本载回本机。' : '当前版本已经进入内容审核。'}</h2><p>{project.status === 'draft' ? '账号页会在覆盖另一份本机草稿前要求再次确认；编辑完成后仍需手动保存，平台不会静默上传。' : '审核期间客户草稿保持锁定，避免交付基线被覆盖。后续会由版本化流程记录修改意见与确认结果。'}</p></div><Link className={styles.primaryAction} href="/platform/account">返回账号与项目 <span>→</span></Link></section>
+        <section className={styles.cloudDetailNext}><div><p className={styles.eyebrow}>{project.status === 'draft' ? 'CONTINUE SAFELY' : project.status === 'content_review' ? 'REVIEW IN PROGRESS' : 'INSTANCE PREPARATION'}</p><h2>{project.status === 'draft' ? (latestReview?.decision === 'changes_requested' ? '根据审核意见继续修改，再次提交新版本。' : '继续编辑时，先把云端版本载回本机。') : project.status === 'content_review' ? '当前版本已经进入内容审核。' : '平台正在准备独立婚礼实例。'}</h2><p>{project.status === 'draft' ? '账号页会在覆盖另一份本机草稿前要求再次确认；编辑完成后仍需手动保存，平台不会静默上传。' : project.status === 'content_review' ? '审核期间客户草稿保持锁定，避免交付基线被覆盖。审核结果会记录为不可变版本并显示在本页。' : '这只是人工交付阶段；当前不会自动收费，也不会自动创建或修改云资源。'}</p></div><Link className={styles.primaryAction} href="/platform/account">返回账号与项目 <span>→</span></Link></section>
       </div>
     </main>
   );

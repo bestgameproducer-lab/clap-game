@@ -51,12 +51,17 @@ test(
     const db = new PGlite({ extensions: { pgcrypto } });
     const ownerOne = '10000000-0000-4000-8000-000000000001';
     const ownerTwo = '10000000-0000-4000-8000-000000000002';
+    const operator = '10000000-0000-4000-8000-000000000003';
     const draftId = '20000000-0000-4000-8000-000000000001';
     const eventOne = '30000000-0000-4000-8000-000000000001';
     const eventTwo = '30000000-0000-4000-8000-000000000002';
     const eventThree = '30000000-0000-4000-8000-000000000003';
     const eventFour = '30000000-0000-4000-8000-000000000004';
     const eventFive = '30000000-0000-4000-8000-000000000005';
+    const eventSix = '30000000-0000-4000-8000-000000000006';
+    const eventSeven = '30000000-0000-4000-8000-000000000007';
+    const eventEight = '30000000-0000-4000-8000-000000000008';
+    const eventNine = '30000000-0000-4000-8000-000000000009';
     const contentBrief = JSON.stringify({
       language: 'bilingual',
       interaction: 'immersive',
@@ -72,7 +77,8 @@ test(
       const migrationsUrl = new URL('../platform-control-plane/migrations/', import.meta.url);
       const migrations = (await readdir(migrationsUrl)).filter((name) => name.endsWith('.sql')).sort();
       for (const migration of migrations) await db.exec(await readFile(new URL(migration, migrationsUrl), 'utf8'));
-      await db.query('insert into auth.users(id) values ($1), ($2)', [ownerOne, ownerTwo]);
+      await db.query('insert into auth.users(id) values ($1), ($2), ($3)', [ownerOne, ownerTwo, operator]);
+      await db.query("insert into platform_staff(user_id, role) values ($1, 'operator')", [operator]);
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
       await db.exec('set role authenticated');
 
@@ -119,6 +125,59 @@ test(
       );
 
       await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerTwo]);
+      await db.exec('set role authenticated');
+      const isolated = await db.query('select count(*)::int count from platform_projects');
+      assert.equal(isolated.rows[0].count, 0);
+      await assert.rejects(
+        db.query("select * from platform_review_project($1::uuid, $2::uuid, 'approved', '')", [eventSix, projectId]),
+        /platform_staff_required/,
+      );
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [operator]);
+      await db.exec('set role authenticated');
+      const operatorVisible = await db.query('select count(*)::int count from platform_projects');
+      assert.equal(operatorVisible.rows[0].count, 1);
+      const changesRequested = await db.query(
+        "select * from platform_review_project($1::uuid, $2::uuid, 'changes_requested', $3)",
+        [eventSix, projectId, 'Please clarify the host notes'],
+      );
+      assert.equal(changesRequested.rows[0].status, 'draft');
+      assert.equal(changesRequested.rows[0].current_version, 4);
+      const changesRetry = await db.query(
+        "select * from platform_review_project($1::uuid, $2::uuid, 'changes_requested', $3)",
+        [eventSix, projectId, 'Please clarify the host notes'],
+      );
+      assert.equal(changesRetry.rows[0].review_id, changesRequested.rows[0].review_id);
+      assert.equal(changesRetry.rows[0].current_version, 4);
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
+      await db.exec('set role authenticated');
+      const revised = await db.query(saveSql, [eventSeven, draftId, contentBrief]);
+      assert.equal(revised.rows[0].current_version, 5);
+      const resubmitted = await db.query('select * from platform_submit_project_for_review($1::uuid, $2::uuid)', [eventEight, projectId]);
+      assert.equal(resubmitted.rows[0].status, 'content_review');
+      assert.equal(resubmitted.rows[0].current_version, 6);
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [operator]);
+      await db.exec('set role authenticated');
+      const approved = await db.query(
+        "select * from platform_review_project($1::uuid, $2::uuid, 'approved', $3)",
+        [eventNine, projectId, 'Content approved for isolated instance preparation'],
+      );
+      assert.equal(approved.rows[0].status, 'provisioning');
+      assert.equal(approved.rows[0].current_version, 7);
+      const approvalRetry = await db.query(
+        "select * from platform_review_project($1::uuid, $2::uuid, 'approved', $3)",
+        [eventNine, projectId, 'Content approved for isolated instance preparation'],
+      );
+      assert.equal(approvalRetry.rows[0].review_id, approved.rows[0].review_id);
+      assert.equal(approvalRetry.rows[0].current_version, 7);
+
+      await db.exec('reset role');
       const counts = await db.query(`
         select
           (select count(*)::int from platform_projects) projects,
@@ -126,15 +185,36 @@ test(
           (select count(*)::int from platform_entitlements) entitlements,
           (select count(*)::int from platform_audit_log) audits,
           (select count(*)::int from platform_mutation_receipts) receipts,
+          (select count(*)::int from platform_project_reviews) reviews,
+          (select decision from platform_project_reviews order by review_round desc limit 1) latest_decision,
           (select content_brief ->> 'language' from platform_projects limit 1) language,
           (select snapshot -> 'content_brief' ->> 'interaction' from platform_project_versions order by version desc limit 1) interaction
       `);
-      assert.deepEqual(counts.rows[0], { projects: 1, versions: 3, entitlements: 1, audits: 3, receipts: 3, language: 'bilingual', interaction: 'immersive' });
+      assert.deepEqual(counts.rows[0], { projects: 1, versions: 7, entitlements: 1, audits: 7, receipts: 7, reviews: 2, latest_decision: 'approved', language: 'bilingual', interaction: 'immersive' });
 
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerTwo]);
       await db.exec('set role authenticated');
-      const isolated = await db.query('select count(*)::int count from platform_projects');
-      assert.equal(isolated.rows[0].count, 0);
+      const isolatedReviews = await db.query('select count(*)::int count from platform_project_reviews');
+      assert.equal(isolatedReviews.rows[0].count, 0);
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
+      await db.exec('set role authenticated');
+      const ownerReviews = await db.query('select count(*)::int count from platform_project_reviews');
+      assert.equal(ownerReviews.rows[0].count, 2);
+
+      await db.exec('reset role');
+      await db.query('delete from auth.users where id = $1', [operator]);
+      const retainedAudit = await db.query(`
+        select
+          (select count(*)::int from platform_project_versions) versions,
+          (select count(*)::int from platform_project_reviews) reviews,
+          (select count(*)::int from platform_audit_log) audits,
+          (select count(*)::int from platform_project_versions where actor_user_id is null) anonymous_versions,
+          (select count(*)::int from platform_project_reviews where reviewer_user_id is null) anonymous_reviews,
+          (select count(*)::int from platform_audit_log where actor_user_id is null) anonymous_audits
+      `);
+      assert.deepEqual(retainedAudit.rows[0], { versions: 7, reviews: 2, audits: 7, anonymous_versions: 2, anonymous_reviews: 2, anonymous_audits: 2 });
     } finally {
       try { await db.exec('reset role'); } catch {}
       await db.close();

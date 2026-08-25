@@ -39,6 +39,16 @@ export type PlatformEntitlementDto = {
   activeUntil: string | null;
 };
 
+export type PlatformProjectReviewDto = {
+  id: string;
+  round: number;
+  projectVersion: number;
+  decision: 'approved' | 'changes_requested';
+  resultingStatus: 'draft' | 'provisioning';
+  note: string;
+  createdAt: string;
+};
+
 type PlatformProjectRow = {
   id: string;
   source_draft_id?: string;
@@ -72,6 +82,16 @@ type PlatformEntitlementRow = {
   source: PlatformEntitlementDto['source'];
   active_from: string | null;
   active_until: string | null;
+};
+
+type PlatformProjectReviewRow = {
+  id: string;
+  review_round: number;
+  project_version: number;
+  decision: PlatformProjectReviewDto['decision'];
+  resulting_status: PlatformProjectReviewDto['resultingStatus'];
+  note: string;
+  created_at: string;
 };
 
 const PROJECT_FIELDS = 'id,source_draft_id,status,template_id,template_version,plan_id,partner_one,partner_two,wedding_date,location,guest_count,theme_id,tone_id,modules,story_note,content_brief,current_version,updated_at';
@@ -116,16 +136,18 @@ export async function listPlatformProjects(ownerUserId: string) {
 export async function getPlatformProjectDetails(ownerUserId: string, projectId: string) {
   if (!ownerUserId) throw new ApiError(401, '请先登录客户账号');
   const client = await createPlatformServerClient();
-  const [projectResult, versionsResult, entitlementResult] = await Promise.all([
+  const [projectResult, versionsResult, entitlementResult, reviewsResult] = await Promise.all([
     client.from('platform_projects').select(PROJECT_FIELDS).eq('owner_user_id', ownerUserId).eq('id', projectId).maybeSingle(),
     client.from('platform_project_versions').select('version,reason,created_at').eq('project_id', projectId).order('version', { ascending: false }).limit(50),
     client.from('platform_entitlements').select('plan_id,status,source,active_from,active_until').eq('project_id', projectId).maybeSingle(),
+    client.from('platform_project_reviews').select('id,review_round,project_version,decision,resulting_status,note,created_at').eq('project_id', projectId).order('review_round', { ascending: false }).limit(20),
   ]);
 
   if (projectResult.error) throw new Error(`Unable to read platform project: ${projectResult.error.message}`);
   if (!projectResult.data) throw new ApiError(404, '没有找到这个客户项目');
   if (versionsResult.error) throw new Error(`Unable to read platform project versions: ${versionsResult.error.message}`);
   if (entitlementResult.error) throw new Error(`Unable to read platform entitlement: ${entitlementResult.error.message}`);
+  if (reviewsResult.error) throw new Error(`Unable to read platform project reviews: ${reviewsResult.error.message}`);
 
   const versions = ((versionsResult.data ?? []) as PlatformProjectVersionRow[]).map((row): PlatformProjectVersionDto => ({
     version: row.version,
@@ -140,11 +162,21 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
     activeFrom: entitlementRow.active_from,
     activeUntil: entitlementRow.active_until,
   } : null;
+  const reviews = ((reviewsResult.data ?? []) as PlatformProjectReviewRow[]).map((row): PlatformProjectReviewDto => ({
+    id: row.id,
+    round: row.review_round,
+    projectVersion: row.project_version,
+    decision: row.decision,
+    resultingStatus: row.resulting_status,
+    note: row.note,
+    createdAt: row.created_at,
+  }));
 
   return {
     project: toDto(projectResult.data as PlatformProjectRow),
     versions,
     entitlement,
+    reviews,
   };
 }
 

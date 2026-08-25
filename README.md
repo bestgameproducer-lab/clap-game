@@ -89,6 +89,7 @@ ADMIN_PASSWORD=请填写至少12位的管理员密码
 - 本机项目工作台：`http://localhost:3000/platform/project`
 - 客户账号与云端项目：`http://localhost:3000/platform/account`
 - 云端项目详情：登录后从客户账号页进入 `/platform/projects/{项目编号}`
+- 平台运营审核：独立授权工作人员登录后进入 `http://localhost:3000/platform/operations`
 - 宾客页：`http://localhost:3000/guest`
 - 后台：`http://localhost:3000/admin`
 - 主持人流程台：`http://localhost:3000/host`
@@ -162,11 +163,13 @@ npm run build
 
 ## 商业平台预览
 
-`/platform`、`/platform/templates/cupid-wedding-trial`、`/platform/create`、`/platform/content`、`/platform/project`、`/platform/account` 与受保护的 `/platform/projects/{项目编号}` 是在现有婚礼系统之上增加的商业平台首期纵向切片。它展示旗舰模板、单场买断与持续订阅两种交付方向，允许客户组合视觉、叙事和游戏模块，确认语言、互动强度、故事素材与内容边界，在本机工作台检查资料，并通过独立平台账号显式保存、查看和继续编辑自己的云端项目。
+`/platform`、`/platform/templates/cupid-wedding-trial`、`/platform/create`、`/platform/content`、`/platform/project`、`/platform/account`、受保护的 `/platform/projects/{项目编号}` 与工作人员专用的 `/platform/operations` 是在现有婚礼系统之上增加的商业平台首期纵向切片。它展示旗舰模板、单场买断与持续订阅两种交付方向，允许客户组合视觉、叙事和游戏模块，确认语言、互动强度、故事素材与内容边界，在本机工作台检查资料，并通过独立平台账号显式保存、查看和继续编辑自己的云端项目。
 
 定制器在登录和点击“保存到独立客户项目”之前只使用浏览器 `localStorage`。云端项目使用另一套 Supabase 项目、邮箱安全链接、行级权限、不可变版本记录和审计日志，绝不写入当前正式婚礼数据库。账号服务的迁移与配置说明位于 [`platform-control-plane/README.md`](platform-control-plane/README.md)。当前仍不包含订单、付款或自动开通婚礼运行实例；完整边界和开发顺序见 [`docs/platform-product-architecture.md`](docs/platform-product-architecture.md)。
 
 资料完整后，客户可以从云端项目页提交内容审核。提交由数据库再次校验并生成新的审核版本，之后客户侧草稿保持锁定，避免交付基线被静默覆盖；这个动作不会收费，也不会创建婚礼运行实例。
+
+独立授权的平台工作人员可以在运营审核台通过内容，或填写客户可见的具体意见后退回修改。通过只会把项目推进到人工“实例准备”状态，不会自动收费或创建云资源；审核决定具备权限校验、幂等处理、不可变版本与审计记录。
 
 ## 当前 MVP 的边界
 

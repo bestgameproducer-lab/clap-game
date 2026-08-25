@@ -31,6 +31,16 @@ type CloudProject = {
   updatedAt: string;
 };
 
+const PROJECT_STATUS_LABELS: Record<string, string> = {
+  draft: '方案草稿',
+  content_review: '内容审核中',
+  provisioning: '实例准备中',
+  rehearsal: '完整彩排',
+  ready: '待正式发布',
+  live: '正式运行',
+  archived: '已经归档',
+};
+
 const AUTH_ERRORS: Record<string, string> = {
   invalid_link: '登录链接格式不正确，请重新发送。',
   expired_link: '登录链接已失效或已经使用，请重新发送。',
@@ -256,7 +266,7 @@ export function PlatformAccountGateway({
           {projects.length ? <div className={styles.cloudProjectRows}>{projects.map((project) => (
             <article key={project.id}>
               <div><strong>{[project.partnerOne, project.partnerTwo].filter(Boolean).join(' & ') || '未命名婚礼项目'}</strong><small>版本 {project.version} · {project.planId === 'buyout' ? '单场买断' : '持续订阅'}</small></div>
-              <span>{project.status === 'draft' ? '方案草稿' : project.status}</span>
+              <span>{PROJECT_STATUS_LABELS[project.status] ?? '交付处理中'}</span>
               <time dateTime={project.updatedAt}>{new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(new Date(project.updatedAt))}</time>
               <div className={styles.cloudProjectActions}>
                 <Link href={`/platform/projects/${project.id}`}>查看项目</Link>

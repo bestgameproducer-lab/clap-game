@@ -2731,6 +2731,63 @@
   line-height: 1.65;
 }
 
+.customerReviewChanges,
+.customerReviewApproved {
+  display: grid;
+  grid-template-columns: minmax(0, .8fr) minmax(360px, 1.2fr);
+  gap: 32px;
+  margin-top: 16px;
+  padding: 28px 30px;
+  border-radius: 27px;
+}
+
+.customerReviewChanges {
+  border: 1px solid rgba(157, 91, 54, .22);
+  background: #f3e1d3;
+}
+
+.customerReviewApproved {
+  border: 1px solid rgba(83, 111, 76, .2);
+  background: #e6eee1;
+}
+
+.customerReviewChanges h2,
+.customerReviewApproved h2 {
+  margin: 8px 0 0;
+  color: #4f372f;
+  font: 500 26px/1.2 Georgia, 'Noto Serif SC', serif;
+}
+
+.customerReviewChanges > div:last-child,
+.customerReviewApproved > div:last-child {
+  min-width: 0;
+  padding-left: 26px;
+  border-left: 1px solid rgba(96, 67, 55, .14);
+}
+
+.customerReviewChanges small,
+.customerReviewApproved small,
+.customerReviewChanges time,
+.customerReviewApproved time {
+  color: #92776b;
+  font-size: 8px;
+}
+
+.customerReviewChanges p,
+.customerReviewApproved p {
+  margin: 9px 0;
+  color: #5e4940;
+  font-size: 11px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.customerReviewChanges time,
+.customerReviewApproved time {
+  display: block;
+}
+
 .reviewAction {
   min-width: 0;
 }
@@ -2828,6 +2885,342 @@
   font-size: 9px;
   line-height: 1.5;
   text-align: center;
+}
+
+.operationsShell {
+  --platform-ink: #241b18;
+  --platform-wine: #713c34;
+  --platform-gold: #c99a58;
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  padding-bottom: 90px;
+  color: var(--platform-ink);
+  background:
+    radial-gradient(circle at 88% 5%, rgba(153, 107, 76, .2), transparent 30rem),
+    linear-gradient(180deg, #f8f1e7 0%, #e9ddd1 100%);
+}
+
+.operationsLayout,
+.operationsUnavailable {
+  width: min(1180px, calc(100% - 48px));
+  margin: 0 auto;
+}
+
+.operationsUnavailable {
+  min-height: 70vh;
+  padding-top: 110px;
+}
+
+.operationsUnavailable h1 {
+  max-width: 780px;
+  margin: 16px 0;
+  font: 500 clamp(42px, 6vw, 70px)/1.08 Georgia, 'Noto Serif SC', serif;
+}
+
+.operationsUnavailable > p:not(.eyebrow) {
+  max-width: 650px;
+  margin: 0 0 28px;
+  color: #78655c;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.operationsHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  align-items: end;
+  gap: 48px;
+  padding: 66px 0 38px;
+}
+
+.operationsHero h1 {
+  margin: 13px 0 14px;
+  color: #34251f;
+  font: 500 clamp(44px, 6vw, 72px)/1.07 Georgia, 'Noto Serif SC', serif;
+  letter-spacing: -.04em;
+}
+
+.operationsHero > div:first-child > p:last-child {
+  max-width: 680px;
+  margin: 0;
+  color: #79665c;
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.operationsIdentity {
+  display: grid;
+  gap: 7px;
+  padding: 23px;
+  border: 1px solid rgba(94, 63, 50, .13);
+  border-radius: 23px;
+  background: rgba(255, 252, 247, .84);
+}
+
+.operationsIdentity small,
+.operationsIdentity span {
+  color: #8a7469;
+  font-size: 8px;
+}
+
+.operationsIdentity strong {
+  overflow-wrap: anywhere;
+  color: #5f4036;
+  font-size: 11px;
+}
+
+.operationsIdentity span {
+  justify-self: start;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #eaded4;
+  font-weight: 850;
+}
+
+.operationsEmpty {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 20px;
+  padding: 32px;
+  border-radius: 27px;
+  background: rgba(255, 252, 247, .88);
+}
+
+.operationsEmpty > span {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border-radius: 50%;
+  background: #63735b;
+  color: white;
+  font-size: 18px;
+}
+
+.operationsEmpty h2 {
+  margin: 7px 0;
+  font: 500 28px Georgia, 'Noto Serif SC', serif;
+}
+
+.operationsEmpty p:not(.eyebrow) {
+  margin: 0;
+  color: #806d64;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.reviewQueueSection {
+  min-width: 0;
+}
+
+.reviewQueueHeading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.reviewQueueHeading h2 {
+  margin: 6px 0 0;
+  color: #442f28;
+  font: 500 34px Georgia, 'Noto Serif SC', serif;
+}
+
+.reviewQueueHeading > span {
+  padding: 8px 11px;
+  border-radius: 999px;
+  background: #6e453a;
+  color: white;
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.operationsMessage {
+  margin: 0 0 12px;
+  padding: 13px 16px;
+  border-radius: 13px;
+  background: #e7eee4;
+  color: #52674e;
+  font-size: 10px;
+}
+
+.reviewQueueList {
+  display: grid;
+  gap: 14px;
+}
+
+.reviewQueueCard {
+  padding: 28px;
+  border: 1px solid rgba(94, 63, 50, .13);
+  border-radius: 27px;
+  background: rgba(255, 252, 247, .9);
+  box-shadow: 0 14px 38px rgba(78, 50, 36, .05);
+}
+
+.reviewQueueCard > header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px;
+}
+
+.reviewQueueCard header small,
+.reviewQueueCard header time {
+  color: #9c7968;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.reviewQueueCard h3 {
+  margin: 7px 0 5px;
+  color: #472f28;
+  font: 500 29px/1.15 Georgia, 'Noto Serif SC', serif;
+}
+
+.reviewQueueCard header p {
+  margin: 0;
+  color: #806c62;
+  font-size: 10px;
+}
+
+.reviewQueueFacts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.reviewQueueFacts > div {
+  padding: 13px;
+  border-radius: 13px;
+  background: #eee3d9;
+}
+
+.reviewQueueFacts small,
+.reviewQueueFacts strong {
+  display: block;
+}
+
+.reviewQueueFacts small {
+  color: #9a7b6c;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .1em;
+}
+
+.reviewQueueFacts strong {
+  margin-top: 5px;
+  color: #543c33;
+  font-size: 10px;
+}
+
+.reviewContentBlocks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.reviewContentBlocks section {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid rgba(94, 63, 50, .1);
+  border-radius: 14px;
+}
+
+.reviewContentBlocks small {
+  color: #9c7968;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .1em;
+}
+
+.reviewContentBlocks p {
+  margin: 7px 0 0;
+  color: #68534a;
+  font-size: 9px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.reviewNoteLabel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+  margin-top: 18px;
+  color: #674f46;
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.reviewNoteLabel textarea {
+  grid-column: 1 / -1;
+  min-height: 92px;
+  margin: 0;
+  resize: vertical;
+  border: 1px solid rgba(94, 63, 50, .16);
+  border-radius: 14px;
+  background: #fffdf9;
+  color: #44332d;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.reviewNoteLabel > small {
+  color: #9c8276;
+  font-size: 8px;
+}
+
+.operatorActions,
+.operatorConfirmation > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.operatorActions button,
+.operatorConfirmation button {
+  min-height: 46px;
+  margin: 0;
+  border-radius: 999px;
+  background: #6a4036;
+  color: white;
+  font-size: 9px;
+}
+
+.operatorActions button + button,
+.operatorConfirmation button + button {
+  background: #e4d7cd;
+  color: #755e54;
+}
+
+.operatorConfirmation {
+  margin-top: 14px;
+  padding: 18px;
+  border-radius: 16px;
+  background: #3f2e29;
+  color: white;
+}
+
+.operatorConfirmation > strong {
+  font-size: 11px;
+}
+
+.operatorConfirmation > p {
+  margin: 7px 0 0;
+  color: #dac8be;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.operatorActions button:disabled,
+.operatorConfirmation button:disabled,
+.reviewNoteLabel textarea:disabled {
+  cursor: not-allowed;
+  opacity: .5;
 }
 
 .templateDetailShell {
@@ -3625,7 +4018,10 @@
   .cloudDetailHero,
   .cloudDetailNext,
   .cloudOwnershipNotice,
-  .cloudReviewPanel {
+  .cloudReviewPanel,
+  .customerReviewChanges,
+  .customerReviewApproved,
+  .operationsHero {
     grid-template-columns: 1fr;
   }
 
@@ -3663,11 +4059,46 @@
 
   .cloudDetailPanel,
   .cloudDetailNext,
-  .cloudReviewPanel {
+  .cloudReviewPanel,
+  .customerReviewChanges,
+  .customerReviewApproved {
     padding: 22px;
+  }
+
+  .customerReviewChanges > div:last-child,
+  .customerReviewApproved > div:last-child {
+    padding-top: 18px;
+    padding-left: 0;
+    border-top: 1px solid rgba(96, 67, 55, .14);
+    border-left: 0;
   }
 
   .reviewConfirmation > div {
     display: grid;
+  }
+
+  .operationsLayout,
+  .operationsUnavailable {
+    width: calc(100% - 32px);
+  }
+
+  .operationsHero {
+    padding-top: 52px;
+  }
+
+  .operationsHero h1 {
+    font-size: 44px;
+  }
+
+  .reviewQueueCard {
+    padding: 22px;
+  }
+
+  .reviewQueueCard > header,
+  .reviewQueueFacts,
+  .reviewContentBlocks,
+  .operatorActions,
+  .operatorConfirmation > div {
+    grid-template-columns: 1fr;
   }
 }
