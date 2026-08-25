@@ -2313,6 +2313,38 @@
   font-size: 8px;
 }
 
+.teamNameGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+.teamNameGrid label { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 7px; color: #665149; font-size: 10px; font-weight: 800; }
+.teamNameGrid input { grid-column: 1 / -1; min-height: 45px; padding: 0 13px; border: 1px solid rgba(91,61,49,.18); border-radius: 13px; background: #fffdf9; color: #3f302a; }
+.teamNameGrid small { color: #9a857b; font-size: 8px; }
+.templateVariablePicker { margin-top: 12px; padding: 15px; border-radius: 15px; background: #f1e7df; }
+.templateVariablePicker > small { color: #785c50; font-size: 9px; font-weight: 800; }
+.templateVariablePicker > div { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
+.templateVariablePicker button { margin: 0; padding: 8px 10px; border: 1px solid rgba(102,72,58,.17); border-radius: 999px; background: #fffaf5; color: #65483d; font: 700 9px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.templateVariablePicker p { margin: 9px 0 0; color: #8d7468; font-size: 9px; line-height: 1.5; }
+.templateScriptPreview { margin-top: 9px; padding: 15px; border-left: 3px solid #b88a70; border-radius: 3px 14px 14px 3px; background: #fffaf5; }
+.templateScriptPreview small { color: #9c7562; font-size: 8px; font-weight: 900; letter-spacing: .1em; }
+.templateScriptPreview p { margin: 7px 0 0; color: #554038; font: 500 12px/1.65 Georgia,'Noto Serif SC',serif; white-space: pre-wrap; }
+.quizBuilderHeading { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-top: 24px; }
+.quizBuilderHeading strong,.quizBuilderHeading small { display: block; }
+.quizBuilderHeading strong { color: #543d34; font-size: 13px; }
+.quizBuilderHeading small { margin-top: 4px; color: #947d72; font-size: 9px; }
+.quizBuilderHeading button { margin: 0; padding: 10px 13px; border-radius: 999px; background: #6d4439; color: white; font-size: 9px; }
+.quizBuilderHeading button:disabled { opacity: .5; }
+.quizBuilderList { display: grid; gap: 9px; margin-top: 12px; }
+.quizBuilderList article { display: grid; grid-template-columns: 34px minmax(0,1fr) 150px auto; align-items: end; gap: 10px; padding: 13px; border: 1px solid rgba(92,62,49,.13); border-radius: 15px; background: #fffaf5; }
+.quizBuilderList article > span { align-self: center; color: #b48368; font: 700 12px Georgia,serif; }
+.quizBuilderList label { display: grid; gap: 6px; color: #725b50; font-size: 8px; font-weight: 800; }
+.quizBuilderList input,.quizBuilderList select { min-width: 0; min-height: 41px; margin: 0; padding: 0 11px; border: 1px solid rgba(92,62,49,.18); border-radius: 11px; background: white; color: #3f302a; }
+.quizBuilderList article > button { min-height: 41px; margin: 0; padding: 0 11px; border-radius: 999px; background: #ecddd4; color: #754f42; font-size: 8px; }
+.quizBuilderEmpty { margin-top: 12px; padding: 17px; border: 1px dashed rgba(94,63,50,.2); border-radius: 15px; color: #8b756a; font-size: 10px; text-align: center; }
+.cloudTemplateSummary { margin-top: 12px; padding: 15px; border-radius: 15px; background: #f2e8df; color: #60493f; }
+.cloudTemplateSummary small,.cloudTemplateSummary strong,.cloudTemplateSummary span { display: block; }
+.cloudTemplateSummary small { color: #a17460; font-size: 7px; font-weight: 900; letter-spacing: .12em; }
+.cloudTemplateSummary strong { margin-top: 5px; font-size: 12px; }
+.cloudTemplateSummary p { margin: 7px 0; font-size: 9px; line-height: 1.55; white-space: pre-wrap; }
+.cloudTemplateSummary span { color: #8a7065; font-size: 8px; }
+
 .boundaryConfirmation {
   display: flex;
   align-items: flex-start;
@@ -3401,7 +3433,7 @@
 
 .reviewContentBlocks {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 8px;
   margin-top: 8px;
 }
@@ -4351,6 +4383,15 @@
   .contentNext {
     padding: 22px;
   }
+
+  .teamNameGrid,
+  .quizBuilderList article {
+    grid-template-columns: 1fr;
+  }
+
+  .quizBuilderList article > span { display: none; }
+
+  .quizBuilderHeading { align-items: flex-start; }
 
   .cloudDetailLayout,
   .cloudDetailUnavailable {

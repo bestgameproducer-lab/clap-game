@@ -61,7 +61,7 @@ test('every platform mutation is same-origin, authenticated, validated, and isol
   assert.match(operatorReviewRoute, /requirePlatformStaff\(\)/);
   assert.match(operatorReviewRoute, /requiredUuid\(\(await params\)\.projectId/);
   assert.match(operatorReviewRoute, /readPlatformOperatorReviewInput/);
-  assert.match(data, /platform_save_customized_project_draft_v3/);
+  assert.match(data, /platform_save_customized_project_draft_v4/);
   assert.match(data, /platform_submit_project_for_review/);
   assert.doesNotMatch(data, /select\(['"]\*['"]\)/);
   assert.match(validation, /requiredUuid\(body\.eventKey/);
@@ -113,6 +113,7 @@ test('control-plane migrations own projects, content briefs, versions, entitleme
   assert.match(sql, /create table public\.platform_project_invitations/);
   assert.match(sql, /platform_project_access_role/);
   assert.match(sql, /platform_save_customized_project_draft_v3/);
+  assert.match(sql, /platform_save_customized_project_draft_v4/);
   assert.match(sql, /platform_create_project_invitation/);
   assert.match(sql, /platform_accept_project_invitation/);
   assert.match(sql, /platform_remove_project_member/);
@@ -131,6 +132,10 @@ test('control-plane migrations own projects, content briefs, versions, entitleme
   assert.match(sql, /runtime_instance_registered/);
   assert.match(sql, /platform_instance_entitlement_required/);
   assert.match(sql, /target_origin ~ '\^https:\/\//);
+  assert.match(sql, /add column template_content jsonb/);
+  assert.match(sql, /platform_template_content_is_valid/);
+  assert.match(sql, /platform_project_versions_template_content/);
+  assert.match(sql, /'templateContent', v_template_content/);
   assert.match(sql, /add column action text not null default 'draft_save'/);
   assert.match(sql, /content_brief/);
   assert.match(sql, /revoke execute on function public\.platform_save_project_draft[\s\S]*from authenticated/);
@@ -153,6 +158,7 @@ test('account UI does not transmit the device draft before explicit signed-in sa
   assert.match(account, /再次确认/);
   assert.match(account, /载入到本机编辑/);
   assert.match(account, /contentBrief: project\.contentBrief/);
+  assert.match(account, /templateContent: project\.templateContent/);
   assert.match(projectWorkspace, /href="\/platform\/account"/);
   assert.doesNotMatch(account, /SERVICE_ROLE|service_role/);
 });
@@ -208,7 +214,7 @@ test('project invitations are hashed, authenticated, revocable, and role-scoped'
   assert.match(collaboration, /再次点击确认撤销/);
   assert.match(invitationPage, /next: `\/platform\/invitations\/\$\{token\}`/);
   assert.match(invitationPage, /不会授予婚礼现场后台/);
-  assert.match(data, /platform_save_customized_project_draft_v3/);
+  assert.match(data, /platform_save_customized_project_draft_v4/);
   assert.match(data, /accessRole/);
 });
 
@@ -280,4 +286,34 @@ test('runtime instance registration is staff-only, entitlement-gated, idempotent
   assert.match(migration, /pg_advisory_xact_lock/);
   assert.doesNotMatch(migration, /api_key|access_token|refresh_token|password|credential/i);
   assert.doesNotMatch(route + queue + data, /SUPABASE_SERVICE_ROLE_KEY|service_role/);
+});
+
+test('template content pack is locally editable, strictly validated, versioned, and delivered as plain configuration', () => {
+  const draft = read('lib/platform/draft.ts');
+  const intake = read('app/platform/content/content-intake.tsx');
+  const validation = read('lib/validation/platform-project.ts');
+  const data = read('lib/data/platform-projects.ts');
+  const review = read('app/platform/operations/platform-review-queue.tsx');
+  const migration = read('platform-control-plane/migrations/202608250008_template_content_pack.sql');
+
+  assert.match(draft, /PlatformTemplateContent/);
+  assert.match(draft, /PLATFORM_TEMPLATE_VARIABLES/);
+  assert.match(draft, /renderPlatformTemplateText/);
+  assert.match(intake, /TEMPLATE CONTENT PACK/);
+  assert.match(intake, /新人问答题库/);
+  assert.match(intake, /最终会以纯文字替换，不执行 HTML、脚本或代码/);
+  assert.match(intake, /实际口播预览/);
+  assert.match(validation, /\[<>\]/);
+  assert.match(validation, /包含不支持的变量/);
+  assert.match(validation, /新人问答最多可以设置 20 题/);
+  assert.match(data, /platform_save_customized_project_draft_v4/);
+  assert.match(data, /p_template_content: draft\.templateContent/);
+  assert.match(review, /project\.templateContent\.openingScript/);
+  assert.match(migration, /platform_template_content_is_valid/);
+  assert.match(migration, /jsonb_array_length\(p_value -> 'quizQuestions'\) > 20/);
+  assert.match(migration, /platform-save-v4:/);
+  assert.match(migration, /coalesce\(public\.platform_project_access_role\(v_receipt_project_id\), ''\) not in \('owner', 'editor'\)/);
+  assert.match(migration, /snapshot = version\.snapshot \|\| jsonb_build_object\('template_content'/);
+  assert.match(migration, /'templateContent', v_template_content/);
+  assert.doesNotMatch(intake + validation + data, /dangerouslySetInnerHTML|eval\(|new Function/);
 });

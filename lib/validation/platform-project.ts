@@ -7,7 +7,16 @@ import {
   PLATFORM_TONES,
   type PlatformModuleId,
 } from '../platform/catalog';
-import { getWeddingContentBrief, isWeddingDraft, type PlatformContentBrief, type WeddingDraft } from '../platform/draft';
+import {
+  getWeddingContentBrief,
+  getWeddingTemplateContent,
+  isWeddingDraft,
+  PLATFORM_TEMPLATE_VARIABLES,
+  type PlatformContentBrief,
+  type PlatformQuizQuestion,
+  type PlatformTemplateContent,
+  type WeddingDraft,
+} from '../platform/draft';
 
 const PLAN_IDS = PLATFORM_PLANS.map((plan) => plan.id);
 const THEME_IDS = PLATFORM_THEMES.map((theme) => theme.id);
@@ -18,7 +27,7 @@ export type PlatformProjectSaveInput = {
   eventKey: string;
   projectId: string | null;
   sourceDraftId: string;
-  draft: WeddingDraft & { draftId: string; contentBrief: PlatformContentBrief };
+  draft: WeddingDraft & { draftId: string; contentBrief: PlatformContentBrief; templateContent: PlatformTemplateContent };
 };
 
 function optionalProjectId(value: unknown) {
@@ -43,11 +52,39 @@ function validateModules(value: unknown): PlatformModuleId[] {
   return modules;
 }
 
+function plainTemplateText(value: unknown, label: string, maximum: number, allowVariables = false) {
+  const result = requiredString(value, label, maximum);
+  if (/[<>]/.test(result)) throw new ApiError(400, `${label}不能包含 HTML 标签`);
+  if (allowVariables) {
+    const variablePattern = new RegExp(`{{(?:${PLATFORM_TEMPLATE_VARIABLES.join('|')})}}`, 'g');
+    const withoutAllowedVariables = result.replace(variablePattern, '');
+    if (withoutAllowedVariables.includes('{{') || withoutAllowedVariables.includes('}}')) {
+      throw new ApiError(400, `${label}包含不支持的变量`);
+    }
+  } else if (/[{}]/.test(result)) {
+    throw new ApiError(400, `${label}不能包含模板变量`);
+  }
+  return result;
+}
+
+function validateQuizQuestions(value: unknown): PlatformQuizQuestion[] {
+  if (!Array.isArray(value) || value.length > 20) throw new ApiError(400, '新人问答最多可以设置 20 题');
+  return value.map((question, index) => {
+    if (!question || typeof question !== 'object' || Array.isArray(question)) throw new ApiError(400, `第 ${index + 1} 道新人问答格式不正确`);
+    const item = question as Record<string, unknown>;
+    return {
+      prompt: plainTemplateText(item.prompt, `第 ${index + 1} 道题目`, 180),
+      answer: requiredEnum(item.answer, `第 ${index + 1} 道题答案`, ['partnerOne', 'partnerTwo', 'both'] as const),
+    };
+  });
+}
+
 export function readPlatformProjectSaveInput(body: JsonObject): PlatformProjectSaveInput {
   if (!isWeddingDraft(body.draft)) throw new ApiError(400, '婚礼方案格式不正确');
   const input = body.draft;
   const sourceDraftId = requiredUuid(input.draftId, '本机草稿编号');
   const content = getWeddingContentBrief(input);
+  const templateContent = getWeddingTemplateContent(input);
 
   return {
     eventKey: requiredUuid(body.eventKey, '操作编号'),
@@ -73,6 +110,12 @@ export function readPlatformProjectSaveInput(body: JsonObject): PlatformProjectS
         avoidTopics: optionalString(content.avoidTopics, '内容边界', 1200),
         boundariesConfirmed: requiredBoolean(content.boundariesConfirmed, '内容边界确认'),
         hostNotes: optionalString(content.hostNotes, '主持备注', 2000),
+      },
+      templateContent: {
+        teamOneName: plainTemplateText(templateContent.teamOneName, '第一组名称', 40),
+        teamTwoName: plainTemplateText(templateContent.teamTwoName, '第二组名称', 40),
+        openingScript: plainTemplateText(templateContent.openingScript, '主持人开场口播', 800, true),
+        quizQuestions: validateQuizQuestions(templateContent.quizQuestions),
       },
     },
   };

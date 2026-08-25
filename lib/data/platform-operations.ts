@@ -1,6 +1,13 @@
 import 'server-only';
 import { ApiError } from '../errors';
-import { DEFAULT_PLATFORM_CONTENT_BRIEF, isPlatformContentBrief, type PlatformContentBrief } from '../platform/draft';
+import {
+  DEFAULT_PLATFORM_CONTENT_BRIEF,
+  DEFAULT_PLATFORM_TEMPLATE_CONTENT,
+  isPlatformContentBrief,
+  isPlatformTemplateContent,
+  type PlatformContentBrief,
+  type PlatformTemplateContent,
+} from '../platform/draft';
 import { createPlatformServerClient } from '../platform/supabase-server';
 import type { PlatformReviewDecision } from '../validation/platform-operations';
 
@@ -14,6 +21,7 @@ export type PlatformReviewQueueItem = {
   planId: 'buyout' | 'subscription';
   modules: string[];
   contentBrief: PlatformContentBrief;
+  templateContent: PlatformTemplateContent;
   version: number;
   submittedAt: string;
 };
@@ -22,7 +30,7 @@ export type PlatformProvisioningManifest = {
   schemaVersion: 'wedding-instance-config/v1';
   source: { projectId: string; projectVersion: number; templateId: string; templateVersion: string };
   wedding: { displayName: string; partnerOne: string; partnerTwo: string; date: string; location: string; guestCapacity: number };
-  experience: { theme: string; tone: string; modules: string[]; language: string; interaction: string; guestMix: string };
+  experience: { theme: string; tone: string; modules: string[]; language: string; interaction: string; guestMix: string; templateContent: PlatformTemplateContent };
   delivery: { plan: 'buyout' | 'subscription' };
   safeguards: { containsGuestRuntimeData: false; containsCredentials: false; containsPrivateStoryNotes: false };
 };
@@ -59,6 +67,7 @@ type ReviewQueueRow = {
   plan_id: PlatformReviewQueueItem['planId'];
   modules: string[];
   content_brief: unknown;
+  template_content: unknown;
   current_version: number;
   updated_at: string;
 };
@@ -83,7 +92,7 @@ export async function listPlatformReviewQueue(staffUserId: string) {
   const client = await createPlatformServerClient();
   const { data, error } = await client
     .from('platform_projects')
-    .select('id,partner_one,partner_two,wedding_date,location,guest_count,plan_id,modules,content_brief,current_version,updated_at')
+    .select('id,partner_one,partner_two,wedding_date,location,guest_count,plan_id,modules,content_brief,template_content,current_version,updated_at')
     .eq('status', 'content_review')
     .order('updated_at', { ascending: true })
     .limit(100);
@@ -99,6 +108,7 @@ export async function listPlatformReviewQueue(staffUserId: string) {
     planId: row.plan_id,
     modules: row.modules,
     contentBrief: isPlatformContentBrief(row.content_brief) ? row.content_brief : { ...DEFAULT_PLATFORM_CONTENT_BRIEF },
+    templateContent: isPlatformTemplateContent(row.template_content) ? row.template_content : { ...DEFAULT_PLATFORM_TEMPLATE_CONTENT, quizQuestions: [] },
     version: row.current_version,
     submittedAt: row.updated_at,
   }));

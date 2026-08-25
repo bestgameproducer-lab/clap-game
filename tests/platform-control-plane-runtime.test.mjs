@@ -31,7 +31,7 @@ grant execute on function auth.jwt() to authenticated;
 `;
 
 const saveSql = `
-select * from public.platform_save_customized_project_draft_v2(
+select * from public.platform_save_customized_project_draft_v4(
   $1::uuid,
   null::uuid,
   $2::uuid,
@@ -47,12 +47,13 @@ select * from public.platform_save_customized_project_draft_v2(
   'romantic',
   array['secret-missions','host-toolkit']::text[],
   'runtime test',
-  $3::jsonb
+  $3::jsonb,
+  $4::jsonb
 )
 `;
 
 const collaboratorSaveSql = `
-select * from public.platform_save_customized_project_draft_v3(
+select * from public.platform_save_customized_project_draft_v4(
   $1::uuid,
   $2::uuid,
   $3::uuid,
@@ -68,7 +69,8 @@ select * from public.platform_save_customized_project_draft_v3(
   'romantic',
   array['secret-missions','host-toolkit']::text[],
   'collaborator runtime test',
-  $4::jsonb
+  $4::jsonb,
+  $5::jsonb
 )
 `;
 
@@ -113,6 +115,15 @@ test(
       boundariesConfirmed: true,
       hostNotes: 'Keep the finale after dinner',
     });
+    const templateContent = JSON.stringify({
+      teamOneName: 'Ocean Team',
+      teamTwoName: 'Desert Team',
+      openingScript: 'Welcome to {{couple}} in {{location}}.',
+      quizQuestions: [
+        { prompt: 'Who plans every trip?', answer: 'partnerTwo' },
+        { prompt: 'Who prefers Messi?', answer: 'partnerOne' },
+      ],
+    });
 
     try {
       await db.exec(bootstrap);
@@ -124,20 +135,29 @@ test(
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
       await db.exec('set role authenticated');
 
-      const first = await db.query(saveSql, [eventOne, draftId, contentBrief]);
+      const first = await db.query(saveSql, [eventOne, draftId, contentBrief, templateContent]);
       assert.equal(first.rows[0].current_version, 1);
       const projectId = first.rows[0].id;
 
-      const retry = await db.query(saveSql, [eventOne, draftId, contentBrief]);
+      const retry = await db.query(saveSql, [eventOne, draftId, contentBrief, templateContent]);
       assert.equal(retry.rows[0].id, projectId);
       assert.equal(retry.rows[0].current_version, 1);
 
-      const second = await db.query(saveSql, [eventTwo, draftId, contentBrief]);
+      const second = await db.query(saveSql, [eventTwo, draftId, contentBrief, templateContent]);
       assert.equal(second.rows[0].id, projectId);
       assert.equal(second.rows[0].current_version, 2);
 
       await assert.rejects(
-        db.query(saveSql, [eventThree, draftId, JSON.stringify({ language: 'invalid' })]),
+        db.query(saveSql, [eventThree, draftId, JSON.stringify({ language: 'invalid' }), templateContent]),
+        /platform_project_invalid/,
+      );
+      await assert.rejects(
+        db.query(saveSql, [eventThree, draftId, contentBrief, JSON.stringify({
+          teamOneName: 'Ocean Team',
+          teamTwoName: 'Desert Team',
+          openingScript: '<script>{{unknown}}</script>',
+          quizQuestions: [],
+        })]),
         /platform_project_invalid/,
       );
 
@@ -158,7 +178,7 @@ test(
       const submitRetry = await db.query('select * from platform_submit_project_for_review($1::uuid, $2::uuid)', [eventFour, projectId]);
       assert.equal(submitRetry.rows[0].current_version, 3);
       await assert.rejects(
-        db.query(saveSql, [eventFive, draftId, contentBrief]),
+        db.query(saveSql, [eventFive, draftId, contentBrief, templateContent]),
         /platform_project_locked/,
       );
       await assert.rejects(
@@ -197,7 +217,7 @@ test(
       await db.exec('reset role');
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
       await db.exec('set role authenticated');
-      const revised = await db.query(saveSql, [eventSeven, draftId, contentBrief]);
+      const revised = await db.query(saveSql, [eventSeven, draftId, contentBrief, templateContent]);
       assert.equal(revised.rows[0].current_version, 5);
       const resubmitted = await db.query('select * from platform_submit_project_for_review($1::uuid, $2::uuid)', [eventEight, projectId]);
       assert.equal(resubmitted.rows[0].status, 'content_review');
@@ -298,7 +318,7 @@ test(
 
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
       await db.exec('set role authenticated');
-      const secondProject = await db.query(saveSql, [eventThirteen, secondDraftId, contentBrief]);
+      const secondProject = await db.query(saveSql, [eventThirteen, secondDraftId, contentBrief, templateContent]);
       const secondProjectId = secondProject.rows[0].id;
       const secondInvitation = await db.query(
         "select * from platform_create_project_invitation($1::uuid, $2::uuid, 'editor', $3)",
@@ -311,9 +331,9 @@ test(
       await db.query(`select set_config('request.jwt.claim.email', $1, false)`, ['collaborator@example.com']);
       await db.exec('set role authenticated');
       await db.query('select * from platform_accept_project_invitation($1::uuid, $2)', [eventFifteen, secondInviteHash]);
-      const collaboratorSave = await db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief]);
+      const collaboratorSave = await db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief, templateContent]);
       assert.equal(collaboratorSave.rows[0].current_version, 2);
-      const collaboratorSaveRetry = await db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief]);
+      const collaboratorSaveRetry = await db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief, templateContent]);
       assert.equal(collaboratorSaveRetry.rows[0].current_version, 2);
       await assert.rejects(
         db.query('select * from platform_submit_project_for_review($1::uuid, $2::uuid)', [eventSeventeen, secondProjectId]),
@@ -325,6 +345,17 @@ test(
       await db.exec('set role authenticated');
       await db.query('select * from platform_remove_project_member($1::uuid, $2::uuid, $3::uuid)', [eventEighteen, secondProjectId, ownerTwo]);
 
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerTwo]);
+      await db.exec('set role authenticated');
+      await assert.rejects(
+        db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief, templateContent]),
+        /platform_project_not_owned/,
+      );
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
+      await db.exec('set role authenticated');
       await assert.rejects(
         db.query('select * from platform_lock_provisioning_manifest($1::uuid, $2::uuid)', [eventNineteen, projectId]),
         /platform_staff_required/,
@@ -341,6 +372,9 @@ test(
       assert.match(manifest.rows[0].manifest_hash, /^[0-9a-f]{64}$/);
       assert.equal(manifest.rows[0].manifest.schemaVersion, 'wedding-instance-config/v1');
       assert.equal(manifest.rows[0].manifest.wedding.displayName, 'Zimin & Anrong');
+      assert.equal(manifest.rows[0].manifest.experience.templateContent.teamOneName, 'Ocean Team');
+      assert.equal(manifest.rows[0].manifest.experience.templateContent.openingScript, 'Welcome to {{couple}} in {{location}}.');
+      assert.equal(manifest.rows[0].manifest.experience.templateContent.quizQuestions.length, 2);
       assert.deepEqual(manifest.rows[0].manifest.safeguards, {
         containsCredentials: false,
         containsGuestRuntimeData: false,

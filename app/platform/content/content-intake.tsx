@@ -7,8 +7,12 @@ import {
   ensureWeddingDraftId,
   getWeddingContentBrief,
   getWeddingCoupleName,
+  getWeddingTemplateContent,
   isWeddingDraft,
+  PLATFORM_TEMPLATE_VARIABLES,
+  renderPlatformTemplateText,
   type PlatformContentBrief,
+  type PlatformTemplateContent,
   type WeddingDraft,
 } from '../../../lib/platform/draft';
 import styles from '../platform.module.css';
@@ -61,6 +65,7 @@ export function ContentIntake() {
   }, [draft, ready]);
 
   const brief = useMemo(() => draft ? getWeddingContentBrief(draft) : null, [draft]);
+  const templateContent = useMemo(() => draft ? getWeddingTemplateContent(draft) : null, [draft]);
 
   function update<K extends keyof PlatformContentBrief>(key: K, value: PlatformContentBrief[K]) {
     setDraft((current) => current ? {
@@ -69,9 +74,32 @@ export function ContentIntake() {
     } : current);
   }
 
+  function updateTemplate<K extends keyof PlatformTemplateContent>(key: K, value: PlatformTemplateContent[K]) {
+    setDraft((current) => current ? {
+      ...current,
+      templateContent: { ...getWeddingTemplateContent(current), [key]: value },
+    } : current);
+  }
+
+  function addQuizQuestion() {
+    if (!templateContent || templateContent.quizQuestions.length >= 20) return;
+    updateTemplate('quizQuestions', [...templateContent.quizQuestions, { prompt: '', answer: 'partnerOne' }]);
+  }
+
+  function appendTemplateVariable(variable: (typeof PLATFORM_TEMPLATE_VARIABLES)[number]) {
+    if (!templateContent) return;
+    const spacer = templateContent.openingScript.endsWith(' ') || !templateContent.openingScript ? '' : ' ';
+    const next = `${templateContent.openingScript}${spacer}{{${variable}}}`;
+    if (next.length > 800) {
+      setMessage('主持人开场口播已经达到 800 字上限。');
+      return;
+    }
+    updateTemplate('openingScript', next);
+  }
+
   if (!ready) return <section className={styles.contentLoading} aria-live="polite">正在读取本机项目…</section>;
 
-  if (!draft || !brief) {
+  if (!draft || !brief || !templateContent) {
     return (
       <section className={styles.contentEmpty}>
         <p className={styles.eyebrow}>PROJECT REQUIRED</p>
@@ -121,6 +149,30 @@ export function ContentIntake() {
           <label>绝对不要出现的话题、人物或互动<textarea maxLength={1200} value={brief.avoidTopics} onChange={(event) => update('avoidTopics', event.target.value)} placeholder="没有也请保留为空，然后勾选下方确认。" /><small>{brief.avoidTopics.length}/1200</small></label>
           <label className={styles.boundaryConfirmation}><input type="checkbox" checked={brief.boundariesConfirmed} onChange={(event) => update('boundariesConfirmed', event.target.checked)} /><span><strong>我们已经确认内容边界</strong><small>已列出需要避开的内容；如果没有特殊禁忌，也已明确确认。</small></span></label>
           <label>主持人口播与现场节奏备注<textarea maxLength={2000} value={brief.hostNotes} onChange={(event) => update('hostNotes', event.target.value)} placeholder="例如：主持人偏轻松，不安排临时上台；仪式结束后再开放强互动。" /><small>{brief.hostNotes.length}/2000</small></label>
+        </fieldset>
+
+        <fieldset className={styles.contentSection}>
+          <legend><span>05</span><div><small>TEMPLATE CONTENT PACK</small><strong>把旗舰模板改成你们自己的版本</strong></div></legend>
+          <div className={styles.teamNameGrid}>
+            <label>第一组名称<input maxLength={40} value={templateContent.teamOneName} onChange={(event) => updateTemplate('teamOneName', event.target.value)} placeholder="例如：海岛组" /><small>{templateContent.teamOneName.length}/40</small></label>
+            <label>第二组名称<input maxLength={40} value={templateContent.teamTwoName} onChange={(event) => updateTemplate('teamTwoName', event.target.value)} placeholder="例如：沙漠组" /><small>{templateContent.teamTwoName.length}/40</small></label>
+          </div>
+          <label>主持人开场口播<textarea maxLength={800} value={templateContent.openingScript} onChange={(event) => updateTemplate('openingScript', event.target.value)} placeholder="写下主持人开场时可以直接使用的文字。" /><small>{templateContent.openingScript.length}/800</small></label>
+          <div className={styles.templateVariablePicker} aria-label="可以插入的安全变量">
+            <small>插入安全变量</small>
+            <div>{PLATFORM_TEMPLATE_VARIABLES.map((variable) => <button key={variable} type="button" onClick={() => appendTemplateVariable(variable)}>{`{{${variable}}}`}</button>)}</div>
+            <p>只支持以上变量；最终会以纯文字替换，不执行 HTML、脚本或代码。</p>
+          </div>
+          <div className={styles.templateScriptPreview}><small>实际口播预览</small><p>{renderPlatformTemplateText(templateContent.openingScript, draft)}</p></div>
+          <div className={styles.quizBuilderHeading}><div><strong>新人问答题库</strong><small>最多 20 题 · 主持人可在现场直接查看答案</small></div><button type="button" onClick={addQuizQuestion} disabled={templateContent.quizQuestions.length >= 20}>＋ 添加题目</button></div>
+          {templateContent.quizQuestions.length ? <div className={styles.quizBuilderList}>{templateContent.quizQuestions.map((question, index) => (
+            <article key={index}>
+              <span>{String(index + 1).padStart(2, '0')}</span>
+              <label>问题<input maxLength={180} value={question.prompt} onChange={(event) => updateTemplate('quizQuestions', templateContent.quizQuestions.map((item, itemIndex) => itemIndex === index ? { ...item, prompt: event.target.value } : item))} placeholder="例如：谁更喜欢提前很久到机场？" /></label>
+              <label>答案<select value={question.answer} onChange={(event) => updateTemplate('quizQuestions', templateContent.quizQuestions.map((item, itemIndex) => itemIndex === index ? { ...item, answer: event.target.value as typeof item.answer } : item))}><option value="partnerOne">{draft.partnerOne.trim() || '第一位新人'}</option><option value="partnerTwo">{draft.partnerTwo.trim() || '第二位新人'}</option><option value="both">两个人</option></select></label>
+              <button type="button" aria-label={`删除第 ${index + 1} 题`} onClick={() => updateTemplate('quizQuestions', templateContent.quizQuestions.filter((_, itemIndex) => itemIndex !== index))}>删除</button>
+            </article>
+          ))}</div> : <div className={styles.quizBuilderEmpty}>还没有新人问答。可以先保存空题库，之后再和婚礼策划师一起补充。</div>}
         </fieldset>
 
         <section className={styles.contentNext}>

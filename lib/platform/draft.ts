@@ -12,6 +12,27 @@ import {
 
 export const PLATFORM_DRAFT_STORAGE_KEY = 'wedding-play-studio-draft-v1';
 
+export type PlatformQuizQuestion = {
+  prompt: string;
+  answer: 'partnerOne' | 'partnerTwo' | 'both';
+};
+
+export type PlatformTemplateContent = {
+  teamOneName: string;
+  teamTwoName: string;
+  openingScript: string;
+  quizQuestions: PlatformQuizQuestion[];
+};
+
+export const PLATFORM_TEMPLATE_VARIABLES = ['partnerOne', 'partnerTwo', 'couple', 'location', 'weddingDate'] as const;
+
+export const DEFAULT_PLATFORM_TEMPLATE_CONTENT: PlatformTemplateContent = {
+  teamOneName: '海岛组',
+  teamTwoName: '沙漠组',
+  openingScript: '欢迎来到 {{couple}} 的婚礼游戏。今晚请跟随主持人提示，一起完成属于你们的故事。',
+  quizQuestions: [],
+};
+
 export type PlatformContentBrief = {
   language: 'chinese' | 'bilingual';
   interaction: 'gentle' | 'balanced' | 'immersive';
@@ -45,6 +66,7 @@ export type WeddingDraft = {
   modules: PlatformModuleId[];
   storyNote: string;
   contentBrief?: PlatformContentBrief;
+  templateContent?: PlatformTemplateContent;
 };
 
 const DEFAULT_MODULES: PlatformModuleId[] = [
@@ -88,11 +110,36 @@ export function getWeddingContentBrief(draft: WeddingDraft): PlatformContentBrie
     : { ...DEFAULT_PLATFORM_CONTENT_BRIEF };
 }
 
+export function isPlatformTemplateContent(value: unknown): value is PlatformTemplateContent {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const content = value as Partial<PlatformTemplateContent>;
+  return (
+    typeof content.teamOneName === 'string'
+    && typeof content.teamTwoName === 'string'
+    && typeof content.openingScript === 'string'
+    && Array.isArray(content.quizQuestions)
+    && content.quizQuestions.every((question) => Boolean(
+      question
+      && typeof question === 'object'
+      && !Array.isArray(question)
+      && typeof question.prompt === 'string'
+      && ['partnerOne', 'partnerTwo', 'both'].includes(question.answer),
+    ))
+  );
+}
+
+export function getWeddingTemplateContent(draft: WeddingDraft): PlatformTemplateContent {
+  return isPlatformTemplateContent(draft.templateContent)
+    ? draft.templateContent
+    : { ...DEFAULT_PLATFORM_TEMPLATE_CONTENT, quizQuestions: [] };
+}
+
 export function ensureWeddingDraftId(draft: WeddingDraft): WeddingDraft {
   return {
     ...draft,
     draftId: draft.draftId || createPlatformDraftId(),
     contentBrief: getWeddingContentBrief(draft),
+    templateContent: getWeddingTemplateContent(draft),
   };
 }
 
@@ -110,6 +157,7 @@ export function createDefaultDraft(plan: PlatformPlanId = 'buyout'): WeddingDraf
     modules: [...DEFAULT_MODULES],
     storyNote: '',
     contentBrief: { ...DEFAULT_PLATFORM_CONTENT_BRIEF },
+    templateContent: { ...DEFAULT_PLATFORM_TEMPLATE_CONTENT, quizQuestions: [] },
   };
 }
 
@@ -129,6 +177,7 @@ export function isWeddingDraft(value: unknown): value is WeddingDraft {
     typeof draft.location === 'string' &&
     typeof draft.storyNote === 'string' &&
     (draft.contentBrief === undefined || isPlatformContentBrief(draft.contentBrief)) &&
+    (draft.templateContent === undefined || isPlatformTemplateContent(draft.templateContent)) &&
     ['40', '80', '120', '180'].includes(draft.guestCount ?? '') &&
     themeIds.has(draft.theme as PlatformThemeId) &&
     toneIds.has(draft.tone as PlatformToneId) &&
@@ -153,12 +202,24 @@ export function getWeddingCoupleName(draft: WeddingDraft) {
   return [draft.partnerOne.trim(), draft.partnerTwo.trim()].filter(Boolean).join(' & ') || '你们的名字';
 }
 
+export function renderPlatformTemplateText(template: string, draft: WeddingDraft) {
+  const values: Record<(typeof PLATFORM_TEMPLATE_VARIABLES)[number], string> = {
+    partnerOne: draft.partnerOne.trim() || '第一位新人',
+    partnerTwo: draft.partnerTwo.trim() || '第二位新人',
+    couple: getWeddingCoupleName(draft),
+    location: draft.location.trim() || '婚礼现场',
+    weddingDate: formatWeddingDate(draft.weddingDate),
+  };
+  return template.replace(/{{(partnerOne|partnerTwo|couple|location|weddingDate)}}/g, (_match, key: keyof typeof values) => values[key]);
+}
+
 export function buildWeddingBrief(draft: WeddingDraft) {
   const selectedTheme = PLATFORM_THEMES.find((theme) => theme.id === draft.theme) ?? PLATFORM_THEMES[0];
   const selectedTone = PLATFORM_TONES.find((tone) => tone.id === draft.tone) ?? PLATFORM_TONES[0];
   const selectedPlan = PLATFORM_PLANS.find((plan) => plan.id === draft.plan) ?? PLATFORM_PLANS[0];
   const selectedModules = PLATFORM_MODULES.filter((module) => draft.modules.includes(module.id));
   const content = getWeddingContentBrief(draft);
+  const templateContent = getWeddingTemplateContent(draft);
   const language = content.language === 'bilingual' ? '中英双语' : '中文';
   const interaction = { gentle: '轻松温和', balanced: '自然平衡', immersive: '高沉浸互动' }[content.interaction];
   const guestMix = { family: '家人与长辈为主', balanced: '亲友较均衡', friends: '朋友为主' }[content.guestMix];
@@ -182,6 +243,9 @@ export function buildWeddingBrief(draft: WeddingDraft) {
     content.avoidTopics.trim() ? `内容边界：${content.avoidTopics.trim()}` : '',
     content.boundariesConfirmed ? '内容边界已由客户确认' : '内容边界尚未确认',
     content.hostNotes.trim() ? `主持备注：${content.hostNotes.trim()}` : '',
+    `团队名称：${templateContent.teamOneName} / ${templateContent.teamTwoName}`,
+    `开场口播：${templateContent.openingScript}`,
+    templateContent.quizQuestions.length ? `新人问答：${templateContent.quizQuestions.length} 题` : '新人问答：尚未添加',
     '',
     '说明：此文件是第一版需求摘要，不代表最终报价、合同或交付承诺。',
   ].filter(Boolean).join('\n');

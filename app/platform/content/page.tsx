@@ -5,7 +5,7 @@ import { ContentIntake } from './content-intake';
 
 export const metadata: Metadata = {
   title: '婚礼内容问卷 · 婚礼游戏工坊',
-  description: '确认语言、互动强度、宾客构成、故事素材、内容边界与主持人提示。',
+  description: '确认语言、互动强度、宾客构成、故事素材、内容边界，并定制团队名称、主持口播与新人问答。',
 };
 
 export default function PlatformContentPage() {
