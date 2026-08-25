@@ -690,3 +690,126 @@ test(
     }
   },
 );
+
+test(
+  'commercial quote requests preserve an immutable safe scope without creating entitlement state',
+  { skip: PGlite && pgcrypto ? false : 'requires optional @electric-sql/pglite' },
+  async () => {
+    const db = new PGlite({ extensions: { pgcrypto } });
+    const owner = '11000000-0000-4000-8000-000000000001';
+    const outsider = '11000000-0000-4000-8000-000000000002';
+    const operator = '11000000-0000-4000-8000-000000000003';
+    const draftId = '21000000-0000-4000-8000-000000000001';
+    const saveEvent = '31000000-0000-4000-8000-000000000001';
+    const quoteEvent = '31000000-0000-4000-8000-000000000002';
+    const changedSaveEvent = '31000000-0000-4000-8000-000000000003';
+    const replacementQuoteEvent = '31000000-0000-4000-8000-000000000004';
+    const blockedQuoteEvent = '31000000-0000-4000-8000-000000000005';
+    const contentBrief = JSON.stringify({
+      language: 'chinese', interaction: 'balanced', guestMix: 'balanced',
+      storyMoments: 'Private story must not enter commercial snapshot', avoidTopics: 'Private boundary',
+      boundariesConfirmed: true, hostNotes: 'Private host note',
+    });
+    const templateContent = JSON.stringify({
+      teamOneName: 'Ocean Team', teamTwoName: 'Desert Team',
+      openingScript: 'Welcome {{couple}}.', quizQuestions: [], quickQuizQuestions: [],
+      charadesWords: [], missionCopyOverrides: [],
+    });
+    const deliveryScope = JSON.stringify({
+      customizationLevel: 'guided', supportMode: 'remote_guided', rehearsalMode: 'full_rehearsal',
+      services: ['brand-adaptation', 'host-runbook'], serviceNotes: 'Confirm travel separately',
+    });
+    const dataPolicy = JSON.stringify({
+      retentionWindow: 'event_plus_7_days', projectArchiveBeforeDeletion: true,
+      rosterAuthorityConfirmed: true, guestNoticeConfirmed: true, isolatedRuntimeRequired: true,
+    });
+
+    try {
+      await db.exec(bootstrap);
+      const migrationsUrl = new URL('../platform-control-plane/migrations/', import.meta.url);
+      const migrations = (await readdir(migrationsUrl)).filter((name) => name.endsWith('.sql')).sort();
+      for (const migration of migrations) await db.exec(await readFile(new URL(migration, migrationsUrl), 'utf8'));
+      await db.query('insert into auth.users(id) values ($1), ($2), ($3)', [owner, outsider, operator]);
+      await db.query("insert into platform_staff(user_id, role) values ($1, 'operator')", [operator]);
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [owner]);
+      await db.exec('set role authenticated');
+
+      const saved = await db.query(saveSql, [saveEvent, draftId, contentBrief, templateContent, deliveryScope, dataPolicy]);
+      const projectId = saved.rows[0].id;
+      assert.equal(saved.rows[0].current_version, 1);
+      await assert.rejects(
+        db.query('select * from platform_request_commercial_quote($1::uuid, $2::uuid, $3)', [quoteEvent, projectId, 2]),
+        /platform_quote_request_stale/,
+      );
+      const requested = await db.query(
+        'select * from platform_request_commercial_quote($1::uuid, $2::uuid, $3)',
+        [quoteEvent, projectId, 1],
+      );
+      assert.equal(requested.rows[0].status, 'requested');
+      assert.equal(requested.rows[0].plan_id, 'buyout');
+      assert.equal(requested.rows[0].commercial_snapshot.location, 'Bali');
+      assert.equal(requested.rows[0].commercial_snapshot.deliveryScope.supportMode, 'remote_guided');
+      const serialized = JSON.stringify(requested.rows[0].commercial_snapshot);
+      for (const forbidden of ['storyMoments', 'avoidTopics', 'hostNotes', 'Private story', 'Private boundary', 'Private host note']) {
+        assert.equal(serialized.includes(forbidden), false);
+      }
+      const retry = await db.query(
+        'select * from platform_request_commercial_quote($1::uuid, $2::uuid, $3)',
+        [quoteEvent, projectId, 999],
+      );
+      assert.equal(retry.rows[0].quote_request_id, requested.rows[0].quote_request_id);
+      await assert.rejects(
+        db.query("insert into platform_commercial_quote_requests(id,project_id,project_version,plan_id,commercial_snapshot) values (gen_random_uuid(),$1,1,'buyout','{}'::jsonb)", [projectId]),
+        /permission denied/,
+      );
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [outsider]);
+      await db.exec('set role authenticated');
+      assert.equal((await db.query('select count(*)::int count from platform_commercial_quote_requests')).rows[0].count, 0);
+      await assert.rejects(
+        db.query('select * from platform_request_commercial_quote($1::uuid, $2::uuid, $3)', [replacementQuoteEvent, projectId, 1]),
+        /platform_project_not_owned/,
+      );
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [operator]);
+      await db.exec('set role authenticated');
+      assert.equal((await db.query("select count(*)::int count from platform_commercial_quote_requests where status = 'requested'")).rows[0].count, 1);
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [owner]);
+      await db.exec('set role authenticated');
+      const changedSaveSql = saveSql.replace("'Bali'", "'Singapore'");
+      const changed = await db.query(changedSaveSql, [changedSaveEvent, draftId, contentBrief, templateContent, deliveryScope, dataPolicy]);
+      assert.equal(changed.rows[0].current_version, 2);
+      assert.equal((await db.query("select count(*)::int count from platform_commercial_quote_requests where status = 'superseded'")).rows[0].count, 1);
+      const replacement = await db.query(
+        'select * from platform_request_commercial_quote($1::uuid, $2::uuid, $3)',
+        [replacementQuoteEvent, projectId, 2],
+      );
+      assert.equal(replacement.rows[0].commercial_snapshot.location, 'Singapore');
+      assert.equal((await db.query("select count(*)::int count from platform_commercial_quote_requests where status = 'requested'")).rows[0].count, 1);
+
+      await db.exec('reset role');
+      await db.query("update platform_entitlements set status = 'active', source = 'operator', active_from = now() where project_id = $1", [projectId]);
+      await db.exec('set role authenticated');
+      await assert.rejects(
+        db.query('select * from platform_request_commercial_quote($1::uuid, $2::uuid, $3)', [blockedQuoteEvent, projectId, 2]),
+        /platform_quote_request_entitled/,
+      );
+      await db.exec('reset role');
+      const finalState = await db.query(`
+        select
+          (select count(*)::int from platform_commercial_quote_requests) requests,
+          (select count(*)::int from platform_audit_log where action = 'commercial_quote_requested') quote_audits,
+          (select count(*)::int from platform_mutation_receipts where action = 'quote_request') quote_receipts,
+          (select status from platform_entitlements where project_id = $1) entitlement_status
+      `, [projectId]);
+      assert.deepEqual(finalState.rows[0], { requests: 2, quote_audits: 2, quote_receipts: 2, entitlement_status: 'active' });
+    } finally {
+      try { await db.exec('reset role'); } catch {}
+      await db.close();
+    }
+  },
+);

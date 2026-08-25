@@ -38,6 +38,20 @@ export type PlatformRuntimeReleaseEventDto = {
   createdAt: string;
 };
 
+export type PlatformCommercialQuoteQueueItem = {
+  id: string;
+  projectId: string;
+  projectVersion: number;
+  planId: 'buyout' | 'subscription';
+  partnerOne: string;
+  partnerTwo: string;
+  weddingDate: string;
+  location: string;
+  guestCount: number;
+  deliveryScope: PlatformDeliveryScope;
+  requestedAt: string;
+};
+
 export type PlatformReviewQueueItem = {
   id: string;
   partnerOne: string;
@@ -151,6 +165,66 @@ type CustomerDeliveryEventRow = {
   release_event_id: string;
   customer_message: string;
 };
+
+type CommercialQuoteRequestRow = {
+  id: string;
+  project_id: string;
+  project_version: number;
+  plan_id: PlatformCommercialQuoteQueueItem['planId'];
+  commercial_snapshot: {
+    weddingDate?: string | null;
+    location?: string;
+    guestCount?: number;
+    deliveryScope?: unknown;
+  };
+  requested_at: string;
+};
+
+type CommercialQuoteProjectRow = {
+  id: string;
+  partner_one: string;
+  partner_two: string;
+};
+
+export async function listPlatformCommercialQuoteQueue(staffUserId: string): Promise<PlatformCommercialQuoteQueueItem[]> {
+  if (!staffUserId) throw new ApiError(403, '此账号没有平台运营权限');
+  const client = await createPlatformServerClient();
+  const requestsResult = await client
+    .from('platform_commercial_quote_requests')
+    .select('id,project_id,project_version,plan_id,commercial_snapshot,requested_at')
+    .eq('status', 'requested')
+    .order('requested_at', { ascending: true })
+    .limit(100);
+  if (requestsResult.error) throw new Error(`Unable to read commercial quote requests: ${requestsResult.error.message}`);
+  const requests = (requestsResult.data ?? []) as CommercialQuoteRequestRow[];
+  if (!requests.length) return [];
+  const projectsResult = await client
+    .from('platform_projects')
+    .select('id,partner_one,partner_two')
+    .in('id', requests.map((request) => request.project_id));
+  if (projectsResult.error) throw new Error(`Unable to read commercial quote projects: ${projectsResult.error.message}`);
+  const projects = new Map(((projectsResult.data ?? []) as CommercialQuoteProjectRow[]).map((project) => [project.id, project]));
+  return requests.map((request) => {
+    const project = projects.get(request.project_id);
+    const snapshot = request.commercial_snapshot;
+    const deliveryScope = isPlatformDeliveryScope(snapshot.deliveryScope)
+      ? snapshot.deliveryScope
+      : DEFAULT_PLATFORM_DELIVERY_SCOPE;
+    return {
+      id: request.id,
+      projectId: request.project_id,
+      projectVersion: request.project_version,
+      planId: request.plan_id,
+      partnerOne: project?.partner_one ?? '',
+      partnerTwo: project?.partner_two ?? '',
+      weddingDate: typeof snapshot.weddingDate === 'string' ? snapshot.weddingDate : '',
+      location: typeof snapshot.location === 'string' ? snapshot.location : '',
+      guestCount: typeof snapshot.guestCount === 'number' ? snapshot.guestCount : 0,
+      deliveryScope,
+      requestedAt: request.requested_at,
+    };
+  });
+}
 
 export async function listPlatformReviewQueue(staffUserId: string) {
   if (!staffUserId) throw new ApiError(403, '此账号没有平台运营权限');

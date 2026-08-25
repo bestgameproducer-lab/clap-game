@@ -468,6 +468,33 @@ test('commercial delivery scope is closed-shape, versioned, reviewed, and never 
   assert.doesNotMatch(scope + data + migration, /stripe|checkout|payment_intent|createOrder/i);
 });
 
+test('commercial quote requests are owner-confirmed, versioned, staff-visible, and financially inert', () => {
+  const migration = read('platform-control-plane/migrations/202608250018_commercial_quote_requests.sql');
+  const route = read('app/api/platform/projects/[projectId]/quote-request/route.ts');
+  const validation = read('lib/validation/platform-commercial.ts');
+  const customerData = read('lib/data/platform-projects.ts');
+  const customerAction = read('app/platform/projects/[projectId]/project-commercial-action.tsx');
+  const operationsData = read('lib/data/platform-operations.ts');
+  const operationsPage = read('app/platform/operations/page.tsx');
+
+  assert.match(migration, /create table public\.platform_commercial_quote_requests/);
+  assert.match(migration, /platform_project_access_role\(project_id\) is not null/);
+  assert.match(migration, /platform_is_staff\(\)/);
+  assert.match(migration, /commercial_snapshot - array/);
+  assert.match(migration, /platform_supersede_stale_quote_requests/);
+  assert.match(migration, /platform_request_commercial_quote/);
+  assert.match(migration, /v_entitlement_status is distinct from 'pending'/);
+  assert.match(migration, /commercial_quote_requested/);
+  assert.match(route, /assertSameOrigin\(request\)/);
+  assert.match(route, /requirePlatformUser\(\)/);
+  assert.match(validation, /eventKey,projectVersion/);
+  assert.match(customerData, /platform_commercial_quote_requests/);
+  assert.match(customerAction, /不会收费、创建订单、签订合同或激活商业权益/);
+  assert.match(operationsData, /listPlatformCommercialQuoteQueue/);
+  assert.match(operationsPage, /PlatformCommercialQueue/);
+  assert.doesNotMatch(route + customerData + operationsData + migration, /stripe|checkout|payment_intent|api\.vercel\.com|SERVICE_ROLE|service_role/i);
+});
+
 test('guest data lifecycle is finite, explicitly confirmed, versioned, and delivered without guest records', () => {
   const policy = read('lib/platform/data-policy.ts');
   const scope = read('app/platform/scope/delivery-scope-builder.tsx');

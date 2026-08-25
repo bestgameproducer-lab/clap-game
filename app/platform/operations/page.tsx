@@ -2,11 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { listPlatformProvisioningQueue, listPlatformReviewQueue } from '@/lib/data/platform-operations';
+import { listPlatformCommercialQuoteQueue, listPlatformProvisioningQueue, listPlatformReviewQueue } from '@/lib/data/platform-operations';
 import { ApiError } from '@/lib/errors';
 import { getPlatformSupabaseEnv } from '@/lib/platform/env';
 import { requirePlatformStaff } from '@/lib/platform/staff';
 import styles from '../platform.module.css';
+import { PlatformCommercialQueue } from './platform-commercial-queue';
 import { PlatformReviewQueue } from './platform-review-queue';
 import { PlatformProvisioningQueue } from './platform-provisioning-queue';
 
@@ -45,7 +46,8 @@ export default async function PlatformOperationsPage() {
     throw error;
   }
 
-  const [queue, provisioningQueue] = await Promise.all([
+  const [commercialQueue, queue, provisioningQueue] = await Promise.all([
+    listPlatformCommercialQuoteQueue(staff.user.id),
     listPlatformReviewQueue(staff.user.id),
     listPlatformProvisioningQueue(staff.user.id),
   ]);
@@ -56,6 +58,7 @@ export default async function PlatformOperationsPage() {
           <div><p className={styles.eyebrow}>PRIVATE DELIVERY OPERATIONS</p><h1>每一场婚礼，<br />先通过内容审核。</h1><p>这里只处理客户项目控制层，不连接宾客、隐藏身份、照片、积分或现有正式婚礼数据库。</p></div>
           <div className={styles.operationsIdentity}><small>当前工作人员</small><strong>{staff.user.email}</strong><span>{staff.role === 'admin' ? '平台管理员' : '内容运营'}</span></div>
         </section>
+        <PlatformCommercialQueue requests={commercialQueue} />
         <PlatformReviewQueue initialQueue={queue} />
         <PlatformProvisioningQueue initialQueue={provisioningQueue} />
       </div>
