@@ -89,6 +89,9 @@ test('account UI does not transmit the device draft before explicit signed-in sa
   assert.match(account, /if \(!draft \|\| busy\) return/);
   assert.match(account, /disabled=\{!email \|\| busy\}/);
   assert.match(account, /点击前不会传输本机草稿/);
+  assert.match(account, /draftId: project\.sourceDraftId/);
+  assert.match(account, /再次确认/);
+  assert.match(account, /载入到本机编辑/);
   assert.match(projectWorkspace, /href="\/platform\/account"/);
   assert.doesNotMatch(account, /SERVICE_ROLE|service_role/);
 });

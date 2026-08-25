@@ -14,10 +14,18 @@ import styles from '../platform.module.css';
 
 type CloudProject = {
   id: string;
+  sourceDraftId: string;
   status: string;
   partnerOne: string;
   partnerTwo: string;
-  planId: string;
+  weddingDate: string;
+  location: string;
+  guestCount: number;
+  themeId: WeddingDraft['theme'];
+  toneId: WeddingDraft['tone'];
+  planId: WeddingDraft['plan'];
+  modules: WeddingDraft['modules'];
+  storyNote: string;
   version: number;
   updatedAt: string;
 };
@@ -55,6 +63,7 @@ export function PlatformAccountGateway({
   const [draft, setDraft] = useState<WeddingDraft | null>(null);
   const [projects, setProjects] = useState<CloudProject[]>([]);
   const [projectsState, setProjectsState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [pendingRestoreId, setPendingRestoreId] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -143,6 +152,42 @@ export function PlatformAccountGateway({
     }
   }
 
+  function restoreCloudProject(project: CloudProject) {
+    const restored: WeddingDraft = {
+      draftId: project.sourceDraftId,
+      partnerOne: project.partnerOne,
+      partnerTwo: project.partnerTwo,
+      weddingDate: project.weddingDate,
+      location: project.location,
+      guestCount: String(project.guestCount) as WeddingDraft['guestCount'],
+      theme: project.themeId,
+      tone: project.toneId,
+      plan: project.planId,
+      modules: project.modules,
+      storyNote: project.storyNote,
+    };
+    if (!isWeddingDraft(restored)) {
+      setMessage('这个云端项目版本无法在当前定制器中打开，请联系平台支持。');
+      return;
+    }
+    try {
+      window.localStorage.setItem(PLATFORM_DRAFT_STORAGE_KEY, JSON.stringify(restored));
+      window.location.assign('/platform/create');
+    } catch {
+      setMessage('浏览器不允许保存本机草稿，暂时无法进入编辑。');
+    }
+  }
+
+  function requestCloudRestore(project: CloudProject) {
+    const replacesAnotherDraft = Boolean(draft?.draftId && draft.draftId !== project.sourceDraftId);
+    if (replacesAnotherDraft && pendingRestoreId !== project.id) {
+      setPendingRestoreId(project.id);
+      setMessage('这会用所选云端版本替换当前本机草稿，请再次确认。');
+      return;
+    }
+    restoreCloudProject(project);
+  }
+
   return (
     <div className={styles.accountLayout}>
       <section className={styles.accountHero}>
@@ -207,6 +252,12 @@ export function PlatformAccountGateway({
               <div><strong>{[project.partnerOne, project.partnerTwo].filter(Boolean).join(' & ') || '未命名婚礼项目'}</strong><small>版本 {project.version} · {project.planId === 'buyout' ? '单场买断' : '持续订阅'}</small></div>
               <span>{project.status === 'draft' ? '方案草稿' : project.status}</span>
               <time dateTime={project.updatedAt}>{new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(new Date(project.updatedAt))}</time>
+              <div className={styles.cloudProjectActions}>
+                <button type="button" onClick={() => requestCloudRestore(project)} disabled={busy}>
+                  {pendingRestoreId === project.id ? '确认覆盖并编辑' : '载入到本机编辑'}
+                </button>
+                {pendingRestoreId === project.id ? <button type="button" onClick={() => setPendingRestoreId(null)}>取消</button> : null}
+              </div>
             </article>
           ))}</div> : null}
         </section>

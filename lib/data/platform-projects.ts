@@ -5,6 +5,7 @@ import { createPlatformServerClient } from '../platform/supabase-server';
 
 export type PlatformProjectDto = {
   id: string;
+  sourceDraftId: string;
   status: 'draft' | 'content_review' | 'provisioning' | 'rehearsal' | 'ready' | 'live' | 'archived';
   templateId: string;
   templateVersion: string;
@@ -24,6 +25,7 @@ export type PlatformProjectDto = {
 
 type PlatformProjectRow = {
   id: string;
+  source_draft_id?: string;
   status: PlatformProjectDto['status'];
   template_id: string;
   template_version: string;
@@ -41,11 +43,13 @@ type PlatformProjectRow = {
   updated_at: string;
 };
 
-const PROJECT_FIELDS = 'id,status,template_id,template_version,plan_id,partner_one,partner_two,wedding_date,location,guest_count,theme_id,tone_id,modules,story_note,current_version,updated_at';
+const PROJECT_FIELDS = 'id,source_draft_id,status,template_id,template_version,plan_id,partner_one,partner_two,wedding_date,location,guest_count,theme_id,tone_id,modules,story_note,current_version,updated_at';
 
-function toDto(row: PlatformProjectRow): PlatformProjectDto {
+function toDto(row: PlatformProjectRow, sourceDraftId = row.source_draft_id): PlatformProjectDto {
+  if (!sourceDraftId) throw new Error('Unable to map platform project without a source draft');
   return {
     id: row.id,
+    sourceDraftId,
     status: row.status,
     templateId: row.template_id,
     templateVersion: row.template_version,
@@ -74,7 +78,7 @@ export async function listPlatformProjects(ownerUserId: string) {
     .order('updated_at', { ascending: false })
     .limit(50);
   if (error) throw new Error(`Unable to list platform projects: ${error.message}`);
-  return ((data ?? []) as PlatformProjectRow[]).map(toDto);
+  return ((data ?? []) as PlatformProjectRow[]).map((row) => toDto(row));
 }
 
 export async function savePlatformProject(ownerUserId: string, input: PlatformProjectSaveInput) {
@@ -107,5 +111,5 @@ export async function savePlatformProject(ownerUserId: string, input: PlatformPr
   }
   const row = data as PlatformProjectRow | null;
   if (!row) throw new Error('Unable to save platform project: missing response');
-  return toDto(row);
+  return toDto(row, input.sourceDraftId);
 }

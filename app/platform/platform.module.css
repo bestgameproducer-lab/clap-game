@@ -2056,7 +2056,7 @@
 
 .cloudProjectRows article {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto minmax(132px, auto);
   align-items: center;
   gap: 18px;
   padding: 16px;
@@ -2088,6 +2088,34 @@
   color: #795c50;
   font-size: 8px;
   font-weight: 850;
+}
+
+.cloudProjectActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.cloudProjectActions button {
+  min-height: 36px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #6a4036;
+  color: #fffaf4;
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.cloudProjectActions button + button {
+  background: #e8ddd5;
+  color: #715d53;
+}
+
+.cloudProjectActions button:disabled {
+  cursor: not-allowed;
+  opacity: .48;
 }
 
 .templateDetailShell {
@@ -2868,5 +2896,9 @@
   .accountUnavailable,
   .cloudProjectRows article {
     grid-template-columns: 1fr;
+  }
+
+  .cloudProjectActions {
+    justify-content: flex-start;
   }
 }
