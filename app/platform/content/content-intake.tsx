@@ -191,6 +191,7 @@ export function ContentIntake() {
             <label>第一组名称<input maxLength={40} value={templateContent.teamOneName} onChange={(event) => updateTemplate('teamOneName', event.target.value)} placeholder="例如：海岛组" /><small>{templateContent.teamOneName.length}/40</small></label>
             <label>第二组名称<input maxLength={40} value={templateContent.teamTwoName} onChange={(event) => updateTemplate('teamTwoName', event.target.value)} placeholder="例如：沙漠组" /><small>{templateContent.teamTwoName.length}/40</small></label>
           </div>
+          {!templateContent.teamOneName.trim() || !templateContent.teamTwoName.trim() || templateContent.teamOneName.trim().toLowerCase() === templateContent.teamTwoName.trim().toLowerCase() ? <p className={styles.teamNameError} role="alert">请填写两个不同的队伍名称，否则无法生成名单、主持控制与积分榜。</p> : null}
           <label>主持人开场口播<textarea maxLength={800} value={templateContent.openingScript} onChange={(event) => updateTemplate('openingScript', event.target.value)} placeholder="写下主持人开场时可以直接使用的文字。" /><small>{templateContent.openingScript.length}/800</small></label>
           <div className={styles.templateVariablePicker} aria-label="可以插入的安全变量">
             <small>插入安全变量</small>

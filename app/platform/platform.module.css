@@ -2317,6 +2317,7 @@
 .teamNameGrid label { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 7px; color: #665149; font-size: 10px; font-weight: 800; }
 .teamNameGrid input { grid-column: 1 / -1; min-height: 45px; padding: 0 13px; border: 1px solid rgba(91,61,49,.18); border-radius: 13px; background: #fffdf9; color: #3f302a; }
 .teamNameGrid small { color: #9a857b; font-size: 8px; }
+.teamNameError { margin:10px 0 0; padding:10px 12px; border-radius:11px; background:#f6dfda; color:#8a392f; font-size:10px; font-weight:750; line-height:1.5; }
 .templateVariablePicker { margin-top: 12px; padding: 15px; border-radius: 15px; background: #f1e7df; }
 .templateVariablePicker > small { color: #785c50; font-size: 9px; font-weight: 800; }
 .templateVariablePicker > div { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
@@ -4654,4 +4655,77 @@
   .previewScoreboard > div { grid-template-columns:1fr; margin-top:30px; }
   .previewScoreboard > div > i { padding:4px 0; }
   .previewNext > div:last-child { align-items:flex-start; flex-direction:column; }
+}
+
+.capacityShell { min-height:100svh; color:#3d2d27; background:radial-gradient(circle at 86% 8%,rgba(198,151,100,.18),transparent 29rem),linear-gradient(180deg,#f8f1e8,#eee2d7); }
+.capacityLayout,.capacityEmpty,.capacityLoading { width:min(1180px,calc(100% - 56px)); margin:0 auto; }
+.capacityLoading,.capacityEmpty { padding:100px 0; }
+.capacityEmpty { max-width:760px; }
+.capacityEmpty h1 { margin:13px 0 17px; font:500 54px/1.08 Georgia,'Noto Serif SC',serif; }
+.capacityEmpty > p:not(.eyebrow) { max-width:620px; margin-bottom:26px; color:#77655c; font-size:14px; line-height:1.75; }
+.capacityHero { display:grid; grid-template-columns:minmax(0,1fr) 310px; align-items:end; gap:48px; padding:66px 0 32px; }
+.capacityHero h1 { margin:12px 0 15px; font:500 clamp(46px,6vw,74px)/1.04 Georgia,'Noto Serif SC',serif; letter-spacing:-.04em; }
+.capacityHero > div:first-child > p:last-child { margin:0; color:#7d6a61; font-size:13px; }
+.capacityPrivacy { display:grid; grid-template-columns:220px minmax(0,1fr); gap:24px; margin-bottom:14px; padding:20px 24px; border:1px solid rgba(100,66,51,.13); border-radius:20px; background:#efe1d5; }
+.capacityPrivacy strong { color:#604239; font-size:13px; }
+.capacityPrivacy p { margin:0; color:#786158; font-size:11px; line-height:1.7; }
+.capacityMetrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+.capacityMetrics article { min-width:0; padding:22px; border:1px solid rgba(95,64,50,.12); border-radius:21px; background:rgba(255,251,246,.86); box-shadow:0 12px 28px rgba(73,47,36,.04); }
+.capacityMetrics small,.capacityMetrics strong,.capacityMetrics span { display:block; }
+.capacityMetrics small { color:#a17660; font-size:8px; font-weight:900; letter-spacing:.12em; }
+.capacityMetrics strong { margin:9px 0 5px; color:#53392f; font:500 34px Georgia,serif; }
+.capacityMetrics span { color:#876f64; font-size:10px; }
+.capacitySection,.capacityTopology { margin-top:14px; padding:32px; border:1px solid rgba(95,64,50,.12); border-radius:27px; background:rgba(255,251,246,.88); box-shadow:0 16px 36px rgba(73,47,36,.05); }
+.capacitySection > header { display:grid; grid-template-columns:minmax(0,1fr) minmax(260px,.65fr); align-items:end; gap:34px; }
+.capacitySection > header h2,.capacityTopology h2,.capacityNext h2 { margin:8px 0 0; font:500 30px/1.18 Georgia,'Noto Serif SC',serif; }
+.capacitySection > header > p { margin:0; color:#7d685e; font-size:11px; line-height:1.7; }
+.capacitySeatGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:24px; }
+.capacitySeatGrid > article { min-width:0; padding:20px; border:1px solid rgba(96,65,51,.11); border-radius:18px; background:#faf4ee; }
+.capacitySeatGrid small,.capacitySeatGrid strong { display:block; }
+.capacitySeatGrid > article > small { color:#a27159; font-size:8px; font-weight:900; letter-spacing:.12em; }
+.capacitySeatGrid > article > strong { margin-top:6px; color:#553c32; font-size:14px; }
+.capacitySeatGrid p { margin:8px 0 14px; color:#806a60; font-size:10px; line-height:1.65; }
+.capacitySeatGrid article > div { display:flex; flex-wrap:wrap; gap:6px; }
+.capacitySeatGrid article > div span { padding:6px 8px; border-radius:999px; background:#eaded4; color:#79594b; font:700 8px ui-monospace,SFMono-Regular,Menlo,monospace; }
+.capacityTopology { display:grid; grid-template-columns:minmax(0,1fr) minmax(360px,.85fr); align-items:center; gap:38px; background:#3e2d28; color:white; }
+.capacityTopology > div:first-child > p:last-child { max-width:620px; margin:12px 0 0; color:#dbcac1; font-size:11px; line-height:1.75; }
+.capacityTopologyFacts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.capacityTopologyFacts article { min-width:0; padding:18px 12px; border:1px solid rgba(255,255,255,.13); border-radius:17px; background:rgba(255,255,255,.06); text-align:center; }
+.capacityTopologyFacts strong,.capacityTopologyFacts span,.capacityTopologyFacts small { display:block; }
+.capacityTopologyFacts strong { color:#d8a96f; font:500 34px Georgia,serif; }
+.capacityTopologyFacts span { margin-top:6px; font-size:10px; font-weight:850; }
+.capacityTopologyFacts small { margin-top:6px; color:#cfbdb4; font-size:8px; line-height:1.45; }
+.capacityStatus,.capacityStatusBlocked { justify-self:end; align-self:start; padding:9px 13px; border-radius:999px; background:#e9d9ca; color:#6e4b3d; font-size:9px; font-weight:850; }
+.capacityStatusBlocked { background:#f3d6cf; color:#8a382d; }
+.capacityChecks { display:grid; gap:8px; margin-top:22px; }
+.capacityChecks article { display:grid; grid-template-columns:30px minmax(0,1fr); gap:12px; padding:15px; border-radius:15px; background:#f1e7df; }
+.capacityChecks article > b { display:grid; width:28px; height:28px; place-items:center; border-radius:50%; background:#765043; color:white; font-size:11px; }
+.capacityChecks strong { color:#594036; font-size:11px; }
+.capacityChecks p { margin:5px 0 0; color:#7d685e; font-size:10px; line-height:1.6; }
+.capacityCheckBlocked { border:1px solid rgba(145,57,43,.2); background:#f8e4df !important; }
+.capacityCheckBlocked > b { background:#9b493d !important; }
+.capacityNext { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:34px; margin:14px 0 80px; padding:30px; border-radius:25px; background:#6d4338; color:white; }
+.capacityNext small { color:#e0b47e; font-size:8px; font-weight:900; letter-spacing:.12em; }
+.capacityNext p { max-width:720px; margin:10px 0 0; color:#e3d2c8; font-size:10px; line-height:1.65; }
+.capacityNext > div:last-child { display:grid; gap:8px; min-width:210px; }
+.capacityNext button,.capacityNext a { display:flex; min-height:44px; align-items:center; justify-content:center; margin:0; padding:0 16px; border-radius:999px; background:#efd4ad; color:#4e332b; font-size:10px; font-weight:850; text-align:center; box-shadow:none; }
+.capacityNext button:disabled { cursor:not-allowed; opacity:.48; }
+.capacityNext a { background:rgba(255,255,255,.1); color:white; }
+
+@media (max-width: 900px) {
+  .capacityHero,.capacityPrivacy,.capacitySection > header,.capacityTopology,.capacityNext { grid-template-columns:1fr; }
+  .capacityMetrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .capacityStatus { justify-self:start; }
+  .capacityStatusBlocked { justify-self:start; }
+  .capacityNext > div:last-child { min-width:0; }
+}
+
+@media (max-width: 640px) {
+  .capacityLayout,.capacityEmpty,.capacityLoading { width:calc(100% - 32px); }
+  .capacityHero { padding-top:52px; }
+  .capacityHero h1 { font-size:43px; }
+  .capacityPrivacy,.capacitySection,.capacityTopology,.capacityNext { padding:22px; }
+  .capacityMetrics,.capacitySeatGrid,.capacityTopologyFacts { grid-template-columns:1fr; }
+  .capacityMetrics article { padding:18px; }
+  .capacitySeatGrid > article { padding:17px; }
 }

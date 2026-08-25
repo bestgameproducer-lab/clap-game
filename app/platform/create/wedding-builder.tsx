@@ -24,6 +24,7 @@ import {
   type WeddingDraft,
 } from '../../../lib/platform/draft';
 import { PLATFORM_PROJECT_BACKUP_MAX_BYTES, restorePlatformProjectBackup } from '../../../lib/platform/project-backup';
+import { getPlatformOperatorSeatRecommendation } from '../../../lib/platform/capacity';
 import styles from '../platform.module.css';
 
 export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }) {
@@ -73,7 +74,7 @@ export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }
   const projectFacts = useMemo(() => {
     const guestCount = Number(draft.guestCount);
     return {
-      operatorSeats: guestCount >= 120 ? 4 : guestCount >= 80 ? 3 : 2,
+      operatorSeats: getPlatformOperatorSeatRecommendation(guestCount),
       rehearsalRounds: draft.plan === 'subscription' ? 3 : 2,
       setupDays: 8 + selectedModules.length * 2 + (guestCount >= 120 ? 3 : 0),
     };
@@ -239,6 +240,7 @@ export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }
             <button className={styles.downloadAction} type="button" onClick={() => importInputRef.current?.click()}>导入方案备份</button>
             <input ref={importInputRef} type="file" accept="application/json,.json" hidden onChange={importBackup} />
             <Link className={styles.workspaceAction} href="/platform/content">填写内容问卷</Link>
+            <Link className={styles.workspaceAction} href="/platform/capacity">核对宾客容量</Link>
             <Link className={styles.workspaceAction} href="/platform/scope">确认服务范围</Link>
             <Link className={styles.workspaceAction} href="/platform/project">查看项目工作台</Link>
             <button className={styles.resetAction} type="button" onClick={resetDraft}>清空并重新开始</button>

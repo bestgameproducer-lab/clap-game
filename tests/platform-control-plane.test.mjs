@@ -143,6 +143,9 @@ test('control-plane migrations own projects, content briefs, versions, entitleme
   assert.match(sql, /platform_template_content_v2_is_valid/);
   assert.match(sql, /jsonb_array_length\(p_value -> 'missionCopyOverrides'\) > 10/);
   assert.match(sql, /count\(distinct value ->> 'missionCode'\)/);
+  assert.match(sql, /platform_template_content_v3_is_valid/);
+  assert.match(sql, /lower\(btrim\(p_value ->> 'teamOneName'\)\) <> lower\(btrim\(p_value ->> 'teamTwoName'\)\)/);
+  assert.match(sql, /platform_projects_template_content_check[\s\S]*not valid/);
   assert.match(sql, /add column delivery_scope jsonb/);
   assert.match(sql, /platform_delivery_scope_is_valid/);
   assert.match(sql, /platform_project_versions_delivery_scope/);
@@ -331,6 +334,7 @@ test('template content pack is locally editable, strictly validated, versioned, 
   assert.match(validation, /快问快答最多可以设置 30 题/);
   assert.match(validation, /你比划我猜最多可以设置 80 个词/);
   assert.match(validation, /同一项任务只能设置一份自定义文案/);
+  assert.match(validation, /两支队伍必须使用不同名称/);
   assert.match(validation, /description,missionCode,title/);
   assert.match(data, /platform_save_customized_project_draft_v5/);
   assert.match(data, /p_template_content: draft\.templateContent/);

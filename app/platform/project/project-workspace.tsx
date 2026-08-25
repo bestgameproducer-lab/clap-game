@@ -140,7 +140,7 @@ export function ProjectWorkspace() {
           <p className={styles.eyebrow}>NEXT CHECKPOINT</p>
           <h2>下一步：内容确认</h2>
           <p>正式制作前还需要新人故事素材、宾客名单字段、敏感内容边界、主持人口播、题库答案和视觉资产。这些资料未来会进入隔离的客户项目，不会写入模板本身。</p>
-          <div><Link className={styles.primaryAction} href="/platform/content">填写内容问卷 <span>→</span></Link><Link className={styles.secondaryAction} href="/platform/scope">确认服务范围</Link><Link className={styles.secondaryAction} href="/platform/create">返回方案定制</Link></div>
+          <div><Link className={styles.primaryAction} href="/platform/content">填写内容问卷 <span>→</span></Link><Link className={styles.secondaryAction} href="/platform/capacity">核对宾客容量</Link><Link className={styles.secondaryAction} href="/platform/scope">确认服务范围</Link><Link className={styles.secondaryAction} href="/platform/create">返回方案定制</Link></div>
         </section>
       </div>
     </div>

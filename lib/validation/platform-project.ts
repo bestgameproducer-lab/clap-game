@@ -134,6 +134,23 @@ function validateMissionCopyOverrides(value: unknown) {
   return overrides;
 }
 
+function validateTemplateContent(content: PlatformTemplateContent): PlatformTemplateContent {
+  const teamOneName = plainTemplateText(content.teamOneName, '第一组名称', 40);
+  const teamTwoName = plainTemplateText(content.teamTwoName, '第二组名称', 40);
+  if (teamOneName.toLowerCase() === teamTwoName.toLowerCase()) {
+    throw new ApiError(400, '两支队伍必须使用不同名称');
+  }
+  return {
+    teamOneName,
+    teamTwoName,
+    openingScript: plainTemplateText(content.openingScript, '主持人开场口播', 800, true),
+    quizQuestions: validateQuizQuestions(content.quizQuestions),
+    quickQuizQuestions: validateQuickQuizQuestions(content.quickQuizQuestions),
+    charadesWords: validateCharadesWords(content.charadesWords),
+    missionCopyOverrides: validateMissionCopyOverrides(content.missionCopyOverrides),
+  };
+}
+
 function validateDeliveryScope(scope: PlatformDeliveryScope): PlatformDeliveryScope {
   if (!Array.isArray(scope.services) || scope.services.length < 1 || scope.services.length > SERVICE_IDS.length) {
     throw new ApiError(400, '服务范围格式不正确');
@@ -182,15 +199,7 @@ export function readPlatformProjectSaveInput(body: JsonObject): PlatformProjectS
         boundariesConfirmed: requiredBoolean(content.boundariesConfirmed, '内容边界确认'),
         hostNotes: optionalString(content.hostNotes, '主持备注', 2000),
       },
-      templateContent: {
-        teamOneName: plainTemplateText(templateContent.teamOneName, '第一组名称', 40),
-        teamTwoName: plainTemplateText(templateContent.teamTwoName, '第二组名称', 40),
-        openingScript: plainTemplateText(templateContent.openingScript, '主持人开场口播', 800, true),
-        quizQuestions: validateQuizQuestions(templateContent.quizQuestions),
-        quickQuizQuestions: validateQuickQuizQuestions(templateContent.quickQuizQuestions),
-        charadesWords: validateCharadesWords(templateContent.charadesWords),
-        missionCopyOverrides: validateMissionCopyOverrides(templateContent.missionCopyOverrides),
-      },
+      templateContent: validateTemplateContent(templateContent),
       deliveryScope: validateDeliveryScope(deliveryScope),
     },
   };

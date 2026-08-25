@@ -137,6 +137,20 @@ test('commercial delivery scope stays local until explicit account save and cont
   assert.doesNotMatch(builder, /fetch\s*\(|checkout|stripe|paymentIntent/i);
 });
 
+test('guest capacity preflight is local-only and separate from production roster import', () => {
+  const page = read('app/platform/capacity/page.tsx');
+  const planner = read('app/platform/capacity/capacity-planner.tsx');
+  const capacity = read('lib/platform/capacity.ts');
+
+  assert.match(page, /CapacityPlanner/);
+  assert.match(planner, /SEATS BEFORE NAMES/);
+  assert.match(planner, /不收集宾客姓名/);
+  assert.match(planner, /下载空白席位 CSV/);
+  assert.match(capacity, /FLAGSHIP_PARTICIPATION_CONTRACT/);
+  assert.match(capacity, /buildPlatformSeatTemplateCsv/);
+  assert.doesNotMatch(planner, /fetch\s*\(|\/api\//);
+});
+
 test('platform preview stays non-indexed until accounts, billing and cloud persistence are ready', () => {
   const layout = read('app/platform/layout.tsx');
   const architecture = read('docs/platform-product-architecture.md');

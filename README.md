@@ -87,6 +87,7 @@ ADMIN_PASSWORD=请填写至少12位的管理员密码
 - 婚礼方案定制器：`http://localhost:3000/platform/create`
 - 婚礼内容问卷：`http://localhost:3000/platform/content`
 - 商业与交付范围：`http://localhost:3000/platform/scope`
+- 宾客容量预检：`http://localhost:3000/platform/capacity`
 - 本机体验预览：`http://localhost:3000/platform/preview`
 - 本机项目工作台：`http://localhost:3000/platform/project`
 - 客户账号与云端项目：`http://localhost:3000/platform/account`
@@ -166,7 +167,7 @@ npm run build
 
 ## 商业平台预览
 
-`/platform`、`/platform/templates/cupid-wedding-trial`、`/platform/create`、`/platform/content`、`/platform/scope`、`/platform/preview`、`/platform/project`、`/platform/account`、受保护的 `/platform/projects/{项目编号}` 与工作人员专用的 `/platform/operations` 是在现有婚礼系统之上增加的商业平台首期纵向切片。它展示旗舰模板、单场买断与持续订阅两种交付方向，允许客户组合视觉、叙事和游戏模块，确认语言、互动强度、故事素材与内容边界，选择定制深度、运营协作、彩排方式和服务范围，在本机工作台检查资料，并通过独立平台账号显式保存、查看和继续编辑自己的云端项目。
+`/platform`、`/platform/templates/cupid-wedding-trial`、`/platform/create`、`/platform/content`、`/platform/capacity`、`/platform/scope`、`/platform/preview`、`/platform/project`、`/platform/account`、受保护的 `/platform/projects/{项目编号}` 与工作人员专用的 `/platform/operations` 是在现有婚礼系统之上增加的商业平台首期纵向切片。它展示旗舰模板、单场买断与持续订阅两种交付方向，允许客户组合视觉、叙事和游戏模块，确认语言、互动强度、故事素材与内容边界，核对旗舰玩法席位容量，选择定制深度、运营协作、彩排方式和服务范围，在本机工作台检查资料，并通过独立平台账号显式保存、查看和继续编辑自己的云端项目。
 
 定制器在登录和点击“保存到独立客户项目”之前只使用浏览器 `localStorage`。云端项目使用另一套 Supabase 项目、邮箱安全链接、行级权限、不可变版本记录和审计日志，绝不写入当前正式婚礼数据库。账号服务的迁移与配置说明位于 [`platform-control-plane/README.md`](platform-control-plane/README.md)。当前仍不包含订单、付款或自动开通婚礼运行实例；完整边界和开发顺序见 [`docs/platform-product-architecture.md`](docs/platform-product-architecture.md)。
 
@@ -189,6 +190,8 @@ npm run build
 `/platform/preview` 提供完全基于本机草稿的体验预览，可以切换查看宾客邀请、主持人题库和积分大屏。预览不调用正式婚礼或客户云端 API，身份按钮不可操作，分数使用明确的占位状态，因此不会把视觉确认误当成真实彩排。
 
 `/platform/scope` 把单场买断或订阅意向、定制深度、运营协作、彩排方式和服务项目保存到同一份本机草稿；只有客户在账号页明确保存后才进入云端项目、不可变版本和工作人员审核。页面不展示未经确认的价格、不创建订单、不扣款；婚礼日远程支持等项目明确标记为需要人工确认档期和服务能力。
+
+`/platform/capacity` 把“婚礼总人数”与“实际登录参与游戏的人数”分开：启用旗舰秘密任务时，当前经过验证的结构固定为 32 个账号，包括 20 位竞技玩家、10 位家人账号和 2 位新人账号。页面会展示两队、爱心/星星与现场操作席位配额，并在浏览器本机生成不含姓名的空白 CSV；真实名单不会保存或上传，CSV 目前只是筹备材料，不能直接执行正式婚礼导入。
 
 旗舰模板的模块组合带有显式依赖：团队游戏需要主持人台，积分大屏需要团队游戏和主持人台，终局投票需要秘密任务。定制器会在添加模块时补齐依赖、移除基础模块时同步移除无法运行的上层模块；服务端校验和独立平台数据库约束仍会再次拒绝绕过前端提交的无效组合。
 

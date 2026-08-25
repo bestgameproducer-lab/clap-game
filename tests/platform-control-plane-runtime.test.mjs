@@ -180,6 +180,13 @@ test(
         /platform_project_invalid/,
       );
       await assert.rejects(
+        db.query(saveSql, [eventThree, draftId, contentBrief, JSON.stringify({
+          ...JSON.parse(templateContent),
+          teamTwoName: '  ocean team  ',
+        }), deliveryScope]),
+        /platform_project_invalid/,
+      );
+      await assert.rejects(
         db.query(saveSql, [eventThree, draftId, contentBrief, templateContent, JSON.stringify({
           customizationLevel: 'guided',
           supportMode: 'remote_guided',
