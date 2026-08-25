@@ -109,6 +109,8 @@ test(
     const eventTwenty = '30000000-0000-4000-8000-000000000020';
     const eventTwentyOne = '30000000-0000-4000-8000-000000000021';
     const eventTwentyTwo = '30000000-0000-4000-8000-000000000022';
+    const eventTwentyThree = '30000000-0000-4000-8000-000000000023';
+    const eventTwentyFour = '30000000-0000-4000-8000-000000000024';
     const secondDraftId = '20000000-0000-4000-8000-000000000002';
     const inviteHash = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
     const secondInviteHash = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
@@ -166,6 +168,19 @@ test(
       operatorFlowPassed: true,
       stageTransitionsPassed: true,
       fallbackMaterialsReady: true,
+    });
+    const releaseChecklist = JSON.stringify({
+      readyStateReviewed: true,
+      ownerApprovalConfirmed: true,
+      publicEntryVerified: true,
+      supportContactsConfirmed: true,
+      rollbackProcedureConfirmed: true,
+      dataDeadlineRecorded: true,
+    });
+    const holdChecklist = JSON.stringify({
+      externalAccessRestricted: true,
+      ownerNotified: true,
+      incidentRecorded: true,
     });
 
     try {
@@ -595,7 +610,48 @@ test(
       const attestationCount = await db.query('select count(*)::int count from platform_runtime_instance_attestations where project_id = $1', [projectId]);
       assert.equal(attestationCount.rows[0].count, 2);
 
+      await assert.rejects(
+        db.query(
+          "select * from platform_record_runtime_release($1::uuid, $2::uuid, 'hold', $3::jsonb, $4)",
+          [eventTwentyFour, projectId, holdChecklist, 'Cannot hold before release'],
+        ),
+        /platform_runtime_release_out_of_order/,
+      );
+      await assert.rejects(
+        db.query(
+          "select * from platform_record_runtime_release($1::uuid, $2::uuid, 'release', $3::jsonb, $4)",
+          [eventTwentyThree, projectId, JSON.stringify({ ...JSON.parse(releaseChecklist), ownerApprovalConfirmed: false }), 'Incomplete release'],
+        ),
+        /platform_runtime_release_invalid/,
+      );
+      const released = await db.query(
+        "select * from platform_record_runtime_release($1::uuid, $2::uuid, 'release', $3::jsonb, $4)",
+        [eventTwentyThree, projectId, releaseChecklist, 'Owner approved public entry and wedding-day support plan'],
+      );
+      assert.equal(released.rows[0].project_status, 'live');
+      assert.equal(released.rows[0].manifest_hash, manifest.rows[0].manifest_hash);
+      const releasedRetry = await db.query(
+        "select * from platform_record_runtime_release($1::uuid, $2::uuid, 'release', $3::jsonb, $4)",
+        [eventTwentyThree, projectId, releaseChecklist, 'Owner approved public entry and wedding-day support plan'],
+      );
+      assert.equal(releasedRetry.rows[0].release_event_id, released.rows[0].release_event_id);
+
+      const held = await db.query(
+        "select * from platform_record_runtime_release($1::uuid, $2::uuid, 'hold', $3::jsonb, $4)",
+        [eventTwentyFour, projectId, holdChecklist, 'External entry restricted while operator reviews incident'],
+      );
+      assert.equal(held.rows[0].project_status, 'ready');
+      const releaseEventCount = await db.query('select count(*)::int count from platform_runtime_release_events where project_id = $1', [projectId]);
+      assert.equal(releaseEventCount.rows[0].count, 2);
+
       await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
+      await db.exec('set role authenticated');
+      const ownerReleaseEvents = await db.query('select count(id)::int count from platform_runtime_release_events');
+      assert.equal(ownerReleaseEvents.rows[0].count, 0);
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [operator]);
       await db.query('delete from auth.users where id = $1', [operator]);
       const retainedAudit = await db.query(`
         select
@@ -604,13 +660,15 @@ test(
           (select count(*)::int from platform_audit_log) audits,
           (select count(*)::int from platform_runtime_instances) instances,
           (select count(*)::int from platform_runtime_instance_attestations) attestations,
+          (select count(*)::int from platform_runtime_release_events) releases,
           (select count(*)::int from platform_runtime_instances where registered_by_user_id is null) anonymous_instances,
           (select count(*)::int from platform_runtime_instance_attestations where attested_by_user_id is null) anonymous_attestations,
+          (select count(*)::int from platform_runtime_release_events where released_by_user_id is null) anonymous_releases,
           (select count(*)::int from platform_project_versions where actor_user_id is null) anonymous_versions,
           (select count(*)::int from platform_project_reviews where reviewer_user_id is null) anonymous_reviews,
           (select count(*)::int from platform_audit_log where actor_user_id is null) anonymous_audits
       `);
-      assert.deepEqual(retainedAudit.rows[0], { versions: 9, reviews: 2, audits: 19, instances: 1, attestations: 2, anonymous_instances: 1, anonymous_attestations: 2, anonymous_versions: 2, anonymous_reviews: 2, anonymous_audits: 6 });
+      assert.deepEqual(retainedAudit.rows[0], { versions: 9, reviews: 2, audits: 21, instances: 1, attestations: 2, releases: 2, anonymous_instances: 1, anonymous_attestations: 2, anonymous_releases: 2, anonymous_versions: 2, anonymous_reviews: 2, anonymous_audits: 8 });
     } finally {
       try { await db.exec('reset role'); } catch {}
       await db.close();

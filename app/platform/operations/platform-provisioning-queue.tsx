@@ -6,6 +6,7 @@ import type { PlatformProvisioningQueueItem } from '@/lib/data/platform-operatio
 import { createPlatformDraftId, formatWeddingDate } from '@/lib/platform/draft';
 import styles from '../platform.module.css';
 import { RuntimeReadinessAttestation } from './runtime-readiness-attestation';
+import { RuntimeReleaseControl } from './runtime-release-control';
 
 async function readError(response: Response) {
   try {
@@ -100,7 +101,7 @@ export function PlatformProvisioningQueue({ initialQueue }: { initialQueue: Plat
         return (
           <article key={project.id} className={styles.provisioningCard}>
             <header><div><small>APPROVED V{project.version} · {project.planId === 'buyout' ? '单场买断' : '持续订阅'}</small><h3>{[project.partnerOne, project.partnerTwo].filter(Boolean).join(' & ')}</h3><p>{formatWeddingDate(project.weddingDate)} · {project.location}</p></div><span className={entitlementReady ? styles.preflightReady : styles.preflightWaiting}>{ENTITLEMENT_LABELS[project.entitlementStatus]}</span></header>
-            <div className={styles.provisioningChecks}><span>✓ 内容审核通过</span><span className={project.manifest ? styles.checkReady : styles.checkWaiting}>{project.manifest ? '✓ 配置清单已锁定' : '· 配置清单待锁定'}</span><span className={entitlementReady ? styles.checkReady : styles.checkWaiting}>{entitlementReady ? '✓ 商业权益有效' : '· 开通前确认权益'}</span><span className={project.instance ? styles.checkReady : styles.checkWaiting}>{project.instance ? '✓ 独立实例已登记' : '· 独立实例未登记'}</span><span className={project.instance && ['verified', 'ready'].includes(project.instance.status) ? styles.checkReady : styles.checkWaiting}>{project.instance && ['verified', 'ready'].includes(project.instance.status) ? '✓ 人工验证已完成' : '· 等待人工验证'}</span><span className={project.instance?.status === 'ready' ? styles.checkReady : styles.checkWaiting}>{project.instance?.status === 'ready' ? '✓ 完整彩排已完成' : '· 等待完整彩排'}</span></div>
+            <div className={styles.provisioningChecks}><span>✓ 内容审核通过</span><span className={project.manifest ? styles.checkReady : styles.checkWaiting}>{project.manifest ? '✓ 配置清单已锁定' : '· 配置清单待锁定'}</span><span className={entitlementReady ? styles.checkReady : styles.checkWaiting}>{entitlementReady ? '✓ 商业权益有效' : '· 开通前确认权益'}</span><span className={project.instance ? styles.checkReady : styles.checkWaiting}>{project.instance ? '✓ 独立实例已登记' : '· 独立实例未登记'}</span><span className={project.instance && ['verified', 'ready'].includes(project.instance.status) ? styles.checkReady : styles.checkWaiting}>{project.instance && ['verified', 'ready'].includes(project.instance.status) ? '✓ 人工验证已完成' : '· 等待人工验证'}</span><span className={project.instance?.status === 'ready' ? styles.checkReady : styles.checkWaiting}>{project.instance?.status === 'ready' ? '✓ 完整彩排已完成' : '· 等待完整彩排'}</span><span className={project.projectStatus === 'live' ? styles.checkReady : styles.checkWaiting}>{project.projectStatus === 'live' ? '✓ 已记录正式运行' : '· 等待正式发布'}</span></div>
             {project.manifest ? (
               <>
                 <div className={styles.manifestLocked}><div><small>SHA-256 · V{project.manifest.projectVersion}</small><code>{project.manifest.hash}</code></div><a href={`/api/platform/operations/projects/${project.id}/manifest`}>下载配置 JSON</a></div>
@@ -111,6 +112,7 @@ export function PlatformProvisioningQueue({ initialQueue }: { initialQueue: Plat
                       <a href={project.instance.targetOrigin} target="_blank" rel="noreferrer">只读打开实例</a>
                     </div>
                     <RuntimeReadinessAttestation projectId={project.id} instance={project.instance} />
+                    <RuntimeReleaseControl project={project} />
                   </>
                 ) : !entitlementReady ? (
                   <p className={styles.instanceGateNotice}>配置已经锁定，但商业权益尚未激活。平台不会登记或连接运行实例。</p>

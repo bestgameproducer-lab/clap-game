@@ -103,6 +103,42 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
     { label: '确认将在导入前告知宾客', ready: project.dataPolicy.guestNoticeConfirmed },
   ];
   const missingReviewItems = reviewRequirements.filter((item) => !item.ready).map((item) => item.label);
+  const nextCheckpoint = project.status === 'draft' ? {
+    eyebrow: 'CONTINUE SAFELY',
+    title: latestReview?.decision === 'changes_requested' ? '根据审核意见继续修改，再次提交新版本。' : '继续编辑时，先把云端版本载回本机。',
+    copy: '账号页会在覆盖另一份本机草稿前要求再次确认；编辑完成后仍需手动保存，平台不会静默上传。',
+  } : ({
+    content_review: {
+      eyebrow: 'REVIEW IN PROGRESS',
+      title: '当前版本已经进入内容审核。',
+      copy: '审核期间客户草稿保持锁定，避免交付基线被覆盖。审核结果会记录为不可变版本并显示在本页。',
+    },
+    provisioning: {
+      eyebrow: 'INSTANCE PREPARATION',
+      title: '平台正在准备独立婚礼实例。',
+      copy: '这是人工交付阶段；平台不会自动收费，也不会自动创建或修改云资源。',
+    },
+    rehearsal: {
+      eyebrow: 'FULL REHEARSAL',
+      title: '独立实例正在进行完整流程彩排。',
+      copy: '工作人员会使用测试数据覆盖宾客和各运营角色；彩排通过前不会标记为待正式发布。',
+    },
+    ready: {
+      eyebrow: 'READY FOR RELEASE',
+      title: '独立实例已经通过核验与完整彩排。',
+      copy: '工作人员仍需取得你的确认，并在外部部署平台完成入口核对，才会单独记录为正式运行。',
+    },
+    live: {
+      eyebrow: 'LIVE DELIVERY',
+      title: '项目已经记录为正式运行。',
+      copy: '如需暂停或处理现场问题，请联系平台工作人员；任何暂停都必须先处理外部入口并保留审计记录。',
+    },
+    archived: {
+      eyebrow: 'PROJECT ARCHIVED',
+      title: '这场婚礼项目已经归档。',
+      copy: '宾客运行资料仍按约定期限单独删除；项目配置归档不包含宾客照片、身份、积分或密钥。',
+    },
+  } as const)[project.status];
 
   return (
     <main className={styles.cloudDetailShell}>
@@ -160,7 +196,7 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
 
         <ProjectCollaboration projectId={project.id} currentUserId={user.id} accessRole={project.accessRole} members={members} invitations={invitations} />
 
-        <section className={styles.cloudDetailNext}><div><p className={styles.eyebrow}>{project.status === 'draft' ? 'CONTINUE SAFELY' : project.status === 'content_review' ? 'REVIEW IN PROGRESS' : 'INSTANCE PREPARATION'}</p><h2>{project.status === 'draft' ? (latestReview?.decision === 'changes_requested' ? '根据审核意见继续修改，再次提交新版本。' : '继续编辑时，先把云端版本载回本机。') : project.status === 'content_review' ? '当前版本已经进入内容审核。' : '平台正在准备独立婚礼实例。'}</h2><p>{project.status === 'draft' ? '账号页会在覆盖另一份本机草稿前要求再次确认；编辑完成后仍需手动保存，平台不会静默上传。' : project.status === 'content_review' ? '审核期间客户草稿保持锁定，避免交付基线被覆盖。审核结果会记录为不可变版本并显示在本页。' : '这只是人工交付阶段；当前不会自动收费，也不会自动创建或修改云资源。'}</p><small>方案备份包含客户填写的故事与备注，请下载到受信任设备妥善保管；它不含宾客、成员账号、照片、积分、密钥或运行实例数据，也不是婚礼结束后的正式归档包。</small></div><div className={styles.cloudDetailNextActions}>{project.accessRole === 'owner' ? <a className={styles.secondaryAction} href={`/api/platform/projects/${project.id}/export`}>下载当前方案备份</a> : null}<Link className={styles.primaryAction} href="/platform/account">返回账号与项目 <span>→</span></Link></div></section>
+        <section className={styles.cloudDetailNext}><div><p className={styles.eyebrow}>{nextCheckpoint.eyebrow}</p><h2>{nextCheckpoint.title}</h2><p>{nextCheckpoint.copy}</p><small>方案备份包含客户填写的故事与备注，请下载到受信任设备妥善保管；它不含宾客、成员账号、照片、积分、密钥或运行实例数据，也不是婚礼结束后的正式归档包。</small></div><div className={styles.cloudDetailNextActions}>{project.accessRole === 'owner' ? <a className={styles.secondaryAction} href={`/api/platform/projects/${project.id}/export`}>下载当前方案备份</a> : null}<Link className={styles.primaryAction} href="/platform/account">返回账号与项目 <span>→</span></Link></div></section>
       </div>
     </main>
   );

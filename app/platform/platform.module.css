@@ -3640,6 +3640,43 @@
 .runtimeReadyCard > span { display:grid; width:40px; height:40px; place-items:center; border-radius:50%; color:white; background:#597153; font-size:16px; }
 .runtimeReadyCard .runtimeAttestationHistory { grid-column:1 / -1; }
 .runtimeAttestationUnavailable { margin:13px 0 0; padding:13px; border-radius:12px; color:#7b665c; background:#eee4dc; font-size:10px; }
+.runtimeReleasePanel,.runtimeLivePanel { margin-top:13px; padding:20px; border:1px solid rgba(157,111,55,.2); border-radius:18px; color:#59442f; background:#f5ead2; }
+.runtimeLivePanel { border-color:rgba(51,107,77,.24); color:#34553f; background:#dfece1; }
+.runtimeReleasePanel > header,.runtimeLivePanel > header { display:flex; justify-content:space-between; gap:18px; align-items:start; }
+.runtimeReleasePanel > header small,.runtimeReleasePanel > header strong,.runtimeLivePanel > header small,.runtimeLivePanel > header strong { display:block; }
+.runtimeReleasePanel > header small,.runtimeLivePanel > header small { color:#987140; font-size:9px; font-weight:900; letter-spacing:.12em; }
+.runtimeLivePanel > header small { color:#55775f; }
+.runtimeReleasePanel > header strong,.runtimeLivePanel > header strong { margin-top:5px; font-size:16px; }
+.runtimeReleasePanel > header > span,.runtimeLivePanel > header > span { flex:0 0 auto; padding:6px 9px; border-radius:999px; color:#76582f; background:rgba(255,255,255,.52); font-size:8px; font-weight:850; }
+.runtimeLivePanel > header > span { color:#31543b; }
+.runtimeReleaseNotice { margin:12px 0 0; padding:12px 14px; border-radius:12px; color:#735f45; background:rgba(255,255,255,.48); font-size:10px; line-height:1.6; }
+.runtimeLivePanel .runtimeReleaseNotice { color:#4f6957; }
+.runtimeReleaseChecklist { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:13px; }
+.runtimeReleaseCheckPending,.runtimeReleaseCheckDone { display:grid; grid-template-columns:28px minmax(0,1fr); gap:10px; align-items:center; min-height:58px; padding:12px; border:1px solid rgba(133,94,51,.17); border-radius:13px; color:#765d3e; background:rgba(255,255,255,.38); cursor:pointer; }
+.runtimeReleaseCheckDone { border-color:rgba(57,107,73,.2); color:#3e6248; background:rgba(224,239,223,.8); }
+.runtimeReleaseCheckPending input,.runtimeReleaseCheckDone input { position:absolute; opacity:0; pointer-events:none; }
+.runtimeReleaseCheckPending b,.runtimeReleaseCheckDone b { display:grid; width:27px; height:27px; place-items:center; border-radius:50%; color:white; background:#a67a3f; }
+.runtimeReleaseCheckDone b { background:#4d7456; }
+.runtimeReleaseCheckPending span,.runtimeReleaseCheckDone span { font-size:10px; line-height:1.5; }
+.runtimeReleaseNote { display:grid; gap:7px; margin-top:13px; color:inherit; font-size:10px; font-weight:800; }
+.runtimeReleaseNote textarea { min-height:92px; padding:13px; resize:vertical; border:1px solid rgba(92,62,48,.2); border-radius:13px; color:#40312b; background:#fffdf8; font:inherit; line-height:1.6; }
+.runtimeReleaseNote small { justify-self:end; color:#8d7962; font-size:8px; font-weight:600; }
+.runtimeReleaseMessage { margin:10px 0 0; color:inherit; font-size:10px; }
+.runtimeReleaseContinue,.runtimeHoldContinue { width:100%; min-height:44px; margin-top:13px; border-radius:999px; color:white; background:#8a6536; }
+.runtimeHoldContinue { background:#476c50; }
+.runtimeReleaseContinue:disabled,.runtimeHoldContinue:disabled { cursor:not-allowed; opacity:.45; }
+.runtimeReleaseConfirm { margin-top:13px; padding:16px; border-radius:14px; color:white; background:#49382c; }
+.runtimeReleaseConfirm p { margin:7px 0 0; color:#e1d2c1; font-size:10px; line-height:1.6; }
+.runtimeReleaseConfirm > div { display:flex; gap:8px; margin-top:12px; }
+.runtimeReleaseConfirm button { margin:0; padding:9px 13px; border-radius:999px; color:white; background:#a87940; }
+.runtimeReleaseConfirm button + button { color:#49382c; background:#e2d7c7; }
+.runtimeReleaseHistory { display:grid; gap:7px; margin-top:15px; padding-top:15px; border-top:1px solid rgba(88,70,49,.14); }
+.runtimeReleaseHistory > strong { font-size:10px; }
+.runtimeReleaseHistory article { padding:11px 13px; border-radius:11px; background:rgba(255,255,255,.54); }
+.runtimeReleaseHistory article > div { display:flex; justify-content:space-between; gap:12px; }
+.runtimeReleaseHistory small,.runtimeReleaseHistory time { color:#796f60; font-size:8px; font-weight:800; }
+.runtimeReleaseHistory p { margin:5px 0; color:#5f564b; font-size:10px; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
+.runtimeReleaseHistory code { color:#887966; font-size:8px; overflow-wrap:anywhere; }
 
 .templateDetailShell {
   --platform-ink: #241b18;
@@ -4597,9 +4634,9 @@
     grid-template-columns: 1fr;
   }
 
-  .runtimeChecklist { grid-template-columns:1fr; }
+  .runtimeChecklist,.runtimeReleaseChecklist { grid-template-columns:1fr; }
 
-  .runtimeAttestationPanel > header,.runtimeAttestationConfirm > div { display:grid; grid-template-columns:1fr; }
+  .runtimeAttestationPanel > header,.runtimeAttestationConfirm > div,.runtimeReleasePanel > header,.runtimeLivePanel > header,.runtimeReleaseConfirm > div { display:grid; grid-template-columns:1fr; }
 
   .provisioningCard { padding: 22px; }
 

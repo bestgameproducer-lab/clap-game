@@ -271,7 +271,7 @@ test('provisioning manifests are staff-only, immutable, downloadable, and exclud
   assert.match(route, /readPlatformManifestLockInput/);
   assert.match(route, /Cache-Control.*private, no-store/);
   assert.match(route, /Content-Disposition/);
-  assert.match(data, /\.in\('status', \['provisioning', 'ready'\]\)/);
+  assert.match(data, /\.in\('status', \['provisioning', 'ready', 'live'\]\)/);
   assert.match(data, /platform_lock_provisioning_manifest/);
   assert.match(queue, /不创建 Vercel、Supabase、域名或付费资源/);
   assert.match(queue, /故事原文、禁忌备注、主持备注、宾客数据或密钥/);
@@ -340,6 +340,39 @@ test('runtime readiness is staff-only, manually attested in order, audited, and 
   assert.match(migration, /runtime_instance_ready/);
   assert.match(migration, /update public\.platform_projects p set status = 'ready'/);
   assert.doesNotMatch(route + data + ui + migration, /fetch\(['"]https?:|dns\.|resolve4|resolve6|SERVICE_ROLE|service_role/i);
+});
+
+test('runtime release decisions are manual, reversible, audited, and never control external infrastructure', () => {
+  const route = read('app/api/platform/operations/projects/[projectId]/release/route.ts');
+  const validation = read('lib/validation/platform-operations.ts');
+  const data = read('lib/data/platform-operations.ts');
+  const ui = read('app/platform/operations/runtime-release-control.tsx');
+  const queue = read('app/platform/operations/platform-provisioning-queue.tsx');
+  const model = read('lib/platform/runtime-release.ts');
+  const migration = read('platform-control-plane/migrations/202608250016_runtime_release_decisions.sql');
+
+  assert.match(route, /assertSameOrigin\(request\)/);
+  assert.match(route, /requirePlatformStaff\(\)/);
+  assert.match(route, /readPlatformRuntimeReleaseInput/);
+  assert.match(validation, /action,checklist,eventKey,note/);
+  assert.match(validation, /isPlatformRuntimeReleaseChecklistComplete/);
+  assert.match(data, /platform_record_runtime_release/);
+  assert.match(data, /platform_runtime_release_events/);
+  assert.match(data, /\['provisioning', 'ready', 'live'\]/);
+  assert.match(model, /ownerApprovalConfirmed/);
+  assert.match(model, /rollbackProcedureConfirmed/);
+  assert.match(model, /externalAccessRestricted/);
+  assert.match(ui, /平台不会替你部署、改域名或开放网站/);
+  assert.match(ui, /不会自动关闭、删除或回滚外部实例/);
+  assert.match(queue, /RuntimeReleaseControl/);
+  assert.match(migration, /create table public\.platform_runtime_release_events/);
+  assert.match(migration, /platform_runtime_release_checklist_is_valid/);
+  assert.match(migration, /platform_runtime_release_out_of_order/);
+  assert.match(migration, /platform_runtime_release_prerequisite/);
+  assert.match(migration, /runtime_release_confirmed/);
+  assert.match(migration, /runtime_release_held/);
+  assert.match(migration, /status = case when p_action = 'release' then 'live' else 'ready' end/);
+  assert.doesNotMatch(route + data + ui + migration, /api\.vercel\.com|cloudflare\.com\/client|dns\.|SERVICE_ROLE|service_role/i);
 });
 
 test('template content pack is locally editable, strictly validated, versioned, and delivered as plain configuration', () => {

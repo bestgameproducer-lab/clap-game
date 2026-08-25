@@ -17,10 +17,22 @@ import {
 import { createPlatformServerClient } from '../platform/supabase-server';
 import type { PlatformReviewDecision } from '../validation/platform-operations';
 import type { PlatformRuntimeAttestationStage, PlatformRuntimeChecklist } from '../platform/runtime-readiness';
+import type { PlatformRuntimeReleaseAction, PlatformRuntimeReleaseChecklist } from '../platform/runtime-release';
 
 export type PlatformRuntimeAttestationDto = {
   id: string;
   stage: PlatformRuntimeAttestationStage;
+  note: string;
+  createdAt: string;
+};
+
+export type PlatformRuntimeReleaseEventDto = {
+  id: string;
+  action: PlatformRuntimeReleaseAction;
+  projectVersion: number;
+  manifestHash: string;
+  targetOrigin: string;
+  deploymentRef: string;
   note: string;
   createdAt: string;
 };
@@ -60,8 +72,10 @@ export type PlatformProvisioningQueueItem = {
   planId: 'buyout' | 'subscription';
   version: number;
   updatedAt: string;
+  projectStatus: 'provisioning' | 'ready' | 'live';
   entitlementStatus: 'pending' | 'active' | 'past_due' | 'cancelled' | 'expired';
   manifest: null | { projectVersion: number; hash: string; createdAt: string };
+  releaseEvents: PlatformRuntimeReleaseEventDto[];
   instance: null | {
     id: string;
     projectVersion: number;
@@ -93,7 +107,9 @@ type ReviewQueueRow = {
   updated_at: string;
 };
 
-type ProvisioningProjectRow = Pick<ReviewQueueRow, 'id' | 'partner_one' | 'partner_two' | 'wedding_date' | 'location' | 'plan_id' | 'current_version' | 'updated_at'>;
+type ProvisioningProjectRow = Pick<ReviewQueueRow, 'id' | 'partner_one' | 'partner_two' | 'wedding_date' | 'location' | 'plan_id' | 'current_version' | 'updated_at'> & {
+  status: PlatformProvisioningQueueItem['projectStatus'];
+};
 
 type ProvisioningEntitlementRow = { project_id: string; status: PlatformProvisioningQueueItem['entitlementStatus'] };
 type ProvisioningManifestRow = { project_id: string; project_version: number; manifest_hash: string; created_at: string; manifest?: unknown };
@@ -114,6 +130,18 @@ type RuntimeAttestationRow = {
   id: string;
   instance_id: string;
   stage: PlatformRuntimeAttestationStage;
+  note: string;
+  created_at: string;
+};
+
+type RuntimeReleaseEventRow = {
+  id: string;
+  project_id: string;
+  action: PlatformRuntimeReleaseAction;
+  project_version: number;
+  manifest_hash: string;
+  target_origin: string;
+  deployment_ref: string;
   note: string;
   created_at: string;
 };
@@ -154,22 +182,24 @@ export async function listPlatformProvisioningQueue(staffUserId: string): Promis
   const client = await createPlatformServerClient();
   const { data, error } = await client
     .from('platform_projects')
-    .select('id,partner_one,partner_two,wedding_date,location,plan_id,current_version,updated_at')
-    .in('status', ['provisioning', 'ready'])
+    .select('id,partner_one,partner_two,wedding_date,location,plan_id,current_version,updated_at,status')
+    .in('status', ['provisioning', 'ready', 'live'])
     .order('updated_at', { ascending: true })
     .limit(100);
   if (error) throw new Error(`Unable to list platform provisioning queue: ${error.message}`);
   const projects = (data ?? []) as ProvisioningProjectRow[];
   if (!projects.length) return [];
   const projectIds = projects.map((project) => project.id);
-  const [entitlementsResult, manifestsResult, instancesResult] = await Promise.all([
+  const [entitlementsResult, manifestsResult, instancesResult, releaseEventsResult] = await Promise.all([
     client.from('platform_entitlements').select('project_id,status').in('project_id', projectIds),
     client.from('platform_provisioning_manifests').select('project_id,project_version,manifest_hash,created_at').in('project_id', projectIds),
     client.from('platform_runtime_instances').select('id,project_id,project_version,manifest_hash,target_origin,deployment_ref,status,registered_at,verified_at,ready_at').in('project_id', projectIds),
+    client.from('platform_runtime_release_events').select('id,project_id,action,project_version,manifest_hash,target_origin,deployment_ref,note,created_at').in('project_id', projectIds).order('created_at', { ascending: true }),
   ]);
   if (entitlementsResult.error) throw new Error(`Unable to read provisioning entitlements: ${entitlementsResult.error.message}`);
   if (manifestsResult.error) throw new Error(`Unable to read provisioning manifests: ${manifestsResult.error.message}`);
   if (instancesResult.error) throw new Error(`Unable to read runtime instances: ${instancesResult.error.message}`);
+  if (releaseEventsResult.error) throw new Error(`Unable to read runtime release events: ${releaseEventsResult.error.message}`);
   const entitlements = new Map(((entitlementsResult.data ?? []) as ProvisioningEntitlementRow[]).map((row) => [row.project_id, row.status]));
   const manifests = new Map(((manifestsResult.data ?? []) as ProvisioningManifestRow[]).map((row) => [row.project_id, row]));
   const instanceRows = (instancesResult.data ?? []) as RuntimeInstanceRow[];
@@ -184,6 +214,21 @@ export async function listPlatformProvisioningQueue(staffUserId: string): Promis
     attestationsByInstance.set(row.instance_id, current);
   }
   const instances = new Map(instanceRows.map((row) => [row.project_id, row]));
+  const releasesByProject = new Map<string, PlatformRuntimeReleaseEventDto[]>();
+  for (const row of (releaseEventsResult.data ?? []) as RuntimeReleaseEventRow[]) {
+    const current = releasesByProject.get(row.project_id) ?? [];
+    current.push({
+      id: row.id,
+      action: row.action,
+      projectVersion: row.project_version,
+      manifestHash: row.manifest_hash,
+      targetOrigin: row.target_origin,
+      deploymentRef: row.deployment_ref,
+      note: row.note,
+      createdAt: row.created_at,
+    });
+    releasesByProject.set(row.project_id, current);
+  }
   return projects.map((project) => {
     const manifest = manifests.get(project.id);
     const instance = instances.get(project.id);
@@ -196,8 +241,10 @@ export async function listPlatformProvisioningQueue(staffUserId: string): Promis
       planId: project.plan_id,
       version: project.current_version,
       updatedAt: project.updated_at,
+      projectStatus: project.status,
       entitlementStatus: entitlements.get(project.id) ?? 'pending',
       manifest: manifest ? { projectVersion: manifest.project_version, hash: manifest.manifest_hash, createdAt: manifest.created_at } : null,
+      releaseEvents: releasesByProject.get(project.id) ?? [],
       instance: instance ? {
         id: instance.id,
         projectVersion: instance.project_version,
@@ -212,6 +259,36 @@ export async function listPlatformProvisioningQueue(staffUserId: string): Promis
       } : null,
     };
   });
+}
+
+export async function recordPlatformRuntimeRelease(
+  staffUserId: string,
+  projectId: string,
+  eventKey: string,
+  action: PlatformRuntimeReleaseAction,
+  checklist: PlatformRuntimeReleaseChecklist,
+  note: string,
+) {
+  if (!staffUserId) throw new ApiError(403, '此账号没有平台运营权限');
+  const client = await createPlatformServerClient();
+  const { data, error } = await client.rpc('platform_record_runtime_release', {
+    p_event_key: eventKey,
+    p_project_id: projectId,
+    p_action: action,
+    p_checklist: checklist,
+    p_note: note,
+  }).single();
+  if (error) {
+    if (error.message.includes('platform_staff_required')) throw new ApiError(403, '此账号没有平台运营权限');
+    if (error.message.includes('platform_project_not_found')) throw new ApiError(404, '没有找到这个客户项目');
+    if (error.message.includes('platform_runtime_release_invalid')) throw new ApiError(400, '正式发布清单或记录格式不正确');
+    if (error.message.includes('platform_runtime_release_out_of_order')) throw new ApiError(409, '项目当前不能执行这个发布动作，请刷新后核对状态');
+    if (error.message.includes('platform_runtime_release_prerequisite')) throw new ApiError(409, '实例、配置清单、权益或彩排记录已经变化，请重新核对');
+    if (error.message.includes('platform_event_conflict')) throw new ApiError(409, '操作编号已经用于其他请求');
+    throw new Error(`Unable to record platform runtime release: ${error.message}`);
+  }
+  if (!data) throw new Error('Unable to record platform runtime release: missing response');
+  return data;
 }
 
 export async function attestPlatformRuntimeInstance(

@@ -6,6 +6,12 @@ import {
   type PlatformRuntimeAttestationStage,
   type PlatformRuntimeChecklist,
 } from '../platform/runtime-readiness';
+import {
+  getPlatformRuntimeReleaseChecklist,
+  isPlatformRuntimeReleaseChecklistComplete,
+  type PlatformRuntimeReleaseAction,
+  type PlatformRuntimeReleaseChecklist,
+} from '../platform/runtime-release';
 
 export type PlatformReviewDecision = 'approved' | 'changes_requested';
 
@@ -20,6 +26,12 @@ function rejectObviousRuntimeSecret(value: string) {
     throw new ApiError(400, '核验记录不能包含数据库连接串、API 密钥或登录令牌');
   }
   return value;
+}
+
+function readRuntimeOperationsNote(value: unknown) {
+  const note = requiredString(value, '操作记录', 1000);
+  if (note.length < 4) throw new ApiError(400, '操作记录至少需要 4 个字');
+  return rejectObviousRuntimeSecret(note);
 }
 
 export function readPlatformOperatorReviewInput(body: JsonObject) {
@@ -91,11 +103,34 @@ export function readPlatformRuntimeAttestationInput(body: JsonObject) {
       .map((item) => item.label);
     throw new ApiError(400, missing.length ? `请先完成：${missing.join('、')}` : '实例核验清单格式不正确');
   }
-  const note = rejectObviousRuntimeSecret(requiredString(body.note, '核验记录', 1000));
+  const note = readRuntimeOperationsNote(body.note);
   return {
     eventKey: requiredUuid(body.eventKey, '操作编号'),
     stage,
     checklist,
     note,
+  };
+}
+
+export function readPlatformRuntimeReleaseInput(body: JsonObject) {
+  if (Object.keys(body).sort().join(',') !== 'action,checklist,eventKey,note') {
+    throw new ApiError(400, '正式发布请求包含不支持的字段');
+  }
+  const action = requiredEnum(body.action, '正式发布动作', ['release', 'hold'] as const) as PlatformRuntimeReleaseAction;
+  if (!body.checklist || typeof body.checklist !== 'object' || Array.isArray(body.checklist)) {
+    throw new ApiError(400, '正式发布清单格式不正确');
+  }
+  const checklist = body.checklist as PlatformRuntimeReleaseChecklist;
+  if (!isPlatformRuntimeReleaseChecklistComplete(action, checklist)) {
+    const missing = getPlatformRuntimeReleaseChecklist(action)
+      .filter((item) => checklist[item.id] !== true)
+      .map((item) => item.label);
+    throw new ApiError(400, missing.length ? `请先完成：${missing.join('、')}` : '正式发布清单格式不正确');
+  }
+  return {
+    eventKey: requiredUuid(body.eventKey, '操作编号'),
+    action,
+    checklist,
+    note: readRuntimeOperationsNote(body.note),
   };
 }
