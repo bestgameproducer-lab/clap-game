@@ -39,6 +39,7 @@ test('every platform mutation is same-origin, authenticated, validated, and isol
   const projectsRoute = read('app/api/platform/projects/route.ts');
   const authRoute = read('app/api/platform/auth/request-link/route.ts');
   const signOutRoute = read('app/api/platform/auth/sign-out/route.ts');
+  const reviewRoute = read('app/api/platform/projects/[projectId]/submit-review/route.ts');
   const data = read('lib/data/platform-projects.ts');
   const validation = read('lib/validation/platform-project.ts');
 
@@ -49,7 +50,12 @@ test('every platform mutation is same-origin, authenticated, validated, and isol
   assert.match(authRoute, /requiredPlatformEmail/);
   assert.match(signOutRoute, /assertSameOrigin\(request\)/);
   assert.match(signOutRoute, /requirePlatformUser\(\)/);
-  assert.match(data, /platform_save_customized_project_draft/);
+  assert.match(reviewRoute, /assertSameOrigin\(request\)/);
+  assert.match(reviewRoute, /requirePlatformUser\(\)/);
+  assert.match(reviewRoute, /requiredUuid\(\(await params\)\.projectId/);
+  assert.match(reviewRoute, /readPlatformReviewSubmissionInput/);
+  assert.match(data, /platform_save_customized_project_draft_v2/);
+  assert.match(data, /platform_submit_project_for_review/);
   assert.doesNotMatch(data, /select\(['"]\*['"]\)/);
   assert.match(validation, /requiredUuid\(body\.eventKey/);
   assert.match(validation, /游戏模块不能重复/);
@@ -82,10 +88,17 @@ test('control-plane migrations own projects, content briefs, versions, entitleme
   assert.match(sql, /pg_advisory_xact_lock/);
   assert.match(sql, /project_draft_saved/);
   assert.match(sql, /platform_save_customized_project_draft/);
+  assert.match(sql, /platform_save_customized_project_draft_v2/);
+  assert.match(sql, /platform_submit_project_for_review/);
+  assert.match(sql, /project_submitted_for_review/);
+  assert.match(sql, /platform_project_not_ready/);
+  assert.match(sql, /add column action text not null default 'draft_save'/);
   assert.match(sql, /content_brief/);
   assert.match(sql, /revoke execute on function public\.platform_save_project_draft[\s\S]*from authenticated/);
   assert.match(sql, /revoke all on function public\.platform_save_project_draft[\s\S]*from anon/);
   assert.match(sql, /grant execute on function public\.platform_save_project_draft[\s\S]*to authenticated/);
+  assert.match(sql, /revoke execute on function public\.platform_save_customized_project_draft[\s\S]*from authenticated/);
+  assert.match(sql, /grant execute on function public\.platform_save_customized_project_draft_v2[\s\S]*to authenticated/);
   assert.doesNotMatch(weddingMigrations, /create table[^;]*platform_projects/i);
 });
 
@@ -104,8 +117,9 @@ test('account UI does not transmit the device draft before explicit signed-in sa
   assert.doesNotMatch(account, /SERVICE_ROLE|service_role/);
 });
 
-test('cloud project detail remains server-authenticated, owner-scoped and read-only', () => {
+test('cloud project workflow remains server-authenticated and owner-scoped', () => {
   const page = read('app/platform/projects/[projectId]/page.tsx');
+  const reviewAction = read('app/platform/projects/[projectId]/project-review-action.tsx');
   const data = read('lib/data/platform-projects.ts');
   const account = read('app/platform/account/platform-account-gateway.tsx');
 
@@ -118,4 +132,10 @@ test('cloud project detail remains server-authenticated, owner-scoped and read-o
   assert.match(data, /platform_entitlements/);
   assert.doesNotMatch(data, /select\(['"]\*['"]\)/);
   assert.match(account, /href=\{`\/platform\/projects\/\$\{project\.id\}`\}/);
+  assert.match(page, /ProjectReviewAction/);
+  assert.match(page, /不会收费、不会创建婚礼运行实例/);
+  assert.match(reviewAction, /确认提交当前版本/);
+  assert.match(reviewAction, /createPlatformDraftId\(\)/);
+  assert.match(reviewAction, /router\.refresh\(\)/);
+  assert.match(account, /版本已锁定/);
 });

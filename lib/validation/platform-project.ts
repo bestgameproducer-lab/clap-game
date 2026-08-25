@@ -77,3 +77,7 @@ export function readPlatformProjectSaveInput(body: JsonObject): PlatformProjectS
     },
   };
 }
+
+export function readPlatformReviewSubmissionInput(body: JsonObject) {
+  return { eventKey: requiredUuid(body.eventKey, '操作编号') };
+}

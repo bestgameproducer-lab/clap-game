@@ -24,7 +24,7 @@ grant execute on function auth.uid() to authenticated;
 `;
 
 const saveSql = `
-select * from public.platform_save_customized_project_draft(
+select * from public.platform_save_customized_project_draft_v2(
   $1::uuid,
   null::uuid,
   $2::uuid,
@@ -55,6 +55,8 @@ test(
     const eventOne = '30000000-0000-4000-8000-000000000001';
     const eventTwo = '30000000-0000-4000-8000-000000000002';
     const eventThree = '30000000-0000-4000-8000-000000000003';
+    const eventFour = '30000000-0000-4000-8000-000000000004';
+    const eventFive = '30000000-0000-4000-8000-000000000005';
     const contentBrief = JSON.stringify({
       language: 'bilingual',
       interaction: 'immersive',
@@ -92,6 +94,31 @@ test(
       );
 
       await db.exec('reset role');
+      await db.query(`update platform_projects set content_brief = jsonb_set(content_brief, '{boundariesConfirmed}', 'false'::jsonb) where id = $1`, [projectId]);
+      await db.exec('set role authenticated');
+      await assert.rejects(
+        db.query('select * from platform_submit_project_for_review($1::uuid, $2::uuid)', [eventFour, projectId]),
+        /platform_project_not_ready/,
+      );
+
+      await db.exec('reset role');
+      await db.query(`update platform_projects set content_brief = jsonb_set(content_brief, '{boundariesConfirmed}', 'true'::jsonb) where id = $1`, [projectId]);
+      await db.exec('set role authenticated');
+      const submitted = await db.query('select * from platform_submit_project_for_review($1::uuid, $2::uuid)', [eventFour, projectId]);
+      assert.equal(submitted.rows[0].status, 'content_review');
+      assert.equal(submitted.rows[0].current_version, 3);
+      const submitRetry = await db.query('select * from platform_submit_project_for_review($1::uuid, $2::uuid)', [eventFour, projectId]);
+      assert.equal(submitRetry.rows[0].current_version, 3);
+      await assert.rejects(
+        db.query(saveSql, [eventFive, draftId, contentBrief]),
+        /platform_project_locked/,
+      );
+      await assert.rejects(
+        db.query('select * from platform_submit_project_for_review($1::uuid, $2::uuid)', [eventOne, projectId]),
+        /platform_event_conflict/,
+      );
+
+      await db.exec('reset role');
       const counts = await db.query(`
         select
           (select count(*)::int from platform_projects) projects,
@@ -102,7 +129,7 @@ test(
           (select content_brief ->> 'language' from platform_projects limit 1) language,
           (select snapshot -> 'content_brief' ->> 'interaction' from platform_project_versions order by version desc limit 1) interaction
       `);
-      assert.deepEqual(counts.rows[0], { projects: 1, versions: 2, entitlements: 1, audits: 2, receipts: 2, language: 'bilingual', interaction: 'immersive' });
+      assert.deepEqual(counts.rows[0], { projects: 1, versions: 3, entitlements: 1, audits: 3, receipts: 3, language: 'bilingual', interaction: 'immersive' });
 
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerTwo]);
       await db.exec('set role authenticated');

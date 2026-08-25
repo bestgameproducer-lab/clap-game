@@ -2706,6 +2706,130 @@
   line-height: 1.65;
 }
 
+.cloudReviewPanel {
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(380px, 1.1fr);
+  align-items: center;
+  gap: 34px;
+  margin-top: 16px;
+  padding: 30px;
+  border: 1px solid rgba(94, 63, 50, .13);
+  border-radius: 27px;
+  background: rgba(255, 252, 247, .9);
+}
+
+.cloudReviewPanel h2 {
+  margin: 8px 0;
+  color: #4c362e;
+  font: 500 29px/1.2 Georgia, 'Noto Serif SC', serif;
+}
+
+.cloudReviewPanel > div:first-child > p:not(.eyebrow) {
+  margin: 0;
+  color: #806d64;
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.reviewAction {
+  min-width: 0;
+}
+
+.reviewPrimaryButton {
+  width: 100%;
+  min-height: 52px;
+  margin: 0;
+  border-radius: 999px;
+  background: #6b4036;
+  color: white;
+}
+
+.reviewMissing,
+.reviewConfirmation,
+.reviewSubmitted {
+  padding: 20px;
+  border-radius: 18px;
+  background: #f0e5dc;
+}
+
+.reviewMissing strong,
+.reviewConfirmation strong,
+.reviewSubmitted strong {
+  color: #573d34;
+  font-size: 11px;
+}
+
+.reviewMissing ul {
+  display: grid;
+  gap: 5px;
+  margin: 12px 0;
+  padding-left: 18px;
+  color: #80685e;
+  font-size: 9px;
+}
+
+.reviewMissing p,
+.reviewConfirmation p,
+.reviewSubmitted p {
+  margin: 8px 0 0;
+  color: #806b62;
+  font-size: 9px;
+  line-height: 1.6;
+}
+
+.reviewConfirmation > div {
+  display: flex;
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.reviewConfirmation button {
+  min-height: 40px;
+  margin: 0;
+  padding: 9px 15px;
+  border-radius: 999px;
+  background: #6b4036;
+  color: white;
+  font-size: 9px;
+}
+
+.reviewConfirmation button + button {
+  background: #ded0c6;
+  color: #6f584e;
+}
+
+.reviewConfirmation button:disabled,
+.reviewPrimaryButton:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.reviewSubmitted {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  background: #e8eee4;
+}
+
+.reviewSubmitted > b {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  background: #607056;
+  color: white;
+  font-size: 11px;
+}
+
+.reviewMessage {
+  margin: 10px 0 0;
+  color: #6e584e;
+  font-size: 9px;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .templateDetailShell {
   --platform-ink: #241b18;
   --platform-wine: #713c34;
@@ -3500,7 +3624,8 @@
   .contentNext,
   .cloudDetailHero,
   .cloudDetailNext,
-  .cloudOwnershipNotice {
+  .cloudOwnershipNotice,
+  .cloudReviewPanel {
     grid-template-columns: 1fr;
   }
 
@@ -3537,7 +3662,12 @@
   }
 
   .cloudDetailPanel,
-  .cloudDetailNext {
+  .cloudDetailNext,
+  .cloudReviewPanel {
     padding: 22px;
+  }
+
+  .reviewConfirmation > div {
+    display: grid;
   }
 }

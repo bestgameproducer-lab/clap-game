@@ -8,6 +8,7 @@ import { PLATFORM_MODULES, PLATFORM_PLANS, PLATFORM_THEMES, PLATFORM_TONES } fro
 import { getPlatformSupabaseEnv } from '@/lib/platform/env';
 import { formatWeddingDate } from '@/lib/platform/draft';
 import styles from '../../platform.module.css';
+import { ProjectReviewAction } from './project-review-action';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,6 +84,14 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
     { label: '主持备注', ready: Boolean(project.contentBrief.hostNotes.trim()) },
   ];
   const contentReady = contentItems.filter((item) => item.ready).length;
+  const reviewRequirements = [
+    { label: '填写两位新人姓名', ready: Boolean(project.partnerOne.trim() && project.partnerTwo.trim()) },
+    { label: '确认婚礼日期和地点', ready: Boolean(project.weddingDate && project.location.trim()) },
+    { label: '至少选择一个游戏模块', ready: modules.length > 0 },
+    { label: '提供至少一条真实故事素材', ready: Boolean(project.contentBrief.storyMoments.trim()) },
+    { label: '确认内容禁忌与互动边界', ready: project.contentBrief.boundariesConfirmed },
+  ];
+  const missingReviewItems = reviewRequirements.filter((item) => !item.ready).map((item) => item.label);
 
   return (
     <main className={styles.cloudDetailShell}>
@@ -123,7 +132,12 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
           </section>
         </div>
 
-        <section className={styles.cloudDetailNext}><div><p className={styles.eyebrow}>CONTINUE SAFELY</p><h2>继续编辑时，先把云端版本载回本机。</h2><p>账号页会在覆盖另一份本机草稿前要求再次确认；编辑完成后仍需手动保存，平台不会静默上传。</p></div><Link className={styles.primaryAction} href="/platform/account">返回账号与项目 <span>→</span></Link></section>
+        <section className={styles.cloudReviewPanel}>
+          <div><p className={styles.eyebrow}>DELIVERY CHECKPOINT</p><h2>提交内容审核</h2><p>资料完整后，把当前版本锁定为审核基线。这个动作不会收费、不会创建婚礼运行实例，也不会改动现有正式婚礼。</p></div>
+          <ProjectReviewAction projectId={project.id} status={project.status} missingItems={missingReviewItems} />
+        </section>
+
+        <section className={styles.cloudDetailNext}><div><p className={styles.eyebrow}>{project.status === 'draft' ? 'CONTINUE SAFELY' : 'REVIEW IN PROGRESS'}</p><h2>{project.status === 'draft' ? '继续编辑时，先把云端版本载回本机。' : '当前版本已经进入内容审核。'}</h2><p>{project.status === 'draft' ? '账号页会在覆盖另一份本机草稿前要求再次确认；编辑完成后仍需手动保存，平台不会静默上传。' : '审核期间客户草稿保持锁定，避免交付基线被覆盖。后续会由版本化流程记录修改意见与确认结果。'}</p></div><Link className={styles.primaryAction} href="/platform/account">返回账号与项目 <span>→</span></Link></section>
       </div>
     </main>
   );

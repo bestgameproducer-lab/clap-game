@@ -152,7 +152,7 @@ export async function savePlatformProject(ownerUserId: string, input: PlatformPr
   if (!ownerUserId) throw new ApiError(401, '请先登录客户账号');
   const client = await createPlatformServerClient();
   const { draft } = input;
-  const { data, error } = await client.rpc('platform_save_customized_project_draft', {
+  const { data, error } = await client.rpc('platform_save_customized_project_draft_v2', {
     p_event_key: input.eventKey,
     p_project_id: input.projectId,
     p_source_draft_id: input.sourceDraftId,
@@ -180,4 +180,25 @@ export async function savePlatformProject(ownerUserId: string, input: PlatformPr
   const row = data as PlatformProjectRow | null;
   if (!row) throw new Error('Unable to save platform project: missing response');
   return toDto(row, input.sourceDraftId);
+}
+
+export async function submitPlatformProjectForReview(ownerUserId: string, projectId: string, eventKey: string) {
+  if (!ownerUserId) throw new ApiError(401, '请先登录客户账号');
+  const client = await createPlatformServerClient();
+  const { data, error } = await client.rpc('platform_submit_project_for_review', {
+    p_event_key: eventKey,
+    p_project_id: projectId,
+  }).single();
+
+  if (error) {
+    if (error.message.includes('platform_project_not_owned')) throw new ApiError(404, '没有找到这个客户项目');
+    if (error.message.includes('platform_project_not_ready')) throw new ApiError(409, '项目资料尚未准备完成');
+    if (error.message.includes('platform_project_locked')) throw new ApiError(409, '项目已经提交，不能重复推进');
+    if (error.message.includes('platform_event_conflict')) throw new ApiError(409, '操作编号已经用于其他请求');
+    throw new Error(`Unable to submit platform project for review: ${error.message}`);
+  }
+
+  const row = data as { id: string; status: PlatformProjectDto['status']; current_version: number; updated_at: string } | null;
+  if (!row) throw new Error('Unable to submit platform project for review: missing response');
+  return { id: row.id, status: row.status, version: row.current_version, updatedAt: row.updated_at };
 }

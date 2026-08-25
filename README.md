@@ -166,6 +166,8 @@ npm run build
 
 定制器在登录和点击“保存到独立客户项目”之前只使用浏览器 `localStorage`。云端项目使用另一套 Supabase 项目、邮箱安全链接、行级权限、不可变版本记录和审计日志，绝不写入当前正式婚礼数据库。账号服务的迁移与配置说明位于 [`platform-control-plane/README.md`](platform-control-plane/README.md)。当前仍不包含订单、付款或自动开通婚礼运行实例；完整边界和开发顺序见 [`docs/platform-product-architecture.md`](docs/platform-product-architecture.md)。
 
+资料完整后，客户可以从云端项目页提交内容审核。提交由数据库再次校验并生成新的审核版本，之后客户侧草稿保持锁定，避免交付基线被静默覆盖；这个动作不会收费，也不会创建婚礼运行实例。
+
 ## 当前 MVP 的边界
 
 为了尽快、免费、稳定地上线，第一版没有加入：

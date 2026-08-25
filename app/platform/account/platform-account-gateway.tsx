@@ -181,6 +181,10 @@ export function PlatformAccountGateway({
   }
 
   function requestCloudRestore(project: CloudProject) {
+    if (project.status !== 'draft') {
+      setMessage('这个项目已经进入交付流程，当前客户版本不能再覆盖编辑。');
+      return;
+    }
     const replacesAnotherDraft = Boolean(draft?.draftId && draft.draftId !== project.sourceDraftId);
     if (replacesAnotherDraft && pendingRestoreId !== project.id) {
       setPendingRestoreId(project.id);
@@ -256,8 +260,8 @@ export function PlatformAccountGateway({
               <time dateTime={project.updatedAt}>{new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(new Date(project.updatedAt))}</time>
               <div className={styles.cloudProjectActions}>
                 <Link href={`/platform/projects/${project.id}`}>查看项目</Link>
-                <button type="button" onClick={() => requestCloudRestore(project)} disabled={busy}>
-                  {pendingRestoreId === project.id ? '确认覆盖并编辑' : '载入到本机编辑'}
+                <button type="button" onClick={() => requestCloudRestore(project)} disabled={busy || project.status !== 'draft'}>
+                  {project.status !== 'draft' ? '版本已锁定' : pendingRestoreId === project.id ? '确认覆盖并编辑' : '载入到本机编辑'}
                 </button>
                 {pendingRestoreId === project.id ? <button type="button" onClick={() => setPendingRestoreId(null)}>取消</button> : null}
               </div>
