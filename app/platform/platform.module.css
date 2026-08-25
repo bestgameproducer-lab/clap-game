@@ -4538,6 +4538,7 @@
 }
 
 .scopeShell { min-height:100vh; background:#f3ecdf; color:#3b2a23; }
+.builderDependencyNote { margin:14px 2px 0; color:#7b6c63; font-size:13px; line-height:1.65; }
 .scopeLayout,.scopeEmpty,.scopeLoading { width:min(1320px,calc(100% - 56px)); margin:0 auto; }
 .scopeLoading,.scopeEmpty { padding:110px 0; }
 .scopeEmpty { max-width:760px; }

@@ -8,6 +8,8 @@ import {
   PLATFORM_PLANS,
   PLATFORM_THEMES,
   PLATFORM_TONES,
+  normalizePlatformModuleSelection,
+  removePlatformModuleWithDependents,
   type PlatformModuleId,
   type PlatformPlanId,
 } from '../../../lib/platform/catalog';
@@ -83,8 +85,8 @@ export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }
     setDraft((current) => ({
       ...current,
       modules: current.modules.includes(moduleId)
-        ? current.modules.filter((id) => id !== moduleId)
-        : [...current.modules, moduleId],
+        ? removePlatformModuleWithDependents(current.modules, moduleId)
+        : normalizePlatformModuleSelection([...current.modules, moduleId]),
     }));
   }
 
@@ -192,6 +194,7 @@ export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }
                 </label>
               ))}
             </div>
+            <p className={styles.builderDependencyNote}>为保证方案可运行，选择积分大屏、团队游戏或终局揭晓时会自动补齐所需基础模块；移除基础模块会同步移除依赖它的模块。</p>
             {selectedModules.length === 0 ? <p className={styles.builderWarning}>至少选择一个模块，方案才可以进入制作。</p> : null}
           </fieldset>
 

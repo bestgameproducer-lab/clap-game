@@ -144,6 +144,9 @@ test('control-plane migrations own projects, content briefs, versions, entitleme
   assert.match(sql, /platform_delivery_scope_is_valid/);
   assert.match(sql, /platform_project_versions_delivery_scope/);
   assert.match(sql, /platform-save-v5:/);
+  assert.match(sql, /platform_modules_are_valid/);
+  assert.match(sql, /platform_projects_module_dependencies_check/);
+  assert.match(sql, /platform_projects_enforce_module_dependencies/);
   assert.match(sql, /add column action text not null default 'draft_save'/);
   assert.match(sql, /content_brief/);
   assert.match(sql, /revoke execute on function public\.platform_save_project_draft[\s\S]*from authenticated/);

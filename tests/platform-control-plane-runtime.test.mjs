@@ -184,6 +184,10 @@ test(
         })]),
         /platform_project_invalid/,
       );
+      await assert.rejects(
+        db.query(saveSql.replace("array['secret-missions','host-toolkit']::text[]", "array['live-scoreboard']::text[]"), [eventThree, draftId, contentBrief, templateContent, deliveryScope]),
+        /platform_project_invalid/,
+      );
 
       await db.exec('reset role');
       await db.query(`update platform_projects set content_brief = jsonb_set(content_brief, '{boundariesConfirmed}', 'false'::jsonb) where id = $1`, [projectId]);

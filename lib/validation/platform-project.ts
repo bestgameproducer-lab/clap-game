@@ -9,6 +9,7 @@ import {
   PLATFORM_SUPPORT_MODES,
   PLATFORM_THEMES,
   PLATFORM_TONES,
+  getPlatformModuleDependencyIssue,
   type PlatformModuleId,
 } from '../platform/catalog';
 import {
@@ -60,6 +61,8 @@ function validateModules(value: unknown): PlatformModuleId[] {
   if (!Array.isArray(value) || value.length > MODULE_IDS.length) throw new ApiError(400, '游戏模块格式不正确');
   const modules = value.map((module) => requiredEnum(module, '游戏模块', MODULE_IDS));
   if (new Set(modules).size !== modules.length) throw new ApiError(400, '游戏模块不能重复');
+  const dependencyIssue = getPlatformModuleDependencyIssue(modules);
+  if (dependencyIssue) throw new ApiError(400, dependencyIssue);
   return modules;
 }
 

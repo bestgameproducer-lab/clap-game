@@ -46,6 +46,9 @@ test('platform catalog includes both commercial models and the full flagship mod
   ]) {
     assert.match(catalog, new RegExp(`id: '${moduleId}'`));
   }
+  assert.match(catalog, /PLATFORM_MODULE_REQUIREMENTS/);
+  assert.match(catalog, /normalizePlatformModuleSelection/);
+  assert.match(catalog, /removePlatformModuleWithDependents/);
 });
 
 test('first-phase builder keeps drafts local and does not access production services', () => {

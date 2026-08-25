@@ -26,6 +26,8 @@ The migrations also persist the structured content brief (language, interaction 
 
 The delivery scope (commercial model, customization depth, operating support, rehearsal mode, service items, and customer notes) is validated as a closed JSON shape and stored in the same immutable version. It records quote intent only: it does not contain a price, create an order, activate an entitlement, or provision resources.
 
+Selected runtime modules are also dependency-checked in the application and database. The forward migration repairs any older preview rows before adding the constraint, and a database trigger returns the stable `platform_project_invalid` error if a caller bypasses the browser validator.
+
 ## Bootstrap the first platform operator
 
 Platform staff authorization is deliberately independent from customer ownership and from the existing wedding organizer login. First sign in once through `/platform/account`, then run the following only in the **separate platform project** SQL editor, replacing the email with the intended operator account:

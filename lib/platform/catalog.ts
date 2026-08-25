@@ -140,6 +140,58 @@ export const PLATFORM_MODULES: readonly PlatformModule[] = [
   },
 ] as const;
 
+export const PLATFORM_MODULE_REQUIREMENTS: Readonly<Record<PlatformModuleId, readonly PlatformModuleId[]>> = {
+  'secret-missions': [],
+  'team-games': ['host-toolkit'],
+  'host-toolkit': [],
+  'live-scoreboard': ['team-games', 'host-toolkit'],
+  'finale-vote': ['secret-missions'],
+};
+
+export function normalizePlatformModuleSelection(modules: readonly PlatformModuleId[]) {
+  const selected = new Set<PlatformModuleId>(modules);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const moduleId of [...selected]) {
+      for (const requiredId of PLATFORM_MODULE_REQUIREMENTS[moduleId]) {
+        if (!selected.has(requiredId)) {
+          selected.add(requiredId);
+          changed = true;
+        }
+      }
+    }
+  }
+  return PLATFORM_MODULES.map((module) => module.id).filter((moduleId) => selected.has(moduleId));
+}
+
+export function removePlatformModuleWithDependents(modules: readonly PlatformModuleId[], removedId: PlatformModuleId) {
+  const selected = new Set<PlatformModuleId>(modules.filter((moduleId) => moduleId !== removedId));
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const moduleId of [...selected]) {
+      if (PLATFORM_MODULE_REQUIREMENTS[moduleId].some((requiredId) => !selected.has(requiredId))) {
+        selected.delete(moduleId);
+        changed = true;
+      }
+    }
+  }
+  return PLATFORM_MODULES.map((module) => module.id).filter((moduleId) => selected.has(moduleId));
+}
+
+export function getPlatformModuleDependencyIssue(modules: readonly PlatformModuleId[]) {
+  const selected = new Set(modules);
+  for (const module of PLATFORM_MODULES) {
+    if (!selected.has(module.id)) continue;
+    const missing = PLATFORM_MODULE_REQUIREMENTS[module.id].find((requiredId) => !selected.has(requiredId));
+    if (!missing) continue;
+    const required = PLATFORM_MODULES.find((item) => item.id === missing);
+    return `${module.name}需要同时启用${required?.name ?? missing}`;
+  }
+  return null;
+}
+
 export const PLATFORM_CUSTOMIZATION_LEVELS: readonly PlatformScopeOption<PlatformCustomizationLevelId>[] = [
   { id: 'template', name: '模板自助', description: '保留旗舰玩法结构，自行填写姓名、题库、组名和视觉方向。' },
   { id: 'guided', name: '协作定制', description: '平台协助梳理故事、互动边界和主持内容，再共同确认成稿。' },
