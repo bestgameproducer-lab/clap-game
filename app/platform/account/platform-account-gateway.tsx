@@ -26,6 +26,7 @@ type CloudProject = {
   planId: WeddingDraft['plan'];
   modules: WeddingDraft['modules'];
   storyNote: string;
+  contentBrief: NonNullable<WeddingDraft['contentBrief']>;
   version: number;
   updatedAt: string;
 };
@@ -165,6 +166,7 @@ export function PlatformAccountGateway({
       plan: project.planId,
       modules: project.modules,
       storyNote: project.storyNote,
+      contentBrief: project.contentBrief,
     };
     if (!isWeddingDraft(restored)) {
       setMessage('这个云端项目版本无法在当前定制器中打开，请联系平台支持。');

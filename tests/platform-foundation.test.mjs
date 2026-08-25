@@ -54,11 +54,26 @@ test('first-phase builder keeps drafts local and does not access production serv
 
   assert.match(builder, /window\.localStorage\.setItem/);
   assert.match(draftLibrary, /isWeddingDraft/);
-  assert.match(builder, /不会上传/);
+  assert.match(builder, /不会自动上传/);
   assert.match(builder, /URL\.createObjectURL/);
   assert.match(builder, /需求单/);
   assert.doesNotMatch(builder, /fetch\s*\(/);
   assert.doesNotMatch(builder, /SUPABASE_SERVICE_ROLE_KEY/);
+});
+
+test('content intake captures customization and privacy boundaries in the same device draft', () => {
+  const page = read('app/platform/content/page.tsx');
+  const intake = read('app/platform/content/content-intake.tsx');
+  const draft = read('lib/platform/draft.ts');
+
+  assert.match(page, /ContentIntake/);
+  assert.match(intake, /LANGUAGE_OPTIONS/);
+  assert.match(intake, /INTERACTION_OPTIONS/);
+  assert.match(intake, /GUEST_MIX_OPTIONS/);
+  assert.match(intake, /boundariesConfirmed/);
+  assert.match(intake, /只有你在账号页明确点击保存/);
+  assert.match(draft, /PlatformContentBrief/);
+  assert.match(draft, /内容边界尚未确认/);
 });
 
 test('local project workspace reads the same validated draft without creating cloud state', () => {

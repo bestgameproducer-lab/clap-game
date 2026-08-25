@@ -6,6 +6,7 @@ import { PLATFORM_MODULES, PLATFORM_PLANS, PLATFORM_THEMES, PLATFORM_TONES } fro
 import {
   PLATFORM_DRAFT_STORAGE_KEY,
   formatWeddingDate,
+  getWeddingContentBrief,
   getWeddingCoupleName,
   isWeddingDraft,
   type WeddingDraft,
@@ -23,7 +24,8 @@ const DELIVERY_STAGES = [
 const PREPARATION_ITEMS = [
   { id: 'couple', name: '新人基本信息', copy: '双方姓名已填写', ready: (draft: WeddingDraft) => Boolean(draft.partnerOne.trim() && draft.partnerTwo.trim()) },
   { id: 'schedule', name: '婚礼时间地点', copy: '日期与场地已确认', ready: (draft: WeddingDraft) => Boolean(draft.weddingDate && draft.location.trim()) },
-  { id: 'story', name: '故事素材', copy: '至少留下一条内容方向', ready: (draft: WeddingDraft) => Boolean(draft.storyNote.trim()) },
+  { id: 'story', name: '故事素材', copy: '至少留下一条真实故事素材', ready: (draft: WeddingDraft) => Boolean(getWeddingContentBrief(draft).storyMoments.trim() || draft.storyNote.trim()) },
+  { id: 'boundaries', name: '内容边界', copy: '已确认禁忌话题与互动尺度', ready: (draft: WeddingDraft) => getWeddingContentBrief(draft).boundariesConfirmed },
   { id: 'modules', name: '游戏模块', copy: '至少选择一个现场模块', ready: (draft: WeddingDraft) => draft.modules.length > 0 },
   { id: 'delivery', name: '交付方式', copy: '已选择买断或订阅方向', ready: (draft: WeddingDraft) => Boolean(draft.plan) },
 ] as const;
@@ -136,7 +138,7 @@ export function ProjectWorkspace() {
           <p className={styles.eyebrow}>NEXT CHECKPOINT</p>
           <h2>下一步：内容确认</h2>
           <p>正式制作前还需要新人故事素材、宾客名单字段、敏感内容边界、主持人口播、题库答案和视觉资产。这些资料未来会进入隔离的客户项目，不会写入模板本身。</p>
-          <div><Link className={styles.primaryAction} href="/platform/create">完善当前方案 <span>→</span></Link><Link className={styles.secondaryAction} href="/platform/templates/cupid-wedding-trial">查看模板结构</Link></div>
+          <div><Link className={styles.primaryAction} href="/platform/content">填写内容问卷 <span>→</span></Link><Link className={styles.secondaryAction} href="/platform/create">返回方案定制</Link></div>
         </section>
       </div>
     </div>

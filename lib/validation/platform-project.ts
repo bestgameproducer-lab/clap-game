@@ -1,5 +1,5 @@
 import { ApiError } from '../errors';
-import { optionalString, requiredEnum, requiredString, requiredUuid, type JsonObject } from '../validation';
+import { optionalString, requiredBoolean, requiredEnum, requiredString, requiredUuid, type JsonObject } from '../validation';
 import {
   PLATFORM_MODULES,
   PLATFORM_PLANS,
@@ -7,7 +7,7 @@ import {
   PLATFORM_TONES,
   type PlatformModuleId,
 } from '../platform/catalog';
-import { isWeddingDraft, type WeddingDraft } from '../platform/draft';
+import { getWeddingContentBrief, isWeddingDraft, type PlatformContentBrief, type WeddingDraft } from '../platform/draft';
 
 const PLAN_IDS = PLATFORM_PLANS.map((plan) => plan.id);
 const THEME_IDS = PLATFORM_THEMES.map((theme) => theme.id);
@@ -18,7 +18,7 @@ export type PlatformProjectSaveInput = {
   eventKey: string;
   projectId: string | null;
   sourceDraftId: string;
-  draft: WeddingDraft & { draftId: string };
+  draft: WeddingDraft & { draftId: string; contentBrief: PlatformContentBrief };
 };
 
 function optionalProjectId(value: unknown) {
@@ -47,6 +47,7 @@ export function readPlatformProjectSaveInput(body: JsonObject): PlatformProjectS
   if (!isWeddingDraft(body.draft)) throw new ApiError(400, '婚礼方案格式不正确');
   const input = body.draft;
   const sourceDraftId = requiredUuid(input.draftId, '本机草稿编号');
+  const content = getWeddingContentBrief(input);
 
   return {
     eventKey: requiredUuid(body.eventKey, '操作编号'),
@@ -64,6 +65,15 @@ export function readPlatformProjectSaveInput(body: JsonObject): PlatformProjectS
       plan: requiredEnum(input.plan, '交付方式', PLAN_IDS),
       modules: validateModules(input.modules),
       storyNote: optionalString(input.storyNote, '故事备注', 2000),
+      contentBrief: {
+        language: requiredEnum(content.language, '内容语言', ['chinese', 'bilingual'] as const),
+        interaction: requiredEnum(content.interaction, '互动强度', ['gentle', 'balanced', 'immersive'] as const),
+        guestMix: requiredEnum(content.guestMix, '宾客构成', ['family', 'balanced', 'friends'] as const),
+        storyMoments: optionalString(content.storyMoments, '故事素材', 2000),
+        avoidTopics: optionalString(content.avoidTopics, '内容边界', 1200),
+        boundariesConfirmed: requiredBoolean(content.boundariesConfirmed, '内容边界确认'),
+        hostNotes: optionalString(content.hostNotes, '主持备注', 2000),
+      },
     },
   };
 }

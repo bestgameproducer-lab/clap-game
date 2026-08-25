@@ -49,14 +49,18 @@ test('every platform mutation is same-origin, authenticated, validated, and isol
   assert.match(authRoute, /requiredPlatformEmail/);
   assert.match(signOutRoute, /assertSameOrigin\(request\)/);
   assert.match(signOutRoute, /requirePlatformUser\(\)/);
-  assert.match(data, /platform_save_project_draft/);
+  assert.match(data, /platform_save_customized_project_draft/);
   assert.doesNotMatch(data, /select\(['"]\*['"]\)/);
   assert.match(validation, /requiredUuid\(body\.eventKey/);
   assert.match(validation, /游戏模块不能重复/);
 });
 
-test('control-plane migration owns projects, versions, entitlements, audit, RLS and idempotency', () => {
-  const sql = read('platform-control-plane/migrations/202608250001_platform_foundation.sql');
+test('control-plane migrations own projects, content briefs, versions, entitlements, audit, RLS and idempotency', () => {
+  const sql = fs.readdirSync(path.join(rootDir, 'platform-control-plane/migrations'))
+    .filter((name) => name.endsWith('.sql'))
+    .sort()
+    .map((name) => read(`platform-control-plane/migrations/${name}`))
+    .join('\n');
   const weddingMigrations = fs.readdirSync(path.join(rootDir, 'supabase/migrations'))
     .filter((name) => name.endsWith('.sql'))
     .map((name) => read(`supabase/migrations/${name}`))
@@ -77,6 +81,9 @@ test('control-plane migration owns projects, versions, entitlements, audit, RLS 
   assert.match(sql, /auth\.uid\(\)/);
   assert.match(sql, /pg_advisory_xact_lock/);
   assert.match(sql, /project_draft_saved/);
+  assert.match(sql, /platform_save_customized_project_draft/);
+  assert.match(sql, /content_brief/);
+  assert.match(sql, /revoke execute on function public\.platform_save_project_draft[\s\S]*from authenticated/);
   assert.match(sql, /revoke all on function public\.platform_save_project_draft[\s\S]*from anon/);
   assert.match(sql, /grant execute on function public\.platform_save_project_draft[\s\S]*to authenticated/);
   assert.doesNotMatch(weddingMigrations, /create table[^;]*platform_projects/i);
@@ -92,6 +99,7 @@ test('account UI does not transmit the device draft before explicit signed-in sa
   assert.match(account, /draftId: project\.sourceDraftId/);
   assert.match(account, /再次确认/);
   assert.match(account, /载入到本机编辑/);
+  assert.match(account, /contentBrief: project\.contentBrief/);
   assert.match(projectWorkspace, /href="\/platform\/account"/);
   assert.doesNotMatch(account, /SERVICE_ROLE|service_role/);
 });

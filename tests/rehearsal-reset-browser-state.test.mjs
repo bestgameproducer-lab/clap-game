@@ -35,6 +35,7 @@ test('browser persistence has an explicit reset-safe allowlist', async () => {
     key === 'PLATFORM_DRAFT_STORAGE_KEY'
       ? path.endsWith('/app/platform/create/wedding-builder.tsx')
         || path.endsWith('/app/platform/account/platform-account-gateway.tsx')
+        || path.endsWith('/app/platform/content/content-intake.tsx')
       : path.endsWith('/app/guest/page.tsx')
   )));
 

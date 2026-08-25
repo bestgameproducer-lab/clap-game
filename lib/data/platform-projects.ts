@@ -2,6 +2,7 @@ import 'server-only';
 import { ApiError } from '../errors';
 import type { PlatformProjectSaveInput } from '../validation/platform-project';
 import { createPlatformServerClient } from '../platform/supabase-server';
+import { DEFAULT_PLATFORM_CONTENT_BRIEF, isPlatformContentBrief, type PlatformContentBrief } from '../platform/draft';
 
 export type PlatformProjectDto = {
   id: string;
@@ -19,6 +20,7 @@ export type PlatformProjectDto = {
   toneId: string;
   modules: string[];
   storyNote: string;
+  contentBrief: PlatformContentBrief;
   version: number;
   updatedAt: string;
 };
@@ -39,11 +41,12 @@ type PlatformProjectRow = {
   tone_id: string;
   modules: string[];
   story_note: string;
+  content_brief?: unknown;
   current_version: number;
   updated_at: string;
 };
 
-const PROJECT_FIELDS = 'id,source_draft_id,status,template_id,template_version,plan_id,partner_one,partner_two,wedding_date,location,guest_count,theme_id,tone_id,modules,story_note,current_version,updated_at';
+const PROJECT_FIELDS = 'id,source_draft_id,status,template_id,template_version,plan_id,partner_one,partner_two,wedding_date,location,guest_count,theme_id,tone_id,modules,story_note,content_brief,current_version,updated_at';
 
 function toDto(row: PlatformProjectRow, sourceDraftId = row.source_draft_id): PlatformProjectDto {
   if (!sourceDraftId) throw new Error('Unable to map platform project without a source draft');
@@ -63,6 +66,7 @@ function toDto(row: PlatformProjectRow, sourceDraftId = row.source_draft_id): Pl
     toneId: row.tone_id,
     modules: row.modules,
     storyNote: row.story_note,
+    contentBrief: isPlatformContentBrief(row.content_brief) ? row.content_brief : { ...DEFAULT_PLATFORM_CONTENT_BRIEF },
     version: row.current_version,
     updatedAt: row.updated_at,
   };
@@ -85,7 +89,7 @@ export async function savePlatformProject(ownerUserId: string, input: PlatformPr
   if (!ownerUserId) throw new ApiError(401, '请先登录客户账号');
   const client = await createPlatformServerClient();
   const { draft } = input;
-  const { data, error } = await client.rpc('platform_save_project_draft', {
+  const { data, error } = await client.rpc('platform_save_customized_project_draft', {
     p_event_key: input.eventKey,
     p_project_id: input.projectId,
     p_source_draft_id: input.sourceDraftId,
@@ -101,6 +105,7 @@ export async function savePlatformProject(ownerUserId: string, input: PlatformPr
     p_tone_id: draft.tone,
     p_modules: draft.modules,
     p_story_note: draft.storyNote,
+    p_content_brief: draft.contentBrief,
   }).single();
 
   if (error) {

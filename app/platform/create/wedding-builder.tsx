@@ -210,10 +210,11 @@ export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }
           <div className={styles.builderActions}>
             <button className={styles.copyAction} type="button" onClick={copySummary}>复制方案摘要</button>
             <button className={styles.downloadAction} type="button" onClick={downloadBrief}>下载需求单</button>
+            <Link className={styles.workspaceAction} href="/platform/content">填写内容问卷</Link>
             <Link className={styles.workspaceAction} href="/platform/project">查看项目工作台</Link>
             <button className={styles.resetAction} type="button" onClick={resetDraft}>清空并重新开始</button>
           </div>
-          <p className={styles.builderPrivacy}>当前版本不会上传姓名、日期或故事。账号与云端保存完成后，会在提交前再次明确征得同意。</p>
+          <p className={styles.builderPrivacy}>填写和登录都不会自动上传姓名、日期或故事；只有在账号页明确点击保存后，资料才会进入独立客户项目。</p>
         </form>
 
         <aside className={styles.builderPreviewColumn}>

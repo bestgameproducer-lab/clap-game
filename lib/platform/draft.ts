@@ -12,6 +12,26 @@ import {
 
 export const PLATFORM_DRAFT_STORAGE_KEY = 'wedding-play-studio-draft-v1';
 
+export type PlatformContentBrief = {
+  language: 'chinese' | 'bilingual';
+  interaction: 'gentle' | 'balanced' | 'immersive';
+  guestMix: 'family' | 'balanced' | 'friends';
+  storyMoments: string;
+  avoidTopics: string;
+  boundariesConfirmed: boolean;
+  hostNotes: string;
+};
+
+export const DEFAULT_PLATFORM_CONTENT_BRIEF: PlatformContentBrief = {
+  language: 'chinese',
+  interaction: 'balanced',
+  guestMix: 'balanced',
+  storyMoments: '',
+  avoidTopics: '',
+  boundariesConfirmed: false,
+  hostNotes: '',
+};
+
 export type WeddingDraft = {
   draftId?: string;
   partnerOne: string;
@@ -24,6 +44,7 @@ export type WeddingDraft = {
   plan: PlatformPlanId;
   modules: PlatformModuleId[];
   storyNote: string;
+  contentBrief?: PlatformContentBrief;
 };
 
 const DEFAULT_MODULES: PlatformModuleId[] = [
@@ -47,8 +68,32 @@ export function createPlatformDraftId() {
   return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10).join('')}`;
 }
 
+export function isPlatformContentBrief(value: unknown): value is PlatformContentBrief {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const brief = value as Partial<PlatformContentBrief>;
+  return (
+    (brief.language === 'chinese' || brief.language === 'bilingual') &&
+    (brief.interaction === 'gentle' || brief.interaction === 'balanced' || brief.interaction === 'immersive') &&
+    (brief.guestMix === 'family' || brief.guestMix === 'balanced' || brief.guestMix === 'friends') &&
+    typeof brief.storyMoments === 'string' &&
+    typeof brief.avoidTopics === 'string' &&
+    typeof brief.boundariesConfirmed === 'boolean' &&
+    typeof brief.hostNotes === 'string'
+  );
+}
+
+export function getWeddingContentBrief(draft: WeddingDraft): PlatformContentBrief {
+  return isPlatformContentBrief(draft.contentBrief)
+    ? draft.contentBrief
+    : { ...DEFAULT_PLATFORM_CONTENT_BRIEF };
+}
+
 export function ensureWeddingDraftId(draft: WeddingDraft): WeddingDraft {
-  return draft.draftId ? draft : { ...draft, draftId: createPlatformDraftId() };
+  return {
+    ...draft,
+    draftId: draft.draftId || createPlatformDraftId(),
+    contentBrief: getWeddingContentBrief(draft),
+  };
 }
 
 export function createDefaultDraft(plan: PlatformPlanId = 'buyout'): WeddingDraft {
@@ -64,6 +109,7 @@ export function createDefaultDraft(plan: PlatformPlanId = 'buyout'): WeddingDraf
     plan,
     modules: [...DEFAULT_MODULES],
     storyNote: '',
+    contentBrief: { ...DEFAULT_PLATFORM_CONTENT_BRIEF },
   };
 }
 
@@ -82,6 +128,7 @@ export function isWeddingDraft(value: unknown): value is WeddingDraft {
     typeof draft.weddingDate === 'string' &&
     typeof draft.location === 'string' &&
     typeof draft.storyNote === 'string' &&
+    (draft.contentBrief === undefined || isPlatformContentBrief(draft.contentBrief)) &&
     ['40', '80', '120', '180'].includes(draft.guestCount ?? '') &&
     themeIds.has(draft.theme as PlatformThemeId) &&
     toneIds.has(draft.tone as PlatformToneId) &&
@@ -111,6 +158,10 @@ export function buildWeddingBrief(draft: WeddingDraft) {
   const selectedTone = PLATFORM_TONES.find((tone) => tone.id === draft.tone) ?? PLATFORM_TONES[0];
   const selectedPlan = PLATFORM_PLANS.find((plan) => plan.id === draft.plan) ?? PLATFORM_PLANS[0];
   const selectedModules = PLATFORM_MODULES.filter((module) => draft.modules.includes(module.id));
+  const content = getWeddingContentBrief(draft);
+  const language = content.language === 'bilingual' ? '中英双语' : '中文';
+  const interaction = { gentle: '轻松温和', balanced: '自然平衡', immersive: '高沉浸互动' }[content.interaction];
+  const guestMix = { family: '家人与长辈为主', balanced: '亲友较均衡', friends: '朋友为主' }[content.guestMix];
 
   return [
     '婚礼游戏工坊 · 项目需求单',
@@ -124,6 +175,13 @@ export function buildWeddingBrief(draft: WeddingDraft) {
     `方案：${selectedPlan.name}`,
     `模块：${selectedModules.map((module) => module.name).join('、') || '尚未选择'}`,
     draft.storyNote.trim() ? `故事备注：${draft.storyNote.trim()}` : '',
+    `内容语言：${language}`,
+    `互动强度：${interaction}`,
+    `宾客构成：${guestMix}`,
+    content.storyMoments.trim() ? `故事素材：${content.storyMoments.trim()}` : '',
+    content.avoidTopics.trim() ? `内容边界：${content.avoidTopics.trim()}` : '',
+    content.boundariesConfirmed ? '内容边界已由客户确认' : '内容边界尚未确认',
+    content.hostNotes.trim() ? `主持备注：${content.hostNotes.trim()}` : '',
     '',
     '说明：此文件是第一版需求摘要，不代表最终报价、合同或交付承诺。',
   ].filter(Boolean).join('\n');
