@@ -17,9 +17,19 @@ test('commercial platform routes are isolated from the live wedding entry', () =
   const weddingEntry = read('app/page.tsx');
 
   assert.match(platformPage, /FLAGSHIP_TEMPLATE\.name/);
-  assert.match(platformPage, /href="\/platform\/create/);
+  assert.match(platformPage, /href="\/platform\/templates\/cupid-wedding-trial/);
   assert.match(builderPage, /WeddingBuilder/);
   assert.doesNotMatch(weddingEntry, /href=["']\/platform/);
+});
+
+test('flagship template explains the full customer journey and links into customization', () => {
+  const templatePage = read('app/platform/templates/cupid-wedding-trial/page.tsx');
+
+  assert.match(templatePage, /签到抽卡/);
+  assert.match(templatePage, /秘密相遇/);
+  assert.match(templatePage, /晚宴组队/);
+  assert.match(templatePage, /投票与揭晓/);
+  assert.match(templatePage, /href="\/platform\/create"/);
 });
 
 test('platform catalog includes both commercial models and the full flagship module set', () => {
@@ -44,6 +54,8 @@ test('first-phase builder keeps drafts local and does not access production serv
   assert.match(builder, /window\.localStorage\.setItem/);
   assert.match(builder, /isWeddingDraft/);
   assert.match(builder, /不会上传/);
+  assert.match(builder, /URL\.createObjectURL/);
+  assert.match(builder, /需求单/);
   assert.doesNotMatch(builder, /fetch\s*\(/);
   assert.doesNotMatch(builder, /SUPABASE_SERVICE_ROLE_KEY/);
 });

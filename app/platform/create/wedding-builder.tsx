@@ -150,8 +150,10 @@ export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }
     }));
   }
 
-  async function copySummary() {
-    const summary = [
+  function buildSummary() {
+    return [
+      '婚礼游戏工坊 · 项目需求单',
+      `模板：${FLAGSHIP_TEMPLATE.name} · ${FLAGSHIP_TEMPLATE.version}`,
       `婚礼游戏方案：${coupleName}`,
       `日期：${formatWeddingDate(draft.weddingDate)}`,
       `地点：${draft.location.trim() || '待定'}`,
@@ -161,13 +163,33 @@ export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }
       `方案：${selectedPlan.name}`,
       `模块：${selectedModules.map((module) => module.name).join('、') || '尚未选择'}`,
       draft.storyNote.trim() ? `故事备注：${draft.storyNote.trim()}` : '',
+      '',
+      '说明：此文件是第一版需求摘要，不代表最终报价、合同或交付承诺。',
     ].filter(Boolean).join('\n');
+  }
 
+  async function copySummary() {
     try {
-      await navigator.clipboard.writeText(summary);
+      await navigator.clipboard.writeText(buildSummary());
       setSaveMessage('方案摘要已复制');
     } catch {
       setSaveMessage('浏览器未允许复制，请手动记录当前方案');
+    }
+  }
+
+  function downloadBrief() {
+    try {
+      const blob = new Blob([`\uFEFF${buildSummary()}`], { type: 'text/plain;charset=utf-8' });
+      const downloadUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      const safeName = coupleName.replace(/[\\/:*?"<>|]+/g, '-');
+      anchor.href = downloadUrl;
+      anchor.download = `婚礼游戏需求单-${safeName}.txt`;
+      anchor.click();
+      URL.revokeObjectURL(downloadUrl);
+      setSaveMessage('需求单已下载到这台设备');
+    } catch {
+      setSaveMessage('浏览器未允许下载，请改用复制方案摘要');
     }
   }
 
@@ -263,6 +285,7 @@ export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }
 
           <div className={styles.builderActions}>
             <button className={styles.copyAction} type="button" onClick={copySummary}>复制方案摘要</button>
+            <button className={styles.downloadAction} type="button" onClick={downloadBrief}>下载需求单</button>
             <button className={styles.resetAction} type="button" onClick={resetDraft}>清空并重新开始</button>
           </div>
           <p className={styles.builderPrivacy}>当前版本不会上传姓名、日期或故事。账号与云端保存完成后，会在提交前再次明确征得同意。</p>

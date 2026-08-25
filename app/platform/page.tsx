@@ -115,7 +115,7 @@ export default function PlatformHome() {
             <div className={styles.surfaceList}>
               {FLAGSHIP_TEMPLATE.provenSurfaces.map((surface) => <span key={surface}>{surface}</span>)}
             </div>
-            <Link href="/platform/create">以此模板开始定制 <span>→</span></Link>
+            <Link href="/platform/templates/cupid-wedding-trial">查看模板完整结构 <span>→</span></Link>
           </article>
 
           <div className={styles.moduleGrid}>
