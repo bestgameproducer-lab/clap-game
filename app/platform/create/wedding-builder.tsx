@@ -15,6 +15,7 @@ import {
   PLATFORM_DRAFT_STORAGE_KEY,
   buildWeddingBrief,
   createDefaultDraft,
+  ensureWeddingDraftId,
   formatWeddingDate,
   getWeddingCoupleName,
   isWeddingDraft,
@@ -33,7 +34,8 @@ export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }
       if (rawDraft) {
         const parsed: unknown = JSON.parse(rawDraft);
         if (isWeddingDraft(parsed)) {
-          setDraft(initialPlan ? { ...parsed, plan: initialPlan } : parsed);
+          const restored = ensureWeddingDraftId(parsed);
+          setDraft(initialPlan ? { ...restored, plan: initialPlan } : restored);
           setSaveMessage('已恢复这台设备上的草稿');
         } else {
           setSaveMessage('旧草稿格式已失效，已使用安全默认方案');

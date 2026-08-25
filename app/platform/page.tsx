@@ -44,6 +44,7 @@ export default function PlatformHome() {
           <a className={styles.navLink} href="#template">模板</a>
           <a className={styles.navLink} href="#process">流程</a>
           <a className={styles.navLink} href="#plans">合作方式</a>
+          <Link className={styles.navLink} href="/platform/account">我的项目</Link>
         </nav>
         <Link className={styles.headerCta} href="/platform/create">开始定制</Link>
       </header>

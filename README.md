@@ -86,6 +86,7 @@ ADMIN_PASSWORD=请填写至少12位的管理员密码
 - 商业平台预览：`http://localhost:3000/platform`
 - 婚礼方案定制器：`http://localhost:3000/platform/create`
 - 本机项目工作台：`http://localhost:3000/platform/project`
+- 客户账号与云端项目：`http://localhost:3000/platform/account`
 - 宾客页：`http://localhost:3000/guest`
 - 后台：`http://localhost:3000/admin`
 - 主持人流程台：`http://localhost:3000/host`
@@ -159,9 +160,9 @@ npm run build
 
 ## 商业平台预览
 
-`/platform`、`/platform/templates/cupid-wedding-trial`、`/platform/create` 与 `/platform/project` 是在现有婚礼系统之上增加的商业平台首期预览。它展示旗舰模板、单场买断与持续订阅两种交付方向，允许客户在当前设备上组合视觉、叙事和游戏模块，并在本机工作台查看资料完成度与交付阶段。
+`/platform`、`/platform/templates/cupid-wedding-trial`、`/platform/create`、`/platform/project` 与 `/platform/account` 是在现有婚礼系统之上增加的商业平台首期纵向切片。它展示旗舰模板、单场买断与持续订阅两种交付方向，允许客户组合视觉、叙事和游戏模块，在本机工作台检查资料，并通过独立平台账号显式保存云端项目。
 
-定制器草稿现阶段只保存在浏览器 `localStorage`，不会写入当前正式婚礼的 Supabase 数据库，也不包含账号、订单或付款功能。平台后续采用“客户项目控制层 + 单场婚礼隔离运行实例”的结构，避免不同婚礼共享宾客、隐藏身份、照片或积分数据。完整边界和开发顺序见 [`docs/platform-product-architecture.md`](docs/platform-product-architecture.md)。
+定制器在登录和点击“保存到独立客户项目”之前只使用浏览器 `localStorage`。云端项目使用另一套 Supabase 项目、邮箱安全链接、行级权限、不可变版本记录和审计日志，绝不写入当前正式婚礼数据库。账号服务的迁移与配置说明位于 [`platform-control-plane/README.md`](platform-control-plane/README.md)。当前仍不包含订单、付款或自动开通婚礼运行实例；完整边界和开发顺序见 [`docs/platform-product-architecture.md`](docs/platform-product-architecture.md)。
 
 ## 当前 MVP 的边界
 

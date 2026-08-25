@@ -1825,6 +1825,271 @@
   color: #fff7ef;
 }
 
+.accountShell {
+  --platform-ink: #241b18;
+  --platform-wine: #713c34;
+  --platform-gold: #c99a58;
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  margin: 0;
+  padding-bottom: 90px;
+  color: var(--platform-ink);
+  background:
+    radial-gradient(circle at 90% 5%, rgba(201, 154, 88, .17), transparent 28rem),
+    linear-gradient(180deg, #faf4ea 0%, #eee1d3 100%);
+}
+
+.accountLayout {
+  width: min(1100px, calc(100% - 48px));
+  margin: 0 auto;
+}
+
+.accountHero {
+  max-width: 850px;
+  padding: 76px 0 45px;
+}
+
+.accountHero h1 {
+  margin: 15px 0 20px;
+  color: #34251f;
+  font: 500 clamp(43px, 5.5vw, 70px)/1.08 Georgia, 'Noto Serif SC', serif;
+  letter-spacing: -.04em;
+}
+
+.accountHero > p:not(.eyebrow) {
+  max-width: 720px;
+  margin: 0;
+  color: #756159;
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.accountUnavailable,
+.accountMessage {
+  margin: 0 0 16px;
+  border-radius: 18px;
+}
+
+.accountUnavailable {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid rgba(133, 93, 65, .16);
+  background: #e8d8c9;
+}
+
+.accountUnavailable > span {
+  align-self: start;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #71443a;
+  color: #fff9f2;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+
+.accountUnavailable strong,
+.accountUnavailable p {
+  display: block;
+}
+
+.accountUnavailable strong {
+  color: #533a31;
+  font-size: 12px;
+}
+
+.accountUnavailable p {
+  margin: 4px 0 0;
+  color: #78645b;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.accountMessage {
+  padding: 14px 18px;
+  background: #e7eee4;
+  color: #506b50;
+  font-size: 11px;
+}
+
+.accountGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.accountPanel,
+.cloudProjectsPanel {
+  min-width: 0;
+  padding: 32px;
+  border: 1px solid rgba(94, 63, 50, .13);
+  border-radius: 28px;
+  background: rgba(255, 252, 247, .86);
+  box-shadow: 0 14px 38px rgba(78, 50, 36, .05);
+}
+
+.accountPanel h2 {
+  margin: 12px 0 10px;
+  font: 500 30px/1.2 Georgia, 'Noto Serif SC', serif;
+}
+
+.accountPanel > p:not(.eyebrow),
+.accountPanel form > p {
+  margin: 0 0 22px;
+  color: #806e65;
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.accountPanel form label {
+  display: block;
+  margin: 20px 0 7px;
+  color: #665149;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.accountPanel form input {
+  width: 100%;
+  min-height: 50px;
+  margin: 0 0 12px;
+  border: 1px solid rgba(91, 61, 49, .18);
+  border-radius: 14px;
+  background: #fffdf9;
+  color: #3f302a;
+  font-size: 16px;
+}
+
+.accountPanel button {
+  width: 100%;
+  min-height: 50px;
+  margin: 10px 0 0;
+  border-radius: 999px;
+  background: #6a4036;
+  color: #fffaf4;
+}
+
+.accountPanel button:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+.accountPanel .accountSecondaryButton {
+  background: #e8ddd5;
+  color: #715d53;
+}
+
+.accountEmail {
+  padding: 13px 15px;
+  border-radius: 14px;
+  background: #efe4da;
+  color: #513b32 !important;
+  font-size: 13px !important;
+  font-weight: 800;
+}
+
+.accountDraftCard {
+  display: grid;
+  gap: 5px;
+  margin: 22px 0 12px;
+  padding: 18px;
+  border-radius: 18px;
+  background: #efe4da;
+}
+
+.accountDraftCard small,
+.accountDraftCard span {
+  color: #897269;
+  font-size: 9px;
+}
+
+.accountDraftCard strong {
+  color: #533b32;
+  font: 500 23px Georgia, 'Noto Serif SC', serif;
+}
+
+.accountHint {
+  display: block;
+  margin-top: 10px;
+  color: #8a776e;
+  font-size: 9px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.accountEmptyState {
+  margin-top: 22px;
+  padding: 22px;
+  border-radius: 18px;
+  background: #f0e6dd;
+}
+
+.accountEmptyState p {
+  margin: 6px 0 14px;
+  color: #806e65;
+  font-size: 10px;
+}
+
+.accountEmptyState a {
+  color: #6b4036;
+  font-size: 10px;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.cloudProjectsPanel {
+  margin-top: 16px;
+}
+
+.cloudProjectsPanel > p {
+  color: #806e65;
+  font-size: 11px;
+}
+
+.cloudProjectRows {
+  display: grid;
+  gap: 8px;
+}
+
+.cloudProjectRows article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid rgba(94, 63, 50, .11);
+  border-radius: 16px;
+}
+
+.cloudProjectRows strong,
+.cloudProjectRows small {
+  display: block;
+}
+
+.cloudProjectRows strong {
+  color: #4e3931;
+  font-size: 12px;
+}
+
+.cloudProjectRows small,
+.cloudProjectRows time {
+  margin-top: 4px;
+  color: #8b776d;
+  font-size: 9px;
+}
+
+.cloudProjectRows article > span {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #efe3d8;
+  color: #795c50;
+  font-size: 8px;
+  font-weight: 850;
+}
+
 .templateDetailShell {
   --platform-ink: #241b18;
   --platform-wine: #713c34;
@@ -2577,5 +2842,31 @@
   .deliveryTimeline li > b,
   .projectModuleRows article > b {
     grid-column: 2;
+  }
+
+  .accountLayout {
+    width: calc(100% - 32px);
+  }
+
+  .accountHero {
+    padding-top: 52px;
+  }
+
+  .accountHero h1 {
+    font-size: 45px;
+  }
+
+  .accountGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .accountPanel,
+  .cloudProjectsPanel {
+    padding: 22px;
+  }
+
+  .accountUnavailable,
+  .cloudProjectRows article {
+    grid-template-columns: 1fr;
   }
 }

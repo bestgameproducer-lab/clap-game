@@ -13,6 +13,7 @@
     "test:e2e:review": "node scripts/run-wedding-review-pack.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.49.0",
     "next": "16.3.1",
     "react": "19.2.8",

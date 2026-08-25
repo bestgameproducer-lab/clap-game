@@ -89,7 +89,7 @@ export function ProjectWorkspace() {
       <section className={styles.projectNotice}>
         <strong>这是设备本地项目预览</strong>
         <p>还没有创建账号、订单或云端实例，也不会影响现有正式婚礼。接入账户系统后，平台会在上传前再次征得同意。</p>
-        <Link href="/platform/create">继续编辑方案 →</Link>
+        <Link href="/platform/account">连接账号并保存 →</Link>
       </section>
 
       <div className={styles.projectGrid}>
