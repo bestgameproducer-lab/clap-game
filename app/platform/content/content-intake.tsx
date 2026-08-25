@@ -208,7 +208,7 @@ export function ContentIntake() {
 
         <section className={styles.contentNext}>
           <div><p className={styles.eyebrow}>NEXT STEP</p><h2>{brief.boundariesConfirmed ? '内容方向已经可以进入项目保存。' : '保存前，请先确认内容边界。'}</h2><p>登录不会自动上传问卷；只有你在账号页明确点击保存，资料才会进入独立客户项目。</p></div>
-          <div><Link className={styles.primaryAction} href="/platform/account">前往账号与保存 <span>→</span></Link><Link className={styles.secondaryAction} href="/platform/create">返回方案定制</Link></div>
+          <div><Link className={styles.primaryAction} href="/platform/preview">查看体验预览 <span>→</span></Link><Link className={styles.secondaryAction} href="/platform/account">前往账号与保存</Link><Link className={styles.secondaryAction} href="/platform/create">返回方案定制</Link></div>
         </section>
       </form>
     </div>

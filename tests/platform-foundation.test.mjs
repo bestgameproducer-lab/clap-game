@@ -89,6 +89,22 @@ test('local project workspace reads the same validated draft without creating cl
   assert.doesNotMatch(workspace, /fetch\s*\(/);
 });
 
+test('experience preview renders guest, host, and scoreboard mockups from local draft only', () => {
+  const page = read('app/platform/preview/page.tsx');
+  const preview = read('app/platform/preview/template-experience-preview.tsx');
+
+  assert.match(page, /TemplateExperiencePreview/);
+  assert.match(preview, /PLATFORM_DRAFT_STORAGE_KEY/);
+  assert.match(preview, /ensureWeddingDraftId/);
+  assert.match(preview, /宾客入口/);
+  assert.match(preview, /主持人题库/);
+  assert.match(preview, /积分大屏/);
+  assert.match(preview, /答案只在主持端显示/);
+  assert.match(preview, /这不是正式婚礼实例/);
+  assert.match(preview, /disabled>领取我的秘密身份/);
+  assert.doesNotMatch(preview, /fetch\s*\(|\/api\/guest|\/api\/host|\/api\/public-scoreboard/);
+});
+
 test('platform preview stays non-indexed until accounts, billing and cloud persistence are ready', () => {
   const layout = read('app/platform/layout.tsx');
   const architecture = read('docs/platform-product-architecture.md');
