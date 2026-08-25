@@ -350,13 +350,17 @@ test('runtime release decisions are manual, reversible, audited, and never contr
   const queue = read('app/platform/operations/platform-provisioning-queue.tsx');
   const model = read('lib/platform/runtime-release.ts');
   const migration = read('platform-control-plane/migrations/202608250016_runtime_release_decisions.sql');
+  const customerMigration = read('platform-control-plane/migrations/202608250017_customer_delivery_summaries.sql');
+  const customerData = read('lib/data/platform-projects.ts');
+  const customerPage = read('app/platform/projects/[projectId]/page.tsx');
 
   assert.match(route, /assertSameOrigin\(request\)/);
   assert.match(route, /requirePlatformStaff\(\)/);
   assert.match(route, /readPlatformRuntimeReleaseInput/);
-  assert.match(validation, /action,checklist,eventKey,note/);
+  assert.match(validation, /action,checklist,customerMessage,eventKey,note/);
   assert.match(validation, /isPlatformRuntimeReleaseChecklistComplete/);
-  assert.match(data, /platform_record_runtime_release/);
+  assert.match(validation, /客户可见说明不能包含网址、配置指纹或内部部署标识/);
+  assert.match(data, /platform_record_runtime_release_v2/);
   assert.match(data, /platform_runtime_release_events/);
   assert.match(data, /\['provisioning', 'ready', 'live'\]/);
   assert.match(model, /ownerApprovalConfirmed/);
@@ -364,6 +368,7 @@ test('runtime release decisions are manual, reversible, audited, and never contr
   assert.match(model, /externalAccessRestricted/);
   assert.match(ui, /平台不会替你部署、改域名或开放网站/);
   assert.match(ui, /不会自动关闭、删除或回滚外部实例/);
+  assert.match(ui, /客户可见交付说明/);
   assert.match(queue, /RuntimeReleaseControl/);
   assert.match(migration, /create table public\.platform_runtime_release_events/);
   assert.match(migration, /platform_runtime_release_checklist_is_valid/);
@@ -372,7 +377,14 @@ test('runtime release decisions are manual, reversible, audited, and never contr
   assert.match(migration, /runtime_release_confirmed/);
   assert.match(migration, /runtime_release_held/);
   assert.match(migration, /status = case when p_action = 'release' then 'live' else 'ready' end/);
-  assert.doesNotMatch(route + data + ui + migration, /api\.vercel\.com|cloudflare\.com\/client|dns\.|SERVICE_ROLE|service_role/i);
+  assert.match(customerMigration, /create table public\.platform_customer_delivery_events/);
+  assert.match(customerMigration, /platform_project_access_role\(project_id\) is not null/);
+  assert.match(customerMigration, /revoke execute on function public\.platform_record_runtime_release/);
+  assert.match(customerMigration, /platform_record_runtime_release_v2/);
+  assert.match(customerData, /platform_customer_delivery_events/);
+  assert.match(customerPage, /客户可见的交付状态记录/);
+  assert.doesNotMatch(customerPage, /deploymentRef|manifestHash|targetOrigin/);
+  assert.doesNotMatch(route + data + ui + migration + customerMigration, /api\.vercel\.com|cloudflare\.com\/client|dns\.|SERVICE_ROLE|service_role/i);
 });
 
 test('template content pack is locally editable, strictly validated, versioned, and delivered as plain configuration', () => {

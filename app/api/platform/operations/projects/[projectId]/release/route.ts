@@ -18,6 +18,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
         input.action,
         input.checklist,
         input.note,
+        input.customerMessage,
       ),
     });
   } catch (error) {

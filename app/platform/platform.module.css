@@ -3640,6 +3640,18 @@
 .runtimeReadyCard > span { display:grid; width:40px; height:40px; place-items:center; border-radius:50%; color:white; background:#597153; font-size:16px; }
 .runtimeReadyCard .runtimeAttestationHistory { grid-column:1 / -1; }
 .runtimeAttestationUnavailable { margin:13px 0 0; padding:13px; border-radius:12px; color:#7b665c; background:#eee4dc; font-size:10px; }
+.customerDeliveryLive,.customerDeliveryHold { display:grid; grid-template-columns:minmax(0,1fr) minmax(320px,.72fr); gap:24px; margin-top:18px; padding:26px; border:1px solid rgba(67,104,75,.18); border-radius:24px; color:#35513c; background:#e4eee1; }
+.customerDeliveryHold { border-color:rgba(150,105,80,.2); color:#684f43; background:#f1e4da; }
+.customerDeliveryLive h2,.customerDeliveryHold h2 { margin:8px 0 9px; font:27px/1.25 Georgia,'Noto Serif SC',serif; }
+.customerDeliveryLive p,.customerDeliveryHold p { margin:0; font-size:11px; line-height:1.7; }
+.customerDeliveryLive small,.customerDeliveryHold small { display:block; margin-top:9px; color:#718075; font-size:9px; line-height:1.55; }
+.customerDeliveryHold small { color:#856f65; }
+.customerDeliveryLive ol,.customerDeliveryHold ol { display:grid; gap:7px; align-content:start; margin:0; padding:0; list-style:none; }
+.customerDeliveryLive li,.customerDeliveryHold li { display:grid; grid-template-columns:auto minmax(0,1fr); gap:4px 9px; padding:11px 13px; border-radius:12px; background:rgba(255,255,255,.55); }
+.customerDeliveryLive li b,.customerDeliveryHold li b { font-size:9px; }
+.customerDeliveryLive li span,.customerDeliveryHold li span { min-width:0; color:#526458; font-size:9px; overflow-wrap:anywhere; }
+.customerDeliveryHold li span { color:#755f55; }
+.customerDeliveryLive li time,.customerDeliveryHold li time { grid-column:2; color:#7d8a81; font-size:8px; }
 .runtimeReleasePanel,.runtimeLivePanel { margin-top:13px; padding:20px; border:1px solid rgba(157,111,55,.2); border-radius:18px; color:#59442f; background:#f5ead2; }
 .runtimeLivePanel { border-color:rgba(51,107,77,.24); color:#34553f; background:#dfece1; }
 .runtimeReleasePanel > header,.runtimeLivePanel > header { display:flex; justify-content:space-between; gap:18px; align-items:start; }
@@ -3661,6 +3673,9 @@
 .runtimeReleaseNote { display:grid; gap:7px; margin-top:13px; color:inherit; font-size:10px; font-weight:800; }
 .runtimeReleaseNote textarea { min-height:92px; padding:13px; resize:vertical; border:1px solid rgba(92,62,48,.2); border-radius:13px; color:#40312b; background:#fffdf8; font:inherit; line-height:1.6; }
 .runtimeReleaseNote small { justify-self:end; color:#8d7962; font-size:8px; font-weight:600; }
+.runtimeCustomerMessage { display:grid; gap:7px; margin-top:11px; padding:13px; border:1px solid rgba(67,104,75,.17); border-radius:13px; color:#46604c; background:rgba(232,241,229,.74); font-size:10px; font-weight:800; }
+.runtimeCustomerMessage textarea { min-height:76px; padding:12px; resize:vertical; border:1px solid rgba(67,104,75,.2); border-radius:11px; color:#33483a; background:#fbfef9; font:inherit; line-height:1.6; }
+.runtimeCustomerMessage small { justify-self:end; color:#718176; font-size:8px; font-weight:600; }
 .runtimeReleaseMessage { margin:10px 0 0; color:inherit; font-size:10px; }
 .runtimeReleaseContinue,.runtimeHoldContinue { width:100%; min-height:44px; margin-top:13px; border-radius:999px; color:white; background:#8a6536; }
 .runtimeHoldContinue { background:#476c50; }
@@ -3676,6 +3691,7 @@
 .runtimeReleaseHistory article > div { display:flex; justify-content:space-between; gap:12px; }
 .runtimeReleaseHistory small,.runtimeReleaseHistory time { color:#796f60; font-size:8px; font-weight:800; }
 .runtimeReleaseHistory p { margin:5px 0; color:#5f564b; font-size:10px; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
+.runtimeReleaseHistory blockquote { margin:7px 0; padding:8px 10px; border-left:3px solid rgba(73,103,78,.36); border-radius:0 8px 8px 0; color:#4f6755; background:rgba(226,238,225,.72); font-size:9px; line-height:1.5; }
 .runtimeReleaseHistory code { color:#887966; font-size:8px; overflow-wrap:anywhere; }
 
 .templateDetailShell {
@@ -4616,6 +4632,8 @@
   .operationsHero h1 {
     font-size: 44px;
   }
+
+  .customerDeliveryLive,.customerDeliveryHold { grid-template-columns:1fr; padding:22px; }
 
   .reviewQueueCard {
     padding: 22px;

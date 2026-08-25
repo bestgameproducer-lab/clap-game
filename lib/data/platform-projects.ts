@@ -67,6 +67,14 @@ export type PlatformProjectReviewDto = {
   createdAt: string;
 };
 
+export type PlatformCustomerDeliveryEventDto = {
+  id: string;
+  action: 'release' | 'hold';
+  projectVersion: number;
+  customerMessage: string;
+  createdAt: string;
+};
+
 type PlatformProjectRow = {
   id: string;
   owner_user_id: string;
@@ -135,6 +143,14 @@ type PlatformProjectInvitationRow = {
   created_at: string;
 };
 
+type PlatformCustomerDeliveryEventRow = {
+  release_event_id: string;
+  action: PlatformCustomerDeliveryEventDto['action'];
+  project_version: number;
+  customer_message: string;
+  created_at: string;
+};
+
 const PROJECT_FIELDS = 'id,owner_user_id,source_draft_id,status,template_id,template_version,plan_id,partner_one,partner_two,wedding_date,location,guest_count,theme_id,tone_id,modules,story_note,content_brief,template_content,delivery_scope,data_policy,current_version,updated_at';
 
 function toDto(row: PlatformProjectRow, accessRole: PlatformProjectDto['accessRole'], sourceDraftId = row.source_draft_id): PlatformProjectDto {
@@ -195,18 +211,20 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
   if (projectResult.error) throw new Error(`Unable to read platform project: ${projectResult.error.message}`);
   if (!projectResult.data) throw new ApiError(404, '没有找到这个客户项目');
   const projectRow = projectResult.data as PlatformProjectRow;
-  const [versionsResult, entitlementResult, reviewsResult, membersResult, invitationsResult] = await Promise.all([
+  const [versionsResult, entitlementResult, reviewsResult, membersResult, invitationsResult, deliveryEventsResult] = await Promise.all([
     client.from('platform_project_versions').select('version,reason,created_at').eq('project_id', projectId).order('version', { ascending: false }).limit(50),
     client.from('platform_entitlements').select('plan_id,status,source,active_from,active_until').eq('project_id', projectId).maybeSingle(),
     client.from('platform_project_reviews').select('id,review_round,project_version,decision,resulting_status,note,created_at').eq('project_id', projectId).order('review_round', { ascending: false }).limit(20),
     client.from('platform_project_members').select('project_id,user_id,email,role,created_at').eq('project_id', projectId).order('created_at', { ascending: true }),
     client.from('platform_project_invitations').select('id,project_id,role,accepted_by_user_id,accepted_at,expires_at,revoked_at,created_at').eq('project_id', projectId).order('created_at', { ascending: false }).limit(30),
+    client.from('platform_customer_delivery_events').select('release_event_id,action,project_version,customer_message,created_at').eq('project_id', projectId).order('created_at', { ascending: false }).limit(30),
   ]);
   if (versionsResult.error) throw new Error(`Unable to read platform project versions: ${versionsResult.error.message}`);
   if (entitlementResult.error) throw new Error(`Unable to read platform entitlement: ${entitlementResult.error.message}`);
   if (reviewsResult.error) throw new Error(`Unable to read platform project reviews: ${reviewsResult.error.message}`);
   if (membersResult.error) throw new Error(`Unable to read platform project members: ${membersResult.error.message}`);
   if (invitationsResult.error) throw new Error(`Unable to read platform project invitations: ${invitationsResult.error.message}`);
+  if (deliveryEventsResult.error) throw new Error(`Unable to read customer delivery events: ${deliveryEventsResult.error.message}`);
 
   const versions = ((versionsResult.data ?? []) as PlatformProjectVersionRow[]).map((row): PlatformProjectVersionDto => ({
     version: row.version,
@@ -249,6 +267,13 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
     revokedAt: row.revoked_at,
     createdAt: row.created_at,
   }));
+  const deliveryEvents = ((deliveryEventsResult.data ?? []) as PlatformCustomerDeliveryEventRow[]).map((row): PlatformCustomerDeliveryEventDto => ({
+    id: row.release_event_id,
+    action: row.action,
+    projectVersion: row.project_version,
+    customerMessage: row.customer_message,
+    createdAt: row.created_at,
+  }));
 
   return {
     project: toDto(projectRow, accessRole),
@@ -257,6 +282,7 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
     reviews,
     members,
     invitations,
+    deliveryEvents,
   };
 }
 

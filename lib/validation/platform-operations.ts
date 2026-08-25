@@ -34,6 +34,19 @@ function readRuntimeOperationsNote(value: unknown) {
   return rejectObviousRuntimeSecret(note);
 }
 
+function readCustomerDeliveryMessage(value: unknown) {
+  const message = requiredString(value, '客户可见说明', 500);
+  if (message.length < 4) throw new ApiError(400, '客户可见说明至少需要 4 个字');
+  if (
+    /https?:\/\//i.test(message)
+    || /\b[0-9a-f]{64}\b/i.test(message)
+    || /\b(?:preview|production|deploy(?:ment)?)[.:][A-Za-z0-9._:-]+\b/i.test(message)
+  ) {
+    throw new ApiError(400, '客户可见说明不能包含网址、配置指纹或内部部署标识');
+  }
+  return rejectObviousRuntimeSecret(message);
+}
+
 export function readPlatformOperatorReviewInput(body: JsonObject) {
   const decision = requiredEnum(body.decision, '审核决定', ['approved', 'changes_requested'] as const);
   const note = optionalString(body.note, '审核备注', 2000);
@@ -113,7 +126,7 @@ export function readPlatformRuntimeAttestationInput(body: JsonObject) {
 }
 
 export function readPlatformRuntimeReleaseInput(body: JsonObject) {
-  if (Object.keys(body).sort().join(',') !== 'action,checklist,eventKey,note') {
+  if (Object.keys(body).sort().join(',') !== 'action,checklist,customerMessage,eventKey,note') {
     throw new ApiError(400, '正式发布请求包含不支持的字段');
   }
   const action = requiredEnum(body.action, '正式发布动作', ['release', 'hold'] as const) as PlatformRuntimeReleaseAction;
@@ -132,5 +145,6 @@ export function readPlatformRuntimeReleaseInput(body: JsonObject) {
     action,
     checklist,
     note: readRuntimeOperationsNote(body.note),
+    customerMessage: readCustomerDeliveryMessage(body.customerMessage),
   };
 }

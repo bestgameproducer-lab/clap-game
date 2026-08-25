@@ -34,6 +34,7 @@ export type PlatformRuntimeReleaseEventDto = {
   targetOrigin: string;
   deploymentRef: string;
   note: string;
+  customerMessage: string;
   createdAt: string;
 };
 
@@ -146,6 +147,11 @@ type RuntimeReleaseEventRow = {
   created_at: string;
 };
 
+type CustomerDeliveryEventRow = {
+  release_event_id: string;
+  customer_message: string;
+};
+
 export async function listPlatformReviewQueue(staffUserId: string) {
   if (!staffUserId) throw new ApiError(403, '此账号没有平台运营权限');
   const client = await createPlatformServerClient();
@@ -190,16 +196,18 @@ export async function listPlatformProvisioningQueue(staffUserId: string): Promis
   const projects = (data ?? []) as ProvisioningProjectRow[];
   if (!projects.length) return [];
   const projectIds = projects.map((project) => project.id);
-  const [entitlementsResult, manifestsResult, instancesResult, releaseEventsResult] = await Promise.all([
+  const [entitlementsResult, manifestsResult, instancesResult, releaseEventsResult, customerEventsResult] = await Promise.all([
     client.from('platform_entitlements').select('project_id,status').in('project_id', projectIds),
     client.from('platform_provisioning_manifests').select('project_id,project_version,manifest_hash,created_at').in('project_id', projectIds),
     client.from('platform_runtime_instances').select('id,project_id,project_version,manifest_hash,target_origin,deployment_ref,status,registered_at,verified_at,ready_at').in('project_id', projectIds),
     client.from('platform_runtime_release_events').select('id,project_id,action,project_version,manifest_hash,target_origin,deployment_ref,note,created_at').in('project_id', projectIds).order('created_at', { ascending: true }),
+    client.from('platform_customer_delivery_events').select('release_event_id,customer_message').in('project_id', projectIds),
   ]);
   if (entitlementsResult.error) throw new Error(`Unable to read provisioning entitlements: ${entitlementsResult.error.message}`);
   if (manifestsResult.error) throw new Error(`Unable to read provisioning manifests: ${manifestsResult.error.message}`);
   if (instancesResult.error) throw new Error(`Unable to read runtime instances: ${instancesResult.error.message}`);
   if (releaseEventsResult.error) throw new Error(`Unable to read runtime release events: ${releaseEventsResult.error.message}`);
+  if (customerEventsResult.error) throw new Error(`Unable to read customer delivery events: ${customerEventsResult.error.message}`);
   const entitlements = new Map(((entitlementsResult.data ?? []) as ProvisioningEntitlementRow[]).map((row) => [row.project_id, row.status]));
   const manifests = new Map(((manifestsResult.data ?? []) as ProvisioningManifestRow[]).map((row) => [row.project_id, row]));
   const instanceRows = (instancesResult.data ?? []) as RuntimeInstanceRow[];
@@ -214,6 +222,7 @@ export async function listPlatformProvisioningQueue(staffUserId: string): Promis
     attestationsByInstance.set(row.instance_id, current);
   }
   const instances = new Map(instanceRows.map((row) => [row.project_id, row]));
+  const customerMessages = new Map(((customerEventsResult.data ?? []) as CustomerDeliveryEventRow[]).map((row) => [row.release_event_id, row.customer_message]));
   const releasesByProject = new Map<string, PlatformRuntimeReleaseEventDto[]>();
   for (const row of (releaseEventsResult.data ?? []) as RuntimeReleaseEventRow[]) {
     const current = releasesByProject.get(row.project_id) ?? [];
@@ -225,6 +234,7 @@ export async function listPlatformProvisioningQueue(staffUserId: string): Promis
       targetOrigin: row.target_origin,
       deploymentRef: row.deployment_ref,
       note: row.note,
+      customerMessage: customerMessages.get(row.id) ?? '客户交付摘要尚未建立',
       createdAt: row.created_at,
     });
     releasesByProject.set(row.project_id, current);
@@ -268,15 +278,17 @@ export async function recordPlatformRuntimeRelease(
   action: PlatformRuntimeReleaseAction,
   checklist: PlatformRuntimeReleaseChecklist,
   note: string,
+  customerMessage: string,
 ) {
   if (!staffUserId) throw new ApiError(403, '此账号没有平台运营权限');
   const client = await createPlatformServerClient();
-  const { data, error } = await client.rpc('platform_record_runtime_release', {
+  const { data, error } = await client.rpc('platform_record_runtime_release_v2', {
     p_event_key: eventKey,
     p_project_id: projectId,
     p_action: action,
     p_checklist: checklist,
     p_note: note,
+    p_customer_message: customerMessage,
   }).single();
   if (error) {
     if (error.message.includes('platform_staff_required')) throw new ApiError(403, '此账号没有平台运营权限');

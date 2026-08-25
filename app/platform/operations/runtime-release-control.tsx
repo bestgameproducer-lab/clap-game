@@ -29,16 +29,22 @@ export function RuntimeReleaseControl({ project }: { project: PlatformProvisioni
     : project.projectStatus === 'live' ? 'hold' : null;
   const [checklist, setChecklist] = useState(() => createEmptyPlatformRuntimeReleaseChecklist(action ?? 'release'));
   const [note, setNote] = useState('');
+  const [customerMessage, setCustomerMessage] = useState('');
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const checklistItems = useMemo(() => action ? getPlatformRuntimeReleaseChecklist(action) : [], [action]);
-  const complete = action ? isPlatformRuntimeReleaseChecklistComplete(action, checklist) && note.trim().length >= 4 : false;
+  const complete = action
+    ? isPlatformRuntimeReleaseChecklistComplete(action, checklist)
+      && note.trim().length >= 4
+      && customerMessage.trim().length >= 4
+    : false;
 
   useEffect(() => {
     if (!action) return;
     setChecklist(createEmptyPlatformRuntimeReleaseChecklist(action));
     setNote('');
+    setCustomerMessage('');
     setConfirming(false);
     setMessage('');
   }, [action]);
@@ -51,7 +57,7 @@ export function RuntimeReleaseControl({ project }: { project: PlatformProvisioni
       const response = await fetch(`/api/platform/operations/projects/${project.id}/release`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, checklist, eventKey: createPlatformDraftId(), note }),
+        body: JSON.stringify({ action, checklist, customerMessage, eventKey: createPlatformDraftId(), note }),
       });
       if (!response.ok) throw new Error(await readError(response));
       setMessage(action === 'release' ? '正式运行状态已经记录。' : '正式运行标记已经暂停。');
@@ -91,9 +97,14 @@ export function RuntimeReleaseControl({ project }: { project: PlatformProvisioni
         ))}
       </div>
       <label className={styles.runtimeReleaseNote}>
-        {releasing ? '发布记录' : '暂停记录'}
+        {releasing ? '内部发布记录' : '内部暂停记录'}
         <textarea value={note} maxLength={1000} onChange={(event) => { setNote(event.target.value); setConfirming(false); }} placeholder={releasing ? '记录确认人、正式入口核对、支持安排和回退版本；不要填写任何密钥。' : '记录暂停原因、影响范围、外部入口处置和恢复条件；不要填写宾客密码。'} />
         <small>{note.length}/1000 · 至少 4 个字</small>
+      </label>
+      <label className={styles.runtimeCustomerMessage}>
+        客户可见交付说明
+        <textarea value={customerMessage} maxLength={500} onChange={(event) => { setCustomerMessage(event.target.value); setConfirming(false); }} placeholder={releasing ? '例如：你们的婚礼游戏已经通过彩排并正式开放，二维码和现场支持均已确认。' : '例如：正式入口已按约定暂停，恢复时间与后续安排将由工作人员另行确认。'} />
+        <small>{customerMessage.length}/500 · 会显示给项目所有者和协作者</small>
       </label>
       {message ? <p className={styles.runtimeReleaseMessage} role="status">{message}</p> : null}
       {confirming ? (
@@ -112,6 +123,7 @@ export function RuntimeReleaseControl({ project }: { project: PlatformProvisioni
             <article key={event.id}>
               <div><small>{event.action === 'release' ? '正式运行' : '人工暂停'} · V{event.projectVersion}</small><time dateTime={event.createdAt}>{new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(event.createdAt))}</time></div>
               <p>{event.note}</p>
+              <blockquote>客户可见：{event.customerMessage}</blockquote>
               <code>{event.deploymentRef} · {event.manifestHash.slice(0, 12)}…</code>
             </article>
           ))}

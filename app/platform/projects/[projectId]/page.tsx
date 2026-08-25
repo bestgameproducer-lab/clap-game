@@ -75,8 +75,9 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
     throw error;
   }
 
-  const { project, versions, entitlement, reviews, members, invitations } = details;
+  const { project, versions, entitlement, reviews, members, invitations, deliveryEvents } = details;
   const latestReview = reviews[0] ?? null;
+  const latestDeliveryEvent = deliveryEvents[0] ?? null;
   const plan = PLATFORM_PLANS.find((item) => item.id === project.planId) ?? PLATFORM_PLANS[0];
   const theme = PLATFORM_THEMES.find((item) => item.id === project.themeId) ?? PLATFORM_THEMES[0];
   const tone = PLATFORM_TONES.find((item) => item.id === project.toneId) ?? PLATFORM_TONES[0];
@@ -159,6 +160,22 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
           <section className={latestReview.decision === 'changes_requested' ? styles.customerReviewChanges : styles.customerReviewApproved}>
             <div><p className={styles.eyebrow}>{latestReview.decision === 'changes_requested' ? 'CHANGES REQUESTED' : 'CONTENT APPROVED'}</p><h2>{latestReview.decision === 'changes_requested' ? '平台已退回修改，项目重新开放编辑。' : '内容审核已经通过。'}</h2></div>
             <div><small>第 {latestReview.round} 轮审核 · 基于 V{latestReview.projectVersion - 1}</small><p>{latestReview.note || '内容已通过审核，下一步由平台工作人员准备独立婚礼实例。'}</p><time dateTime={latestReview.createdAt}>{new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(latestReview.createdAt))}</time></div>
+          </section>
+        ) : null}
+
+        {latestDeliveryEvent ? (
+          <section className={latestDeliveryEvent.action === 'release' ? styles.customerDeliveryLive : styles.customerDeliveryHold}>
+            <div>
+              <p className={styles.eyebrow}>{latestDeliveryEvent.action === 'release' ? 'DELIVERY LIVE' : 'DELIVERY ON HOLD'}</p>
+              <h2>{latestDeliveryEvent.action === 'release' ? '平台已记录这场婚礼进入正式运行。' : '平台已记录这场婚礼暂停正式运行。'}</h2>
+              <p>{latestDeliveryEvent.customerMessage}</p>
+              <small>这是客户可见的交付状态记录；不包含内部部署标识、配置指纹、工作人员备注或任何密钥。</small>
+            </div>
+            <ol>
+              {deliveryEvents.map((event) => (
+                <li key={event.id}><b>{event.action === 'release' ? '正式运行' : '人工暂停'}</b><span>V{event.projectVersion} · {event.customerMessage}</span><time dateTime={event.createdAt}>{new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(event.createdAt))}</time></li>
+              ))}
+            </ol>
           </section>
         ) : null}
 

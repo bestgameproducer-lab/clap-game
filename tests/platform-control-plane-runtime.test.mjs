@@ -612,33 +612,41 @@ test(
 
       await assert.rejects(
         db.query(
-          "select * from platform_record_runtime_release($1::uuid, $2::uuid, 'hold', $3::jsonb, $4)",
-          [eventTwentyFour, projectId, holdChecklist, 'Cannot hold before release'],
+          "select * from platform_record_runtime_release_v2($1::uuid, $2::uuid, 'hold', $3::jsonb, $4, $5)",
+          [eventTwentyFour, projectId, holdChecklist, 'Cannot hold before release', 'The project is not live yet.'],
         ),
         /platform_runtime_release_out_of_order/,
       );
       await assert.rejects(
         db.query(
-          "select * from platform_record_runtime_release($1::uuid, $2::uuid, 'release', $3::jsonb, $4)",
-          [eventTwentyThree, projectId, JSON.stringify({ ...JSON.parse(releaseChecklist), ownerApprovalConfirmed: false }), 'Incomplete release'],
+          "select * from platform_record_runtime_release_v2($1::uuid, $2::uuid, 'release', $3::jsonb, $4, $5)",
+          [eventTwentyThree, projectId, JSON.stringify({ ...JSON.parse(releaseChecklist), ownerApprovalConfirmed: false }), 'Incomplete release', 'The release checklist is incomplete.'],
+        ),
+        /platform_runtime_release_invalid/,
+      );
+      await assert.rejects(
+        db.query(
+          "select * from platform_record_runtime_release_v2($1::uuid, $2::uuid, 'release', $3::jsonb, $4, $5)",
+          [eventTwentyThree, projectId, releaseChecklist, 'Internal release note', 'Open https://internal-deployment.example.com for details.'],
         ),
         /platform_runtime_release_invalid/,
       );
       const released = await db.query(
-        "select * from platform_record_runtime_release($1::uuid, $2::uuid, 'release', $3::jsonb, $4)",
-        [eventTwentyThree, projectId, releaseChecklist, 'Owner approved public entry and wedding-day support plan'],
+        "select * from platform_record_runtime_release_v2($1::uuid, $2::uuid, 'release', $3::jsonb, $4, $5)",
+        [eventTwentyThree, projectId, releaseChecklist, 'Owner approved public entry and wedding-day support plan', 'Your wedding game is rehearsed and ready at the confirmed guest entry.'],
       );
       assert.equal(released.rows[0].project_status, 'live');
       assert.equal(released.rows[0].manifest_hash, manifest.rows[0].manifest_hash);
       const releasedRetry = await db.query(
-        "select * from platform_record_runtime_release($1::uuid, $2::uuid, 'release', $3::jsonb, $4)",
-        [eventTwentyThree, projectId, releaseChecklist, 'Owner approved public entry and wedding-day support plan'],
+        "select * from platform_record_runtime_release_v2($1::uuid, $2::uuid, 'release', $3::jsonb, $4, $5)",
+        [eventTwentyThree, projectId, releaseChecklist, 'Owner approved public entry and wedding-day support plan', 'A retry must preserve the original customer summary.'],
       );
       assert.equal(releasedRetry.rows[0].release_event_id, released.rows[0].release_event_id);
+      assert.equal(releasedRetry.rows[0].customer_message, released.rows[0].customer_message);
 
       const held = await db.query(
-        "select * from platform_record_runtime_release($1::uuid, $2::uuid, 'hold', $3::jsonb, $4)",
-        [eventTwentyFour, projectId, holdChecklist, 'External entry restricted while operator reviews incident'],
+        "select * from platform_record_runtime_release_v2($1::uuid, $2::uuid, 'hold', $3::jsonb, $4, $5)",
+        [eventTwentyFour, projectId, holdChecklist, 'External entry restricted while operator reviews incident', 'The formal entry is on hold while the team completes a safety review.'],
       );
       assert.equal(held.rows[0].project_status, 'ready');
       const releaseEventCount = await db.query('select count(*)::int count from platform_runtime_release_events where project_id = $1', [projectId]);
@@ -649,6 +657,12 @@ test(
       await db.exec('set role authenticated');
       const ownerReleaseEvents = await db.query('select count(id)::int count from platform_runtime_release_events');
       assert.equal(ownerReleaseEvents.rows[0].count, 0);
+      const ownerDeliveryEvents = await db.query('select action,customer_message from platform_customer_delivery_events order by created_at');
+      assert.deepEqual(ownerDeliveryEvents.rows, [
+        { action: 'release', customer_message: 'Your wedding game is rehearsed and ready at the confirmed guest entry.' },
+        { action: 'hold', customer_message: 'The formal entry is on hold while the team completes a safety review.' },
+      ]);
+      assert.equal(JSON.stringify(ownerDeliveryEvents.rows).includes('preview:deployment-001'), false);
 
       await db.exec('reset role');
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [operator]);
@@ -661,6 +675,7 @@ test(
           (select count(*)::int from platform_runtime_instances) instances,
           (select count(*)::int from platform_runtime_instance_attestations) attestations,
           (select count(*)::int from platform_runtime_release_events) releases,
+          (select count(*)::int from platform_customer_delivery_events) delivery_summaries,
           (select count(*)::int from platform_runtime_instances where registered_by_user_id is null) anonymous_instances,
           (select count(*)::int from platform_runtime_instance_attestations where attested_by_user_id is null) anonymous_attestations,
           (select count(*)::int from platform_runtime_release_events where released_by_user_id is null) anonymous_releases,
@@ -668,7 +683,7 @@ test(
           (select count(*)::int from platform_project_reviews where reviewer_user_id is null) anonymous_reviews,
           (select count(*)::int from platform_audit_log where actor_user_id is null) anonymous_audits
       `);
-      assert.deepEqual(retainedAudit.rows[0], { versions: 9, reviews: 2, audits: 21, instances: 1, attestations: 2, releases: 2, anonymous_instances: 1, anonymous_attestations: 2, anonymous_releases: 2, anonymous_versions: 2, anonymous_reviews: 2, anonymous_audits: 8 });
+      assert.deepEqual(retainedAudit.rows[0], { versions: 9, reviews: 2, audits: 21, instances: 1, attestations: 2, releases: 2, delivery_summaries: 2, anonymous_instances: 1, anonymous_attestations: 2, anonymous_releases: 2, anonymous_versions: 2, anonymous_reviews: 2, anonymous_audits: 8 });
     } finally {
       try { await db.exec('reset role'); } catch {}
       await db.close();
