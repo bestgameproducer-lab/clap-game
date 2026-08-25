@@ -103,3 +103,19 @@ test('account UI does not transmit the device draft before explicit signed-in sa
   assert.match(projectWorkspace, /href="\/platform\/account"/);
   assert.doesNotMatch(account, /SERVICE_ROLE|service_role/);
 });
+
+test('cloud project detail remains server-authenticated, owner-scoped and read-only', () => {
+  const page = read('app/platform/projects/[projectId]/page.tsx');
+  const data = read('lib/data/platform-projects.ts');
+  const account = read('app/platform/account/platform-account-gateway.tsx');
+
+  assert.match(page, /getPlatformUser\(\)/);
+  assert.match(page, /getPlatformProjectDetails\(user\.id, projectId\)/);
+  assert.match(page, /仅账号本人可见/);
+  assert.match(page, /尚未收费，也不会自动开通婚礼实例/);
+  assert.match(data, /\.eq\('owner_user_id', ownerUserId\)\.eq\('id', projectId\)/);
+  assert.match(data, /platform_project_versions/);
+  assert.match(data, /platform_entitlements/);
+  assert.doesNotMatch(data, /select\(['"]\*['"]\)/);
+  assert.match(account, /href=\{`\/platform\/projects\/\$\{project\.id\}`\}/);
+});

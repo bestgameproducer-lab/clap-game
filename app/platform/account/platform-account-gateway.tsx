@@ -255,6 +255,7 @@ export function PlatformAccountGateway({
               <span>{project.status === 'draft' ? '方案草稿' : project.status}</span>
               <time dateTime={project.updatedAt}>{new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(new Date(project.updatedAt))}</time>
               <div className={styles.cloudProjectActions}>
+                <Link href={`/platform/projects/${project.id}`}>查看项目</Link>
                 <button type="button" onClick={() => requestCloudRestore(project)} disabled={busy}>
                   {pendingRestoreId === project.id ? '确认覆盖并编辑' : '载入到本机编辑'}
                 </button>
