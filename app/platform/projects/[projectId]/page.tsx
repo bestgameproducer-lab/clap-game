@@ -11,6 +11,7 @@ import { getPlatformRetentionDays, isPlatformDataPolicyReady } from '@/lib/platf
 import { PLATFORM_QUOTE_BILLING_LABELS, formatPlatformQuoteAmount } from '@/lib/platform/commercial';
 import styles from '../../platform.module.css';
 import { ProjectCollaboration } from './project-collaboration';
+import { ProjectArchiveAction } from './project-archive-action';
 import { ProjectCommercialAction } from './project-commercial-action';
 import { ProjectQuoteProceedAction } from './project-quote-proceed-action';
 import { ProjectReviewAction } from './project-review-action';
@@ -214,12 +215,14 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
           </section>
         </div>
 
-        <section className={styles.cloudReviewPanel}>
+        {project.status !== 'archived' ? <section className={styles.cloudReviewPanel}>
           <div><p className={styles.eyebrow}>DELIVERY CHECKPOINT</p><h2>提交内容审核</h2><p>资料完整后，把当前版本锁定为审核基线。这个动作不会收费、不会创建婚礼运行实例，也不会改动现有正式婚礼。</p></div>
           <ProjectReviewAction projectId={project.id} status={project.status} missingItems={missingReviewItems} canSubmit={project.accessRole === 'owner'} />
-        </section>
+        </section> : null}
 
-        <ProjectCollaboration projectId={project.id} currentUserId={user.id} accessRole={project.accessRole} members={members} invitations={invitations} />
+        {project.status !== 'archived' ? <ProjectCollaboration projectId={project.id} currentUserId={user.id} accessRole={project.accessRole} members={members} invitations={invitations} /> : null}
+
+        <ProjectArchiveAction projectId={project.id} status={project.status} accessRole={project.accessRole} />
 
         <section className={styles.cloudDetailNext}><div><p className={styles.eyebrow}>{nextCheckpoint.eyebrow}</p><h2>{nextCheckpoint.title}</h2><p>{nextCheckpoint.copy}</p><small>方案备份包含客户填写的故事与备注，请下载到受信任设备妥善保管；它不含宾客、成员账号、照片、积分、密钥或运行实例数据，也不是婚礼结束后的正式归档包。</small></div><div className={styles.cloudDetailNextActions}>{project.accessRole === 'owner' ? <a className={styles.secondaryAction} href={`/api/platform/projects/${project.id}/export`}>下载当前方案备份</a> : null}<Link className={styles.primaryAction} href="/platform/account">返回账号与项目 <span>→</span></Link></div></section>
       </div>

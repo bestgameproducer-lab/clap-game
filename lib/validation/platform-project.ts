@@ -232,3 +232,16 @@ export function readPlatformProjectSaveInput(body: JsonObject): PlatformProjectS
 export function readPlatformReviewSubmissionInput(body: JsonObject) {
   return { eventKey: requiredUuid(body.eventKey, '操作编号') };
 }
+
+export function readPlatformProjectArchiveInput(body: JsonObject) {
+  if (Object.keys(body).sort().join(',') !== 'action,confirmed,eventKey') {
+    throw new ApiError(400, '项目归档请求包含不支持的字段');
+  }
+  const confirmed = requiredBoolean(body.confirmed, '项目归档确认');
+  if (!confirmed) throw new ApiError(400, '请先明确确认项目归档操作');
+  return {
+    eventKey: requiredUuid(body.eventKey, '操作编号'),
+    action: requiredEnum(body.action, '项目归档操作', ['archive', 'restore'] as const),
+    confirmed,
+  };
+}

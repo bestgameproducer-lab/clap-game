@@ -709,6 +709,11 @@ test(
     const secondOfferEvent = '31000000-0000-4000-8000-000000000007';
     const firstProceedEvent = '31000000-0000-4000-8000-000000000008';
     const secondProceedEvent = '31000000-0000-4000-8000-000000000009';
+    const invitationEvent = '31000000-0000-4000-8000-000000000010';
+    const archiveEvent = '31000000-0000-4000-8000-000000000011';
+    const restoreEvent = '31000000-0000-4000-8000-000000000012';
+    const blockedArchiveEvent = '31000000-0000-4000-8000-000000000013';
+    const blockedInvitationEvent = '31000000-0000-4000-8000-000000000014';
     const contentBrief = JSON.stringify({
       language: 'chinese', interaction: 'balanced', guestMix: 'balanced',
       storyMoments: 'Private story must not enter commercial snapshot', avoidTopics: 'Private boundary',
@@ -741,6 +746,10 @@ test(
       const saved = await db.query(saveSql, [saveEvent, draftId, contentBrief, templateContent, deliveryScope, dataPolicy]);
       const projectId = saved.rows[0].id;
       assert.equal(saved.rows[0].current_version, 1);
+      await db.query(
+        "select * from platform_create_project_invitation($1::uuid,$2::uuid,'viewer',$3)",
+        [invitationEvent, projectId, 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'],
+      );
       await assert.rejects(
         db.query('select * from platform_request_commercial_quote($1::uuid, $2::uuid, $3)', [quoteEvent, projectId, 2]),
         /platform_quote_request_stale/,
@@ -784,6 +793,10 @@ test(
       );
       await assert.rejects(
         db.query('select * from platform_request_quote_proceed($1::uuid,$2::uuid,$3::uuid,true)', [firstProceedEvent, projectId, firstOfferEvent]),
+        /platform_project_not_owned/,
+      );
+      await assert.rejects(
+        db.query("select * from platform_set_draft_project_archive_state($1::uuid,$2::uuid,'archive',true)", [archiveEvent, projectId]),
         /platform_project_not_owned/,
       );
 
@@ -860,14 +873,54 @@ test(
         [secondProceedEvent, projectId, secondOfferEvent],
       );
       assert.equal(secondProceed.rows[0].status, 'requested');
+      await assert.rejects(
+        db.query("select * from platform_set_draft_project_archive_state($1::uuid,$2::uuid,'archive',false)", [archiveEvent, projectId]),
+        /platform_project_archive_invalid/,
+      );
+      const archived = await db.query(
+        "select * from platform_set_draft_project_archive_state($1::uuid,$2::uuid,'archive',true)",
+        [archiveEvent, projectId],
+      );
+      assert.equal(archived.rows[0].status, 'archived');
+      const archiveRetry = await db.query(
+        "select * from platform_set_draft_project_archive_state($1::uuid,$2::uuid,'archive',true)",
+        [archiveEvent, projectId],
+      );
+      assert.equal(archiveRetry.rows[0].status, 'archived');
+      assert.equal((await db.query('select count(*)::int count from platform_project_invitations where revoked_at is not null')).rows[0].count, 1);
+      assert.equal((await db.query("select count(*)::int count from platform_commercial_quote_requests where status = 'requested'")).rows[0].count, 0);
+      assert.equal((await db.query("select count(*)::int count from platform_commercial_quotes where status = 'offered'")).rows[0].count, 0);
+      assert.equal((await db.query("select count(*)::int count from platform_quote_proceed_requests where status = 'requested'")).rows[0].count, 0);
+      await assert.rejects(
+        db.query(
+          "select * from platform_create_project_invitation($1::uuid,$2::uuid,'viewer',$3)",
+          [blockedInvitationEvent, projectId, 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd'],
+        ),
+        /platform_project_archived/,
+      );
+      await assert.rejects(
+        db.query("select * from platform_set_draft_project_archive_state($1::uuid,$2::uuid,'archive',true)", [blockedArchiveEvent, projectId]),
+        /platform_project_archive_locked/,
+      );
+      const restored = await db.query(
+        "select * from platform_set_draft_project_archive_state($1::uuid,$2::uuid,'restore',true)",
+        [restoreEvent, projectId],
+      );
+      assert.equal(restored.rows[0].status, 'draft');
+      assert.equal((await db.query("select count(*)::int count from platform_audit_log where action in ('project_archive','project_restore')")).rows[0].count, 2);
 
       await db.exec('reset role');
+      assert.equal((await db.query("select count(*)::int count from platform_mutation_receipts where action in ('project_archive','project_restore')")).rows[0].count, 2);
       await db.query("update platform_entitlements set status = 'active', source = 'operator', active_from = now() where project_id = $1", [projectId]);
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [owner]);
       await db.exec('set role authenticated');
       await assert.rejects(
         db.query('select * from platform_request_commercial_quote($1::uuid, $2::uuid, $3)', [blockedQuoteEvent, projectId, 2]),
         /platform_quote_request_entitled/,
+      );
+      await assert.rejects(
+        db.query("select * from platform_set_draft_project_archive_state($1::uuid,$2::uuid,'archive',true)", [blockedArchiveEvent, projectId]),
+        /platform_project_archive_entitled/,
       );
       await db.exec('reset role');
       const finalState = await db.query(`

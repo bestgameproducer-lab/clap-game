@@ -5,6 +5,7 @@ import type { PlatformMemberRole } from '../validation/platform-collaboration';
 
 function mapCollaborationError(message: string): never {
   if (message.includes('platform_project_not_owned')) throw new ApiError(404, '没有找到这个客户项目或你不是项目所有者');
+  if (message.includes('platform_project_archived')) throw new ApiError(409, '项目已经归档，恢复为草稿后才能创建新邀请');
   if (message.includes('platform_invitation_invalid')) throw new ApiError(400, '邀请信息格式不正确');
   if (message.includes('platform_invitation_limit')) throw new ApiError(409, '这个项目已有过多待领取邀请，请先撤销旧邀请');
   if (message.includes('platform_invitation_unavailable')) throw new ApiError(409, '邀请已失效、已领取或已撤销');

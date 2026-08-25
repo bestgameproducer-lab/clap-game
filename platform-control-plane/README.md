@@ -55,6 +55,8 @@ Migration `202608250019` lets staff issue a customer-readable, non-binding quote
 
 Migration `202608250020` adds an owner-only request for human follow-up on an offered, unexpired quote. The owner must explicitly acknowledge that the action is not a payment or contract acceptance; collaborators remain read-only. Requests are idempotent and audited, appear in the staff commercial queue, and are automatically superseded when the quote is replaced or the commercial project scope changes. The function never creates an order, records a payment, accepts a contract, or activates an entitlement.
 
+Migration `202608250021` adds reversible archive/restore actions for owner-held draft projects. It only accepts a confirmed action while the entitlement is pending and no runtime instance exists. Archiving preserves project content and immutable versions, revokes outstanding invitations, and supersedes active quote requests, quotes, and follow-up requests; a database trigger prevents new invitations while archived. Restoring returns the project to `draft` without reviving any invalidated commercial or collaboration records. Both actions are idempotent and audited, and neither path hard-deletes project data.
+
 ## Approved-version provisioning manifest
 
 After an operator approves a submitted version, `/platform/operations` can lock one immutable `wedding-instance-config/v2` manifest for that exact project version. Locking is staff-only, idempotent, protected by an advisory lock, SHA-256 signed, and audited. It does **not** create a Vercel project, Supabase project, domain, database, or paid resource. Previously locked v1 manifests remain immutable and readable.

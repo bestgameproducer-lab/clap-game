@@ -551,6 +551,35 @@ test('quote proceed requests are owner-only acknowledgements and never accept co
   assert.doesNotMatch(route + data + migration, /stripe|checkout|payment_intent|chargeCustomer|activateEntitlement/i);
 });
 
+test('draft project archive is owner-only, reversible, audited, and never deletes customer data', () => {
+  const migration = read('platform-control-plane/migrations/202608250021_draft_project_archive.sql');
+  const route = read('app/api/platform/projects/[projectId]/archive-state/route.ts');
+  const validation = read('lib/validation/platform-project.ts');
+  const data = read('lib/data/platform-projects.ts');
+  const action = read('app/platform/projects/[projectId]/project-archive-action.tsx');
+  const page = read('app/platform/projects/[projectId]/page.tsx');
+
+  assert.match(migration, /platform_set_draft_project_archive_state/);
+  assert.match(migration, /p_action not in \('archive', 'restore'\)/);
+  assert.match(migration, /v_project\.status <> v_expected_status/);
+  assert.match(migration, /v_entitlement_status is distinct from 'pending'/);
+  assert.match(migration, /platform_runtime_instances/);
+  assert.match(migration, /platform_project_invitations invitation set revoked_at = now\(\)/);
+  assert.match(migration, /platform_project_invitations_block_archived/);
+  assert.match(migration, /platform_project_archived/);
+  assert.match(migration, /platform_commercial_quote_requests request set/);
+  assert.match(migration, /'deletes_project_data', false/);
+  assert.match(migration, /platform_mutation_receipts/);
+  assert.match(route, /assertSameOrigin\(request\)/);
+  assert.match(route, /requirePlatformUser\(\)/);
+  assert.match(validation, /action,confirmed,eventKey/);
+  assert.match(data, /platform_set_draft_project_archive_state/);
+  assert.match(action, /归档不会删除项目/);
+  assert.match(action, /恢复为可编辑草稿/);
+  assert.match(page, /project\.status !== 'archived'/);
+  assert.doesNotMatch(migration + route + data, /delete from public\.platform_projects|service_role|SERVICE_ROLE/i);
+});
+
 test('guest data lifecycle is finite, explicitly confirmed, versioned, and delivered without guest records', () => {
   const policy = read('lib/platform/data-policy.ts');
   const scope = read('app/platform/scope/delivery-scope-builder.tsx');

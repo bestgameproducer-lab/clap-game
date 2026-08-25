@@ -4924,6 +4924,29 @@
 .scopeActions .secondaryAction { color:#fff8ec; border-color:rgba(255,255,255,.3); }
 .cloudDetailNextActions { display:grid; gap:10px; justify-items:stretch; }
 .cloudDetailNextActions > * { justify-content:center; text-align:center; }
+.projectArchivePanel { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:18px; align-items:center; padding:22px 24px; border:1px solid rgba(117,85,65,.16); border-radius:18px; color:#6b5649; background:rgba(255,250,245,.72); }
+.projectArchivePanel > div:first-child small,.projectArchivePanel > div:first-child strong { display:block; }
+.projectArchivePanel > div:first-child small { color:#a57a62; font-size:8px; font-weight:900; letter-spacing:.14em; }
+.projectArchivePanel > div:first-child strong { margin-top:7px; color:#554137; font:600 16px/1.3 Georgia,'Noto Serif SC',serif; }
+.projectArchivePanel > div:first-child p { margin:7px 0 0; color:#7e6b5e; font-size:9px; line-height:1.65; }
+.projectArchivePanel > button { margin:0; border:1px solid rgba(113,80,62,.24); border-radius:999px; color:#694f41; background:#f0e3d8; }
+.projectArchivePanelArchived { border-color:rgba(89,104,82,.24); color:#52624d; background:rgba(232,239,227,.82); }
+.projectArchivePanelArchived > div:first-child small,.projectArchivePanelArchived > div:first-child strong { color:#52624d; }
+.projectArchiveConfirm { grid-column:1 / -1; padding:15px; border-radius:14px; color:white; background:#49372e; }
+.projectArchiveConfirm > b { font-size:10px; }
+.projectArchiveConfirm > p { margin:6px 0 0; color:#dfd1c6; font-size:9px; line-height:1.6; }
+.projectArchiveConfirm > div { display:flex; gap:8px; margin-top:12px; }
+.projectArchiveConfirm button { min-height:38px; margin:0; border-radius:999px; color:white; background:#a97555; }
+.projectArchiveConfirm button + button { color:#59453b; background:#dfd3ca; }
+.projectArchiveMessage { grid-column:1 / -1; margin:0; color:#755f50; font-size:9px; text-align:right; }
+
+@media (max-width: 680px) {
+  .projectArchivePanel { grid-template-columns:1fr; padding:18px; }
+  .projectArchivePanel > button { justify-self:start; }
+  .projectArchiveConfirm { grid-column:auto; }
+  .projectArchiveConfirm > div { display:grid; }
+  .projectArchiveMessage { grid-column:auto; text-align:left; }
+}
 
 @media (max-width: 980px) {
   .scopeGrid { grid-template-columns:1fr; }

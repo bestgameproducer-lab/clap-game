@@ -404,6 +404,34 @@ export async function requestPlatformQuoteProceed(
   return data;
 }
 
+export async function setPlatformDraftProjectArchiveState(
+  ownerUserId: string,
+  projectId: string,
+  eventKey: string,
+  action: 'archive' | 'restore',
+  confirmed: boolean,
+) {
+  if (!ownerUserId) throw new ApiError(401, '请先登录客户账号');
+  const client = await createPlatformServerClient();
+  const { data, error } = await client.rpc('platform_set_draft_project_archive_state', {
+    p_event_key: eventKey,
+    p_project_id: projectId,
+    p_action: action,
+    p_confirmed: confirmed,
+  }).single();
+  if (error) {
+    if (error.message.includes('platform_project_not_owned')) throw new ApiError(403, '只有项目所有者可以归档或恢复项目');
+    if (error.message.includes('platform_project_archive_invalid')) throw new ApiError(400, '项目归档请求格式不正确');
+    if (error.message.includes('platform_project_archive_locked')) throw new ApiError(409, action === 'archive' ? '只有未进入交付流程的草稿可以归档' : '只有已经归档的草稿可以恢复');
+    if (error.message.includes('platform_project_archive_entitled')) throw new ApiError(409, '项目已有商业权益，不能通过草稿归档操作处理');
+    if (error.message.includes('platform_project_archive_runtime_exists')) throw new ApiError(409, '项目已经有关联运行实例，不能通过草稿归档操作处理');
+    if (error.message.includes('platform_event_conflict')) throw new ApiError(409, '操作编号已经用于其他请求');
+    throw new Error(`Unable to change platform project archive state: ${error.message}`);
+  }
+  if (!data) throw new Error('Unable to change platform project archive state: missing response');
+  return data as { id: string; status: PlatformProjectDto['status']; current_version: number; updated_at: string };
+}
+
 export async function requestPlatformCommercialQuote(
   ownerUserId: string,
   projectId: string,
