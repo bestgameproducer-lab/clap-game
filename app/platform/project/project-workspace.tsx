@@ -7,6 +7,7 @@ import {
   PLATFORM_DRAFT_STORAGE_KEY,
   formatWeddingDate,
   getWeddingContentBrief,
+  getWeddingDeliveryScope,
   getWeddingCoupleName,
   isWeddingDraft,
   type WeddingDraft,
@@ -28,6 +29,7 @@ const PREPARATION_ITEMS = [
   { id: 'boundaries', name: '内容边界', copy: '已确认禁忌话题与互动尺度', ready: (draft: WeddingDraft) => getWeddingContentBrief(draft).boundariesConfirmed },
   { id: 'modules', name: '游戏模块', copy: '至少选择一个现场模块', ready: (draft: WeddingDraft) => draft.modules.length > 0 },
   { id: 'delivery', name: '交付方式', copy: '已选择买断或订阅方向', ready: (draft: WeddingDraft) => Boolean(draft.plan) },
+  { id: 'scope', name: '服务范围', copy: '已选择定制、支持和彩排方式', ready: (draft: WeddingDraft) => getWeddingDeliveryScope(draft).services.length > 0 },
 ] as const;
 
 export function ProjectWorkspace() {
@@ -138,7 +140,7 @@ export function ProjectWorkspace() {
           <p className={styles.eyebrow}>NEXT CHECKPOINT</p>
           <h2>下一步：内容确认</h2>
           <p>正式制作前还需要新人故事素材、宾客名单字段、敏感内容边界、主持人口播、题库答案和视觉资产。这些资料未来会进入隔离的客户项目，不会写入模板本身。</p>
-          <div><Link className={styles.primaryAction} href="/platform/content">填写内容问卷 <span>→</span></Link><Link className={styles.secondaryAction} href="/platform/create">返回方案定制</Link></div>
+          <div><Link className={styles.primaryAction} href="/platform/content">填写内容问卷 <span>→</span></Link><Link className={styles.secondaryAction} href="/platform/scope">确认服务范围</Link><Link className={styles.secondaryAction} href="/platform/create">返回方案定制</Link></div>
         </section>
       </div>
     </div>

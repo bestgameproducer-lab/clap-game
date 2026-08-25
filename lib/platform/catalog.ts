@@ -7,6 +7,16 @@ export type PlatformModuleId =
   | 'host-toolkit'
   | 'live-scoreboard'
   | 'finale-vote';
+export type PlatformCustomizationLevelId = 'template' | 'guided' | 'bespoke';
+export type PlatformSupportModeId = 'self_service' | 'remote_guided' | 'managed';
+export type PlatformRehearsalModeId = 'self_check' | 'remote_walkthrough' | 'full_rehearsal';
+export type PlatformServiceId =
+  | 'brand-adaptation'
+  | 'content-workshop'
+  | 'guest-import'
+  | 'host-runbook'
+  | 'wedding-day-support'
+  | 'archive-export';
 
 export type PlatformPlan = {
   id: PlatformPlanId;
@@ -30,6 +40,16 @@ export type PlatformModule = {
   shortName: string;
   description: string;
   stage: string;
+};
+
+export type PlatformScopeOption<T extends string> = {
+  id: T;
+  name: string;
+  description: string;
+};
+
+export type PlatformService = PlatformScopeOption<PlatformServiceId> & {
+  availability: 'standard' | 'needs-confirmation';
 };
 
 export const PLATFORM_PLANS: readonly PlatformPlan[] = [
@@ -118,6 +138,33 @@ export const PLATFORM_MODULES: readonly PlatformModule[] = [
     description: '宾客投票、身份结算、最终排名与颁奖时刻。',
     stage: '派对终章',
   },
+] as const;
+
+export const PLATFORM_CUSTOMIZATION_LEVELS: readonly PlatformScopeOption<PlatformCustomizationLevelId>[] = [
+  { id: 'template', name: '模板自助', description: '保留旗舰玩法结构，自行填写姓名、题库、组名和视觉方向。' },
+  { id: 'guided', name: '协作定制', description: '平台协助梳理故事、互动边界和主持内容，再共同确认成稿。' },
+  { id: 'bespoke', name: '深度定制', description: '在旗舰结构上重新设计内容与视觉；范围和周期需要人工评估。' },
+] as const;
+
+export const PLATFORM_SUPPORT_MODES: readonly PlatformScopeOption<PlatformSupportModeId>[] = [
+  { id: 'self_service', name: '自助运营', description: '客户团队按操作手册自行配置、彩排和现场控制。' },
+  { id: 'remote_guided', name: '远程协助', description: '平台在关键节点远程协助检查配置、彩排与发布准备。' },
+  { id: 'managed', name: '托管协作', description: '平台参与内容整理和流程准备；婚礼日支持能力需另行确认。' },
+] as const;
+
+export const PLATFORM_REHEARSAL_MODES: readonly PlatformScopeOption<PlatformRehearsalModeId>[] = [
+  { id: 'self_check', name: '自助检查', description: '使用检查表和预览完成内部核验。' },
+  { id: 'remote_walkthrough', name: '远程走台', description: '安排一次远程流程讲解，逐项确认关键操作。' },
+  { id: 'full_rehearsal', name: '完整彩排', description: '按角色、阶段和异常路径完成一次正式环境彩排。' },
+] as const;
+
+export const PLATFORM_SERVICES: readonly PlatformService[] = [
+  { id: 'brand-adaptation', name: '品牌与视觉适配', description: '调整配色、文案语气与基础品牌元素。', availability: 'standard' },
+  { id: 'content-workshop', name: '故事与题库工作坊', description: '共同整理新人故事、题库和互动边界。', availability: 'standard' },
+  { id: 'guest-import', name: '宾客名单导入', description: '按安全模板整理并导入宾客基础资料。', availability: 'standard' },
+  { id: 'host-runbook', name: '主持人流程手册', description: '生成主持话术、游戏顺序和应急处理说明。', availability: 'standard' },
+  { id: 'wedding-day-support', name: '婚礼日远程支持', description: '婚礼时段的远程协助需要确认日期、时区和服务能力。', availability: 'needs-confirmation' },
+  { id: 'archive-export', name: '婚礼后资料归档', description: '按约定导出项目配置与可交付资料。', availability: 'standard' },
 ] as const;
 
 export const FLAGSHIP_TEMPLATE = {

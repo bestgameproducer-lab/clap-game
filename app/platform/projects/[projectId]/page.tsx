@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { getPlatformProjectDetails } from '@/lib/data/platform-projects';
 import { ApiError } from '@/lib/errors';
 import { getPlatformUser } from '@/lib/platform/auth';
-import { PLATFORM_MODULES, PLATFORM_PLANS, PLATFORM_THEMES, PLATFORM_TONES } from '@/lib/platform/catalog';
+import { PLATFORM_CUSTOMIZATION_LEVELS, PLATFORM_MODULES, PLATFORM_PLANS, PLATFORM_REHEARSAL_MODES, PLATFORM_SERVICES, PLATFORM_SUPPORT_MODES, PLATFORM_THEMES, PLATFORM_TONES } from '@/lib/platform/catalog';
 import { getPlatformSupabaseEnv } from '@/lib/platform/env';
 import { formatWeddingDate } from '@/lib/platform/draft';
 import styles from '../../platform.module.css';
@@ -80,6 +80,10 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
   const theme = PLATFORM_THEMES.find((item) => item.id === project.themeId) ?? PLATFORM_THEMES[0];
   const tone = PLATFORM_TONES.find((item) => item.id === project.toneId) ?? PLATFORM_TONES[0];
   const modules = PLATFORM_MODULES.filter((module) => project.modules.includes(module.id));
+  const customization = PLATFORM_CUSTOMIZATION_LEVELS.find((item) => item.id === project.deliveryScope.customizationLevel)!;
+  const support = PLATFORM_SUPPORT_MODES.find((item) => item.id === project.deliveryScope.supportMode)!;
+  const rehearsal = PLATFORM_REHEARSAL_MODES.find((item) => item.id === project.deliveryScope.rehearsalMode)!;
+  const services = PLATFORM_SERVICES.filter((service) => project.deliveryScope.services.includes(service.id));
   const contentItems = [
     { label: '故事素材', ready: Boolean(project.contentBrief.storyMoments.trim()) },
     { label: '内容边界', ready: project.contentBrief.boundariesConfirmed },
@@ -91,6 +95,7 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
     { label: '填写两位新人姓名', ready: Boolean(project.partnerOne.trim() && project.partnerTwo.trim()) },
     { label: '确认婚礼日期和地点', ready: Boolean(project.weddingDate && project.location.trim()) },
     { label: '至少选择一个游戏模块', ready: modules.length > 0 },
+    { label: '至少选择一个服务项目', ready: services.length > 0 },
     { label: '提供至少一条真实故事素材', ready: Boolean(project.contentBrief.storyMoments.trim()) },
     { label: '确认内容禁忌与互动边界', ready: project.contentBrief.boundariesConfirmed },
   ];
@@ -135,6 +140,7 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
           <section className={styles.cloudDetailPanel}>
             <div className={styles.projectPanelHeading}><div><small>PLAN ENTITLEMENT</small><h2>套餐权益</h2></div><span>{entitlement ? ENTITLEMENT_LABELS[entitlement.status] : '未建立'}</span></div>
             <div className={styles.cloudEntitlement}><strong>{plan.name}</strong><p>{entitlement?.status === 'active' ? '套餐权益已经激活，可进入后续交付流程。' : '当前只记录方案选择，尚未收费，也不会自动开通婚礼实例。'}</p><small>付款接入前仍需确认价格、退款、税务、服务范围和数据保留条款。</small></div>
+            <div className={styles.cloudTemplateSummary}><small>DELIVERY SCOPE</small><strong>{customization.name} · {support.name} · {rehearsal.name}</strong><p>{services.map((service) => service.name).join('、') || '尚未选择服务项目'}</p>{project.deliveryScope.serviceNotes ? <span>{project.deliveryScope.serviceNotes}</span> : null}</div>
           </section>
 
           <section className={styles.cloudDetailPanel}>

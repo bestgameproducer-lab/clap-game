@@ -86,6 +86,8 @@ ADMIN_PASSWORD=请填写至少12位的管理员密码
 - 商业平台预览：`http://localhost:3000/platform`
 - 婚礼方案定制器：`http://localhost:3000/platform/create`
 - 婚礼内容问卷：`http://localhost:3000/platform/content`
+- 商业与交付范围：`http://localhost:3000/platform/scope`
+- 本机体验预览：`http://localhost:3000/platform/preview`
 - 本机项目工作台：`http://localhost:3000/platform/project`
 - 客户账号与云端项目：`http://localhost:3000/platform/account`
 - 云端项目详情：登录后从客户账号页进入 `/platform/projects/{项目编号}`
@@ -164,7 +166,7 @@ npm run build
 
 ## 商业平台预览
 
-`/platform`、`/platform/templates/cupid-wedding-trial`、`/platform/create`、`/platform/content`、`/platform/project`、`/platform/account`、受保护的 `/platform/projects/{项目编号}` 与工作人员专用的 `/platform/operations` 是在现有婚礼系统之上增加的商业平台首期纵向切片。它展示旗舰模板、单场买断与持续订阅两种交付方向，允许客户组合视觉、叙事和游戏模块，确认语言、互动强度、故事素材与内容边界，在本机工作台检查资料，并通过独立平台账号显式保存、查看和继续编辑自己的云端项目。
+`/platform`、`/platform/templates/cupid-wedding-trial`、`/platform/create`、`/platform/content`、`/platform/scope`、`/platform/preview`、`/platform/project`、`/platform/account`、受保护的 `/platform/projects/{项目编号}` 与工作人员专用的 `/platform/operations` 是在现有婚礼系统之上增加的商业平台首期纵向切片。它展示旗舰模板、单场买断与持续订阅两种交付方向，允许客户组合视觉、叙事和游戏模块，确认语言、互动强度、故事素材与内容边界，选择定制深度、运营协作、彩排方式和服务范围，在本机工作台检查资料，并通过独立平台账号显式保存、查看和继续编辑自己的云端项目。
 
 定制器在登录和点击“保存到独立客户项目”之前只使用浏览器 `localStorage`。云端项目使用另一套 Supabase 项目、邮箱安全链接、行级权限、不可变版本记录和审计日志，绝不写入当前正式婚礼数据库。账号服务的迁移与配置说明位于 [`platform-control-plane/README.md`](platform-control-plane/README.md)。当前仍不包含订单、付款或自动开通婚礼运行实例；完整边界和开发顺序见 [`docs/platform-product-architecture.md`](docs/platform-product-architecture.md)。
 
@@ -181,6 +183,8 @@ npm run build
 客户内容问卷现在包含可版本化的模板内容包：两组团队名称、主持人开场口播、最多 20 道新人问答、30 道快问快答和 80 个你比划我猜词语。口播只接受已列出的安全变量，服务端和数据库会同时拒绝 HTML、未知变量、额外 JSON 字段和超长内容；通过审核后，这些运行配置会进入签名交付清单，题目答案不会进入现有宾客端，私人故事和禁忌备注仍被排除。
 
 `/platform/preview` 提供完全基于本机草稿的体验预览，可以切换查看宾客邀请、主持人题库和积分大屏。预览不调用正式婚礼或客户云端 API，身份按钮不可操作，分数使用明确的占位状态，因此不会把视觉确认误当成真实彩排。
+
+`/platform/scope` 把单场买断或订阅意向、定制深度、运营协作、彩排方式和服务项目保存到同一份本机草稿；只有客户在账号页明确保存后才进入云端项目、不可变版本和工作人员审核。页面不展示未经确认的价格、不创建订单、不扣款；婚礼日远程支持等项目明确标记为需要人工确认档期和服务能力。
 
 ## 当前 MVP 的边界
 

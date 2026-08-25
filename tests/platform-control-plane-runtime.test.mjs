@@ -31,7 +31,7 @@ grant execute on function auth.jwt() to authenticated;
 `;
 
 const saveSql = `
-select * from public.platform_save_customized_project_draft_v4(
+select * from public.platform_save_customized_project_draft_v5(
   $1::uuid,
   null::uuid,
   $2::uuid,
@@ -48,12 +48,13 @@ select * from public.platform_save_customized_project_draft_v4(
   array['secret-missions','host-toolkit']::text[],
   'runtime test',
   $3::jsonb,
-  $4::jsonb
+  $4::jsonb,
+  $5::jsonb
 )
 `;
 
 const collaboratorSaveSql = `
-select * from public.platform_save_customized_project_draft_v4(
+select * from public.platform_save_customized_project_draft_v5(
   $1::uuid,
   $2::uuid,
   $3::uuid,
@@ -70,7 +71,8 @@ select * from public.platform_save_customized_project_draft_v4(
   array['secret-missions','host-toolkit']::text[],
   'collaborator runtime test',
   $4::jsonb,
-  $5::jsonb
+  $5::jsonb,
+  $6::jsonb
 )
 `;
 
@@ -129,6 +131,13 @@ test(
       ],
       charadesWords: ['wedding cake', 'bouquet', 'honeymoon'],
     });
+    const deliveryScope = JSON.stringify({
+      customizationLevel: 'guided',
+      supportMode: 'remote_guided',
+      rehearsalMode: 'full_rehearsal',
+      services: ['brand-adaptation', 'host-runbook', 'wedding-day-support'],
+      serviceNotes: 'Bali time zone support needs confirmation',
+    });
 
     try {
       await db.exec(bootstrap);
@@ -140,20 +149,20 @@ test(
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
       await db.exec('set role authenticated');
 
-      const first = await db.query(saveSql, [eventOne, draftId, contentBrief, templateContent]);
+      const first = await db.query(saveSql, [eventOne, draftId, contentBrief, templateContent, deliveryScope]);
       assert.equal(first.rows[0].current_version, 1);
       const projectId = first.rows[0].id;
 
-      const retry = await db.query(saveSql, [eventOne, draftId, contentBrief, templateContent]);
+      const retry = await db.query(saveSql, [eventOne, draftId, contentBrief, templateContent, deliveryScope]);
       assert.equal(retry.rows[0].id, projectId);
       assert.equal(retry.rows[0].current_version, 1);
 
-      const second = await db.query(saveSql, [eventTwo, draftId, contentBrief, templateContent]);
+      const second = await db.query(saveSql, [eventTwo, draftId, contentBrief, templateContent, deliveryScope]);
       assert.equal(second.rows[0].id, projectId);
       assert.equal(second.rows[0].current_version, 2);
 
       await assert.rejects(
-        db.query(saveSql, [eventThree, draftId, JSON.stringify({ language: 'invalid' }), templateContent]),
+        db.query(saveSql, [eventThree, draftId, JSON.stringify({ language: 'invalid' }), templateContent, deliveryScope]),
         /platform_project_invalid/,
       );
       await assert.rejects(
@@ -162,6 +171,16 @@ test(
           teamTwoName: 'Desert Team',
           openingScript: '<script>{{unknown}}</script>',
           quizQuestions: [],
+        }), deliveryScope]),
+        /platform_project_invalid/,
+      );
+      await assert.rejects(
+        db.query(saveSql, [eventThree, draftId, contentBrief, templateContent, JSON.stringify({
+          customizationLevel: 'guided',
+          supportMode: 'remote_guided',
+          rehearsalMode: 'full_rehearsal',
+          services: [],
+          serviceNotes: '',
         })]),
         /platform_project_invalid/,
       );
@@ -183,7 +202,7 @@ test(
       const submitRetry = await db.query('select * from platform_submit_project_for_review($1::uuid, $2::uuid)', [eventFour, projectId]);
       assert.equal(submitRetry.rows[0].current_version, 3);
       await assert.rejects(
-        db.query(saveSql, [eventFive, draftId, contentBrief, templateContent]),
+        db.query(saveSql, [eventFive, draftId, contentBrief, templateContent, deliveryScope]),
         /platform_project_locked/,
       );
       await assert.rejects(
@@ -222,7 +241,7 @@ test(
       await db.exec('reset role');
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
       await db.exec('set role authenticated');
-      const revised = await db.query(saveSql, [eventSeven, draftId, contentBrief, templateContent]);
+      const revised = await db.query(saveSql, [eventSeven, draftId, contentBrief, templateContent, deliveryScope]);
       assert.equal(revised.rows[0].current_version, 5);
       const resubmitted = await db.query('select * from platform_submit_project_for_review($1::uuid, $2::uuid)', [eventEight, projectId]);
       assert.equal(resubmitted.rows[0].status, 'content_review');
@@ -255,9 +274,11 @@ test(
           (select count(*)::int from platform_project_reviews) reviews,
           (select decision from platform_project_reviews order by review_round desc limit 1) latest_decision,
           (select content_brief ->> 'language' from platform_projects limit 1) language,
-          (select snapshot -> 'content_brief' ->> 'interaction' from platform_project_versions order by version desc limit 1) interaction
+          (select snapshot -> 'content_brief' ->> 'interaction' from platform_project_versions order by version desc limit 1) interaction,
+          (select delivery_scope ->> 'supportMode' from platform_projects limit 1) support_mode,
+          (select snapshot -> 'delivery_scope' ->> 'rehearsalMode' from platform_project_versions order by version desc limit 1) rehearsal_mode
       `);
-      assert.deepEqual(counts.rows[0], { projects: 1, versions: 7, entitlements: 1, audits: 7, receipts: 7, reviews: 2, latest_decision: 'approved', language: 'bilingual', interaction: 'immersive' });
+      assert.deepEqual(counts.rows[0], { projects: 1, versions: 7, entitlements: 1, audits: 7, receipts: 7, reviews: 2, latest_decision: 'approved', language: 'bilingual', interaction: 'immersive', support_mode: 'remote_guided', rehearsal_mode: 'full_rehearsal' });
 
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerTwo]);
       await db.exec('set role authenticated');
@@ -323,7 +344,7 @@ test(
 
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
       await db.exec('set role authenticated');
-      const secondProject = await db.query(saveSql, [eventThirteen, secondDraftId, contentBrief, templateContent]);
+      const secondProject = await db.query(saveSql, [eventThirteen, secondDraftId, contentBrief, templateContent, deliveryScope]);
       const secondProjectId = secondProject.rows[0].id;
       const secondInvitation = await db.query(
         "select * from platform_create_project_invitation($1::uuid, $2::uuid, 'editor', $3)",
@@ -336,9 +357,9 @@ test(
       await db.query(`select set_config('request.jwt.claim.email', $1, false)`, ['collaborator@example.com']);
       await db.exec('set role authenticated');
       await db.query('select * from platform_accept_project_invitation($1::uuid, $2)', [eventFifteen, secondInviteHash]);
-      const collaboratorSave = await db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief, templateContent]);
+      const collaboratorSave = await db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief, templateContent, deliveryScope]);
       assert.equal(collaboratorSave.rows[0].current_version, 2);
-      const collaboratorSaveRetry = await db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief, templateContent]);
+      const collaboratorSaveRetry = await db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief, templateContent, deliveryScope]);
       assert.equal(collaboratorSaveRetry.rows[0].current_version, 2);
       await assert.rejects(
         db.query('select * from platform_submit_project_for_review($1::uuid, $2::uuid)', [eventSeventeen, secondProjectId]),
@@ -354,7 +375,7 @@ test(
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerTwo]);
       await db.exec('set role authenticated');
       await assert.rejects(
-        db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief, templateContent]),
+        db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief, templateContent, deliveryScope]),
         /platform_project_not_owned/,
       );
 
@@ -388,7 +409,7 @@ test(
         containsPrivateStoryNotes: false,
       });
       const serializedManifest = JSON.stringify(manifest.rows[0].manifest);
-      for (const forbidden of ['storyMoments', 'avoidTopics', 'hostNotes', 'runtime test', 'No former relationships']) {
+      for (const forbidden of ['storyMoments', 'avoidTopics', 'hostNotes', 'runtime test', 'No former relationships', 'Bali time zone support needs confirmation']) {
         assert.equal(serializedManifest.includes(forbidden), false);
       }
       const manifestRetry = await db.query(

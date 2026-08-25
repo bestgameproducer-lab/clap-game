@@ -2,9 +2,12 @@ import 'server-only';
 import { ApiError } from '../errors';
 import {
   DEFAULT_PLATFORM_CONTENT_BRIEF,
+  DEFAULT_PLATFORM_DELIVERY_SCOPE,
   isPlatformContentBrief,
+  isPlatformDeliveryScope,
   normalizePlatformTemplateContent,
   type PlatformContentBrief,
+  type PlatformDeliveryScope,
   type PlatformTemplateContent,
 } from '../platform/draft';
 import { createPlatformServerClient } from '../platform/supabase-server';
@@ -21,6 +24,7 @@ export type PlatformReviewQueueItem = {
   modules: string[];
   contentBrief: PlatformContentBrief;
   templateContent: PlatformTemplateContent;
+  deliveryScope: PlatformDeliveryScope;
   version: number;
   submittedAt: string;
 };
@@ -67,6 +71,7 @@ type ReviewQueueRow = {
   modules: string[];
   content_brief: unknown;
   template_content: unknown;
+  delivery_scope: unknown;
   current_version: number;
   updated_at: string;
 };
@@ -91,7 +96,7 @@ export async function listPlatformReviewQueue(staffUserId: string) {
   const client = await createPlatformServerClient();
   const { data, error } = await client
     .from('platform_projects')
-    .select('id,partner_one,partner_two,wedding_date,location,guest_count,plan_id,modules,content_brief,template_content,current_version,updated_at')
+    .select('id,partner_one,partner_two,wedding_date,location,guest_count,plan_id,modules,content_brief,template_content,delivery_scope,current_version,updated_at')
     .eq('status', 'content_review')
     .order('updated_at', { ascending: true })
     .limit(100);
@@ -108,6 +113,9 @@ export async function listPlatformReviewQueue(staffUserId: string) {
     modules: row.modules,
     contentBrief: isPlatformContentBrief(row.content_brief) ? row.content_brief : { ...DEFAULT_PLATFORM_CONTENT_BRIEF },
     templateContent: normalizePlatformTemplateContent(row.template_content),
+    deliveryScope: isPlatformDeliveryScope(row.delivery_scope)
+      ? { ...row.delivery_scope, services: [...row.delivery_scope.services] }
+      : { ...DEFAULT_PLATFORM_DELIVERY_SCOPE, services: [...DEFAULT_PLATFORM_DELIVERY_SCOPE.services] },
     version: row.current_version,
     submittedAt: row.updated_at,
   }));

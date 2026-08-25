@@ -2,10 +2,18 @@ import {
   FLAGSHIP_TEMPLATE,
   PLATFORM_MODULES,
   PLATFORM_PLANS,
+  PLATFORM_CUSTOMIZATION_LEVELS,
+  PLATFORM_REHEARSAL_MODES,
+  PLATFORM_SERVICES,
+  PLATFORM_SUPPORT_MODES,
   PLATFORM_THEMES,
   PLATFORM_TONES,
   type PlatformModuleId,
   type PlatformPlanId,
+  type PlatformCustomizationLevelId,
+  type PlatformRehearsalModeId,
+  type PlatformServiceId,
+  type PlatformSupportModeId,
   type PlatformThemeId,
   type PlatformToneId,
 } from './catalog';
@@ -65,6 +73,22 @@ export const DEFAULT_PLATFORM_CONTENT_BRIEF: PlatformContentBrief = {
   hostNotes: '',
 };
 
+export type PlatformDeliveryScope = {
+  customizationLevel: PlatformCustomizationLevelId;
+  supportMode: PlatformSupportModeId;
+  rehearsalMode: PlatformRehearsalModeId;
+  services: PlatformServiceId[];
+  serviceNotes: string;
+};
+
+export const DEFAULT_PLATFORM_DELIVERY_SCOPE: PlatformDeliveryScope = {
+  customizationLevel: 'guided',
+  supportMode: 'remote_guided',
+  rehearsalMode: 'full_rehearsal',
+  services: ['brand-adaptation', 'content-workshop', 'host-runbook', 'archive-export'],
+  serviceNotes: '',
+};
+
 export type WeddingDraft = {
   draftId?: string;
   partnerOne: string;
@@ -79,6 +103,7 @@ export type WeddingDraft = {
   storyNote: string;
   contentBrief?: PlatformContentBrief;
   templateContent?: PlatformTemplateContent;
+  deliveryScope?: PlatformDeliveryScope;
 };
 
 const DEFAULT_MODULES: PlatformModuleId[] = [
@@ -120,6 +145,30 @@ export function getWeddingContentBrief(draft: WeddingDraft): PlatformContentBrie
   return isPlatformContentBrief(draft.contentBrief)
     ? draft.contentBrief
     : { ...DEFAULT_PLATFORM_CONTENT_BRIEF };
+}
+
+export function isPlatformDeliveryScope(value: unknown): value is PlatformDeliveryScope {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const scope = value as Partial<PlatformDeliveryScope>;
+  const customizationIds = new Set(PLATFORM_CUSTOMIZATION_LEVELS.map((item) => item.id));
+  const supportIds = new Set(PLATFORM_SUPPORT_MODES.map((item) => item.id));
+  const rehearsalIds = new Set(PLATFORM_REHEARSAL_MODES.map((item) => item.id));
+  const serviceIds = new Set(PLATFORM_SERVICES.map((item) => item.id));
+  return (
+    customizationIds.has(scope.customizationLevel as PlatformCustomizationLevelId)
+    && supportIds.has(scope.supportMode as PlatformSupportModeId)
+    && rehearsalIds.has(scope.rehearsalMode as PlatformRehearsalModeId)
+    && Array.isArray(scope.services)
+    && new Set(scope.services).size === scope.services.length
+    && scope.services.every((service) => serviceIds.has(service))
+    && typeof scope.serviceNotes === 'string'
+  );
+}
+
+export function getWeddingDeliveryScope(draft: WeddingDraft): PlatformDeliveryScope {
+  return isPlatformDeliveryScope(draft.deliveryScope)
+    ? { ...draft.deliveryScope, services: [...draft.deliveryScope.services] }
+    : { ...DEFAULT_PLATFORM_DELIVERY_SCOPE, services: [...DEFAULT_PLATFORM_DELIVERY_SCOPE.services] };
 }
 
 export function isPlatformTemplateContent(value: unknown): value is PlatformTemplateContent {
@@ -180,6 +229,7 @@ export function ensureWeddingDraftId(draft: WeddingDraft): WeddingDraft {
     draftId: draft.draftId || createPlatformDraftId(),
     contentBrief: getWeddingContentBrief(draft),
     templateContent: getWeddingTemplateContent(draft),
+    deliveryScope: getWeddingDeliveryScope(draft),
   };
 }
 
@@ -203,6 +253,10 @@ export function createDefaultDraft(plan: PlatformPlanId = 'buyout'): WeddingDraf
       quickQuizQuestions: DEFAULT_PLATFORM_TEMPLATE_CONTENT.quickQuizQuestions.map((question) => ({ ...question })),
       charadesWords: [...DEFAULT_PLATFORM_TEMPLATE_CONTENT.charadesWords],
     },
+    deliveryScope: {
+      ...DEFAULT_PLATFORM_DELIVERY_SCOPE,
+      services: [...DEFAULT_PLATFORM_DELIVERY_SCOPE.services],
+    },
   };
 }
 
@@ -223,6 +277,7 @@ export function isWeddingDraft(value: unknown): value is WeddingDraft {
     typeof draft.storyNote === 'string' &&
     (draft.contentBrief === undefined || isPlatformContentBrief(draft.contentBrief)) &&
     (draft.templateContent === undefined || isPlatformTemplateContent(draft.templateContent)) &&
+    (draft.deliveryScope === undefined || isPlatformDeliveryScope(draft.deliveryScope)) &&
     ['40', '80', '120', '180'].includes(draft.guestCount ?? '') &&
     themeIds.has(draft.theme as PlatformThemeId) &&
     toneIds.has(draft.tone as PlatformToneId) &&
@@ -265,9 +320,14 @@ export function buildWeddingBrief(draft: WeddingDraft) {
   const selectedModules = PLATFORM_MODULES.filter((module) => draft.modules.includes(module.id));
   const content = getWeddingContentBrief(draft);
   const templateContent = getWeddingTemplateContent(draft);
+  const deliveryScope = getWeddingDeliveryScope(draft);
   const language = content.language === 'bilingual' ? '中英双语' : '中文';
   const interaction = { gentle: '轻松温和', balanced: '自然平衡', immersive: '高沉浸互动' }[content.interaction];
   const guestMix = { family: '家人与长辈为主', balanced: '亲友较均衡', friends: '朋友为主' }[content.guestMix];
+  const customizationLevel = PLATFORM_CUSTOMIZATION_LEVELS.find((item) => item.id === deliveryScope.customizationLevel)?.name ?? '协作定制';
+  const supportMode = PLATFORM_SUPPORT_MODES.find((item) => item.id === deliveryScope.supportMode)?.name ?? '远程协助';
+  const rehearsalMode = PLATFORM_REHEARSAL_MODES.find((item) => item.id === deliveryScope.rehearsalMode)?.name ?? '完整彩排';
+  const services = PLATFORM_SERVICES.filter((item) => deliveryScope.services.includes(item.id));
 
   return [
     '婚礼游戏工坊 · 项目需求单',
@@ -279,6 +339,11 @@ export function buildWeddingBrief(draft: WeddingDraft) {
     `视觉：${selectedTheme.name}`,
     `叙事：${selectedTone.name}`,
     `方案：${selectedPlan.name}`,
+    `定制深度：${customizationLevel}`,
+    `运营支持：${supportMode}`,
+    `彩排方式：${rehearsalMode}`,
+    `服务范围：${services.map((item) => item.name).join('、') || '尚未选择'}`,
+    deliveryScope.serviceNotes.trim() ? `服务备注：${deliveryScope.serviceNotes.trim()}` : '',
     `模块：${selectedModules.map((module) => module.name).join('、') || '尚未选择'}`,
     draft.storyNote.trim() ? `故事备注：${draft.storyNote.trim()}` : '',
     `内容语言：${language}`,

@@ -24,6 +24,8 @@ The publishable key is used only with a signed-in Supabase Auth session and Row 
 
 The migrations also persist the structured content brief (language, interaction level, guest mix, story material, boundaries, and host notes) in the same immutable project version. A customer can submit a complete draft into `content_review`; that transition is server-validated, idempotent, versioned, audited, and locks further customer overwrites.
 
+The delivery scope (commercial model, customization depth, operating support, rehearsal mode, service items, and customer notes) is validated as a closed JSON shape and stored in the same immutable version. It records quote intent only: it does not contain a price, create an order, activate an entitlement, or provision resources.
+
 ## Bootstrap the first platform operator
 
 Platform staff authorization is deliberately independent from customer ownership and from the existing wedding organizer login. First sign in once through `/platform/account`, then run the following only in the **separate platform project** SQL editor, replacing the email with the intended operator account:

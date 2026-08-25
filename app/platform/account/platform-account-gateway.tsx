@@ -28,6 +28,7 @@ type CloudProject = {
   storyNote: string;
   contentBrief: NonNullable<WeddingDraft['contentBrief']>;
   templateContent: NonNullable<WeddingDraft['templateContent']>;
+  deliveryScope: NonNullable<WeddingDraft['deliveryScope']>;
   version: number;
   updatedAt: string;
   accessRole: 'owner' | 'editor' | 'viewer';
@@ -186,6 +187,7 @@ export function PlatformAccountGateway({
       storyNote: project.storyNote,
       contentBrief: project.contentBrief,
       templateContent: project.templateContent,
+      deliveryScope: project.deliveryScope,
     };
     if (!isWeddingDraft(restored)) {
       setMessage('这个云端项目版本无法在当前定制器中打开，请联系平台支持。');

@@ -105,6 +105,26 @@ test('experience preview renders guest, host, and scoreboard mockups from local 
   assert.doesNotMatch(preview, /fetch\s*\(|\/api\/guest|\/api\/host|\/api\/public-scoreboard/);
 });
 
+test('commercial delivery scope stays local until explicit account save and contains no guessed pricing', () => {
+  const page = read('app/platform/scope/page.tsx');
+  const builder = read('app/platform/scope/delivery-scope-builder.tsx');
+  const catalog = read('lib/platform/catalog.ts');
+  const draft = read('lib/platform/draft.ts');
+
+  assert.match(page, /DeliveryScopeBuilder/);
+  assert.match(builder, /PLATFORM_DRAFT_STORAGE_KEY/);
+  assert.match(builder, /交付模式/);
+  assert.match(builder, /定制深度/);
+  assert.match(builder, /运营协作方式/);
+  assert.match(builder, /彩排方式/);
+  assert.match(builder, /当前不是订单/);
+  assert.match(builder, /不显示未经确认的价格/);
+  assert.match(catalog, /wedding-day-support/);
+  assert.match(catalog, /needs-confirmation/);
+  assert.match(draft, /PlatformDeliveryScope/);
+  assert.doesNotMatch(builder, /fetch\s*\(|checkout|stripe|paymentIntent/i);
+});
+
 test('platform preview stays non-indexed until accounts, billing and cloud persistence are ready', () => {
   const layout = read('app/platform/layout.tsx');
   const architecture = read('docs/platform-product-architecture.md');

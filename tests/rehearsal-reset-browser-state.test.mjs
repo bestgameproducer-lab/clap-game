@@ -36,6 +36,7 @@ test('browser persistence has an explicit reset-safe allowlist', async () => {
       ? path.endsWith('/app/platform/create/wedding-builder.tsx')
         || path.endsWith('/app/platform/account/platform-account-gateway.tsx')
         || path.endsWith('/app/platform/content/content-intake.tsx')
+        || path.endsWith('/app/platform/scope/delivery-scope-builder.tsx')
       : path.endsWith('/app/guest/page.tsx')
   )));
 

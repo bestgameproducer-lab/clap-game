@@ -1,18 +1,24 @@
 import { ApiError } from '../errors';
 import { optionalString, requiredBoolean, requiredEnum, requiredString, requiredUuid, type JsonObject } from '../validation';
 import {
+  PLATFORM_CUSTOMIZATION_LEVELS,
   PLATFORM_MODULES,
   PLATFORM_PLANS,
+  PLATFORM_REHEARSAL_MODES,
+  PLATFORM_SERVICES,
+  PLATFORM_SUPPORT_MODES,
   PLATFORM_THEMES,
   PLATFORM_TONES,
   type PlatformModuleId,
 } from '../platform/catalog';
 import {
   getWeddingContentBrief,
+  getWeddingDeliveryScope,
   getWeddingTemplateContent,
   isWeddingDraft,
   PLATFORM_TEMPLATE_VARIABLES,
   type PlatformContentBrief,
+  type PlatformDeliveryScope,
   type PlatformQuickQuizQuestion,
   type PlatformQuizQuestion,
   type PlatformTemplateContent,
@@ -23,12 +29,16 @@ const PLAN_IDS = PLATFORM_PLANS.map((plan) => plan.id);
 const THEME_IDS = PLATFORM_THEMES.map((theme) => theme.id);
 const TONE_IDS = PLATFORM_TONES.map((tone) => tone.id);
 const MODULE_IDS = PLATFORM_MODULES.map((module) => module.id);
+const CUSTOMIZATION_LEVEL_IDS = PLATFORM_CUSTOMIZATION_LEVELS.map((item) => item.id);
+const SUPPORT_MODE_IDS = PLATFORM_SUPPORT_MODES.map((item) => item.id);
+const REHEARSAL_MODE_IDS = PLATFORM_REHEARSAL_MODES.map((item) => item.id);
+const SERVICE_IDS = PLATFORM_SERVICES.map((item) => item.id);
 
 export type PlatformProjectSaveInput = {
   eventKey: string;
   projectId: string | null;
   sourceDraftId: string;
-  draft: WeddingDraft & { draftId: string; contentBrief: PlatformContentBrief; templateContent: PlatformTemplateContent };
+  draft: WeddingDraft & { draftId: string; contentBrief: PlatformContentBrief; templateContent: PlatformTemplateContent; deliveryScope: PlatformDeliveryScope };
 };
 
 function optionalProjectId(value: unknown) {
@@ -97,12 +107,28 @@ function validateCharadesWords(value: unknown) {
   return value.map((word, index) => plainTemplateText(word, `第 ${index + 1} 个比划词`, 40));
 }
 
+function validateDeliveryScope(scope: PlatformDeliveryScope): PlatformDeliveryScope {
+  if (!Array.isArray(scope.services) || scope.services.length < 1 || scope.services.length > SERVICE_IDS.length) {
+    throw new ApiError(400, '服务范围格式不正确');
+  }
+  const services = scope.services.map((service) => requiredEnum(service, '服务项目', SERVICE_IDS));
+  if (new Set(services).size !== services.length) throw new ApiError(400, '服务项目不能重复');
+  return {
+    customizationLevel: requiredEnum(scope.customizationLevel, '定制深度', CUSTOMIZATION_LEVEL_IDS),
+    supportMode: requiredEnum(scope.supportMode, '运营支持', SUPPORT_MODE_IDS),
+    rehearsalMode: requiredEnum(scope.rehearsalMode, '彩排方式', REHEARSAL_MODE_IDS),
+    services,
+    serviceNotes: optionalString(scope.serviceNotes, '服务范围备注', 1000),
+  };
+}
+
 export function readPlatformProjectSaveInput(body: JsonObject): PlatformProjectSaveInput {
   if (!isWeddingDraft(body.draft)) throw new ApiError(400, '婚礼方案格式不正确');
   const input = body.draft;
   const sourceDraftId = requiredUuid(input.draftId, '本机草稿编号');
   const content = getWeddingContentBrief(input);
   const templateContent = getWeddingTemplateContent(input);
+  const deliveryScope = getWeddingDeliveryScope(input);
 
   return {
     eventKey: requiredUuid(body.eventKey, '操作编号'),
@@ -137,6 +163,7 @@ export function readPlatformProjectSaveInput(body: JsonObject): PlatformProjectS
         quickQuizQuestions: validateQuickQuizQuestions(templateContent.quickQuizQuestions),
         charadesWords: validateCharadesWords(templateContent.charadesWords),
       },
+      deliveryScope: validateDeliveryScope(deliveryScope),
     },
   };
 }

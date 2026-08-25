@@ -61,7 +61,7 @@ test('every platform mutation is same-origin, authenticated, validated, and isol
   assert.match(operatorReviewRoute, /requirePlatformStaff\(\)/);
   assert.match(operatorReviewRoute, /requiredUuid\(\(await params\)\.projectId/);
   assert.match(operatorReviewRoute, /readPlatformOperatorReviewInput/);
-  assert.match(data, /platform_save_customized_project_draft_v4/);
+  assert.match(data, /platform_save_customized_project_draft_v5/);
   assert.match(data, /platform_submit_project_for_review/);
   assert.doesNotMatch(data, /select\(['"]\*['"]\)/);
   assert.match(validation, /requiredUuid\(body\.eventKey/);
@@ -114,6 +114,7 @@ test('control-plane migrations own projects, content briefs, versions, entitleme
   assert.match(sql, /platform_project_access_role/);
   assert.match(sql, /platform_save_customized_project_draft_v3/);
   assert.match(sql, /platform_save_customized_project_draft_v4/);
+  assert.match(sql, /platform_save_customized_project_draft_v5/);
   assert.match(sql, /platform_create_project_invitation/);
   assert.match(sql, /platform_accept_project_invitation/);
   assert.match(sql, /platform_remove_project_member/);
@@ -139,6 +140,10 @@ test('control-plane migrations own projects, content briefs, versions, entitleme
   assert.match(sql, /platform_template_content_v1_is_valid/);
   assert.match(sql, /jsonb_array_length\(p_value -> 'quickQuizQuestions'\) > 30/);
   assert.match(sql, /jsonb_array_length\(p_value -> 'charadesWords'\) > 80/);
+  assert.match(sql, /add column delivery_scope jsonb/);
+  assert.match(sql, /platform_delivery_scope_is_valid/);
+  assert.match(sql, /platform_project_versions_delivery_scope/);
+  assert.match(sql, /platform-save-v5:/);
   assert.match(sql, /add column action text not null default 'draft_save'/);
   assert.match(sql, /content_brief/);
   assert.match(sql, /revoke execute on function public\.platform_save_project_draft[\s\S]*from authenticated/);
@@ -217,7 +222,7 @@ test('project invitations are hashed, authenticated, revocable, and role-scoped'
   assert.match(collaboration, /再次点击确认撤销/);
   assert.match(invitationPage, /next: `\/platform\/invitations\/\$\{token\}`/);
   assert.match(invitationPage, /不会授予婚礼现场后台/);
-  assert.match(data, /platform_save_customized_project_draft_v4/);
+  assert.match(data, /platform_save_customized_project_draft_v5/);
   assert.match(data, /accessRole/);
 });
 
@@ -313,7 +318,7 @@ test('template content pack is locally editable, strictly validated, versioned, 
   assert.match(validation, /新人问答最多可以设置 20 题/);
   assert.match(validation, /快问快答最多可以设置 30 题/);
   assert.match(validation, /你比划我猜最多可以设置 80 个词/);
-  assert.match(data, /platform_save_customized_project_draft_v4/);
+  assert.match(data, /platform_save_customized_project_draft_v5/);
   assert.match(data, /p_template_content: draft\.templateContent/);
   assert.match(review, /project\.templateContent\.openingScript/);
   assert.match(migration, /platform_template_content_is_valid/);
@@ -328,4 +333,28 @@ test('template content pack is locally editable, strictly validated, versioned, 
   assert.match(teamBankMigration, /charadesWords/);
   assert.doesNotMatch(read('app/guest/page.tsx'), /templateContent|quickQuizQuestions|charadesWords/);
   assert.doesNotMatch(intake + validation + data, /dangerouslySetInnerHTML|eval\(|new Function/);
+});
+
+test('commercial delivery scope is closed-shape, versioned, reviewed, and never creates payment state', () => {
+  const scope = read('app/platform/scope/delivery-scope-builder.tsx');
+  const draft = read('lib/platform/draft.ts');
+  const validation = read('lib/validation/platform-project.ts');
+  const data = read('lib/data/platform-projects.ts');
+  const account = read('app/platform/account/platform-account-gateway.tsx');
+  const review = read('app/platform/operations/platform-review-queue.tsx');
+  const migration = read('platform-control-plane/migrations/202608250010_delivery_scope.sql');
+
+  assert.match(scope, /当前不是订单/);
+  assert.match(draft, /DEFAULT_PLATFORM_DELIVERY_SCOPE/);
+  assert.match(validation, /服务项目不能重复/);
+  assert.match(validation, /服务范围备注.*1000/);
+  assert.match(data, /platform_save_customized_project_draft_v5/);
+  assert.match(data, /p_delivery_scope: draft\.deliveryScope/);
+  assert.match(account, /deliveryScope: project\.deliveryScope/);
+  assert.match(review, /商业与交付范围/);
+  assert.match(migration, /platform_delivery_scope_is_valid/);
+  assert.match(migration, /p_value - array\['customizationLevel', 'supportMode', 'rehearsalMode', 'services', 'serviceNotes'\]/);
+  assert.match(migration, /snapshot = version\.snapshot \|\| jsonb_build_object\('delivery_scope'/);
+  assert.match(migration, /coalesce\(public\.platform_project_access_role\(v_receipt_project_id\), ''\) not in \('owner', 'editor'\)/);
+  assert.doesNotMatch(scope + data + migration, /stripe|checkout|payment_intent|createOrder/i);
 });

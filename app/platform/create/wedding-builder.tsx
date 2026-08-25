@@ -211,6 +211,7 @@ export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }
             <button className={styles.copyAction} type="button" onClick={copySummary}>复制方案摘要</button>
             <button className={styles.downloadAction} type="button" onClick={downloadBrief}>下载需求单</button>
             <Link className={styles.workspaceAction} href="/platform/content">填写内容问卷</Link>
+            <Link className={styles.workspaceAction} href="/platform/scope">确认服务范围</Link>
             <Link className={styles.workspaceAction} href="/platform/project">查看项目工作台</Link>
             <button className={styles.resetAction} type="button" onClick={resetDraft}>清空并重新开始</button>
           </div>
