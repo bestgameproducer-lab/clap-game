@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   PLATFORM_DRAFT_STORAGE_KEY,
   ensureWeddingDraftId,
@@ -14,6 +14,11 @@ import {
   buildPlatformCapacityPlan,
   buildPlatformSeatTemplateCsv,
 } from '../../../lib/platform/capacity';
+import {
+  PLATFORM_ROSTER_MAX_BYTES,
+  validatePlatformRosterCsv,
+  type PlatformRosterPreflightResult,
+} from '../../../lib/platform/roster-preflight';
 import styles from '../platform.module.css';
 
 const SEAT_GROUPS = [
@@ -27,6 +32,9 @@ export function CapacityPlanner() {
   const [draft, setDraft] = useState<WeddingDraft | null>(null);
   const [ready, setReady] = useState(false);
   const [message, setMessage] = useState('正在读取本机方案…');
+  const [rosterResult, setRosterResult] = useState<PlatformRosterPreflightResult | null>(null);
+  const [rosterFileName, setRosterFileName] = useState('');
+  const rosterInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     try {
@@ -63,6 +71,38 @@ export function CapacityPlanner() {
     } catch {
       setMessage('浏览器未允许下载，请稍后重试');
     }
+  }
+
+  async function inspectRosterFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !plan) return;
+    if (!plan.ready || !plan.seatTemplate.length) {
+      setMessage('当前席位结构尚未通过，不能检查名单');
+      return;
+    }
+    if (file.size > PLATFORM_ROSTER_MAX_BYTES) {
+      setRosterResult({ valid: false, rows: [], errors: [{ line: null, message: 'CSV 超过 256 KB 上限' }], warnings: [] });
+      setRosterFileName(file.name);
+      setMessage('名单文件过大，已停止读取');
+      return;
+    }
+    try {
+      const result = validatePlatformRosterCsv(await file.text(), plan.seatTemplate);
+      setRosterResult(result);
+      setRosterFileName(file.name);
+      setMessage(result.valid ? '名单已在本机内存中通过结构检查' : `名单有 ${result.errors.length} 项需要修正`);
+    } catch {
+      setRosterResult({ valid: false, rows: [], errors: [{ line: null, message: '浏览器无法读取这个 CSV' }], warnings: [] });
+      setRosterFileName(file.name);
+      setMessage('名单文件无法读取');
+    }
+  }
+
+  function clearRosterInspection() {
+    setRosterResult(null);
+    setRosterFileName('');
+    setMessage('已从当前页面内存中清除名单预检');
   }
 
   if (!ready) return <section className={styles.capacityLoading} aria-live="polite">正在计算宾客容量…</section>;
@@ -107,6 +147,17 @@ export function CapacityPlanner() {
         <header><div><p className={styles.eyebrow}>PREFLIGHT RESULT</p><h2>{plan.secretMissionsEnabled ? plan.ready ? '当前人数档位与旗舰玩法结构兼容。' : '还有一项容量配置需要修正。' : '当前方案不需要秘密角色容量。'}</h2></div><span className={plan.ready ? styles.capacityStatus : styles.capacityStatusBlocked}>{plan.secretMissionsEnabled ? plan.ready ? '结构可行' : '暂不可用' : '无需检查'}</span></header>
         <div className={styles.capacityChecks}>{plan.checks.map((check) => <article key={check.id} className={check.status === 'blocked' ? styles.capacityCheckBlocked : undefined}><b>{check.status === 'ready' ? '✓' : check.status === 'blocked' ? '!' : '—'}</b><div><strong>{check.label}</strong><p>{check.detail}</p></div></article>)}</div>
       </section>
+
+      {plan.secretMissionsEnabled ? <section className={styles.rosterPreflightSection}>
+        <header><div><p className={styles.eyebrow}>LOCAL ROSTER CHECK</p><h2>已填写名单只在当前页面内存中检查。</h2><p>请先下载本页生成的空白席位 CSV，再离线填写显示姓名和登录名。检查会确认 32 个席位完整、姓名与登录名不重复、公开队伍没有被改动，并拒绝密码、邮箱列或任何隐藏身份字段。</p></div><div><button type="button" onClick={() => rosterInputRef.current?.click()} disabled={!plan.ready}>选择 CSV 本机检查</button><input ref={rosterInputRef} type="file" accept=".csv,text/csv" hidden onChange={inspectRosterFile} />{rosterResult ? <button type="button" onClick={clearRosterInspection}>清除本页名单</button> : null}</div></header>
+        {!rosterResult ? <div className={styles.rosterPreflightEmpty}><strong>尚未读取名单</strong><p>文件不会上传、不会写入设备草稿，也不会进入云端项目；关闭或刷新页面后，已读取姓名会从内存中消失。</p></div> : <div className={rosterResult.valid ? styles.rosterPreflightReady : styles.rosterPreflightBlocked}>
+          <div className={styles.rosterPreflightSummary}><span>{rosterResult.valid ? '✓' : '!'}</span><div><small>{rosterFileName}</small><strong>{rosterResult.valid ? `${rosterResult.rows.length}/${plan.seatTemplate.length} 个席位通过检查` : `${rosterResult.errors.length} 项错误 · 暂不可导入`}</strong><p>{rosterResult.valid ? '这只说明表格结构与公开席位正确；隐藏身份仍会在独立实例中由服务端分配。' : '原文件没有被修改。请按下方提示修正后重新选择 CSV。'}</p></div></div>
+          {rosterResult.errors.length ? <div className={styles.rosterIssueList}>{rosterResult.errors.slice(0, 10).map((issue, index) => <p key={`${issue.line}-${issue.message}-${index}`}><strong>{issue.line ? `第 ${issue.line} 行` : '名单'}</strong>{issue.message}</p>)}{rosterResult.errors.length > 10 ? <p><strong>其余</strong>另有 {rosterResult.errors.length - 10} 项错误</p> : null}</div> : null}
+          {rosterResult.valid ? <div className={styles.rosterPreviewRows}>{rosterResult.rows.slice(0, 8).map((row) => <article key={row.seatId}><span>{row.seatId}</span><div><strong>{row.displayName}</strong><small>{row.loginName} · {row.team || '新人账号'}</small></div></article>)}{rosterResult.rows.length > 8 ? <p>另有 {rosterResult.rows.length - 8} 个席位已检查</p> : null}</div> : null}
+          {rosterResult.warnings.length ? <p className={styles.rosterWarnings}>另有 {rosterResult.warnings.length} 条非阻断备注提示；备注可以留空，不影响名单结构。</p> : null}
+        </div>}
+        <p className={styles.rosterPrivacyFootnote}>隐私提醒：不要在 CSV 中填写密码、手机号、邮箱、身份证、健康信息或隐藏角色。当前预检不会创建账号，也不能替代独立实例中的授权导入与最终彩排。</p>
+      </section> : null}
 
       <section className={styles.capacityNext}>
         <div><small>NEXT SAFE STEP</small><h2>{plan.secretMissionsEnabled ? '下载空白席位表，在线下填写名单。' : '返回模块配置，或继续完成内容定制。'}</h2><p>{plan.secretMissionsEnabled ? 'CSV 由浏览器本地生成，团队名称会使用当前方案设置；文件不会自动上传。它目前是筹备材料，不是可以直接导入正式婚礼的执行指令。' : '如果之后重新启用秘密任务，本页会恢复固定的 32 席预检。'}</p></div>

@@ -38,6 +38,10 @@ test('capacity CSV is generated locally with blank identity fields and no hidden
   assert.match(component, /URL\.createObjectURL/);
   assert.match(component, /文件不会自动上传/);
   assert.doesNotMatch(component, /fetch\s*\(|XMLHttpRequest|FormData/);
+  assert.match(component, /validatePlatformRosterCsv/);
+  assert.match(component, /清除本页名单/);
+  assert.match(component, /关闭或刷新页面后，已读取姓名会从内存中消失/);
+  assert.doesNotMatch(component, /localStorage\.setItem|sessionStorage/);
 });
 
 test('capacity route reads only the current device draft and explains the privacy and launch boundary', () => {

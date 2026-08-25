@@ -4704,6 +4704,39 @@
 .capacityChecks p { margin:5px 0 0; color:#7d685e; font-size:10px; line-height:1.6; }
 .capacityCheckBlocked { border:1px solid rgba(145,57,43,.2); background:#f8e4df !important; }
 .capacityCheckBlocked > b { background:#9b493d !important; }
+.rosterPreflightSection { margin-top:14px; padding:32px; border:1px solid rgba(95,64,50,.12); border-radius:27px; background:rgba(255,251,246,.88); box-shadow:0 16px 36px rgba(73,47,36,.05); }
+.rosterPreflightSection > header { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:30px; }
+.rosterPreflightSection h2 { margin:8px 0 0; font:500 30px/1.18 Georgia,'Noto Serif SC',serif; }
+.rosterPreflightSection header p:not(.eyebrow) { max-width:760px; margin:10px 0 0; color:#7b665c; font-size:10px; line-height:1.7; }
+.rosterPreflightSection header > div:last-child { display:grid; gap:8px; min-width:190px; }
+.rosterPreflightSection button { min-height:42px; margin:0; padding:0 14px; border-radius:999px; background:#70483d; color:white; font-size:9px; font-weight:850; box-shadow:none; }
+.rosterPreflightSection button + button { background:#eaded4; color:#694b3e; }
+.rosterPreflightSection button:disabled { cursor:not-allowed; opacity:.45; }
+.rosterPreflightEmpty { margin-top:20px; padding:20px; border:1px dashed rgba(98,65,51,.22); border-radius:16px; color:#6d554a; text-align:center; }
+.rosterPreflightEmpty strong { font-size:12px; }
+.rosterPreflightEmpty p { margin:7px auto 0; max-width:680px; color:#88736a; font-size:9px; line-height:1.65; }
+.rosterPreflightReady,.rosterPreflightBlocked { margin-top:20px; padding:20px; border:1px solid rgba(82,116,80,.2); border-radius:18px; background:#edf2e9; }
+.rosterPreflightBlocked { border-color:rgba(145,57,43,.2); background:#f7e5e0; }
+.rosterPreflightSummary { display:grid; grid-template-columns:40px minmax(0,1fr); gap:13px; }
+.rosterPreflightSummary > span { display:grid; width:38px; height:38px; place-items:center; border-radius:50%; background:#5f7b5c; color:white; font-size:15px; font-weight:900; }
+.rosterPreflightBlocked .rosterPreflightSummary > span { background:#9a493d; }
+.rosterPreflightSummary small,.rosterPreflightSummary strong { display:block; overflow-wrap:anywhere; }
+.rosterPreflightSummary small { color:#7a7469; font-size:8px; font-weight:800; }
+.rosterPreflightSummary strong { margin-top:4px; color:#42513f; font-size:13px; }
+.rosterPreflightBlocked .rosterPreflightSummary strong { color:#723a32; }
+.rosterPreflightSummary p { margin:6px 0 0; color:#6f796b; font-size:9px; line-height:1.6; }
+.rosterPreflightBlocked .rosterPreflightSummary p { color:#8a625a; }
+.rosterIssueList { display:grid; gap:6px; margin-top:15px; }
+.rosterIssueList p { display:grid; grid-template-columns:70px minmax(0,1fr); gap:8px; margin:0; padding:9px 11px; border-radius:10px; background:rgba(255,255,255,.55); color:#7f5148; font-size:9px; line-height:1.5; }
+.rosterIssueList strong { color:#973f32; }
+.rosterPreviewRows { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; margin-top:16px; }
+.rosterPreviewRows article { display:grid; grid-template-columns:84px minmax(0,1fr); align-items:center; gap:10px; padding:10px; border-radius:11px; background:rgba(255,255,255,.58); }
+.rosterPreviewRows article > span { color:#7f7064; font:700 8px ui-monospace,SFMono-Regular,Menlo,monospace; }
+.rosterPreviewRows strong,.rosterPreviewRows small { display:block; overflow-wrap:anywhere; }
+.rosterPreviewRows strong { color:#4d5e49; font-size:10px; }
+.rosterPreviewRows small { margin-top:3px; color:#7a8176; font-size:8px; }
+.rosterPreviewRows > p,.rosterWarnings { grid-column:1 / -1; margin:3px 0 0; color:#687664; font-size:9px; }
+.rosterPrivacyFootnote { margin:14px 2px 0; color:#8a746a; font-size:9px; line-height:1.65; }
 .capacityNext { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:34px; margin:14px 0 80px; padding:30px; border-radius:25px; background:#6d4338; color:white; }
 .capacityNext small { color:#e0b47e; font-size:8px; font-weight:900; letter-spacing:.12em; }
 .capacityNext p { max-width:720px; margin:10px 0 0; color:#e3d2c8; font-size:10px; line-height:1.65; }
@@ -4713,7 +4746,7 @@
 .capacityNext a { background:rgba(255,255,255,.1); color:white; }
 
 @media (max-width: 900px) {
-  .capacityHero,.capacityPrivacy,.capacitySection > header,.capacityTopology,.capacityNext { grid-template-columns:1fr; }
+  .capacityHero,.capacityPrivacy,.capacitySection > header,.capacityTopology,.capacityNext,.rosterPreflightSection > header { grid-template-columns:1fr; }
   .capacityMetrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .capacityStatus { justify-self:start; }
   .capacityStatusBlocked { justify-self:start; }
@@ -4724,8 +4757,9 @@
   .capacityLayout,.capacityEmpty,.capacityLoading { width:calc(100% - 32px); }
   .capacityHero { padding-top:52px; }
   .capacityHero h1 { font-size:43px; }
-  .capacityPrivacy,.capacitySection,.capacityTopology,.capacityNext { padding:22px; }
-  .capacityMetrics,.capacitySeatGrid,.capacityTopologyFacts { grid-template-columns:1fr; }
+  .capacityPrivacy,.capacitySection,.capacityTopology,.capacityNext,.rosterPreflightSection { padding:22px; }
+  .capacityMetrics,.capacitySeatGrid,.capacityTopologyFacts,.rosterPreviewRows { grid-template-columns:1fr; }
+  .rosterIssueList p,.rosterPreviewRows article { grid-template-columns:1fr; }
   .capacityMetrics article { padding:18px; }
   .capacitySeatGrid > article { padding:17px; }
 }

@@ -146,6 +146,8 @@ test('guest capacity preflight is local-only and separate from production roster
   assert.match(planner, /SEATS BEFORE NAMES/);
   assert.match(planner, /不收集宾客姓名/);
   assert.match(planner, /下载空白席位 CSV/);
+  assert.match(planner, /选择 CSV 本机检查/);
+  assert.match(planner, /不会创建账号/);
   assert.match(capacity, /FLAGSHIP_PARTICIPATION_CONTRACT/);
   assert.match(capacity, /buildPlatformSeatTemplateCsv/);
   assert.doesNotMatch(planner, /fetch\s*\(|\/api\//);
