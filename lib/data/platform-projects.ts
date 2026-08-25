@@ -13,6 +13,10 @@ import {
   type PlatformDeliveryScope,
   type PlatformTemplateContent,
 } from '../platform/draft';
+import {
+  normalizePlatformDataPolicy,
+  type PlatformDataPolicy,
+} from '../platform/data-policy';
 
 export type PlatformProjectDto = {
   id: string;
@@ -33,6 +37,7 @@ export type PlatformProjectDto = {
   contentBrief: PlatformContentBrief;
   templateContent: PlatformTemplateContent;
   deliveryScope: PlatformDeliveryScope;
+  dataPolicy: PlatformDataPolicy;
   version: number;
   updatedAt: string;
   accessRole: 'owner' | 'editor' | 'viewer';
@@ -82,6 +87,7 @@ type PlatformProjectRow = {
   content_brief?: unknown;
   template_content?: unknown;
   delivery_scope?: unknown;
+  data_policy?: unknown;
   current_version: number;
   updated_at: string;
 };
@@ -129,7 +135,7 @@ type PlatformProjectInvitationRow = {
   created_at: string;
 };
 
-const PROJECT_FIELDS = 'id,owner_user_id,source_draft_id,status,template_id,template_version,plan_id,partner_one,partner_two,wedding_date,location,guest_count,theme_id,tone_id,modules,story_note,content_brief,template_content,delivery_scope,current_version,updated_at';
+const PROJECT_FIELDS = 'id,owner_user_id,source_draft_id,status,template_id,template_version,plan_id,partner_one,partner_two,wedding_date,location,guest_count,theme_id,tone_id,modules,story_note,content_brief,template_content,delivery_scope,data_policy,current_version,updated_at';
 
 function toDto(row: PlatformProjectRow, accessRole: PlatformProjectDto['accessRole'], sourceDraftId = row.source_draft_id): PlatformProjectDto {
   if (!sourceDraftId) throw new Error('Unable to map platform project without a source draft');
@@ -154,6 +160,7 @@ function toDto(row: PlatformProjectRow, accessRole: PlatformProjectDto['accessRo
     deliveryScope: isPlatformDeliveryScope(row.delivery_scope)
       ? { ...row.delivery_scope, services: [...row.delivery_scope.services] }
       : { ...DEFAULT_PLATFORM_DELIVERY_SCOPE, services: [...DEFAULT_PLATFORM_DELIVERY_SCOPE.services] },
+    dataPolicy: normalizePlatformDataPolicy(row.data_policy),
     version: row.current_version,
     updatedAt: row.updated_at,
     accessRole,
@@ -268,7 +275,7 @@ export async function savePlatformProject(ownerUserId: string, input: PlatformPr
   if (!ownerUserId) throw new ApiError(401, '请先登录客户账号');
   const client = await createPlatformServerClient();
   const { draft } = input;
-  const { data, error } = await client.rpc('platform_save_customized_project_draft_v5', {
+  const { data, error } = await client.rpc('platform_save_customized_project_draft_v6', {
     p_event_key: input.eventKey,
     p_project_id: input.projectId,
     p_source_draft_id: input.sourceDraftId,
@@ -287,6 +294,7 @@ export async function savePlatformProject(ownerUserId: string, input: PlatformPr
     p_content_brief: draft.contentBrief,
     p_template_content: draft.templateContent,
     p_delivery_scope: draft.deliveryScope,
+    p_data_policy: draft.dataPolicy,
   }).single();
 
   if (error) {

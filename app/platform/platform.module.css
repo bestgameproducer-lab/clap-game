@@ -4587,6 +4587,7 @@
 .scopeSection legend { display:grid; gap:5px; padding:0 12px; }
 .scopeSection legend small { color:#9a6d55; font-weight:800; letter-spacing:.13em; }
 .scopeSection legend strong { font:30px/1.2 Georgia,"Times New Roman",serif; }
+.scopeSectionIntro { max-width:760px; margin:0 0 18px; color:#76665d; font-size:14px; line-height:1.7; }
 .scopeOptionGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
 .scopeOption,.scopeOptionSelected { min-height:160px; padding:22px; border:1px solid rgba(92,62,48,.14); border-radius:20px; text-align:left; color:inherit; background:#fbf7f0; cursor:pointer; transition:transform .18s ease,border-color .18s ease,background .18s ease; }
 .scopeOption:hover,.scopeOptionSelected { transform:translateY(-2px); border-color:#9d684f; }
@@ -4606,6 +4607,18 @@
 .scopeServiceSelected > b { color:white; background:#84513f; }
 .scopeNotes { display:grid; gap:10px; margin-top:22px; font-weight:800; }
 .scopeNotes textarea { min-height:120px; resize:vertical; padding:16px; border:1px solid rgba(92,62,48,.2); border-radius:16px; color:inherit; background:#fffdf8; font:inherit; line-height:1.6; }
+.dataPolicyConfirmations { display:grid; gap:11px; margin-top:18px; }
+.dataPolicyConfirmation,.dataPolicyConfirmed { display:grid; grid-template-columns:minmax(0,1fr) 34px; gap:18px; align-items:start; padding:20px; border:1px solid rgba(151,74,57,.2); border-radius:18px; background:#fcf4f0; cursor:pointer; }
+.dataPolicyConfirmed { border-color:rgba(78,111,73,.24); background:#edf3e9; }
+.dataPolicyConfirmation input,.dataPolicyConfirmed input { position:absolute; opacity:0; pointer-events:none; }
+.dataPolicyConfirmation span,.dataPolicyConfirmed span { display:grid; gap:6px; }
+.dataPolicyConfirmation p,.dataPolicyConfirmed p { margin:0; color:#78665d; font-size:13px; line-height:1.6; }
+.dataPolicyConfirmation > b,.dataPolicyConfirmed > b { display:grid; width:32px; height:32px; place-items:center; border-radius:50%; color:#fff; background:#a24f40; }
+.dataPolicyConfirmed > b { background:#60795b; }
+.dataPolicyIsolation { margin-top:14px; padding:18px 20px; border-radius:18px; color:#fdf7ed; background:#51342d; }
+.dataPolicyIsolation span { display:block; color:#e8b87c; font-size:10px; font-weight:900; letter-spacing:.13em; }
+.dataPolicyIsolation strong { display:block; margin-top:6px; font-size:16px; }
+.dataPolicyIsolation p { margin:7px 0 0; color:#d9c7ba; font-size:13px; line-height:1.6; }
 .scopeSummary { position:sticky; top:24px; padding:30px; border-radius:28px; color:#fff8ec; background:#4f312a; box-shadow:0 24px 60px rgba(63,38,30,.2); }
 .scopeSummary h2 { margin:10px 0; font:42px/1.1 Georgia,"Times New Roman",serif; }
 .scopeSummary > p { color:#d9c7b9; line-height:1.65; }
@@ -4620,6 +4633,9 @@
 .scopeSummary li small { padding:3px 7px; border-radius:999px; color:#ffe4c5; background:rgba(214,146,86,.18); }
 .scopeCommercialNotice { margin:26px 0 20px; padding:18px; border:1px solid rgba(255,255,255,.14); border-radius:18px; background:rgba(255,255,255,.06); }
 .scopeCommercialNotice p { margin:7px 0 0; color:#d9c7b9; font-size:13px; line-height:1.65; }
+.dataPolicySummaryReady,.dataPolicySummaryPending { margin:0 0 20px; padding:16px 18px; border-radius:16px; background:rgba(103,143,94,.18); }
+.dataPolicySummaryPending { background:rgba(206,122,85,.18); }
+.dataPolicySummaryReady p,.dataPolicySummaryPending p { margin:6px 0 0; color:#dfd0c4; font-size:12px; line-height:1.6; }
 .scopeActions { display:grid; gap:10px; }
 .scopeActions .primaryAction { color:#4f312a; background:#f4dfbf; }
 .scopeActions .secondaryAction { color:#fff8ec; border-color:rgba(255,255,255,.3); }

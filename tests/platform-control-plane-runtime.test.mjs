@@ -31,7 +31,7 @@ grant execute on function auth.jwt() to authenticated;
 `;
 
 const saveSql = `
-select * from public.platform_save_customized_project_draft_v5(
+select * from public.platform_save_customized_project_draft_v6(
   $1::uuid,
   null::uuid,
   $2::uuid,
@@ -49,12 +49,13 @@ select * from public.platform_save_customized_project_draft_v5(
   'runtime test',
   $3::jsonb,
   $4::jsonb,
-  $5::jsonb
+  $5::jsonb,
+  $6::jsonb
 )
 `;
 
 const collaboratorSaveSql = `
-select * from public.platform_save_customized_project_draft_v5(
+select * from public.platform_save_customized_project_draft_v6(
   $1::uuid,
   $2::uuid,
   $3::uuid,
@@ -72,7 +73,8 @@ select * from public.platform_save_customized_project_draft_v5(
   'collaborator runtime test',
   $4::jsonb,
   $5::jsonb,
-  $6::jsonb
+  $6::jsonb,
+  $7::jsonb
 )
 `;
 
@@ -143,6 +145,13 @@ test(
       services: ['brand-adaptation', 'host-runbook', 'wedding-day-support'],
       serviceNotes: 'Bali time zone support needs confirmation',
     });
+    const dataPolicy = JSON.stringify({
+      retentionWindow: 'event_plus_7_days',
+      projectArchiveBeforeDeletion: true,
+      rosterAuthorityConfirmed: true,
+      guestNoticeConfirmed: true,
+      isolatedRuntimeRequired: true,
+    });
 
     try {
       await db.exec(bootstrap);
@@ -154,20 +163,24 @@ test(
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
       await db.exec('set role authenticated');
 
-      const first = await db.query(saveSql, [eventOne, draftId, contentBrief, templateContent, deliveryScope]);
+      const first = await db.query(saveSql, [eventOne, draftId, contentBrief, templateContent, deliveryScope, dataPolicy]);
       assert.equal(first.rows[0].current_version, 1);
       const projectId = first.rows[0].id;
 
-      const retry = await db.query(saveSql, [eventOne, draftId, contentBrief, templateContent, deliveryScope]);
+      const retry = await db.query(saveSql, [eventOne, draftId, contentBrief, templateContent, deliveryScope, JSON.stringify({
+        ...JSON.parse(dataPolicy),
+        retentionWindow: 'event_plus_90_days',
+      })]);
       assert.equal(retry.rows[0].id, projectId);
       assert.equal(retry.rows[0].current_version, 1);
+      assert.equal(retry.rows[0].data_policy.retentionWindow, 'event_plus_7_days');
 
-      const second = await db.query(saveSql, [eventTwo, draftId, contentBrief, templateContent, deliveryScope]);
+      const second = await db.query(saveSql, [eventTwo, draftId, contentBrief, templateContent, deliveryScope, dataPolicy]);
       assert.equal(second.rows[0].id, projectId);
       assert.equal(second.rows[0].current_version, 2);
 
       await assert.rejects(
-        db.query(saveSql, [eventThree, draftId, JSON.stringify({ language: 'invalid' }), templateContent, deliveryScope]),
+        db.query(saveSql, [eventThree, draftId, JSON.stringify({ language: 'invalid' }), templateContent, deliveryScope, dataPolicy]),
         /platform_project_invalid/,
       );
       await assert.rejects(
@@ -176,14 +189,14 @@ test(
           teamTwoName: 'Desert Team',
           openingScript: '<script>{{unknown}}</script>',
           quizQuestions: [],
-        }), deliveryScope]),
+        }), deliveryScope, dataPolicy]),
         /platform_project_invalid/,
       );
       await assert.rejects(
         db.query(saveSql, [eventThree, draftId, contentBrief, JSON.stringify({
           ...JSON.parse(templateContent),
           teamTwoName: '  ocean team  ',
-        }), deliveryScope]),
+        }), deliveryScope, dataPolicy]),
         /platform_project_invalid/,
       );
       await assert.rejects(
@@ -193,21 +206,21 @@ test(
           rehearsalMode: 'full_rehearsal',
           services: [],
           serviceNotes: '',
-        })]),
+        }), dataPolicy]),
         /platform_project_invalid/,
       );
       await assert.rejects(
         db.query(saveSql, [eventThree, draftId, contentBrief, JSON.stringify({
           ...JSON.parse(templateContent),
           missionCopyOverrides: [{ missionCode: 'P2-TRICKSTER-001', title: 'Reveal the trickster', description: 'Unsafe mechanic override' }],
-        }), deliveryScope]),
+        }), deliveryScope, dataPolicy]),
         /platform_project_invalid/,
       );
       await assert.rejects(
         db.query(saveSql, [eventThree, draftId, contentBrief, JSON.stringify({
           ...JSON.parse(templateContent),
           missionCopyOverrides: [{ missionCode: 'P1-SOCIAL-001', title: 'Changed task', description: 'Safe copy', points: 12 }],
-        }), deliveryScope]),
+        }), deliveryScope, dataPolicy]),
         /platform_project_invalid/,
       );
       await assert.rejects(
@@ -217,11 +230,18 @@ test(
             { missionCode: 'P1-SOCIAL-001', title: 'First copy', description: 'First safe description' },
             { missionCode: 'P1-SOCIAL-001', title: 'Second copy', description: 'Duplicate mission code' },
           ],
-        }), deliveryScope]),
+        }), deliveryScope, dataPolicy]),
         /platform_project_invalid/,
       );
       await assert.rejects(
-        db.query(saveSql.replace("array['secret-missions','host-toolkit']::text[]", "array['live-scoreboard']::text[]"), [eventThree, draftId, contentBrief, templateContent, deliveryScope]),
+        db.query(saveSql.replace("array['secret-missions','host-toolkit']::text[]", "array['live-scoreboard']::text[]"), [eventThree, draftId, contentBrief, templateContent, deliveryScope, dataPolicy]),
+        /platform_project_invalid/,
+      );
+      await assert.rejects(
+        db.query(saveSql, [eventThree, draftId, contentBrief, templateContent, deliveryScope, JSON.stringify({
+          ...JSON.parse(dataPolicy),
+          retentionWindow: 'forever',
+        })]),
         /platform_project_invalid/,
       );
 
@@ -235,6 +255,15 @@ test(
 
       await db.exec('reset role');
       await db.query(`update platform_projects set content_brief = jsonb_set(content_brief, '{boundariesConfirmed}', 'true'::jsonb) where id = $1`, [projectId]);
+      await db.query(`update platform_projects set data_policy = jsonb_set(data_policy, '{guestNoticeConfirmed}', 'false'::jsonb) where id = $1`, [projectId]);
+      await db.exec('set role authenticated');
+      await assert.rejects(
+        db.query('select * from platform_submit_project_for_review($1::uuid, $2::uuid)', [eventFour, projectId]),
+        /platform_project_not_ready/,
+      );
+
+      await db.exec('reset role');
+      await db.query(`update platform_projects set data_policy = jsonb_set(data_policy, '{guestNoticeConfirmed}', 'true'::jsonb) where id = $1`, [projectId]);
       await db.exec('set role authenticated');
       const submitted = await db.query('select * from platform_submit_project_for_review($1::uuid, $2::uuid)', [eventFour, projectId]);
       assert.equal(submitted.rows[0].status, 'content_review');
@@ -242,7 +271,7 @@ test(
       const submitRetry = await db.query('select * from platform_submit_project_for_review($1::uuid, $2::uuid)', [eventFour, projectId]);
       assert.equal(submitRetry.rows[0].current_version, 3);
       await assert.rejects(
-        db.query(saveSql, [eventFive, draftId, contentBrief, templateContent, deliveryScope]),
+        db.query(saveSql, [eventFive, draftId, contentBrief, templateContent, deliveryScope, dataPolicy]),
         /platform_project_locked/,
       );
       await assert.rejects(
@@ -281,7 +310,7 @@ test(
       await db.exec('reset role');
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
       await db.exec('set role authenticated');
-      const revised = await db.query(saveSql, [eventSeven, draftId, contentBrief, templateContent, deliveryScope]);
+      const revised = await db.query(saveSql, [eventSeven, draftId, contentBrief, templateContent, deliveryScope, dataPolicy]);
       assert.equal(revised.rows[0].current_version, 5);
       const resubmitted = await db.query('select * from platform_submit_project_for_review($1::uuid, $2::uuid)', [eventEight, projectId]);
       assert.equal(resubmitted.rows[0].status, 'content_review');
@@ -316,9 +345,11 @@ test(
           (select content_brief ->> 'language' from platform_projects limit 1) language,
           (select snapshot -> 'content_brief' ->> 'interaction' from platform_project_versions order by version desc limit 1) interaction,
           (select delivery_scope ->> 'supportMode' from platform_projects limit 1) support_mode,
-          (select snapshot -> 'delivery_scope' ->> 'rehearsalMode' from platform_project_versions order by version desc limit 1) rehearsal_mode
+          (select snapshot -> 'delivery_scope' ->> 'rehearsalMode' from platform_project_versions order by version desc limit 1) rehearsal_mode,
+          (select data_policy ->> 'retentionWindow' from platform_projects limit 1) retention_window,
+          (select snapshot -> 'data_policy' ->> 'isolatedRuntimeRequired' from platform_project_versions order by version desc limit 1) isolated_runtime
       `);
-      assert.deepEqual(counts.rows[0], { projects: 1, versions: 7, entitlements: 1, audits: 7, receipts: 7, reviews: 2, latest_decision: 'approved', language: 'bilingual', interaction: 'immersive', support_mode: 'remote_guided', rehearsal_mode: 'full_rehearsal' });
+      assert.deepEqual(counts.rows[0], { projects: 1, versions: 7, entitlements: 1, audits: 7, receipts: 7, reviews: 2, latest_decision: 'approved', language: 'bilingual', interaction: 'immersive', support_mode: 'remote_guided', rehearsal_mode: 'full_rehearsal', retention_window: 'event_plus_7_days', isolated_runtime: 'true' });
 
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerTwo]);
       await db.exec('set role authenticated');
@@ -384,7 +415,7 @@ test(
 
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
       await db.exec('set role authenticated');
-      const secondProject = await db.query(saveSql, [eventThirteen, secondDraftId, contentBrief, templateContent, deliveryScope]);
+      const secondProject = await db.query(saveSql, [eventThirteen, secondDraftId, contentBrief, templateContent, deliveryScope, dataPolicy]);
       const secondProjectId = secondProject.rows[0].id;
       const secondInvitation = await db.query(
         "select * from platform_create_project_invitation($1::uuid, $2::uuid, 'editor', $3)",
@@ -397,9 +428,9 @@ test(
       await db.query(`select set_config('request.jwt.claim.email', $1, false)`, ['collaborator@example.com']);
       await db.exec('set role authenticated');
       await db.query('select * from platform_accept_project_invitation($1::uuid, $2)', [eventFifteen, secondInviteHash]);
-      const collaboratorSave = await db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief, templateContent, deliveryScope]);
+      const collaboratorSave = await db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief, templateContent, deliveryScope, dataPolicy]);
       assert.equal(collaboratorSave.rows[0].current_version, 2);
-      const collaboratorSaveRetry = await db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief, templateContent, deliveryScope]);
+      const collaboratorSaveRetry = await db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief, templateContent, deliveryScope, dataPolicy]);
       assert.equal(collaboratorSaveRetry.rows[0].current_version, 2);
       await assert.rejects(
         db.query('select * from platform_submit_project_for_review($1::uuid, $2::uuid)', [eventSeventeen, secondProjectId]),
@@ -415,7 +446,7 @@ test(
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerTwo]);
       await db.exec('set role authenticated');
       await assert.rejects(
-        db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief, templateContent, deliveryScope]),
+        db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief, templateContent, deliveryScope, dataPolicy]),
         /platform_project_not_owned/,
       );
 
@@ -436,7 +467,7 @@ test(
       );
       assert.equal(manifest.rows[0].project_version, 7);
       assert.match(manifest.rows[0].manifest_hash, /^[0-9a-f]{64}$/);
-      assert.equal(manifest.rows[0].manifest.schemaVersion, 'wedding-instance-config/v1');
+      assert.equal(manifest.rows[0].manifest.schemaVersion, 'wedding-instance-config/v2');
       assert.equal(manifest.rows[0].manifest.wedding.displayName, 'Zimin & Anrong');
       assert.equal(manifest.rows[0].manifest.experience.templateContent.teamOneName, 'Ocean Team');
       assert.equal(manifest.rows[0].manifest.experience.templateContent.openingScript, 'Welcome to {{couple}} in {{location}}.');
@@ -445,6 +476,8 @@ test(
       assert.deepEqual(manifest.rows[0].manifest.experience.templateContent.charadesWords, ['wedding cake', 'bouquet', 'honeymoon']);
       assert.equal(manifest.rows[0].manifest.experience.templateContent.missionCopyOverrides[0].missionCode, 'P1-SOCIAL-001');
       assert.equal(manifest.rows[0].manifest.experience.templateContent.missionCopyOverrides[0].title, 'Meet a new friend');
+      assert.equal(manifest.rows[0].manifest.delivery.dataPolicy.retentionWindow, 'event_plus_7_days');
+      assert.equal(manifest.rows[0].manifest.delivery.dataPolicy.isolatedRuntimeRequired, true);
       assert.deepEqual(manifest.rows[0].manifest.safeguards, {
         containsCredentials: false,
         containsGuestRuntimeData: false,

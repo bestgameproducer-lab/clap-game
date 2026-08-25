@@ -10,6 +10,10 @@ import {
   type PlatformDeliveryScope,
   type PlatformTemplateContent,
 } from '../platform/draft';
+import {
+  normalizePlatformDataPolicy,
+  type PlatformDataPolicy,
+} from '../platform/data-policy';
 import { createPlatformServerClient } from '../platform/supabase-server';
 import type { PlatformReviewDecision } from '../validation/platform-operations';
 
@@ -25,16 +29,17 @@ export type PlatformReviewQueueItem = {
   contentBrief: PlatformContentBrief;
   templateContent: PlatformTemplateContent;
   deliveryScope: PlatformDeliveryScope;
+  dataPolicy: PlatformDataPolicy;
   version: number;
   submittedAt: string;
 };
 
 export type PlatformProvisioningManifest = {
-  schemaVersion: 'wedding-instance-config/v1';
+  schemaVersion: 'wedding-instance-config/v1' | 'wedding-instance-config/v2';
   source: { projectId: string; projectVersion: number; templateId: string; templateVersion: string };
   wedding: { displayName: string; partnerOne: string; partnerTwo: string; date: string; location: string; guestCapacity: number };
   experience: { theme: string; tone: string; modules: string[]; language: string; interaction: string; guestMix: string; templateContent: PlatformTemplateContent };
-  delivery: { plan: 'buyout' | 'subscription' };
+  delivery: { plan: 'buyout' | 'subscription'; dataPolicy?: PlatformDataPolicy };
   safeguards: { containsGuestRuntimeData: false; containsCredentials: false; containsPrivateStoryNotes: false };
 };
 
@@ -72,6 +77,7 @@ type ReviewQueueRow = {
   content_brief: unknown;
   template_content: unknown;
   delivery_scope: unknown;
+  data_policy: unknown;
   current_version: number;
   updated_at: string;
 };
@@ -96,7 +102,7 @@ export async function listPlatformReviewQueue(staffUserId: string) {
   const client = await createPlatformServerClient();
   const { data, error } = await client
     .from('platform_projects')
-    .select('id,partner_one,partner_two,wedding_date,location,guest_count,plan_id,modules,content_brief,template_content,delivery_scope,current_version,updated_at')
+    .select('id,partner_one,partner_two,wedding_date,location,guest_count,plan_id,modules,content_brief,template_content,delivery_scope,data_policy,current_version,updated_at')
     .eq('status', 'content_review')
     .order('updated_at', { ascending: true })
     .limit(100);
@@ -116,6 +122,7 @@ export async function listPlatformReviewQueue(staffUserId: string) {
     deliveryScope: isPlatformDeliveryScope(row.delivery_scope)
       ? { ...row.delivery_scope, services: [...row.delivery_scope.services] }
       : { ...DEFAULT_PLATFORM_DELIVERY_SCOPE, services: [...DEFAULT_PLATFORM_DELIVERY_SCOPE.services] },
+    dataPolicy: normalizePlatformDataPolicy(row.data_policy),
     version: row.current_version,
     submittedAt: row.updated_at,
   }));
@@ -256,6 +263,7 @@ export async function reviewPlatformProject(
     if (error.message.includes('platform_staff_required')) throw new ApiError(403, '此账号没有平台运营权限');
     if (error.message.includes('platform_project_not_found')) throw new ApiError(404, '没有找到这个客户项目');
     if (error.message.includes('platform_project_locked')) throw new ApiError(409, '项目已经离开待审核状态');
+    if (error.message.includes('platform_project_not_ready')) throw new ApiError(409, '宾客资料生命周期责任尚未完整确认，不能批准进入实例准备');
     if (error.message.includes('platform_review_invalid')) throw new ApiError(400, '审核决定格式不正确');
     if (error.message.includes('platform_event_conflict')) throw new ApiError(409, '操作编号已经用于其他请求');
     throw new Error(`Unable to review platform project: ${error.message}`);

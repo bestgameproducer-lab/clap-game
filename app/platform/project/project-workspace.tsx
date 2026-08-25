@@ -12,6 +12,7 @@ import {
   isWeddingDraft,
   type WeddingDraft,
 } from '../../../lib/platform/draft';
+import { isPlatformDataPolicyReady, normalizePlatformDataPolicy } from '../../../lib/platform/data-policy';
 import styles from '../platform.module.css';
 
 const DELIVERY_STAGES = [
@@ -30,6 +31,7 @@ const PREPARATION_ITEMS = [
   { id: 'modules', name: '游戏模块', copy: '至少选择一个现场模块', ready: (draft: WeddingDraft) => draft.modules.length > 0 },
   { id: 'delivery', name: '交付方式', copy: '已选择买断或订阅方向', ready: (draft: WeddingDraft) => Boolean(draft.plan) },
   { id: 'scope', name: '服务范围', copy: '已选择定制、支持和彩排方式', ready: (draft: WeddingDraft) => getWeddingDeliveryScope(draft).services.length > 0 },
+  { id: 'data-policy', name: '宾客资料责任', copy: '名单权限、宾客告知与删除期限已确认', ready: (draft: WeddingDraft) => isPlatformDataPolicyReady(normalizePlatformDataPolicy(draft.dataPolicy)) },
 ] as const;
 
 export function ProjectWorkspace() {
@@ -140,7 +142,7 @@ export function ProjectWorkspace() {
           <p className={styles.eyebrow}>NEXT CHECKPOINT</p>
           <h2>下一步：内容确认</h2>
           <p>正式制作前还需要新人故事素材、宾客名单字段、敏感内容边界、主持人口播、题库答案和视觉资产。这些资料未来会进入隔离的客户项目，不会写入模板本身。</p>
-          <div><Link className={styles.primaryAction} href="/platform/content">填写内容问卷 <span>→</span></Link><Link className={styles.secondaryAction} href="/platform/capacity">核对宾客容量</Link><Link className={styles.secondaryAction} href="/platform/scope">确认服务范围</Link><Link className={styles.secondaryAction} href="/platform/create">返回方案定制</Link></div>
+          <div><Link className={styles.primaryAction} href="/platform/content">填写内容问卷 <span>→</span></Link><Link className={styles.secondaryAction} href="/platform/capacity">核对宾客容量</Link><Link className={styles.secondaryAction} href="/platform/scope">确认服务与资料责任</Link><Link className={styles.secondaryAction} href="/platform/create">返回方案定制</Link></div>
         </section>
       </div>
     </div>

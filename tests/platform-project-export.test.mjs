@@ -28,15 +28,19 @@ test('customer project backup contains the owned configuration and explicit priv
     deliveryScope: {
       customizationLevel: 'guided', supportMode: 'remote_guided', rehearsalMode: 'full_rehearsal', services: ['host-runbook'], serviceNotes: 'Private service note',
     },
+    dataPolicy: {
+      retentionWindow: 'event_plus_7_days', projectArchiveBeforeDeletion: true, rosterAuthorityConfirmed: true, guestNoticeConfirmed: true, isolatedRuntimeRequired: true,
+    },
     version: 3,
     updatedAt: '2027-04-01T00:00:00.000Z',
     accessRole: 'owner',
   }, '2027-04-02T00:00:00.000Z');
 
-  assert.equal(result.schemaVersion, 'wedding-project-draft/v1');
+  assert.equal(result.schemaVersion, 'wedding-project-draft/v2');
   assert.equal(result.project.version, 3);
   assert.equal(result.project.experience.contentBrief.storyMoments, 'Private story');
   assert.equal(result.project.commercialIntent.deliveryScope.supportMode, 'remote_guided');
+  assert.equal(result.project.commercialIntent.dataPolicy.retentionWindow, 'event_plus_7_days');
   assert.deepEqual(result.safeguards, {
     containsPrivateCustomerContent: true,
     containsGuestRuntimeData: false,

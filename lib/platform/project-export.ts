@@ -1,6 +1,7 @@
 import type { PlatformProjectDto } from '../data/platform-projects';
 
-export const PLATFORM_PROJECT_EXPORT_SCHEMA = 'wedding-project-draft/v1' as const;
+export const PLATFORM_PROJECT_EXPORT_SCHEMA = 'wedding-project-draft/v2' as const;
+export const LEGACY_PLATFORM_PROJECT_EXPORT_SCHEMA = 'wedding-project-draft/v1' as const;
 
 export function buildPlatformProjectExport(project: PlatformProjectDto, exportedAt: string) {
   return {
@@ -28,6 +29,7 @@ export function buildPlatformProjectExport(project: PlatformProjectDto, exported
       commercialIntent: {
         plan: project.planId,
         deliveryScope: project.deliveryScope,
+        dataPolicy: project.dataPolicy,
       },
       customerNotes: { storyNote: project.storyNote },
     },

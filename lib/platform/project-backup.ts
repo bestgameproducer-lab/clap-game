@@ -1,6 +1,6 @@
 import { FLAGSHIP_TEMPLATE } from './catalog';
 import { createPlatformDraftId, ensureWeddingDraftId, isWeddingDraft, type WeddingDraft } from './draft';
-import { PLATFORM_PROJECT_EXPORT_SCHEMA } from './project-export';
+import { LEGACY_PLATFORM_PROJECT_EXPORT_SCHEMA, PLATFORM_PROJECT_EXPORT_SCHEMA } from './project-export';
 
 export const PLATFORM_PROJECT_BACKUP_MAX_BYTES = 512 * 1024;
 
@@ -16,7 +16,11 @@ function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]) {
 
 export function restorePlatformProjectBackup(value: unknown): WeddingDraft | null {
   if (!isObject(value) || !hasExactKeys(value, ['schemaVersion', 'exportedAt', 'project', 'safeguards'])) return null;
-  if (value.schemaVersion !== PLATFORM_PROJECT_EXPORT_SCHEMA || typeof value.exportedAt !== 'string') return null;
+  if (
+    value.schemaVersion !== PLATFORM_PROJECT_EXPORT_SCHEMA
+    && value.schemaVersion !== LEGACY_PLATFORM_PROJECT_EXPORT_SCHEMA
+  ) return null;
+  if (typeof value.exportedAt !== 'string') return null;
   if (!isObject(value.project) || !hasExactKeys(value.project, [
     'id', 'version', 'status', 'template', 'wedding', 'experience', 'commercialIntent', 'customerNotes',
   ])) return null;
@@ -37,7 +41,11 @@ export function restorePlatformProjectBackup(value: unknown): WeddingDraft | nul
   if (project.template.id !== FLAGSHIP_TEMPLATE.id || project.template.version !== FLAGSHIP_TEMPLATE.version) return null;
   if (!isObject(project.wedding) || !hasExactKeys(project.wedding, ['partnerOne', 'partnerTwo', 'date', 'location', 'guestCapacity'])) return null;
   if (!isObject(project.experience) || !hasExactKeys(project.experience, ['theme', 'tone', 'modules', 'contentBrief', 'templateContent'])) return null;
-  if (!isObject(project.commercialIntent) || !hasExactKeys(project.commercialIntent, ['plan', 'deliveryScope'])) return null;
+  const isLegacy = value.schemaVersion === LEGACY_PLATFORM_PROJECT_EXPORT_SCHEMA;
+  if (!isObject(project.commercialIntent) || !hasExactKeys(
+    project.commercialIntent,
+    isLegacy ? ['plan', 'deliveryScope'] : ['plan', 'deliveryScope', 'dataPolicy'],
+  )) return null;
   if (!isObject(project.customerNotes) || !hasExactKeys(project.customerNotes, ['storyNote'])) return null;
 
   const candidate: WeddingDraft = {
@@ -55,6 +63,7 @@ export function restorePlatformProjectBackup(value: unknown): WeddingDraft | nul
     contentBrief: project.experience.contentBrief as WeddingDraft['contentBrief'],
     templateContent: project.experience.templateContent as WeddingDraft['templateContent'],
     deliveryScope: project.commercialIntent.deliveryScope as WeddingDraft['deliveryScope'],
+    dataPolicy: isLegacy ? undefined : project.commercialIntent.dataPolicy as WeddingDraft['dataPolicy'],
   };
   return isWeddingDraft(candidate) ? ensureWeddingDraftId(candidate) : null;
 }

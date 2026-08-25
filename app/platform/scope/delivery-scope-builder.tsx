@@ -19,6 +19,13 @@ import {
   type PlatformDeliveryScope,
   type WeddingDraft,
 } from '../../../lib/platform/draft';
+import {
+  PLATFORM_RETENTION_WINDOWS,
+  getPlatformRetentionDays,
+  isPlatformDataPolicyReady,
+  normalizePlatformDataPolicy,
+  type PlatformDataPolicy,
+} from '../../../lib/platform/data-policy';
 import styles from '../platform.module.css';
 
 export function DeliveryScopeBuilder() {
@@ -52,6 +59,7 @@ export function DeliveryScopeBuilder() {
   }, [draft, ready]);
 
   const scope = draft ? getWeddingDeliveryScope(draft) : null;
+  const dataPolicy = draft ? normalizePlatformDataPolicy(draft.dataPolicy) : null;
   const selectedServices = useMemo(() => (
     scope ? PLATFORM_SERVICES.filter((service) => scope.services.includes(service.id)) : []
   ), [scope]);
@@ -70,8 +78,15 @@ export function DeliveryScopeBuilder() {
       : [...scope.services, serviceId]);
   }
 
+  function updateDataPolicy<K extends keyof PlatformDataPolicy>(key: K, value: PlatformDataPolicy[K]) {
+    setDraft((current) => current ? {
+      ...current,
+      dataPolicy: { ...normalizePlatformDataPolicy(current.dataPolicy), [key]: value },
+    } : current);
+  }
+
   if (!ready) return <section className={styles.scopeLoading} aria-live="polite">正在读取这台设备上的服务范围…</section>;
-  if (!draft || !scope) {
+  if (!draft || !scope || !dataPolicy) {
     return (
       <section className={styles.scopeEmpty}>
         <p className={styles.eyebrow}>NO LOCAL PROJECT YET</p>
@@ -86,6 +101,7 @@ export function DeliveryScopeBuilder() {
   const customization = PLATFORM_CUSTOMIZATION_LEVELS.find((item) => item.id === scope.customizationLevel)!;
   const support = PLATFORM_SUPPORT_MODES.find((item) => item.id === scope.supportMode)!;
   const rehearsal = PLATFORM_REHEARSAL_MODES.find((item) => item.id === scope.rehearsalMode)!;
+  const pendingDataConfirmations = Number(!dataPolicy.rosterAuthorityConfirmed) + Number(!dataPolicy.guestNoticeConfirmed);
 
   return (
     <div className={styles.scopeLayout}>
@@ -122,15 +138,28 @@ export function DeliveryScopeBuilder() {
             {selectedServices.length === 0 ? <p className={styles.builderWarning}>至少选择一项服务，才能形成有效的交付范围。</p> : null}
             <label className={styles.scopeNotes}>补充要求或档期备注<textarea maxLength={1000} value={scope.serviceNotes} onChange={(event) => updateScope('serviceNotes', event.target.value)} placeholder="例如：策划团队在新加坡，需要中英双语远程彩排；婚礼日支持时区为巴厘岛。" /></label>
           </fieldset>
+
+          <fieldset className={styles.scopeSection}>
+            <legend><small>06 · DATA LIFECYCLE</small><strong>宾客资料生命周期</strong></legend>
+            <p className={styles.scopeSectionIntro}>这里约定未来独立婚礼实例中的名单、头像、积分与任务记录保留多久。平台不提供无限期保留；项目草稿与宾客运行资料始终分开。</p>
+            <div className={styles.scopeOptionGrid}>{PLATFORM_RETENTION_WINDOWS.map((option) => <button key={option.id} type="button" aria-pressed={dataPolicy.retentionWindow === option.id} className={dataPolicy.retentionWindow === option.id ? styles.scopeOptionSelected : styles.scopeOption} onClick={() => updateDataPolicy('retentionWindow', option.id)}><small>{option.days} DAYS</small><strong>{option.name}</strong><p>{option.description}</p></button>)}</div>
+            <div className={styles.dataPolicyConfirmations}>
+              <label className={dataPolicy.rosterAuthorityConfirmed ? styles.dataPolicyConfirmed : styles.dataPolicyConfirmation}><input type="checkbox" checked={dataPolicy.rosterAuthorityConfirmed} onChange={(event) => updateDataPolicy('rosterAuthorityConfirmed', event.target.checked)} /><span><strong>我确认有权向平台提供这场婚礼的宾客基础名单</strong><p>只提供运行所需的显示姓名与登录名；不要填写密码、身份证、健康信息或其他无关资料。</p></span><b aria-hidden="true">{dataPolicy.rosterAuthorityConfirmed ? '✓' : '!'}</b></label>
+              <label className={dataPolicy.guestNoticeConfirmed ? styles.dataPolicyConfirmed : styles.dataPolicyConfirmation}><input type="checkbox" checked={dataPolicy.guestNoticeConfirmed} onChange={(event) => updateDataPolicy('guestNoticeConfirmed', event.target.checked)} /><span><strong>我确认会在名单导入前向宾客说明游戏会处理哪些资料</strong><p>本项是项目交付前的操作确认，不替代适用于你们婚礼所在地的法律意见。</p></span><b aria-hidden="true">{dataPolicy.guestNoticeConfirmed ? '✓' : '!'}</b></label>
+              <label className={dataPolicy.projectArchiveBeforeDeletion ? styles.dataPolicyConfirmed : styles.dataPolicyConfirmation}><input type="checkbox" checked={dataPolicy.projectArchiveBeforeDeletion} onChange={(event) => updateDataPolicy('projectArchiveBeforeDeletion', event.target.checked)} /><span><strong>删除前导出不含宾客运行资料的项目配置归档</strong><p>归档只包含已确认的方案与内容配置，不包含宾客账号、头像、积分、任务记录或密钥。</p></span><b aria-hidden="true">{dataPolicy.projectArchiveBeforeDeletion ? '✓' : '—'}</b></label>
+            </div>
+            <div className={styles.dataPolicyIsolation}><span>LOCKED SAFEGUARD</span><strong>每个客户项目必须交付到独立隔离实例</strong><p>此项不可关闭。名单不会进入平台草稿、其他客户项目或现有婚礼运行数据库。</p></div>
+          </fieldset>
         </form>
 
         <aside className={styles.scopeSummary}>
           <p className={styles.eyebrow}>QUOTE-READY SCOPE</p>
           <h2>{chosenPlan.name}</h2>
           <p>{chosenPlan.bestFor}</p>
-          <dl><div><dt>定制深度</dt><dd>{customization.name}</dd></div><div><dt>运营方式</dt><dd>{support.name}</dd></div><div><dt>彩排方式</dt><dd>{rehearsal.name}</dd></div><div><dt>服务项目</dt><dd>{selectedServices.length} 项</dd></div></dl>
+          <dl><div><dt>定制深度</dt><dd>{customization.name}</dd></div><div><dt>运营方式</dt><dd>{support.name}</dd></div><div><dt>彩排方式</dt><dd>{rehearsal.name}</dd></div><div><dt>服务项目</dt><dd>{selectedServices.length} 项</dd></div><div><dt>宾客资料</dt><dd>婚礼后 {getPlatformRetentionDays(dataPolicy)} 天删除</dd></div></dl>
           <ol>{selectedServices.map((service) => <li key={service.id}><span>✓</span><div><strong>{service.name}</strong>{service.availability === 'needs-confirmation' ? <small>待确认</small> : null}</div></li>)}</ol>
           <div className={styles.scopeCommercialNotice}><strong>当前不是订单</strong><p>这里不显示未经确认的价格，不扣款，也不代表平台已经接受婚礼日服务档期。价格、税费、退款、服务时段和数据保留需要在正式报价中确认。</p></div>
+          <div className={isPlatformDataPolicyReady(dataPolicy) ? styles.dataPolicySummaryReady : styles.dataPolicySummaryPending}><strong>{isPlatformDataPolicyReady(dataPolicy) ? '资料责任已确认' : `还有 ${pendingDataConfirmations} 项资料责任待确认`}</strong><p>{isPlatformDataPolicyReady(dataPolicy) ? '保存到云端后，这份约定会进入不可变版本、运营审核和实例配置清单。' : '名单提供权限与宾客告知均确认后，项目才可以提交内容审核。'}</p></div>
           <div className={styles.scopeActions}><Link className={styles.primaryAction} href="/platform/account">连接账号并保存 <span>→</span></Link><Link className={styles.secondaryAction} href="/platform/project">查看项目准备度</Link></div>
         </aside>
       </div>

@@ -18,6 +18,12 @@ import {
   type PlatformToneId,
 } from './catalog';
 import { PLATFORM_EDITABLE_MISSION_CODES, isPlatformEditableMissionCode, type PlatformEditableMissionCode } from './mission-copy';
+import {
+  DEFAULT_PLATFORM_DATA_POLICY,
+  isPlatformDataPolicy,
+  normalizePlatformDataPolicy,
+  type PlatformDataPolicy,
+} from './data-policy';
 
 export const PLATFORM_DRAFT_STORAGE_KEY = 'wedding-play-studio-draft-v1';
 
@@ -113,6 +119,7 @@ export type WeddingDraft = {
   contentBrief?: PlatformContentBrief;
   templateContent?: PlatformTemplateContent;
   deliveryScope?: PlatformDeliveryScope;
+  dataPolicy?: PlatformDataPolicy;
 };
 
 const DEFAULT_MODULES: PlatformModuleId[] = [
@@ -265,6 +272,7 @@ export function ensureWeddingDraftId(draft: WeddingDraft): WeddingDraft {
     contentBrief: getWeddingContentBrief(draft),
     templateContent: getWeddingTemplateContent(draft),
     deliveryScope: getWeddingDeliveryScope(draft),
+    dataPolicy: normalizePlatformDataPolicy(draft.dataPolicy),
   };
 }
 
@@ -293,6 +301,7 @@ export function createDefaultDraft(plan: PlatformPlanId = 'buyout'): WeddingDraf
       ...DEFAULT_PLATFORM_DELIVERY_SCOPE,
       services: [...DEFAULT_PLATFORM_DELIVERY_SCOPE.services],
     },
+    dataPolicy: { ...DEFAULT_PLATFORM_DATA_POLICY },
   };
 }
 
@@ -314,6 +323,7 @@ export function isWeddingDraft(value: unknown): value is WeddingDraft {
     (draft.contentBrief === undefined || isPlatformContentBrief(draft.contentBrief)) &&
     (draft.templateContent === undefined || isPlatformTemplateContent(draft.templateContent)) &&
     (draft.deliveryScope === undefined || isPlatformDeliveryScope(draft.deliveryScope)) &&
+    (draft.dataPolicy === undefined || isPlatformDataPolicy(draft.dataPolicy)) &&
     ['40', '80', '120', '180'].includes(draft.guestCount ?? '') &&
     themeIds.has(draft.theme as PlatformThemeId) &&
     toneIds.has(draft.tone as PlatformToneId) &&
@@ -357,6 +367,7 @@ export function buildWeddingBrief(draft: WeddingDraft) {
   const content = getWeddingContentBrief(draft);
   const templateContent = getWeddingTemplateContent(draft);
   const deliveryScope = getWeddingDeliveryScope(draft);
+  const dataPolicy = normalizePlatformDataPolicy(draft.dataPolicy);
   const language = content.language === 'bilingual' ? '中英双语' : '中文';
   const interaction = { gentle: '轻松温和', balanced: '自然平衡', immersive: '高沉浸互动' }[content.interaction];
   const guestMix = { family: '家人与长辈为主', balanced: '亲友较均衡', friends: '朋友为主' }[content.guestMix];
@@ -379,6 +390,10 @@ export function buildWeddingBrief(draft: WeddingDraft) {
     `运营支持：${supportMode}`,
     `彩排方式：${rehearsalMode}`,
     `服务范围：${services.map((item) => item.name).join('、') || '尚未选择'}`,
+    `宾客运行资料保留：婚礼后 ${dataPolicy.retentionWindow === 'event_plus_90_days' ? 90 : dataPolicy.retentionWindow === 'event_plus_30_days' ? 30 : 7} 天`,
+    dataPolicy.projectArchiveBeforeDeletion ? '删除前导出不含宾客运行资料的项目配置归档' : '删除前不生成项目配置归档',
+    dataPolicy.rosterAuthorityConfirmed ? '名单提供权限已确认' : '名单提供权限尚未确认',
+    dataPolicy.guestNoticeConfirmed ? '宾客告知责任已确认' : '宾客告知责任尚未确认',
     deliveryScope.serviceNotes.trim() ? `服务备注：${deliveryScope.serviceNotes.trim()}` : '',
     `模块：${selectedModules.map((module) => module.name).join('、') || '尚未选择'}`,
     draft.storyNote.trim() ? `故事备注：${draft.storyNote.trim()}` : '',

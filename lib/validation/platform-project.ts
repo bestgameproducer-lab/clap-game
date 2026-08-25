@@ -26,6 +26,11 @@ import {
   type WeddingDraft,
 } from '../platform/draft';
 import { PLATFORM_EDITABLE_MISSION_CODES, type PlatformEditableMissionCode } from '../platform/mission-copy';
+import {
+  PLATFORM_RETENTION_WINDOWS,
+  normalizePlatformDataPolicy,
+  type PlatformDataPolicy,
+} from '../platform/data-policy';
 
 const PLAN_IDS = PLATFORM_PLANS.map((plan) => plan.id);
 const THEME_IDS = PLATFORM_THEMES.map((theme) => theme.id);
@@ -40,7 +45,7 @@ export type PlatformProjectSaveInput = {
   eventKey: string;
   projectId: string | null;
   sourceDraftId: string;
-  draft: WeddingDraft & { draftId: string; contentBrief: PlatformContentBrief; templateContent: PlatformTemplateContent; deliveryScope: PlatformDeliveryScope };
+  draft: WeddingDraft & { draftId: string; contentBrief: PlatformContentBrief; templateContent: PlatformTemplateContent; deliveryScope: PlatformDeliveryScope; dataPolicy: PlatformDataPolicy };
 };
 
 function optionalProjectId(value: unknown) {
@@ -166,6 +171,23 @@ function validateDeliveryScope(scope: PlatformDeliveryScope): PlatformDeliverySc
   };
 }
 
+function validateDataPolicy(policy: PlatformDataPolicy): PlatformDataPolicy {
+  if (policy.isolatedRuntimeRequired !== true) {
+    throw new ApiError(400, '每场婚礼必须使用独立隔离实例');
+  }
+  return {
+    retentionWindow: requiredEnum(
+      policy.retentionWindow,
+      '宾客资料保留期限',
+      PLATFORM_RETENTION_WINDOWS.map((option) => option.id),
+    ),
+    projectArchiveBeforeDeletion: requiredBoolean(policy.projectArchiveBeforeDeletion, '删除前项目配置归档'),
+    rosterAuthorityConfirmed: requiredBoolean(policy.rosterAuthorityConfirmed, '名单提供权限确认'),
+    guestNoticeConfirmed: requiredBoolean(policy.guestNoticeConfirmed, '宾客告知责任确认'),
+    isolatedRuntimeRequired: true,
+  };
+}
+
 export function readPlatformProjectSaveInput(body: JsonObject): PlatformProjectSaveInput {
   if (!isWeddingDraft(body.draft)) throw new ApiError(400, '婚礼方案格式不正确');
   const input = body.draft;
@@ -173,6 +195,7 @@ export function readPlatformProjectSaveInput(body: JsonObject): PlatformProjectS
   const content = getWeddingContentBrief(input);
   const templateContent = getWeddingTemplateContent(input);
   const deliveryScope = getWeddingDeliveryScope(input);
+  const dataPolicy = normalizePlatformDataPolicy(input.dataPolicy);
 
   return {
     eventKey: requiredUuid(body.eventKey, '操作编号'),
@@ -201,6 +224,7 @@ export function readPlatformProjectSaveInput(body: JsonObject): PlatformProjectS
       },
       templateContent: validateTemplateContent(templateContent),
       deliveryScope: validateDeliveryScope(deliveryScope),
+      dataPolicy: validateDataPolicy(dataPolicy),
     },
   };
 }

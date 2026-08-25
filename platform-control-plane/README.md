@@ -26,6 +26,8 @@ The migrations also persist the structured content brief (language, interaction 
 
 The delivery scope (commercial model, customization depth, operating support, rehearsal mode, service items, and customer notes) is validated as a closed JSON shape and stored in the same immutable version. It records quote intent only: it does not contain a price, create an order, activate an entitlement, or provision resources.
 
+The guest-data lifecycle policy is a separate closed JSON shape. It permits only 7, 30, or 90 days after the wedding, requires an isolated runtime, and records the project owner's roster-authority and guest-notice confirmations. A project cannot enter review or provisioning without both confirmations. This policy contains no guest records and does not itself upload a roster; old project versions are not rewritten by the forward migration.
+
 Selected runtime modules are also dependency-checked in the application and database. The forward migration repairs any older preview rows before adding the constraint, and a database trigger returns the stable `platform_project_invalid` error if a caller bypasses the browser validator.
 
 ## Bootstrap the first platform operator
@@ -49,9 +51,9 @@ The migrations intentionally do not integrate a payment provider or create cloud
 
 ## Approved-version provisioning manifest
 
-After an operator approves a submitted version, `/platform/operations` can lock one immutable `wedding-instance-config/v1` manifest for that exact project version. Locking is staff-only, idempotent, protected by an advisory lock, SHA-256 signed, and audited. It does **not** create a Vercel project, Supabase project, domain, database, or paid resource.
+After an operator approves a submitted version, `/platform/operations` can lock one immutable `wedding-instance-config/v2` manifest for that exact project version. Locking is staff-only, idempotent, protected by an advisory lock, SHA-256 signed, and audited. It does **not** create a Vercel project, Supabase project, domain, database, or paid resource. Previously locked v1 manifests remain immutable and readable.
 
-The manifest contains only the non-sensitive settings needed to prepare an isolated runtime: template/version identifiers, couple display names, wedding date and location, capacity, theme, tone, selected modules, interaction settings, language and delivery plan. It deliberately excludes story text, avoidance boundaries, host notes, guest records, photos, scores, hidden roles and all credentials. Operators should compare the displayed hash with the downloaded JSON before any later provisioning workflow consumes it.
+The manifest contains only the non-sensitive settings needed to prepare an isolated runtime: template/version identifiers, couple display names, wedding date and location, capacity, theme, tone, selected modules, interaction settings, language, delivery plan and the finite data-lifecycle policy. It deliberately excludes story text, avoidance boundaries, host notes, guest records, photos, scores, hidden roles and all credentials. Operators should compare the displayed hash with the downloaded JSON before any later provisioning workflow consumes it.
 
 Once the manifest is locked and the entitlement is explicitly `active`, an operator can register an already-created isolated runtime target. The registry stores only the exact manifest version/hash, a public HTTPS origin and a non-secret deployment reference. It rejects credentials, URL paths, query strings and fragments; it never stores provider tokens or database connection strings. Registration does not create resources and does not make a server-side request to the target. A later milestone must add an allowlisted health-check contract before a registered target can advance to `verified` or `ready`.
 

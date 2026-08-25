@@ -61,7 +61,7 @@ test('every platform mutation is same-origin, authenticated, validated, and isol
   assert.match(operatorReviewRoute, /requirePlatformStaff\(\)/);
   assert.match(operatorReviewRoute, /requiredUuid\(\(await params\)\.projectId/);
   assert.match(operatorReviewRoute, /readPlatformOperatorReviewInput/);
-  assert.match(data, /platform_save_customized_project_draft_v5/);
+  assert.match(data, /platform_save_customized_project_draft_v6/);
   assert.match(data, /platform_submit_project_for_review/);
   assert.doesNotMatch(data, /select\(['"]\*['"]\)/);
   assert.match(validation, /requiredUuid\(body\.eventKey/);
@@ -115,6 +115,7 @@ test('control-plane migrations own projects, content briefs, versions, entitleme
   assert.match(sql, /platform_save_customized_project_draft_v3/);
   assert.match(sql, /platform_save_customized_project_draft_v4/);
   assert.match(sql, /platform_save_customized_project_draft_v5/);
+  assert.match(sql, /platform_save_customized_project_draft_v6/);
   assert.match(sql, /platform_create_project_invitation/);
   assert.match(sql, /platform_accept_project_invitation/);
   assert.match(sql, /platform_remove_project_member/);
@@ -176,6 +177,7 @@ test('account UI does not transmit the device draft before explicit signed-in sa
   assert.match(account, /载入到本机编辑/);
   assert.match(account, /contentBrief: project\.contentBrief/);
   assert.match(account, /templateContent: project\.templateContent/);
+  assert.match(account, /dataPolicy: project\.dataPolicy/);
   assert.match(projectWorkspace, /href="\/platform\/account"/);
   assert.doesNotMatch(account, /SERVICE_ROLE|service_role/);
 });
@@ -231,7 +233,7 @@ test('project invitations are hashed, authenticated, revocable, and role-scoped'
   assert.match(collaboration, /再次点击确认撤销/);
   assert.match(invitationPage, /next: `\/platform\/invitations\/\$\{token\}`/);
   assert.match(invitationPage, /不会授予婚礼现场后台/);
-  assert.match(data, /platform_save_customized_project_draft_v5/);
+  assert.match(data, /platform_save_customized_project_draft_v6/);
   assert.match(data, /accessRole/);
 });
 
@@ -336,7 +338,7 @@ test('template content pack is locally editable, strictly validated, versioned, 
   assert.match(validation, /同一项任务只能设置一份自定义文案/);
   assert.match(validation, /两支队伍必须使用不同名称/);
   assert.match(validation, /description,missionCode,title/);
-  assert.match(data, /platform_save_customized_project_draft_v5/);
+  assert.match(data, /platform_save_customized_project_draft_v6/);
   assert.match(data, /p_template_content: draft\.templateContent/);
   assert.match(review, /project\.templateContent\.openingScript/);
   assert.match(migration, /platform_template_content_is_valid/);
@@ -375,7 +377,7 @@ test('commercial delivery scope is closed-shape, versioned, reviewed, and never 
   assert.match(draft, /DEFAULT_PLATFORM_DELIVERY_SCOPE/);
   assert.match(validation, /服务项目不能重复/);
   assert.match(validation, /服务范围备注.*1000/);
-  assert.match(data, /platform_save_customized_project_draft_v5/);
+  assert.match(data, /platform_save_customized_project_draft_v6/);
   assert.match(data, /p_delivery_scope: draft\.deliveryScope/);
   assert.match(account, /deliveryScope: project\.deliveryScope/);
   assert.match(review, /商业与交付范围/);
@@ -384,6 +386,39 @@ test('commercial delivery scope is closed-shape, versioned, reviewed, and never 
   assert.match(migration, /snapshot = version\.snapshot \|\| jsonb_build_object\('delivery_scope'/);
   assert.match(migration, /coalesce\(public\.platform_project_access_role\(v_receipt_project_id\), ''\) not in \('owner', 'editor'\)/);
   assert.doesNotMatch(scope + data + migration, /stripe|checkout|payment_intent|createOrder/i);
+});
+
+test('guest data lifecycle is finite, explicitly confirmed, versioned, and delivered without guest records', () => {
+  const policy = read('lib/platform/data-policy.ts');
+  const scope = read('app/platform/scope/delivery-scope-builder.tsx');
+  const validation = read('lib/validation/platform-project.ts');
+  const data = read('lib/data/platform-projects.ts');
+  const review = read('app/platform/operations/platform-review-queue.tsx');
+  const project = read('app/platform/projects/[projectId]/page.tsx');
+  const migration = read('platform-control-plane/migrations/202608250014_data_lifecycle_policy.sql');
+
+  assert.match(policy, /event_plus_7_days/);
+  assert.match(policy, /event_plus_30_days/);
+  assert.match(policy, /event_plus_90_days/);
+  assert.doesNotMatch(policy, /forever|indefinite/i);
+  assert.match(scope, /宾客资料生命周期/);
+  assert.match(scope, /不替代适用于你们婚礼所在地的法律意见/);
+  assert.match(scope, /每个客户项目必须交付到独立隔离实例/);
+  assert.match(validation, /宾客资料保留期限/);
+  assert.match(validation, /每场婚礼必须使用独立隔离实例/);
+  assert.match(data, /platform_save_customized_project_draft_v6/);
+  assert.match(data, /p_data_policy: draft\.dataPolicy/);
+  assert.match(review, /资料责任尚未完整确认，不应批准/);
+  assert.match(project, /暂不能提交审核/);
+  assert.match(migration, /add column data_policy jsonb/);
+  assert.match(migration, /platform_data_policy_is_valid/);
+  assert.match(migration, /platform_project_versions_data_policy/);
+  assert.match(migration, /platform_projects_confirmed_data_policy/);
+  assert.match(migration, /wedding-instance-config\/v2/);
+  assert.match(migration, /'dataPolicy', v_data_policy/);
+  assert.match(migration, /revoke execute on function public\.platform_save_customized_project_draft_v5[\s\S]*from authenticated/);
+  assert.doesNotMatch(migration.match(/v_manifest\.manifest :=[\s\S]*?v_manifest\.manifest_hash :=/)?.[0] ?? '', /storyMoments|avoidTopics|hostNotes|story_note/);
+  assert.doesNotMatch(scope + data + migration, /guest_name|display_name|login_name|avatar_url|password_hash/i);
 });
 
 test('project backup is owner-only, private, non-cacheable, and excludes collaboration and runtime records', () => {
@@ -400,7 +435,7 @@ test('project backup is owner-only, private, non-cacheable, and excludes collabo
   assert.match(route, /X-Content-Type-Options.*nosniff/);
   assert.match(data, /row\.owner_user_id !== ownerUserId/);
   assert.match(data, /只有项目所有者可以下载完整方案备份/);
-  assert.match(serializer, /wedding-project-draft\/v1/);
+  assert.match(serializer, /wedding-project-draft\/v2/);
   assert.match(serializer, /containsGuestRuntimeData: false/);
   assert.match(serializer, /containsCollaboratorAccounts: false/);
   assert.match(serializer, /constitutesFinalWeddingArchive: false/);
