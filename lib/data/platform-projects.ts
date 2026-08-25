@@ -2,6 +2,7 @@ import 'server-only';
 import { ApiError } from '../errors';
 import type { PlatformProjectSaveInput } from '../validation/platform-project';
 import { createPlatformServerClient } from '../platform/supabase-server';
+import { buildPlatformProjectExport } from '../platform/project-export';
 import {
   DEFAULT_PLATFORM_CONTENT_BRIEF,
   DEFAULT_PLATFORM_DELIVERY_SCOPE,
@@ -250,6 +251,17 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
     members,
     invitations,
   };
+}
+
+export async function exportPlatformProjectDraft(ownerUserId: string, projectId: string) {
+  if (!ownerUserId) throw new ApiError(401, '请先登录客户账号');
+  const client = await createPlatformServerClient();
+  const { data, error } = await client.from('platform_projects').select(PROJECT_FIELDS).eq('id', projectId).maybeSingle();
+  if (error) throw new Error(`Unable to read platform project export: ${error.message}`);
+  if (!data) throw new ApiError(404, '没有找到这个客户项目');
+  const row = data as PlatformProjectRow;
+  if (row.owner_user_id !== ownerUserId) throw new ApiError(403, '只有项目所有者可以下载完整方案备份');
+  return buildPlatformProjectExport(toDto(row, 'owner'), new Date().toISOString());
 }
 
 export async function savePlatformProject(ownerUserId: string, input: PlatformProjectSaveInput) {

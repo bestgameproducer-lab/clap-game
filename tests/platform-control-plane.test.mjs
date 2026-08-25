@@ -361,3 +361,26 @@ test('commercial delivery scope is closed-shape, versioned, reviewed, and never 
   assert.match(migration, /coalesce\(public\.platform_project_access_role\(v_receipt_project_id\), ''\) not in \('owner', 'editor'\)/);
   assert.doesNotMatch(scope + data + migration, /stripe|checkout|payment_intent|createOrder/i);
 });
+
+test('project backup is owner-only, private, non-cacheable, and excludes collaboration and runtime records', () => {
+  const route = read('app/api/platform/projects/[projectId]/export/route.ts');
+  const data = read('lib/data/platform-projects.ts');
+  const serializer = read('lib/platform/project-export.ts');
+  const page = read('app/platform/projects/[projectId]/page.tsx');
+
+  assert.match(route, /requirePlatformUser\(\)/);
+  assert.match(route, /requiredUuid\(\(await params\)\.projectId/);
+  assert.match(route, /Cache-Control.*private, no-store/);
+  assert.match(route, /Content-Disposition/);
+  assert.match(route, /X-Content-Type-Options.*nosniff/);
+  assert.match(data, /row\.owner_user_id !== ownerUserId/);
+  assert.match(data, /只有项目所有者可以下载完整方案备份/);
+  assert.match(serializer, /wedding-project-draft\/v1/);
+  assert.match(serializer, /containsGuestRuntimeData: false/);
+  assert.match(serializer, /containsCollaboratorAccounts: false/);
+  assert.match(serializer, /constitutesFinalWeddingArchive: false/);
+  assert.doesNotMatch(serializer, /sourceDraftId|member|invitation|audit|entitlement|runtimeInstance|email/i);
+  assert.match(page, /project\.accessRole === 'owner'/);
+  assert.match(page, /不是婚礼结束后的正式归档包/);
+  assert.doesNotMatch(route + serializer, /SERVICE_ROLE|service_role/);
+});

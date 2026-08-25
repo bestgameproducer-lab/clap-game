@@ -4593,6 +4593,8 @@
 .scopeActions { display:grid; gap:10px; }
 .scopeActions .primaryAction { color:#4f312a; background:#f4dfbf; }
 .scopeActions .secondaryAction { color:#fff8ec; border-color:rgba(255,255,255,.3); }
+.cloudDetailNextActions { display:grid; gap:10px; justify-items:stretch; }
+.cloudDetailNextActions > * { justify-content:center; text-align:center; }
 
 @media (max-width: 980px) {
   .scopeGrid { grid-template-columns:1fr; }
