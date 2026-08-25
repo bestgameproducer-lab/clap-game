@@ -3521,6 +3521,21 @@
 .manifestLocked,.manifestConfirmation { margin-top: 15px; padding: 16px; border-radius: 15px; background: #3f2e29; color: white; }
 .manifestLocked { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 14px; align-items: center; }.manifestLocked small,.manifestLocked code { display:block; }.manifestLocked code { margin-top:5px; overflow-wrap:anywhere; color:#dbc8be; font-size:9px; }.manifestLocked a { padding:10px 13px; border-radius:999px; background:#d5a26f; color:#3f2c25; font-size:10px; }
 .manifestConfirmation p { color:#dbc8be; font-size:9px; line-height:1.55; }.manifestConfirmation > div { display:flex; gap:8px; }.manifestConfirmation button { margin:0; padding:10px 14px; border-radius:999px; background:#b77c56; color:white; }.manifestConfirmation button + button { background:#665049; }
+.instanceGateNotice { margin: 13px 0 0; padding: 14px 16px; border: 1px solid rgba(150,105,80,.17); border-radius: 14px; background: #f3e8df; color: #755e54; font-size: 10px; line-height: 1.55; }
+.instanceRegisterButton { width: 100%; min-height: 46px; margin: 13px 0 0; border: 1px solid rgba(96,64,51,.2); border-radius: 999px; background: transparent; color: #68463a; }
+.instanceRegistrationForm { display: grid; grid-template-columns: 1.25fr .75fr; gap: 12px; margin-top: 13px; padding: 17px; border: 1px solid rgba(96,64,51,.15); border-radius: 16px; background: #f7eee7; }
+.instanceRegistrationForm label { display: grid; gap: 7px; color: #725c52; font-size: 10px; font-weight: 700; }
+.instanceRegistrationForm input { width: 100%; min-height: 43px; padding: 0 13px; border: 1px solid rgba(96,64,51,.2); border-radius: 11px; background: #fffaf5; color: #3f302b; }
+.instanceRegistrationForm > p { grid-column: 1 / -1; margin: 0; color: #8b7166; font-size: 9px; line-height: 1.55; }
+.instanceRegistrationForm > div { grid-column: 1 / -1; display: flex; gap: 8px; }
+.instanceRegistrationForm button { margin: 0; padding: 10px 15px; border-radius: 999px; background: #6a4036; color: white; }
+.instanceRegistrationForm button + button { background: #d9c7bc; color: #59463f; }
+.instanceRegistered { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 15px; align-items: center; margin-top: 13px; padding: 17px; border: 1px solid rgba(72,107,77,.18); border-radius: 16px; background: #e6eee1; color: #3e5a40; }
+.instanceRegistered small,.instanceRegistered strong,.instanceRegistered code { display: block; }
+.instanceRegistered small { font-size: 9px; letter-spacing: .12em; }
+.instanceRegistered strong { margin-top: 5px; font-size: 13px; }
+.instanceRegistered code { margin-top: 5px; overflow-wrap: anywhere; color: #617362; font-size: 9px; }
+.instanceRegistered a { padding: 10px 13px; border-radius: 999px; background: #4f684f; color: white; font-size: 10px; }
 
 .templateDetailShell {
   --platform-ink: #241b18;
@@ -4425,6 +4440,8 @@
   .reviewContentBlocks,
   .provisioningChecks,
   .manifestLocked,
+  .instanceRegistered,
+  .instanceRegistrationForm,
   .operatorActions,
   .operatorConfirmation > div {
     grid-template-columns: 1fr;
@@ -4433,4 +4450,6 @@
   .provisioningCard { padding: 22px; }
 
   .manifestLocked a { justify-self: start; }
+
+  .instanceRegistered a { justify-self: start; }
 }

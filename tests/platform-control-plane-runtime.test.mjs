@@ -100,6 +100,7 @@ test(
     const eventSeventeen = '30000000-0000-4000-8000-000000000017';
     const eventEighteen = '30000000-0000-4000-8000-000000000018';
     const eventNineteen = '30000000-0000-4000-8000-000000000019';
+    const eventTwenty = '30000000-0000-4000-8000-000000000020';
     const secondDraftId = '20000000-0000-4000-8000-000000000002';
     const inviteHash = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
     const secondInviteHash = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
@@ -356,17 +357,61 @@ test(
       assert.equal(manifestRetry.rows[0].manifest_hash, manifest.rows[0].manifest_hash);
 
       await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
+      await db.exec('set role authenticated');
+      const ownerInstances = await db.query('select count(id)::int count from platform_runtime_instances');
+      assert.equal(ownerInstances.rows[0].count, 0);
+      await assert.rejects(
+        db.query(
+          'select * from platform_register_runtime_instance($1::uuid, $2::uuid, $3, $4)',
+          [eventTwenty, projectId, 'https://zimin-anrong.example.com', 'preview:deployment-001'],
+        ),
+        /platform_staff_required/,
+      );
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [operator]);
+      await db.exec('set role authenticated');
+      await assert.rejects(
+        db.query(
+          'select * from platform_register_runtime_instance($1::uuid, $2::uuid, $3, $4)',
+          [eventTwenty, projectId, 'https://zimin-anrong.example.com', 'preview:deployment-001'],
+        ),
+        /platform_instance_entitlement_required/,
+      );
+
+      await db.exec('reset role');
+      await db.query("update platform_entitlements set status = 'active', source = 'operator', active_from = now() where project_id = $1", [projectId]);
+      await db.exec('set role authenticated');
+      const instance = await db.query(
+        'select * from platform_register_runtime_instance($1::uuid, $2::uuid, $3, $4)',
+        [eventTwenty, projectId, 'https://zimin-anrong.example.com', 'preview:deployment-001'],
+      );
+      assert.equal(instance.rows[0].project_version, 7);
+      assert.equal(instance.rows[0].manifest_hash, manifest.rows[0].manifest_hash);
+      assert.equal(instance.rows[0].target_origin, 'https://zimin-anrong.example.com');
+      assert.equal(instance.rows[0].deployment_ref, 'preview:deployment-001');
+      assert.equal(instance.rows[0].status, 'registered');
+      const instanceRetry = await db.query(
+        'select * from platform_register_runtime_instance($1::uuid, $2::uuid, $3, $4)',
+        [eventTwenty, projectId, 'https://zimin-anrong.example.com', 'preview:deployment-001'],
+      );
+      assert.equal(instanceRetry.rows[0].id, instance.rows[0].id);
+
+      await db.exec('reset role');
       await db.query('delete from auth.users where id = $1', [operator]);
       const retainedAudit = await db.query(`
         select
           (select count(*)::int from platform_project_versions) versions,
           (select count(*)::int from platform_project_reviews) reviews,
           (select count(*)::int from platform_audit_log) audits,
+          (select count(*)::int from platform_runtime_instances) instances,
+          (select count(*)::int from platform_runtime_instances where registered_by_user_id is null) anonymous_instances,
           (select count(*)::int from platform_project_versions where actor_user_id is null) anonymous_versions,
           (select count(*)::int from platform_project_reviews where reviewer_user_id is null) anonymous_reviews,
           (select count(*)::int from platform_audit_log where actor_user_id is null) anonymous_audits
       `);
-      assert.deepEqual(retainedAudit.rows[0], { versions: 9, reviews: 2, audits: 16, anonymous_versions: 2, anonymous_reviews: 2, anonymous_audits: 3 });
+      assert.deepEqual(retainedAudit.rows[0], { versions: 9, reviews: 2, audits: 17, instances: 1, anonymous_instances: 1, anonymous_versions: 2, anonymous_reviews: 2, anonymous_audits: 4 });
     } finally {
       try { await db.exec('reset role'); } catch {}
       await db.close();

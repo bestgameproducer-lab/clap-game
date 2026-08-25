@@ -38,6 +38,15 @@ export type PlatformProvisioningQueueItem = {
   updatedAt: string;
   entitlementStatus: 'pending' | 'active' | 'past_due' | 'cancelled' | 'expired';
   manifest: null | { projectVersion: number; hash: string; createdAt: string };
+  instance: null | {
+    id: string;
+    projectVersion: number;
+    manifestHash: string;
+    targetOrigin: string;
+    deploymentRef: string;
+    status: 'registered' | 'verified' | 'ready' | 'suspended' | 'archived';
+    registeredAt: string;
+  };
 };
 
 type ReviewQueueRow = {
@@ -58,6 +67,16 @@ type ProvisioningProjectRow = Pick<ReviewQueueRow, 'id' | 'partner_one' | 'partn
 
 type ProvisioningEntitlementRow = { project_id: string; status: PlatformProvisioningQueueItem['entitlementStatus'] };
 type ProvisioningManifestRow = { project_id: string; project_version: number; manifest_hash: string; created_at: string; manifest?: unknown };
+type RuntimeInstanceRow = {
+  id: string;
+  project_id: string;
+  project_version: number;
+  manifest_hash: string;
+  target_origin: string;
+  deployment_ref: string;
+  status: NonNullable<PlatformProvisioningQueueItem['instance']>['status'];
+  registered_at: string;
+};
 
 export async function listPlatformReviewQueue(staffUserId: string) {
   if (!staffUserId) throw new ApiError(403, '此账号没有平台运营权限');
@@ -98,16 +117,20 @@ export async function listPlatformProvisioningQueue(staffUserId: string): Promis
   const projects = (data ?? []) as ProvisioningProjectRow[];
   if (!projects.length) return [];
   const projectIds = projects.map((project) => project.id);
-  const [entitlementsResult, manifestsResult] = await Promise.all([
+  const [entitlementsResult, manifestsResult, instancesResult] = await Promise.all([
     client.from('platform_entitlements').select('project_id,status').in('project_id', projectIds),
     client.from('platform_provisioning_manifests').select('project_id,project_version,manifest_hash,created_at').in('project_id', projectIds),
+    client.from('platform_runtime_instances').select('id,project_id,project_version,manifest_hash,target_origin,deployment_ref,status,registered_at').in('project_id', projectIds),
   ]);
   if (entitlementsResult.error) throw new Error(`Unable to read provisioning entitlements: ${entitlementsResult.error.message}`);
   if (manifestsResult.error) throw new Error(`Unable to read provisioning manifests: ${manifestsResult.error.message}`);
+  if (instancesResult.error) throw new Error(`Unable to read runtime instances: ${instancesResult.error.message}`);
   const entitlements = new Map(((entitlementsResult.data ?? []) as ProvisioningEntitlementRow[]).map((row) => [row.project_id, row.status]));
   const manifests = new Map(((manifestsResult.data ?? []) as ProvisioningManifestRow[]).map((row) => [row.project_id, row]));
+  const instances = new Map(((instancesResult.data ?? []) as RuntimeInstanceRow[]).map((row) => [row.project_id, row]));
   return projects.map((project) => {
     const manifest = manifests.get(project.id);
+    const instance = instances.get(project.id);
     return {
       id: project.id,
       partnerOne: project.partner_one,
@@ -119,8 +142,48 @@ export async function listPlatformProvisioningQueue(staffUserId: string): Promis
       updatedAt: project.updated_at,
       entitlementStatus: entitlements.get(project.id) ?? 'pending',
       manifest: manifest ? { projectVersion: manifest.project_version, hash: manifest.manifest_hash, createdAt: manifest.created_at } : null,
+      instance: instance ? {
+        id: instance.id,
+        projectVersion: instance.project_version,
+        manifestHash: instance.manifest_hash,
+        targetOrigin: instance.target_origin,
+        deploymentRef: instance.deployment_ref,
+        status: instance.status,
+        registeredAt: instance.registered_at,
+      } : null,
     };
   });
+}
+
+export async function registerPlatformRuntimeInstance(
+  staffUserId: string,
+  projectId: string,
+  eventKey: string,
+  targetOrigin: string,
+  deploymentRef: string,
+) {
+  if (!staffUserId) throw new ApiError(403, '此账号没有平台运营权限');
+  const client = await createPlatformServerClient();
+  const { data, error } = await client.rpc('platform_register_runtime_instance', {
+    p_event_key: eventKey,
+    p_project_id: projectId,
+    p_target_origin: targetOrigin,
+    p_deployment_ref: deploymentRef,
+  }).single();
+  if (error) {
+    if (error.message.includes('platform_staff_required')) throw new ApiError(403, '此账号没有平台运营权限');
+    if (error.message.includes('platform_project_not_found')) throw new ApiError(404, '没有找到这个客户项目');
+    if (error.message.includes('platform_instance_invalid')) throw new ApiError(400, '实例网址或部署标识格式不正确');
+    if (error.message.includes('platform_instance_project_locked')) throw new ApiError(409, '项目当前不允许登记运行实例');
+    if (error.message.includes('platform_instance_manifest_required')) throw new ApiError(409, '请先锁定当前批准版本的配置清单');
+    if (error.message.includes('platform_instance_entitlement_required')) throw new ApiError(409, '商业权益尚未激活，不能登记运行实例');
+    if (error.message.includes('platform_instance_already_registered')) throw new ApiError(409, '这个项目已经登记了运行实例');
+    if (error.message.includes('platform_instance_target_in_use')) throw new ApiError(409, '这个实例网址已经绑定到其他项目');
+    if (error.message.includes('platform_event_conflict')) throw new ApiError(409, '操作编号已经用于其他请求');
+    throw new Error(`Unable to register platform runtime instance: ${error.message}`);
+  }
+  if (!data) throw new Error('Unable to register platform runtime instance: missing response');
+  return data;
 }
 
 export async function lockPlatformProvisioningManifest(staffUserId: string, projectId: string, eventKey: string) {

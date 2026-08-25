@@ -125,6 +125,12 @@ test('control-plane migrations own projects, content briefs, versions, entitleme
   assert.match(sql, /containsPrivateStoryNotes/);
   assert.match(sql, /extensions\.digest\(\$1, \$2\)/);
   assert.match(sql, /sha256\(\$1\)/);
+  assert.match(sql, /create table public\.platform_runtime_instances/);
+  assert.match(sql, /alter table public\.platform_runtime_instances enable row level security/);
+  assert.match(sql, /platform_register_runtime_instance/);
+  assert.match(sql, /runtime_instance_registered/);
+  assert.match(sql, /platform_instance_entitlement_required/);
+  assert.match(sql, /target_origin ~ '\^https:\/\//);
   assert.match(sql, /add column action text not null default 'draft_save'/);
   assert.match(sql, /content_brief/);
   assert.match(sql, /revoke execute on function public\.platform_save_project_draft[\s\S]*from authenticated/);
@@ -245,5 +251,33 @@ test('provisioning manifests are staff-only, immutable, downloadable, and exclud
   assert.match(queue, /不创建 Vercel、Supabase、域名或付费资源/);
   assert.match(queue, /故事原文、禁忌备注、主持备注、宾客数据或密钥/);
   assert.doesNotMatch(migration.match(/v_manifest\.manifest :=[\s\S]*?v_manifest\.manifest_hash :=/)?.[0] ?? '', /storyMoments|avoidTopics|hostNotes|story_note/);
+  assert.doesNotMatch(route + queue + data, /SUPABASE_SERVICE_ROLE_KEY|service_role/);
+});
+
+test('runtime instance registration is staff-only, entitlement-gated, idempotent, and stores no secrets', () => {
+  const route = read('app/api/platform/operations/projects/[projectId]/instance/route.ts');
+  const queue = read('app/platform/operations/platform-provisioning-queue.tsx');
+  const data = read('lib/data/platform-operations.ts');
+  const validation = read('lib/validation/platform-operations.ts');
+  const migration = read('platform-control-plane/migrations/202608250007_runtime_instance_registry.sql');
+
+  assert.match(route, /assertSameOrigin\(request\)/);
+  assert.match(route, /requirePlatformStaff\(\)/);
+  assert.match(route, /readPlatformInstanceRegistrationInput/);
+  assert.match(data, /platform_register_runtime_instance/);
+  assert.match(data, /\.from\('platform_runtime_instances'\)\.select\('id,project_id,project_version,manifest_hash,target_origin,deployment_ref,status,registered_at'\)/);
+  assert.match(validation, /parsed\.protocol !== 'https:'/);
+  assert.match(validation, /parsed\.username/);
+  assert.match(validation, /parsed\.pathname !== '\/'/);
+  assert.match(validation, /parsed\.search/);
+  assert.match(validation, /parsed\.hash/);
+  assert.match(queue, /不要粘贴 Token、API Key、数据库连接串/);
+  assert.match(queue, /不会保存密钥、创建资源或主动访问该网址/);
+  assert.match(queue, /rel="noreferrer"/);
+  assert.match(migration, /v_entitlement_status <> 'active'/);
+  assert.match(migration, /v_manifest\.project_version <> v_project\.current_version/);
+  assert.match(migration, /platform_instance_target_in_use/);
+  assert.match(migration, /pg_advisory_xact_lock/);
+  assert.doesNotMatch(migration, /api_key|access_token|refresh_token|password|credential/i);
   assert.doesNotMatch(route + queue + data, /SUPABASE_SERVICE_ROLE_KEY|service_role/);
 });
