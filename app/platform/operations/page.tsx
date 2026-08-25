@@ -58,7 +58,7 @@ export default async function PlatformOperationsPage() {
           <div><p className={styles.eyebrow}>PRIVATE DELIVERY OPERATIONS</p><h1>每一场婚礼，<br />先通过内容审核。</h1><p>这里只处理客户项目控制层，不连接宾客、隐藏身份、照片、积分或现有正式婚礼数据库。</p></div>
           <div className={styles.operationsIdentity}><small>当前工作人员</small><strong>{staff.user.email}</strong><span>{staff.role === 'admin' ? '平台管理员' : '内容运营'}</span></div>
         </section>
-        <PlatformCommercialQueue requests={commercialQueue} />
+        <PlatformCommercialQueue requests={commercialQueue} today={new Date().toISOString().slice(0, 10)} />
         <PlatformReviewQueue initialQueue={queue} />
         <PlatformProvisioningQueue initialQueue={provisioningQueue} />
       </div>

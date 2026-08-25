@@ -8,6 +8,7 @@ import { PLATFORM_CUSTOMIZATION_LEVELS, PLATFORM_MODULES, PLATFORM_PLANS, PLATFO
 import { getPlatformSupabaseEnv } from '@/lib/platform/env';
 import { formatWeddingDate } from '@/lib/platform/draft';
 import { getPlatformRetentionDays, isPlatformDataPolicyReady } from '@/lib/platform/data-policy';
+import { PLATFORM_QUOTE_BILLING_LABELS, formatPlatformQuoteAmount } from '@/lib/platform/commercial';
 import styles from '../../platform.module.css';
 import { ProjectCollaboration } from './project-collaboration';
 import { ProjectCommercialAction } from './project-commercial-action';
@@ -76,9 +77,11 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
     throw error;
   }
 
-  const { project, versions, entitlement, reviews, members, invitations, deliveryEvents, quoteRequests } = details;
+  const { project, versions, entitlement, reviews, members, invitations, deliveryEvents, quoteRequests, commercialQuotes } = details;
   const latestReview = reviews[0] ?? null;
   const latestDeliveryEvent = deliveryEvents[0] ?? null;
+  const currentCommercialQuote = commercialQuotes.find((quote) => quote.status === 'offered') ?? null;
+  const commercialQuoteExpired = currentCommercialQuote ? currentCommercialQuote.validUntil < new Date().toISOString().slice(0, 10) : false;
   const plan = PLATFORM_PLANS.find((item) => item.id === project.planId) ?? PLATFORM_PLANS[0];
   const theme = PLATFORM_THEMES.find((item) => item.id === project.themeId) ?? PLATFORM_THEMES[0];
   const tone = PLATFORM_TONES.find((item) => item.id === project.toneId) ?? PLATFORM_TONES[0];
@@ -198,6 +201,7 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
             <div className={styles.projectPanelHeading}><div><small>PLAN ENTITLEMENT</small><h2>套餐权益</h2></div><span>{entitlement ? ENTITLEMENT_LABELS[entitlement.status] : '未建立'}</span></div>
             <div className={styles.cloudEntitlement}><strong>{plan.name}</strong><p>{entitlement?.status === 'active' ? '套餐权益已经激活，可进入后续交付流程。' : '当前只记录方案选择，尚未收费，也不会自动开通婚礼实例。'}</p><small>付款接入前仍需确认价格、退款、税务、服务范围和数据保留条款。</small></div>
             <div className={styles.cloudTemplateSummary}><small>DELIVERY SCOPE</small><strong>{customization.name} · {support.name} · {rehearsal.name}</strong><p>{services.map((service) => service.name).join('、') || '尚未选择服务项目'}</p>{project.deliveryScope.serviceNotes ? <span>{project.deliveryScope.serviceNotes}</span> : null}</div>
+            {currentCommercialQuote ? <div className={styles.customerCommercialQuote}><small>NON-BINDING QUOTE DRAFT · V{currentCommercialQuote.projectVersion}</small><div><strong>{formatPlatformQuoteAmount(currentCommercialQuote.amountMinor, currentCommercialQuote.currency)}</strong><span>{PLATFORM_QUOTE_BILLING_LABELS[currentCommercialQuote.billingInterval]}</span></div><p>{currentCommercialQuote.serviceSummary}</p><blockquote>{currentCommercialQuote.termsSummary}</blockquote><footer><time dateTime={currentCommercialQuote.validUntil}>{commercialQuoteExpired ? `已于 ${currentCommercialQuote.validUntil} 过期` : `有效至 ${currentCommercialQuote.validUntil}`}</time><span>{commercialQuoteExpired ? '请等待工作人员更新草案' : '仅供确认 · 不是订单或付款请求'}</span></footer></div> : null}
             <ProjectCommercialAction project={project} entitlementStatus={entitlement?.status ?? null} quoteRequests={quoteRequests} />
             <div className={styles.cloudTemplateSummary}><small>GUEST DATA LIFECYCLE</small><strong>婚礼后 {getPlatformRetentionDays(project.dataPolicy)} 天删除宾客运行资料</strong><p>{project.dataPolicy.projectArchiveBeforeDeletion ? '删除前导出不含宾客运行资料的项目配置归档。' : '删除前不生成项目配置归档。'}</p><span>{isPlatformDataPolicyReady(project.dataPolicy) ? '名单权限与宾客告知责任已确认 · 独立实例强制开启' : '名单权限或宾客告知责任尚未确认 · 暂不能提交审核'}</span></div>
           </section>

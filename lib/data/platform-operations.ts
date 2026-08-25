@@ -18,6 +18,7 @@ import { createPlatformServerClient } from '../platform/supabase-server';
 import type { PlatformReviewDecision } from '../validation/platform-operations';
 import type { PlatformRuntimeAttestationStage, PlatformRuntimeChecklist } from '../platform/runtime-readiness';
 import type { PlatformRuntimeReleaseAction, PlatformRuntimeReleaseChecklist } from '../platform/runtime-release';
+import type { PlatformCommercialQuote, PlatformQuoteBillingInterval, PlatformQuoteCurrency } from '../platform/commercial';
 
 export type PlatformRuntimeAttestationDto = {
   id: string;
@@ -50,6 +51,7 @@ export type PlatformCommercialQuoteQueueItem = {
   guestCount: number;
   deliveryScope: PlatformDeliveryScope;
   requestedAt: string;
+  quote: PlatformCommercialQuote | null;
 };
 
 export type PlatformReviewQueueItem = {
@@ -186,6 +188,38 @@ type CommercialQuoteProjectRow = {
   partner_two: string;
 };
 
+type CommercialQuoteRow = {
+  id: string;
+  quote_request_id: string;
+  project_version: number;
+  plan_id: PlatformCommercialQuote['planId'];
+  amount_minor: number | string;
+  currency: PlatformQuoteCurrency;
+  billing_interval: PlatformQuoteBillingInterval;
+  valid_until: string;
+  service_summary: string;
+  terms_summary: string;
+  status: PlatformCommercialQuote['status'];
+  offered_at: string;
+};
+
+function toCommercialQuote(row: CommercialQuoteRow): PlatformCommercialQuote {
+  return {
+    id: row.id,
+    quoteRequestId: row.quote_request_id,
+    projectVersion: row.project_version,
+    planId: row.plan_id,
+    amountMinor: Number(row.amount_minor),
+    currency: row.currency,
+    billingInterval: row.billing_interval,
+    validUntil: row.valid_until,
+    serviceSummary: row.service_summary,
+    termsSummary: row.terms_summary,
+    status: row.status,
+    offeredAt: row.offered_at,
+  };
+}
+
 export async function listPlatformCommercialQuoteQueue(staffUserId: string): Promise<PlatformCommercialQuoteQueueItem[]> {
   if (!staffUserId) throw new ApiError(403, '此账号没有平台运营权限');
   const client = await createPlatformServerClient();
@@ -198,12 +232,14 @@ export async function listPlatformCommercialQuoteQueue(staffUserId: string): Pro
   if (requestsResult.error) throw new Error(`Unable to read commercial quote requests: ${requestsResult.error.message}`);
   const requests = (requestsResult.data ?? []) as CommercialQuoteRequestRow[];
   if (!requests.length) return [];
-  const projectsResult = await client
-    .from('platform_projects')
-    .select('id,partner_one,partner_two')
-    .in('id', requests.map((request) => request.project_id));
+  const [projectsResult, quotesResult] = await Promise.all([
+    client.from('platform_projects').select('id,partner_one,partner_two').in('id', requests.map((request) => request.project_id)),
+    client.from('platform_commercial_quotes').select('id,quote_request_id,project_version,plan_id,amount_minor,currency,billing_interval,valid_until,service_summary,terms_summary,status,offered_at').in('quote_request_id', requests.map((request) => request.id)).eq('status', 'offered'),
+  ]);
   if (projectsResult.error) throw new Error(`Unable to read commercial quote projects: ${projectsResult.error.message}`);
+  if (quotesResult.error) throw new Error(`Unable to read commercial quote drafts: ${quotesResult.error.message}`);
   const projects = new Map(((projectsResult.data ?? []) as CommercialQuoteProjectRow[]).map((project) => [project.id, project]));
+  const quotes = new Map(((quotesResult.data ?? []) as CommercialQuoteRow[]).map((quote) => [quote.quote_request_id, toCommercialQuote(quote)]));
   return requests.map((request) => {
     const project = projects.get(request.project_id);
     const snapshot = request.commercial_snapshot;
@@ -222,8 +258,48 @@ export async function listPlatformCommercialQuoteQueue(staffUserId: string): Pro
       guestCount: typeof snapshot.guestCount === 'number' ? snapshot.guestCount : 0,
       deliveryScope,
       requestedAt: request.requested_at,
+      quote: quotes.get(request.id) ?? null,
     };
   });
+}
+
+export async function offerPlatformCommercialQuote(
+  staffUserId: string,
+  input: {
+    eventKey: string;
+    quoteRequestId: string;
+    amountMinor: number;
+    currency: PlatformQuoteCurrency;
+    billingInterval: PlatformQuoteBillingInterval;
+    validUntil: string;
+    serviceSummary: string;
+    termsSummary: string;
+  },
+) {
+  if (!staffUserId) throw new ApiError(403, '此账号没有平台运营权限');
+  const client = await createPlatformServerClient();
+  const { data, error } = await client.rpc('platform_offer_commercial_quote', {
+    p_event_key: input.eventKey,
+    p_quote_request_id: input.quoteRequestId,
+    p_amount_minor: input.amountMinor,
+    p_currency: input.currency,
+    p_billing_interval: input.billingInterval,
+    p_valid_until: input.validUntil,
+    p_service_summary: input.serviceSummary,
+    p_terms_summary: input.termsSummary,
+  }).single();
+  if (error) {
+    if (error.message.includes('platform_staff_required')) throw new ApiError(403, '此账号没有平台运营权限');
+    if (error.message.includes('platform_quote_request_not_found')) throw new ApiError(404, '没有找到这条询价');
+    if (error.message.includes('platform_quote_request_stale')) throw new ApiError(409, '客户的商业范围已经变化，请让客户重新提交询价');
+    if (error.message.includes('platform_commercial_quote_invalid')) throw new ApiError(400, '报价金额、有效期、计费周期或文字内容不正确');
+    if (error.message.includes('platform_commercial_quote_locked')) throw new ApiError(409, '项目当前阶段不能出具新的报价草案');
+    if (error.message.includes('platform_commercial_quote_entitled')) throw new ApiError(409, '项目商业权益已经处理，不能继续修改报价草案');
+    if (error.message.includes('platform_event_conflict')) throw new ApiError(409, '操作编号已经用于其他请求');
+    throw new Error(`Unable to offer platform commercial quote: ${error.message}`);
+  }
+  if (!data) throw new Error('Unable to offer platform commercial quote: missing response');
+  return data;
 }
 
 export async function listPlatformReviewQueue(staffUserId: string) {

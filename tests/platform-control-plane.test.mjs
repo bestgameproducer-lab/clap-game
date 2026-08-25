@@ -495,6 +495,36 @@ test('commercial quote requests are owner-confirmed, versioned, staff-visible, a
   assert.doesNotMatch(route + customerData + operationsData + migration, /stripe|checkout|payment_intent|api\.vercel\.com|SERVICE_ROLE|service_role/i);
 });
 
+test('manual quote drafts are staff-issued, customer-readable, versioned, and cannot charge or activate', () => {
+  const migration = read('platform-control-plane/migrations/202608250019_manual_quote_drafts.sql');
+  const route = read('app/api/platform/operations/quotes/route.ts');
+  const validation = read('lib/validation/platform-operations.ts');
+  const model = read('lib/platform/commercial.ts');
+  const operationsData = read('lib/data/platform-operations.ts');
+  const operationsUi = read('app/platform/operations/platform-commercial-queue.tsx');
+  const customerData = read('lib/data/platform-projects.ts');
+  const customerPage = read('app/platform/projects/[projectId]/page.tsx');
+
+  assert.match(migration, /create table public\.platform_commercial_quotes/);
+  assert.match(migration, /platform_commercial_quotes_member_select/);
+  assert.match(migration, /platform_commercial_quotes_staff_select/);
+  assert.match(migration, /platform_offer_commercial_quote/);
+  assert.match(migration, /platform_staff_required/);
+  assert.match(migration, /v_entitlement_status is distinct from 'pending'/);
+  assert.match(migration, /commercial_quote_offered/);
+  assert.match(migration, /quote\.status = 'offered'/);
+  assert.match(route, /assertSameOrigin\(request\)/);
+  assert.match(route, /requirePlatformStaff\(\)/);
+  assert.match(validation, /amountMinor,billingInterval,currency,eventKey,quoteRequestId,serviceSummary,termsSummary,validUntil/);
+  assert.match(model, /PLATFORM_QUOTE_CURRENCIES/);
+  assert.match(model, /parsePlatformQuoteAmountInput/);
+  assert.match(operationsData, /platform_offer_commercial_quote/);
+  assert.match(operationsUi, /非约束性报价草案/);
+  assert.match(customerData, /platform_commercial_quotes/);
+  assert.match(customerPage, /不是订单或付款请求/);
+  assert.doesNotMatch(route + operationsData + customerData + migration, /stripe|checkout|payment_intent|chargeCustomer|SERVICE_ROLE|service_role/i);
+});
+
 test('guest data lifecycle is finite, explicitly confirmed, versioned, and delivered without guest records', () => {
   const policy = read('lib/platform/data-policy.ts');
   const scope = read('app/platform/scope/delivery-scope-builder.tsx');

@@ -2810,6 +2810,14 @@
 .commercialQuoteConfirmation button + button { color: #594138; background: #ded0c7; }
 .commercialQuoteConfirmation button:disabled { cursor: not-allowed; opacity: .5; }
 .commercialQuoteMessage { margin: 10px 0 0; color: #735d52; font-size: 9px; line-height: 1.5; text-align: center; }
+.customerCommercialQuote { margin-top: 12px; padding: 18px; border: 1px solid rgba(161,117,59,.23); border-radius: 17px; color: #654921; background: #f5ead0; }
+.customerCommercialQuote > small { color: #92703d; font-size: 7px; font-weight: 900; letter-spacing: .11em; }
+.customerCommercialQuote > div { display: flex; justify-content: space-between; gap: 12px; align-items: end; margin-top: 8px; }
+.customerCommercialQuote strong { font: 500 26px Georgia,'Noto Serif SC',serif; }
+.customerCommercialQuote > div span { padding: 6px 8px; border-radius: 999px; color: #75542e; background: rgba(218,191,143,.62); font-size: 8px; font-weight: 800; }
+.customerCommercialQuote > p { margin: 11px 0 0; color: #735c3d; font-size: 9px; line-height: 1.6; white-space: pre-wrap; }
+.customerCommercialQuote blockquote { margin: 10px 0 0; padding: 11px 12px; border-left: 3px solid rgba(139,96,42,.4); border-radius: 0 10px 10px 0; color: #755f42; background: rgba(255,255,255,.45); font-size: 8px; line-height: 1.6; white-space: pre-wrap; }
+.customerCommercialQuote footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px; padding-top: 11px; border-top: 1px solid rgba(136,97,45,.16); color: #8a704e; font-size: 8px; }
 
 .cloudVersionList {
   display: grid;
@@ -3479,6 +3487,26 @@
 .commercialQueueCard footer { display: flex; justify-content: space-between; gap: 14px; margin-top: 15px; padding-top: 13px; border-top: 1px solid rgba(125,89,50,.13); }
 .commercialQueueCard footer b { color: #785225; font-size: 9px; }
 .commercialQueueCard footer span { color: #927c61; font-size: 8px; text-align: right; }
+.commercialQueueCard footer button { flex: 0 0 auto; min-height: 34px; margin: -7px 0; padding: 7px 11px; border-radius: 999px; color: white; background: #775338; font-size: 8px; }
+.operatorQuoteCurrent { margin-top: 13px; padding: 13px; border-radius: 13px; color: #435943; background: #e3ebdd; }
+.operatorQuoteCurrent small,.operatorQuoteCurrent strong { display: block; }
+.operatorQuoteCurrent small { color: #6f806c; font-size: 7px; font-weight: 900; letter-spacing: .1em; }
+.operatorQuoteCurrent strong { margin-top: 5px; font-size: 12px; }
+.operatorQuoteCurrent p { margin: 6px 0 0; color: #667562; font-size: 9px; line-height: 1.55; }
+.operatorQuoteForm { display: grid; grid-template-columns: minmax(160px,1fr) minmax(110px,.42fr) minmax(130px,.52fr) minmax(145px,.58fr); gap: 9px; margin-top: 14px; padding: 16px; border-radius: 15px; color: white; background: #49362f; }
+.operatorQuoteForm label { display: grid; gap: 6px; min-width: 0; color: #ddcbbf; font-size: 8px; font-weight: 800; }
+.operatorQuoteForm input,.operatorQuoteForm select,.operatorQuoteForm textarea { width: 100%; min-width: 0; border: 1px solid rgba(255,255,255,.15); border-radius: 10px; color: #49362f; background: #fffaf5; font: inherit; }
+.operatorQuoteForm input,.operatorQuoteForm select { min-height: 39px; padding: 0 10px; }
+.operatorQuoteForm textarea { min-height: 84px; padding: 10px; resize: vertical; line-height: 1.55; }
+.operatorQuoteWide { grid-column: span 2; }
+.operatorQuoteActions { grid-column: 1 / -1; display: flex; gap: 8px; }
+.operatorQuoteActions button,.operatorQuoteConfirmation button { min-height: 39px; margin: 0; padding: 8px 13px; border-radius: 999px; color: white; background: #b27a55; }
+.operatorQuoteActions button + button,.operatorQuoteConfirmation button + button { color: #543d35; background: #ddcec4; }
+.operatorQuoteConfirmation { grid-column: 1 / -1; padding: 14px; border-radius: 12px; color: #50392f; background: #f5e7d7; }
+.operatorQuoteConfirmation strong { font-size: 10px; }
+.operatorQuoteConfirmation p { margin: 6px 0 0; color: #806554; font-size: 9px; line-height: 1.55; }
+.operatorQuoteConfirmation > div { display: flex; gap: 8px; margin-top: 11px; }
+.operatorQuoteConfirmation button:disabled { cursor: not-allowed; opacity: .5; }
 
 .reviewQueueSection {
   min-width: 0;
@@ -4717,6 +4745,7 @@
   .commercialQuotePending { grid-template-columns: 1fr; }
   .commercialQuotePending > b { justify-self: start; }
   .commercialQuoteConfirmation > div { display: grid; }
+  .customerCommercialQuote > div,.customerCommercialQuote footer { display: grid; }
 
   .collaborationHeading,
   .memberRows article,
@@ -4729,6 +4758,11 @@
 
   .commercialQueueCard footer { display: grid; }
   .commercialQueueCard footer span { text-align: left; }
+  .commercialQueueCard footer button { justify-self: start; margin: 0; }
+  .operatorQuoteForm { grid-template-columns: 1fr; }
+  .operatorQuoteWide { grid-column: auto; }
+  .operatorQuoteActions,.operatorQuoteConfirmation { grid-column: auto; }
+  .operatorQuoteActions,.operatorQuoteConfirmation > div { display: grid; }
 
   .collaborationPanel {
     padding: 22px;

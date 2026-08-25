@@ -17,6 +17,7 @@ import {
   normalizePlatformDataPolicy,
   type PlatformDataPolicy,
 } from '../platform/data-policy';
+import type { PlatformCommercialQuote, PlatformQuoteBillingInterval, PlatformQuoteCurrency } from '../platform/commercial';
 
 export type PlatformProjectDto = {
   id: string;
@@ -169,6 +170,21 @@ type PlatformCommercialQuoteRequestRow = {
   superseded_at: string | null;
 };
 
+type PlatformCommercialQuoteRow = {
+  id: string;
+  quote_request_id: string;
+  project_version: number;
+  plan_id: PlatformProjectDto['planId'];
+  amount_minor: number | string;
+  currency: PlatformQuoteCurrency;
+  billing_interval: PlatformQuoteBillingInterval;
+  valid_until: string;
+  service_summary: string;
+  terms_summary: string;
+  status: PlatformCommercialQuote['status'];
+  offered_at: string;
+};
+
 const PROJECT_FIELDS = 'id,owner_user_id,source_draft_id,status,template_id,template_version,plan_id,partner_one,partner_two,wedding_date,location,guest_count,theme_id,tone_id,modules,story_note,content_brief,template_content,delivery_scope,data_policy,current_version,updated_at';
 
 function toDto(row: PlatformProjectRow, accessRole: PlatformProjectDto['accessRole'], sourceDraftId = row.source_draft_id): PlatformProjectDto {
@@ -229,7 +245,7 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
   if (projectResult.error) throw new Error(`Unable to read platform project: ${projectResult.error.message}`);
   if (!projectResult.data) throw new ApiError(404, '没有找到这个客户项目');
   const projectRow = projectResult.data as PlatformProjectRow;
-  const [versionsResult, entitlementResult, reviewsResult, membersResult, invitationsResult, deliveryEventsResult, quoteRequestsResult] = await Promise.all([
+  const [versionsResult, entitlementResult, reviewsResult, membersResult, invitationsResult, deliveryEventsResult, quoteRequestsResult, commercialQuotesResult] = await Promise.all([
     client.from('platform_project_versions').select('version,reason,created_at').eq('project_id', projectId).order('version', { ascending: false }).limit(50),
     client.from('platform_entitlements').select('plan_id,status,source,active_from,active_until').eq('project_id', projectId).maybeSingle(),
     client.from('platform_project_reviews').select('id,review_round,project_version,decision,resulting_status,note,created_at').eq('project_id', projectId).order('review_round', { ascending: false }).limit(20),
@@ -237,6 +253,7 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
     client.from('platform_project_invitations').select('id,project_id,role,accepted_by_user_id,accepted_at,expires_at,revoked_at,created_at').eq('project_id', projectId).order('created_at', { ascending: false }).limit(30),
     client.from('platform_customer_delivery_events').select('release_event_id,action,project_version,customer_message,created_at').eq('project_id', projectId).order('created_at', { ascending: false }).limit(30),
     client.from('platform_commercial_quote_requests').select('id,project_version,plan_id,status,requested_at,superseded_at').eq('project_id', projectId).order('requested_at', { ascending: false }).limit(20),
+    client.from('platform_commercial_quotes').select('id,quote_request_id,project_version,plan_id,amount_minor,currency,billing_interval,valid_until,service_summary,terms_summary,status,offered_at').eq('project_id', projectId).order('offered_at', { ascending: false }).limit(20),
   ]);
   if (versionsResult.error) throw new Error(`Unable to read platform project versions: ${versionsResult.error.message}`);
   if (entitlementResult.error) throw new Error(`Unable to read platform entitlement: ${entitlementResult.error.message}`);
@@ -245,6 +262,7 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
   if (invitationsResult.error) throw new Error(`Unable to read platform project invitations: ${invitationsResult.error.message}`);
   if (deliveryEventsResult.error) throw new Error(`Unable to read customer delivery events: ${deliveryEventsResult.error.message}`);
   if (quoteRequestsResult.error) throw new Error(`Unable to read commercial quote requests: ${quoteRequestsResult.error.message}`);
+  if (commercialQuotesResult.error) throw new Error(`Unable to read commercial quote drafts: ${commercialQuotesResult.error.message}`);
 
   const versions = ((versionsResult.data ?? []) as PlatformProjectVersionRow[]).map((row): PlatformProjectVersionDto => ({
     version: row.version,
@@ -302,6 +320,20 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
     requestedAt: row.requested_at,
     supersededAt: row.superseded_at,
   }));
+  const commercialQuotes = ((commercialQuotesResult.data ?? []) as PlatformCommercialQuoteRow[]).map((row): PlatformCommercialQuote => ({
+    id: row.id,
+    quoteRequestId: row.quote_request_id,
+    projectVersion: row.project_version,
+    planId: row.plan_id,
+    amountMinor: Number(row.amount_minor),
+    currency: row.currency,
+    billingInterval: row.billing_interval,
+    validUntil: row.valid_until,
+    serviceSummary: row.service_summary,
+    termsSummary: row.terms_summary,
+    status: row.status,
+    offeredAt: row.offered_at,
+  }));
 
   return {
     project: toDto(projectRow, accessRole),
@@ -312,6 +344,7 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
     invitations,
     deliveryEvents,
     quoteRequests,
+    commercialQuotes,
   };
 }
 

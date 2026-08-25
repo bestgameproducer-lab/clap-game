@@ -1,4 +1,4 @@
-import { optionalString, requiredEnum, requiredString, requiredUuid, type JsonObject } from '../validation';
+import { optionalString, requiredEnum, requiredInteger, requiredString, requiredUuid, type JsonObject } from '../validation';
 import { ApiError } from '../errors';
 import {
   getPlatformRuntimeChecklist,
@@ -12,6 +12,7 @@ import {
   type PlatformRuntimeReleaseAction,
   type PlatformRuntimeReleaseChecklist,
 } from '../platform/runtime-release';
+import { PLATFORM_QUOTE_BILLING_INTERVALS, PLATFORM_QUOTE_CURRENCIES } from '../platform/commercial';
 
 export type PlatformReviewDecision = 'approved' | 'changes_requested';
 
@@ -47,6 +48,18 @@ function readCustomerDeliveryMessage(value: unknown) {
   return rejectObviousRuntimeSecret(message);
 }
 
+function readCommercialQuoteText(value: unknown, label: string, minimum: number, maximum: number) {
+  const result = requiredString(value, label, maximum);
+  if (result.length < minimum) throw new ApiError(400, `${label}至少需要 ${minimum} 个字`);
+  if (/[<>]/.test(result) || /https?:\/\//i.test(result)) {
+    throw new ApiError(400, `${label}不能包含 HTML 或网址`);
+  }
+  if (OBVIOUS_RUNTIME_SECRET_PATTERNS.some((pattern) => pattern.test(result))) {
+    throw new ApiError(400, `${label}不能包含数据库连接串、API 密钥或登录令牌`);
+  }
+  return result;
+}
+
 export function readPlatformOperatorReviewInput(body: JsonObject) {
   const decision = requiredEnum(body.decision, '审核决定', ['approved', 'changes_requested'] as const);
   const note = optionalString(body.note, '审核备注', 2000);
@@ -62,6 +75,28 @@ export function readPlatformOperatorReviewInput(body: JsonObject) {
 
 export function readPlatformManifestLockInput(body: JsonObject) {
   return { eventKey: requiredUuid(body.eventKey, '操作编号') };
+}
+
+export function readPlatformCommercialQuoteInput(body: JsonObject) {
+  if (Object.keys(body).sort().join(',') !== 'amountMinor,billingInterval,currency,eventKey,quoteRequestId,serviceSummary,termsSummary,validUntil') {
+    throw new ApiError(400, '商业报价请求包含不支持的字段');
+  }
+  const validUntil = requiredString(body.validUntil, '报价有效期', 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(validUntil)) throw new ApiError(400, '报价有效期格式不正确');
+  const parsed = new Date(`${validUntil}T12:00:00Z`);
+  if (Number.isNaN(parsed.valueOf()) || parsed.toISOString().slice(0, 10) !== validUntil) {
+    throw new ApiError(400, '报价有效期格式不正确');
+  }
+  return {
+    eventKey: requiredUuid(body.eventKey, '操作编号'),
+    quoteRequestId: requiredUuid(body.quoteRequestId, '询价编号'),
+    amountMinor: requiredInteger(body.amountMinor, '报价金额', 1, 1_000_000_000),
+    currency: requiredEnum(body.currency, '报价币种', PLATFORM_QUOTE_CURRENCIES),
+    billingInterval: requiredEnum(body.billingInterval, '计费周期', PLATFORM_QUOTE_BILLING_INTERVALS),
+    validUntil,
+    serviceSummary: readCommercialQuoteText(body.serviceSummary, '服务摘要', 4, 1000),
+    termsSummary: readCommercialQuoteText(body.termsSummary, '商业条款摘要', 20, 4000),
+  };
 }
 
 export function readPlatformInstanceRegistrationInput(body: JsonObject) {
