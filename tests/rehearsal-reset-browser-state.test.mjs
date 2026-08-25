@@ -28,17 +28,18 @@ test('browser persistence has an explicit reset-safe allowlist', async () => {
   ));
   assert.deepEqual(
     [...new Set(localStorageWrites.map(({ key }) => key))].sort(),
-    ['ACTIVITY_ACK_KEY', 'EFFECT_ACK_KEY', 'REWARD_ACK_KEY', 'STORAGE_KEY'],
+    ['ACTIVITY_ACK_KEY', 'EFFECT_ACK_KEY', 'PLATFORM_DRAFT_STORAGE_KEY', 'REWARD_ACK_KEY'],
     'new localStorage writes must be classified before rehearsal reset can ship',
   );
   assert.ok(localStorageWrites.every(({ path, key }) => (
-    key === 'STORAGE_KEY'
+    key === 'PLATFORM_DRAFT_STORAGE_KEY'
       ? path.endsWith('/app/platform/create/wedding-builder.tsx')
       : path.endsWith('/app/guest/page.tsx')
   )));
 
   const platformBuilder = sources.find(({ path }) => path.endsWith('/app/platform/create/wedding-builder.tsx'))?.source ?? '';
-  assert.match(platformBuilder, /STORAGE_KEY = 'wedding-play-studio-draft-v1'/);
+  const platformDraft = sources.find(({ path }) => path.endsWith('/lib/platform/draft.ts'))?.source ?? '';
+  assert.match(platformDraft, /PLATFORM_DRAFT_STORAGE_KEY = 'wedding-play-studio-draft-v1'/);
   assert.doesNotMatch(platformBuilder, /rehearsalRunId|guestId|assignmentId|evidencePath/);
 
   const sessionStorageWrites = sources.flatMap(({ path, source }) => (

@@ -50,14 +50,28 @@ test('platform catalog includes both commercial models and the full flagship mod
 
 test('first-phase builder keeps drafts local and does not access production services', () => {
   const builder = read('app/platform/create/wedding-builder.tsx');
+  const draftLibrary = read('lib/platform/draft.ts');
 
   assert.match(builder, /window\.localStorage\.setItem/);
-  assert.match(builder, /isWeddingDraft/);
+  assert.match(draftLibrary, /isWeddingDraft/);
   assert.match(builder, /不会上传/);
   assert.match(builder, /URL\.createObjectURL/);
   assert.match(builder, /需求单/);
   assert.doesNotMatch(builder, /fetch\s*\(/);
   assert.doesNotMatch(builder, /SUPABASE_SERVICE_ROLE_KEY/);
+});
+
+test('local project workspace reads the same validated draft without creating cloud state', () => {
+  const workspace = read('app/platform/project/project-workspace.tsx');
+  const projectPage = read('app/platform/project/page.tsx');
+
+  assert.match(projectPage, /ProjectWorkspace/);
+  assert.match(workspace, /PLATFORM_DRAFT_STORAGE_KEY/);
+  assert.match(workspace, /isWeddingDraft/);
+  assert.match(workspace, /项目交付阶段/);
+  assert.match(workspace, /首期资料清单/);
+  assert.doesNotMatch(workspace, /localStorage\.setItem/);
+  assert.doesNotMatch(workspace, /fetch\s*\(/);
 });
 
 test('platform preview stays non-indexed until accounts, billing and cloud persistence are ready', () => {

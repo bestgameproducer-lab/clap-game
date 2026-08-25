@@ -79,7 +79,9 @@
 已经实现的首期纵向切片：
 
 - `/platform`：平台定位、旗舰模板、模块、交付流程和商业模式说明。
+- `/platform/templates/cupid-wedding-trial`：旗舰模板的四幕流程、可定制范围和正式交付标准。
 - `/platform/create`：新人可配置婚礼基本信息、视觉、叙事、模块和套餐。
+- `/platform/project`：读取同一份本机草稿，展示准备进度、交付阶段和所选方案结构。
 - 配置会暂存在当前设备的 `localStorage`，不会上传到现有婚礼数据库。
 - 当前正式婚礼入口 `/`、`/guest`、`/admin`、`/host`、`/station` 和 `/scoreboard` 不受影响。
 

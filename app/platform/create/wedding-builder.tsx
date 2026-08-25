@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
   FLAGSHIP_TEMPLATE,
@@ -9,82 +10,17 @@ import {
   PLATFORM_TONES,
   type PlatformModuleId,
   type PlatformPlanId,
-  type PlatformThemeId,
-  type PlatformToneId,
 } from '../../../lib/platform/catalog';
+import {
+  PLATFORM_DRAFT_STORAGE_KEY,
+  buildWeddingBrief,
+  createDefaultDraft,
+  formatWeddingDate,
+  getWeddingCoupleName,
+  isWeddingDraft,
+  type WeddingDraft,
+} from '../../../lib/platform/draft';
 import styles from '../platform.module.css';
-
-const STORAGE_KEY = 'wedding-play-studio-draft-v1';
-
-type WeddingDraft = {
-  partnerOne: string;
-  partnerTwo: string;
-  weddingDate: string;
-  location: string;
-  guestCount: '40' | '80' | '120' | '180';
-  theme: PlatformThemeId;
-  tone: PlatformToneId;
-  plan: PlatformPlanId;
-  modules: PlatformModuleId[];
-  storyNote: string;
-};
-
-const DEFAULT_MODULES: PlatformModuleId[] = [
-  'secret-missions',
-  'team-games',
-  'host-toolkit',
-  'live-scoreboard',
-  'finale-vote',
-];
-
-function createDefaultDraft(plan: PlatformPlanId = 'buyout'): WeddingDraft {
-  return {
-    partnerOne: '',
-    partnerTwo: '',
-    weddingDate: '',
-    location: '',
-    guestCount: '80',
-    theme: 'estate',
-    tone: 'romantic',
-    plan,
-    modules: [...DEFAULT_MODULES],
-    storyNote: '',
-  };
-}
-
-function isWeddingDraft(value: unknown): value is WeddingDraft {
-  if (!value || typeof value !== 'object') return false;
-  const draft = value as Partial<WeddingDraft>;
-  const themeIds = new Set(PLATFORM_THEMES.map((theme) => theme.id));
-  const toneIds = new Set(PLATFORM_TONES.map((tone) => tone.id));
-  const planIds = new Set(PLATFORM_PLANS.map((plan) => plan.id));
-  const moduleIds = new Set(PLATFORM_MODULES.map((module) => module.id));
-
-  return (
-    typeof draft.partnerOne === 'string' &&
-    typeof draft.partnerTwo === 'string' &&
-    typeof draft.weddingDate === 'string' &&
-    typeof draft.location === 'string' &&
-    typeof draft.storyNote === 'string' &&
-    ['40', '80', '120', '180'].includes(draft.guestCount ?? '') &&
-    themeIds.has(draft.theme as PlatformThemeId) &&
-    toneIds.has(draft.tone as PlatformToneId) &&
-    planIds.has(draft.plan as PlatformPlanId) &&
-    Array.isArray(draft.modules) &&
-    draft.modules.every((module) => moduleIds.has(module))
-  );
-}
-
-function formatWeddingDate(date: string) {
-  if (!date) return '婚礼日期待定';
-  const parsed = new Date(`${date}T12:00:00`);
-  if (Number.isNaN(parsed.valueOf())) return '婚礼日期待定';
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  }).format(parsed);
-}
 
 export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }) {
   const [draft, setDraft] = useState<WeddingDraft>(() => createDefaultDraft(initialPlan));
@@ -93,7 +29,7 @@ export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }
 
   useEffect(() => {
     try {
-      const rawDraft = window.localStorage.getItem(STORAGE_KEY);
+      const rawDraft = window.localStorage.getItem(PLATFORM_DRAFT_STORAGE_KEY);
       if (rawDraft) {
         const parsed: unknown = JSON.parse(rawDraft);
         if (isWeddingDraft(parsed)) {
@@ -115,7 +51,7 @@ export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }
   useEffect(() => {
     if (!ready) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+      window.localStorage.setItem(PLATFORM_DRAFT_STORAGE_KEY, JSON.stringify(draft));
       setSaveMessage('草稿已自动保存在这台设备');
     } catch {
       setSaveMessage('浏览器未允许保存草稿，请在离开前复制方案摘要');
@@ -126,7 +62,7 @@ export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }
   const selectedTone = PLATFORM_TONES.find((tone) => tone.id === draft.tone) ?? PLATFORM_TONES[0];
   const selectedPlan = PLATFORM_PLANS.find((plan) => plan.id === draft.plan) ?? PLATFORM_PLANS[0];
   const selectedModules = PLATFORM_MODULES.filter((module) => draft.modules.includes(module.id));
-  const coupleName = [draft.partnerOne.trim(), draft.partnerTwo.trim()].filter(Boolean).join(' & ') || '你们的名字';
+  const coupleName = getWeddingCoupleName(draft);
 
   const projectFacts = useMemo(() => {
     const guestCount = Number(draft.guestCount);
@@ -151,21 +87,7 @@ export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }
   }
 
   function buildSummary() {
-    return [
-      '婚礼游戏工坊 · 项目需求单',
-      `模板：${FLAGSHIP_TEMPLATE.name} · ${FLAGSHIP_TEMPLATE.version}`,
-      `婚礼游戏方案：${coupleName}`,
-      `日期：${formatWeddingDate(draft.weddingDate)}`,
-      `地点：${draft.location.trim() || '待定'}`,
-      `宾客规模：约 ${draft.guestCount} 人`,
-      `视觉：${selectedTheme.name}`,
-      `叙事：${selectedTone.name}`,
-      `方案：${selectedPlan.name}`,
-      `模块：${selectedModules.map((module) => module.name).join('、') || '尚未选择'}`,
-      draft.storyNote.trim() ? `故事备注：${draft.storyNote.trim()}` : '',
-      '',
-      '说明：此文件是第一版需求摘要，不代表最终报价、合同或交付承诺。',
-    ].filter(Boolean).join('\n');
+    return buildWeddingBrief(draft);
   }
 
   async function copySummary() {
@@ -195,7 +117,7 @@ export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }
 
   function resetDraft() {
     const freshDraft = createDefaultDraft(initialPlan);
-    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(PLATFORM_DRAFT_STORAGE_KEY);
     setDraft(freshDraft);
     setSaveMessage('已清空本机草稿');
   }
@@ -286,6 +208,7 @@ export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }
           <div className={styles.builderActions}>
             <button className={styles.copyAction} type="button" onClick={copySummary}>复制方案摘要</button>
             <button className={styles.downloadAction} type="button" onClick={downloadBrief}>下载需求单</button>
+            <Link className={styles.workspaceAction} href="/platform/project">查看项目工作台</Link>
             <button className={styles.resetAction} type="button" onClick={resetDraft}>清空并重新开始</button>
           </div>
           <p className={styles.builderPrivacy}>当前版本不会上传姓名、日期或故事。账号与云端保存完成后，会在提交前再次明确征得同意。</p>

@@ -85,6 +85,7 @@ ADMIN_PASSWORD=请填写至少12位的管理员密码
 - 首页：`http://localhost:3000`
 - 商业平台预览：`http://localhost:3000/platform`
 - 婚礼方案定制器：`http://localhost:3000/platform/create`
+- 本机项目工作台：`http://localhost:3000/platform/project`
 - 宾客页：`http://localhost:3000/guest`
 - 后台：`http://localhost:3000/admin`
 - 主持人流程台：`http://localhost:3000/host`
@@ -158,7 +159,7 @@ npm run build
 
 ## 商业平台预览
 
-`/platform` 与 `/platform/create` 是在现有婚礼系统之上增加的商业平台首期预览。它展示旗舰模板、单场买断与持续订阅两种交付方向，并允许客户在当前设备上组合视觉、叙事和游戏模块。
+`/platform`、`/platform/templates/cupid-wedding-trial`、`/platform/create` 与 `/platform/project` 是在现有婚礼系统之上增加的商业平台首期预览。它展示旗舰模板、单场买断与持续订阅两种交付方向，允许客户在当前设备上组合视觉、叙事和游戏模块，并在本机工作台查看资料完成度与交付阶段。
 
 定制器草稿现阶段只保存在浏览器 `localStorage`，不会写入当前正式婚礼的 Supabase 数据库，也不包含账号、订单或付款功能。平台后续采用“客户项目控制层 + 单场婚礼隔离运行实例”的结构，避免不同婚礼共享宾客、隐藏身份、照片或积分数据。完整边界和开发顺序见 [`docs/platform-product-architecture.md`](docs/platform-product-architecture.md)。
 
