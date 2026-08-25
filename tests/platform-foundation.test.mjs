@@ -60,6 +60,9 @@ test('first-phase builder keeps drafts local and does not access production serv
   assert.match(builder, /不会自动上传/);
   assert.match(builder, /URL\.createObjectURL/);
   assert.match(builder, /需求单/);
+  assert.match(builder, /导入方案备份/);
+  assert.match(builder, /PLATFORM_PROJECT_BACKUP_MAX_BYTES/);
+  assert.match(builder, /恢复为新的本机副本/);
   assert.doesNotMatch(builder, /fetch\s*\(/);
   assert.doesNotMatch(builder, /SUPABASE_SERVICE_ROLE_KEY/);
 });

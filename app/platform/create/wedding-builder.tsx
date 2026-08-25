@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FLAGSHIP_TEMPLATE,
   PLATFORM_MODULES,
@@ -23,12 +23,14 @@ import {
   isWeddingDraft,
   type WeddingDraft,
 } from '../../../lib/platform/draft';
+import { PLATFORM_PROJECT_BACKUP_MAX_BYTES, restorePlatformProjectBackup } from '../../../lib/platform/project-backup';
 import styles from '../platform.module.css';
 
 export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }) {
   const [draft, setDraft] = useState<WeddingDraft>(() => createDefaultDraft(initialPlan));
   const [ready, setReady] = useState(false);
   const [saveMessage, setSaveMessage] = useState('正在读取本机草稿…');
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     try {
@@ -126,6 +128,27 @@ export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }
     setSaveMessage('已清空本机草稿');
   }
 
+  async function importBackup(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (file.size > PLATFORM_PROJECT_BACKUP_MAX_BYTES) {
+      setSaveMessage('方案备份超过 512 KB，已停止读取');
+      return;
+    }
+    try {
+      const restored = restorePlatformProjectBackup(JSON.parse(await file.text()) as unknown);
+      if (!restored) {
+        setSaveMessage('备份格式、模板版本或安全标记不正确，未修改当前草稿');
+        return;
+      }
+      setDraft(restored);
+      setSaveMessage('方案已恢复为新的本机副本；尚未上传或覆盖云端项目');
+    } catch {
+      setSaveMessage('无法读取这个 JSON 备份，未修改当前草稿');
+    }
+  }
+
   const themeClass = {
     estate: styles.builderPreviewEstate,
     garden: styles.builderPreviewGarden,
@@ -213,6 +236,8 @@ export function WeddingBuilder({ initialPlan }: { initialPlan?: PlatformPlanId }
           <div className={styles.builderActions}>
             <button className={styles.copyAction} type="button" onClick={copySummary}>复制方案摘要</button>
             <button className={styles.downloadAction} type="button" onClick={downloadBrief}>下载需求单</button>
+            <button className={styles.downloadAction} type="button" onClick={() => importInputRef.current?.click()}>导入方案备份</button>
+            <input ref={importInputRef} type="file" accept="application/json,.json" hidden onChange={importBackup} />
             <Link className={styles.workspaceAction} href="/platform/content">填写内容问卷</Link>
             <Link className={styles.workspaceAction} href="/platform/scope">确认服务范围</Link>
             <Link className={styles.workspaceAction} href="/platform/project">查看项目工作台</Link>

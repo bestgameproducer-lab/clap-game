@@ -366,6 +366,7 @@ test('project backup is owner-only, private, non-cacheable, and excludes collabo
   const route = read('app/api/platform/projects/[projectId]/export/route.ts');
   const data = read('lib/data/platform-projects.ts');
   const serializer = read('lib/platform/project-export.ts');
+  const backup = read('lib/platform/project-backup.ts');
   const page = read('app/platform/projects/[projectId]/page.tsx');
 
   assert.match(route, /requirePlatformUser\(\)/);
@@ -379,6 +380,11 @@ test('project backup is owner-only, private, non-cacheable, and excludes collabo
   assert.match(serializer, /containsGuestRuntimeData: false/);
   assert.match(serializer, /containsCollaboratorAccounts: false/);
   assert.match(serializer, /constitutesFinalWeddingArchive: false/);
+  assert.match(backup, /hasExactKeys/);
+  assert.match(backup, /createPlatformDraftId\(\)/);
+  assert.match(backup, /project\.template\.version !== FLAGSHIP_TEMPLATE\.version/);
+  assert.match(backup, /containsCredentials !== false/);
+  assert.match(backup, /isWeddingDraft\(candidate\)/);
   assert.doesNotMatch(serializer, /sourceDraftId|member|invitation|audit|entitlement|runtimeInstance|email/i);
   assert.match(page, /project\.accessRole === 'owner'/);
   assert.match(page, /不是婚礼结束后的正式归档包/);
