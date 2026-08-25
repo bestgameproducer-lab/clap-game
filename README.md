@@ -83,6 +83,8 @@ ADMIN_PASSWORD=请填写至少12位的管理员密码
 浏览：
 
 - 首页：`http://localhost:3000`
+- 商业平台预览：`http://localhost:3000/platform`
+- 婚礼方案定制器：`http://localhost:3000/platform/create`
 - 宾客页：`http://localhost:3000/guest`
 - 后台：`http://localhost:3000/admin`
 - 主持人流程台：`http://localhost:3000/host`
@@ -153,6 +155,12 @@ npm run build
 任务站也会把最近一次同步的宾客、任务和线索临时保存在当前标签页的 `sessionStorage` 中。断网时工作人员仍可按姓名查找并核对文字记录，但任务核验、派发、兑换、发线索和积分补记全部禁用；验证照片的短时链接可能需要联网。恢复网络后页面会自动同步，也可手动重连；安全退出或工作人员会话失效时会清除副本。
 
 婚礼前准备、当天流程与故障恢复请参阅 [`docs/wedding-day-runbook.md`](docs/wedding-day-runbook.md)，现场角色可分别使用 [`docs/host-operator-guide.md`](docs/host-operator-guide.md) 和 [`docs/admin-operator-guide.md`](docs/admin-operator-guide.md)，人工验收项目请参阅 [`docs/acceptance-checklist.md`](docs/acceptance-checklist.md)。涉及数据库与应用同时升级时，必须按 [`docs/database-app-rollout.md`](docs/database-app-rollout.md) 的零写入维护与迁移顺序执行。主控首页的“婚礼日状态”会集中显示数据库连接、部署版本、当前流程、宾客进度和待处理数量；现场发现版本不一致时应先刷新，不要继续操作旧页面。
+
+## 商业平台预览
+
+`/platform` 与 `/platform/create` 是在现有婚礼系统之上增加的商业平台首期预览。它展示旗舰模板、单场买断与持续订阅两种交付方向，并允许客户在当前设备上组合视觉、叙事和游戏模块。
+
+定制器草稿现阶段只保存在浏览器 `localStorage`，不会写入当前正式婚礼的 Supabase 数据库，也不包含账号、订单或付款功能。平台后续采用“客户项目控制层 + 单场婚礼隔离运行实例”的结构，避免不同婚礼共享宾客、隐藏身份、照片或积分数据。完整边界和开发顺序见 [`docs/platform-product-architecture.md`](docs/platform-product-architecture.md)。
 
 ## 当前 MVP 的边界
 
