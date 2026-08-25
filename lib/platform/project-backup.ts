@@ -1,5 +1,5 @@
 import { FLAGSHIP_TEMPLATE } from './catalog';
-import { createPlatformDraftId, isWeddingDraft, type WeddingDraft } from './draft';
+import { createPlatformDraftId, ensureWeddingDraftId, isWeddingDraft, type WeddingDraft } from './draft';
 import { PLATFORM_PROJECT_EXPORT_SCHEMA } from './project-export';
 
 export const PLATFORM_PROJECT_BACKUP_MAX_BYTES = 512 * 1024;
@@ -56,5 +56,5 @@ export function restorePlatformProjectBackup(value: unknown): WeddingDraft | nul
     templateContent: project.experience.templateContent as WeddingDraft['templateContent'],
     deliveryScope: project.commercialIntent.deliveryScope as WeddingDraft['deliveryScope'],
   };
-  return isWeddingDraft(candidate) ? candidate : null;
+  return isWeddingDraft(candidate) ? ensureWeddingDraftId(candidate) : null;
 }

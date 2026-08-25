@@ -17,6 +17,7 @@ import {
   type PlatformThemeId,
   type PlatformToneId,
 } from './catalog';
+import { PLATFORM_EDITABLE_MISSION_CODES, isPlatformEditableMissionCode, type PlatformEditableMissionCode } from './mission-copy';
 
 export const PLATFORM_DRAFT_STORAGE_KEY = 'wedding-play-studio-draft-v1';
 
@@ -30,6 +31,12 @@ export type PlatformQuickQuizQuestion = {
   answer: string;
 };
 
+export type PlatformMissionCopyOverride = {
+  missionCode: PlatformEditableMissionCode;
+  title: string;
+  description: string;
+};
+
 export type PlatformTemplateContent = {
   teamOneName: string;
   teamTwoName: string;
@@ -37,6 +44,7 @@ export type PlatformTemplateContent = {
   quizQuestions: PlatformQuizQuestion[];
   quickQuizQuestions: PlatformQuickQuizQuestion[];
   charadesWords: string[];
+  missionCopyOverrides: PlatformMissionCopyOverride[];
 };
 
 export const PLATFORM_TEMPLATE_VARIABLES = ['partnerOne', 'partnerTwo', 'couple', 'location', 'weddingDate'] as const;
@@ -51,6 +59,7 @@ export const DEFAULT_PLATFORM_TEMPLATE_CONTENT: PlatformTemplateContent = {
     { prompt: '彩虹通常有几种颜色？', answer: '7 种' },
   ],
   charadesWords: ['交换戒指', '手捧花', '蜜月旅行', '婚礼蛋糕', '干杯', '拍合照'],
+  missionCopyOverrides: [],
 };
 
 export type PlatformContentBrief = {
@@ -171,6 +180,24 @@ export function getWeddingDeliveryScope(draft: WeddingDraft): PlatformDeliverySc
     : { ...DEFAULT_PLATFORM_DELIVERY_SCOPE, services: [...DEFAULT_PLATFORM_DELIVERY_SCOPE.services] };
 }
 
+function isPlatformMissionCopyOverride(value: unknown): value is PlatformMissionCopyOverride {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const override = value as Record<string, unknown>;
+  const keys = Object.keys(override).sort().join(',');
+  return (
+    keys === 'description,missionCode,title'
+    && isPlatformEditableMissionCode(override.missionCode)
+    && typeof override.title === 'string'
+    && override.title.trim().length >= 1
+    && override.title.trim().length <= 60
+    && !/[<>{}]/.test(override.title)
+    && typeof override.description === 'string'
+    && override.description.trim().length >= 1
+    && override.description.trim().length <= 500
+    && !/[<>{}]/.test(override.description)
+  );
+}
+
 export function isPlatformTemplateContent(value: unknown): value is PlatformTemplateContent {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const content = value as Partial<PlatformTemplateContent>;
@@ -200,6 +227,12 @@ export function isPlatformTemplateContent(value: unknown): value is PlatformTemp
       Array.isArray(content.charadesWords)
       && content.charadesWords.every((word) => typeof word === 'string')
     ))
+    && (content.missionCopyOverrides === undefined || (
+      Array.isArray(content.missionCopyOverrides)
+      && content.missionCopyOverrides.length <= PLATFORM_EDITABLE_MISSION_CODES.length
+      && new Set(content.missionCopyOverrides.map((override) => override?.missionCode)).size === content.missionCopyOverrides.length
+      && content.missionCopyOverrides.every(isPlatformMissionCopyOverride)
+    ))
   );
 }
 
@@ -210,12 +243,14 @@ export function normalizePlatformTemplateContent(value: unknown): PlatformTempla
       quizQuestions: [],
       quickQuizQuestions: DEFAULT_PLATFORM_TEMPLATE_CONTENT.quickQuizQuestions.map((question) => ({ ...question })),
       charadesWords: [...DEFAULT_PLATFORM_TEMPLATE_CONTENT.charadesWords],
+      missionCopyOverrides: [],
     };
   }
   return {
     ...value,
     quickQuizQuestions: value.quickQuizQuestions ?? DEFAULT_PLATFORM_TEMPLATE_CONTENT.quickQuizQuestions.map((question) => ({ ...question })),
     charadesWords: value.charadesWords ?? [...DEFAULT_PLATFORM_TEMPLATE_CONTENT.charadesWords],
+    missionCopyOverrides: value.missionCopyOverrides ?? [],
   };
 }
 
@@ -252,6 +287,7 @@ export function createDefaultDraft(plan: PlatformPlanId = 'buyout'): WeddingDraf
       quizQuestions: [],
       quickQuizQuestions: DEFAULT_PLATFORM_TEMPLATE_CONTENT.quickQuizQuestions.map((question) => ({ ...question })),
       charadesWords: [...DEFAULT_PLATFORM_TEMPLATE_CONTENT.charadesWords],
+      missionCopyOverrides: [],
     },
     deliveryScope: {
       ...DEFAULT_PLATFORM_DELIVERY_SCOPE,
@@ -358,6 +394,7 @@ export function buildWeddingBrief(draft: WeddingDraft) {
     templateContent.quizQuestions.length ? `新人问答：${templateContent.quizQuestions.length} 题` : '新人问答：尚未添加',
     `快问快答：${templateContent.quickQuizQuestions.length} 题`,
     `你比划我猜：${templateContent.charadesWords.length} 个词`,
+    `任务文案覆盖：${templateContent.missionCopyOverrides.length} 项（积分、核验与分配规则保持锁定）`,
     '',
     '说明：此文件是第一版需求摘要，不代表最终报价、合同或交付承诺。',
   ].filter(Boolean).join('\n');

@@ -25,6 +25,7 @@ import {
   type PlatformTemplateContent,
   type WeddingDraft,
 } from '../platform/draft';
+import { PLATFORM_EDITABLE_MISSION_CODES, type PlatformEditableMissionCode } from '../platform/mission-copy';
 
 const PLAN_IDS = PLATFORM_PLANS.map((plan) => plan.id);
 const THEME_IDS = PLATFORM_THEMES.map((theme) => theme.id);
@@ -110,6 +111,29 @@ function validateCharadesWords(value: unknown) {
   return value.map((word, index) => plainTemplateText(word, `第 ${index + 1} 个比划词`, 40));
 }
 
+function validateMissionCopyOverrides(value: unknown) {
+  if (!Array.isArray(value) || value.length > PLATFORM_EDITABLE_MISSION_CODES.length) {
+    throw new ApiError(400, `最多可以定制 ${PLATFORM_EDITABLE_MISSION_CODES.length} 项任务文案`);
+  }
+  const overrides = value.map((override, index) => {
+    if (!override || typeof override !== 'object' || Array.isArray(override)) {
+      throw new ApiError(400, `第 ${index + 1} 项任务文案格式不正确`);
+    }
+    const item = override as Record<string, unknown>;
+    const keys = Object.keys(item).sort().join(',');
+    if (keys !== 'description,missionCode,title') throw new ApiError(400, `第 ${index + 1} 项任务文案包含不支持的字段`);
+    return {
+      missionCode: requiredEnum(item.missionCode, `第 ${index + 1} 项任务编号`, PLATFORM_EDITABLE_MISSION_CODES) as PlatformEditableMissionCode,
+      title: plainTemplateText(item.title, `第 ${index + 1} 项任务标题`, 60),
+      description: plainTemplateText(item.description, `第 ${index + 1} 项任务说明`, 500),
+    };
+  });
+  if (new Set(overrides.map((override) => override.missionCode)).size !== overrides.length) {
+    throw new ApiError(400, '同一项任务只能设置一份自定义文案');
+  }
+  return overrides;
+}
+
 function validateDeliveryScope(scope: PlatformDeliveryScope): PlatformDeliveryScope {
   if (!Array.isArray(scope.services) || scope.services.length < 1 || scope.services.length > SERVICE_IDS.length) {
     throw new ApiError(400, '服务范围格式不正确');
@@ -165,6 +189,7 @@ export function readPlatformProjectSaveInput(body: JsonObject): PlatformProjectS
         quizQuestions: validateQuizQuestions(templateContent.quizQuestions),
         quickQuizQuestions: validateQuickQuizQuestions(templateContent.quickQuizQuestions),
         charadesWords: validateCharadesWords(templateContent.charadesWords),
+        missionCopyOverrides: validateMissionCopyOverrides(templateContent.missionCopyOverrides),
       },
       deliveryScope: validateDeliveryScope(deliveryScope),
     },

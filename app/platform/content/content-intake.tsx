@@ -15,6 +15,7 @@ import {
   type PlatformTemplateContent,
   type WeddingDraft,
 } from '../../../lib/platform/draft';
+import { PLATFORM_EDITABLE_MISSIONS, type PlatformEditableMissionCode } from '../../../lib/platform/mission-copy';
 import styles from '../platform.module.css';
 
 const LANGUAGE_OPTIONS = [
@@ -105,6 +106,29 @@ export function ContentIntake() {
       return;
     }
     updateTemplate('openingScript', next);
+  }
+
+  function toggleMissionCopy(missionCode: PlatformEditableMissionCode) {
+    if (!templateContent) return;
+    const existing = templateContent.missionCopyOverrides.find((override) => override.missionCode === missionCode);
+    if (existing) {
+      updateTemplate('missionCopyOverrides', templateContent.missionCopyOverrides.filter((override) => override.missionCode !== missionCode));
+      return;
+    }
+    const mission = PLATFORM_EDITABLE_MISSIONS.find((item) => item.missionCode === missionCode);
+    if (!mission) return;
+    updateTemplate('missionCopyOverrides', [...templateContent.missionCopyOverrides, {
+      missionCode,
+      title: mission.title,
+      description: mission.description,
+    }]);
+  }
+
+  function updateMissionCopy(missionCode: PlatformEditableMissionCode, key: 'title' | 'description', value: string) {
+    if (!templateContent) return;
+    updateTemplate('missionCopyOverrides', templateContent.missionCopyOverrides.map((override) => (
+      override.missionCode === missionCode ? { ...override, [key]: value } : override
+    )));
   }
 
   if (!ready) return <section className={styles.contentLoading} aria-live="polite">正在读取本机项目…</section>;
@@ -204,6 +228,24 @@ export function ContentIntake() {
               </section>
             </div>
           ) : <div className={styles.moduleBankDisabled}>当前方案没有选择“组队游戏”，因此团队游戏题库不会进入交付。返回方案定制器选中该模块后即可编辑。</div>}
+        </fieldset>
+
+        <fieldset className={styles.contentSection}>
+          <legend><span>06</span><div><small>MISSION COPY</small><strong>定制安全开放的任务文案</strong></div></legend>
+          {draft.modules.includes('secret-missions') ? <>
+            <div className={styles.missionCopyBoundary}><strong>只改宾客可见文案，不改游戏规则</strong><p>以下 10 项普通或仪式任务可以修改标题和说明。任务编号、阶段、积分、人数、分配方式、核验方法和系统结算保持锁定；爱心/星星抉择、恶作剧者、能力卡等机制任务不可在这里修改。</p></div>
+            <div className={styles.missionCopyList}>{PLATFORM_EDITABLE_MISSIONS.map((mission) => {
+              const override = templateContent.missionCopyOverrides.find((item) => item.missionCode === mission.missionCode);
+              return <article key={mission.missionCode} className={override ? styles.missionCopyActive : styles.missionCopyCard}>
+                <header><div><small>{mission.stage === 'task_round_1' ? '第一幕' : '第二幕'} · {mission.missionCode}</small><strong>{override?.title || mission.title}</strong></div><button type="button" aria-pressed={Boolean(override)} onClick={() => toggleMissionCopy(mission.missionCode)}>{override ? '恢复模板文案' : '定制这项文案'}</button></header>
+                <div className={styles.missionCopyLocked}><span>积分锁定：{mission.points} 分</span><span>核验锁定：{mission.verificationMethod}</span></div>
+                {override ? <div className={styles.missionCopyFields}>
+                  <label>宾客可见标题<input maxLength={60} value={override.title} onChange={(event) => updateMissionCopy(mission.missionCode, 'title', event.target.value)} /><small>{override.title.length}/60</small></label>
+                  <label>宾客可见任务说明<textarea maxLength={500} value={override.description} onChange={(event) => updateMissionCopy(mission.missionCode, 'description', event.target.value)} /><small>{override.description.length}/500</small></label>
+                </div> : <p className={styles.missionCopyDefault}>{mission.description}</p>}
+              </article>;
+            })}</div>
+          </> : <div className={styles.moduleBankDisabled}>当前方案没有选择“秘密任务”，任务文案不会进入交付。返回方案定制器启用该模块后即可编辑。</div>}
         </fieldset>
 
         <section className={styles.contentNext}>

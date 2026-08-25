@@ -140,6 +140,9 @@ test('control-plane migrations own projects, content briefs, versions, entitleme
   assert.match(sql, /platform_template_content_v1_is_valid/);
   assert.match(sql, /jsonb_array_length\(p_value -> 'quickQuizQuestions'\) > 30/);
   assert.match(sql, /jsonb_array_length\(p_value -> 'charadesWords'\) > 80/);
+  assert.match(sql, /platform_template_content_v2_is_valid/);
+  assert.match(sql, /jsonb_array_length\(p_value -> 'missionCopyOverrides'\) > 10/);
+  assert.match(sql, /count\(distinct value ->> 'missionCode'\)/);
   assert.match(sql, /add column delivery_scope jsonb/);
   assert.match(sql, /platform_delivery_scope_is_valid/);
   assert.match(sql, /platform_project_versions_delivery_scope/);
@@ -306,14 +309,20 @@ test('template content pack is locally editable, strictly validated, versioned, 
   const data = read('lib/data/platform-projects.ts');
   const review = read('app/platform/operations/platform-review-queue.tsx');
   const migration = read('platform-control-plane/migrations/202608250008_template_content_pack.sql');
+  const missionCopy = read('lib/platform/mission-copy.ts');
+  const missionCopyMigration = read('platform-control-plane/migrations/202608250012_mission_copy_overrides.sql');
 
   assert.match(draft, /PlatformTemplateContent/);
+  assert.match(draft, /isPlatformMissionCopyOverride/);
+  assert.match(draft, /description,missionCode,title/);
   assert.match(draft, /PLATFORM_TEMPLATE_VARIABLES/);
   assert.match(draft, /renderPlatformTemplateText/);
   assert.match(intake, /TEMPLATE CONTENT PACK/);
   assert.match(intake, /新人问答题库/);
   assert.match(intake, /组队快问快答题库/);
   assert.match(intake, /你比划我猜词库/);
+  assert.match(intake, /定制安全开放的任务文案/);
+  assert.match(intake, /积分、人数、分配方式、核验方法和系统结算保持锁定/);
   assert.match(intake, /最终会以纯文字替换，不执行 HTML、脚本或代码/);
   assert.match(intake, /实际口播预览/);
   assert.match(validation, /\[<>\]/);
@@ -321,6 +330,8 @@ test('template content pack is locally editable, strictly validated, versioned, 
   assert.match(validation, /新人问答最多可以设置 20 题/);
   assert.match(validation, /快问快答最多可以设置 30 题/);
   assert.match(validation, /你比划我猜最多可以设置 80 个词/);
+  assert.match(validation, /同一项任务只能设置一份自定义文案/);
+  assert.match(validation, /description,missionCode,title/);
   assert.match(data, /platform_save_customized_project_draft_v5/);
   assert.match(data, /p_template_content: draft\.templateContent/);
   assert.match(review, /project\.templateContent\.openingScript/);
@@ -334,7 +345,16 @@ test('template content pack is locally editable, strictly validated, versioned, 
   assert.match(teamBankMigration, /platform_template_content_v1_is_valid/);
   assert.match(teamBankMigration, /quickQuizQuestions/);
   assert.match(teamBankMigration, /charadesWords/);
-  assert.doesNotMatch(read('app/guest/page.tsx'), /templateContent|quickQuizQuestions|charadesWords/);
+  assert.match(missionCopy, /P1-SOCIAL-001/);
+  assert.match(missionCopy, /P2-CEREMONY-001/);
+  assert.doesNotMatch(missionCopy, /P1-HEART-001|P1-STAR-001|P2-TRICKSTER-001|P2-POWER-001|P2-LUCKY-001/);
+  assert.match(missionCopyMigration, /platform_template_content_v2_is_valid/);
+  assert.match(missionCopyMigration, /'missionCode', 'title', 'description'/);
+  assert.match(missionCopyMigration, /jsonb_array_length\(p_value -> 'missionCopyOverrides'\) > 10/);
+  assert.match(missionCopyMigration, /count\(distinct value ->> 'missionCode'\)/);
+  assert.match(missionCopyMigration, /platform_project_versions/);
+  assert.match(missionCopyMigration, /missionCopyOverrides/);
+  assert.doesNotMatch(read('app/guest/page.tsx'), /templateContent|quickQuizQuestions|charadesWords|missionCopyOverrides/);
   assert.doesNotMatch(intake + validation + data, /dangerouslySetInnerHTML|eval\(|new Function/);
 });
 

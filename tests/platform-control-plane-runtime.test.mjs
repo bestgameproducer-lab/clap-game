@@ -130,6 +130,11 @@ test(
         { prompt: 'How many colors are in a rainbow?', answer: '7' },
       ],
       charadesWords: ['wedding cake', 'bouquet', 'honeymoon'],
+      missionCopyOverrides: [{
+        missionCode: 'P1-SOCIAL-001',
+        title: 'Meet a new friend',
+        description: 'Introduce yourselves and take one friendly photo without interrupting the ceremony.',
+      }],
     });
     const deliveryScope = JSON.stringify({
       customizationLevel: 'guided',
@@ -182,6 +187,30 @@ test(
           services: [],
           serviceNotes: '',
         })]),
+        /platform_project_invalid/,
+      );
+      await assert.rejects(
+        db.query(saveSql, [eventThree, draftId, contentBrief, JSON.stringify({
+          ...JSON.parse(templateContent),
+          missionCopyOverrides: [{ missionCode: 'P2-TRICKSTER-001', title: 'Reveal the trickster', description: 'Unsafe mechanic override' }],
+        }), deliveryScope]),
+        /platform_project_invalid/,
+      );
+      await assert.rejects(
+        db.query(saveSql, [eventThree, draftId, contentBrief, JSON.stringify({
+          ...JSON.parse(templateContent),
+          missionCopyOverrides: [{ missionCode: 'P1-SOCIAL-001', title: 'Changed task', description: 'Safe copy', points: 12 }],
+        }), deliveryScope]),
+        /platform_project_invalid/,
+      );
+      await assert.rejects(
+        db.query(saveSql, [eventThree, draftId, contentBrief, JSON.stringify({
+          ...JSON.parse(templateContent),
+          missionCopyOverrides: [
+            { missionCode: 'P1-SOCIAL-001', title: 'First copy', description: 'First safe description' },
+            { missionCode: 'P1-SOCIAL-001', title: 'Second copy', description: 'Duplicate mission code' },
+          ],
+        }), deliveryScope]),
         /platform_project_invalid/,
       );
       await assert.rejects(
@@ -407,6 +436,8 @@ test(
       assert.equal(manifest.rows[0].manifest.experience.templateContent.quizQuestions.length, 2);
       assert.equal(manifest.rows[0].manifest.experience.templateContent.quickQuizQuestions[0].answer, '12');
       assert.deepEqual(manifest.rows[0].manifest.experience.templateContent.charadesWords, ['wedding cake', 'bouquet', 'honeymoon']);
+      assert.equal(manifest.rows[0].manifest.experience.templateContent.missionCopyOverrides[0].missionCode, 'P1-SOCIAL-001');
+      assert.equal(manifest.rows[0].manifest.experience.templateContent.missionCopyOverrides[0].title, 'Meet a new friend');
       assert.deepEqual(manifest.rows[0].manifest.safeguards, {
         containsCredentials: false,
         containsGuestRuntimeData: false,

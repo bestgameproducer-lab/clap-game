@@ -78,7 +78,11 @@ test('content intake captures customization and privacy boundaries in the same d
   assert.match(intake, /GUEST_MIX_OPTIONS/);
   assert.match(intake, /boundariesConfirmed/);
   assert.match(intake, /只有你在账号页明确点击保存/);
+  assert.match(intake, /定制安全开放的任务文案/);
+  assert.match(intake, /任务编号、阶段、积分、人数、分配方式、核验方法和系统结算保持锁定/);
+  assert.match(intake, /爱心\/星星抉择、恶作剧者、能力卡等机制任务不可在这里修改/);
   assert.match(draft, /PlatformContentBrief/);
+  assert.match(draft, /PlatformMissionCopyOverride/);
   assert.match(draft, /内容边界尚未确认/);
 });
 
@@ -105,6 +109,8 @@ test('experience preview renders guest, host, and scoreboard mockups from local 
   assert.match(preview, /宾客入口/);
   assert.match(preview, /主持人题库/);
   assert.match(preview, /积分大屏/);
+  assert.match(preview, /秘密任务文案/);
+  assert.match(preview, /规则与积分锁定/);
   assert.match(preview, /答案只在主持端显示/);
   assert.match(preview, /这不是正式婚礼实例/);
   assert.match(preview, /disabled>领取我的秘密身份/);

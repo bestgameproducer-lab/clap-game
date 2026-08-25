@@ -89,6 +89,7 @@ export function TemplateExperiencePreview() {
               <article><small>快问快答</small><strong>{preview.content.quickQuizQuestions.length} 题</strong>{preview.content.quickQuizQuestions.slice(0, 3).map((question, index) => <p key={`${question.prompt}-${index}`}><b>{index + 1}</b><span>{question.prompt}<em>答案：{question.answer}</em></span></p>)}</article>
               <article><small>你比划我猜</small><strong>{preview.content.charadesWords.length} 词</strong><div>{preview.content.charadesWords.slice(0, 10).map((word, index) => <span key={`${word}-${index}`}>{word}</span>)}</div></article>
               <article><small>新人问答</small><strong>{preview.content.quizQuestions.length} 题</strong>{preview.content.quizQuestions.slice(0, 3).map((question, index) => <p key={`${question.prompt}-${index}`}><b>{index + 1}</b><span>{question.prompt}<em>答案：{answerLabel(question.answer)}</em></span></p>)}</article>
+              <article><small>秘密任务文案</small><strong>{preview.content.missionCopyOverrides.length} 项定制</strong>{preview.content.missionCopyOverrides.length ? preview.content.missionCopyOverrides.slice(0, 3).map((override, index) => <p key={override.missionCode}><b>{index + 1}</b><span>{override.title}<em>{override.missionCode} · 规则与积分锁定</em></span></p>) : <p><b>✓</b><span>沿用旗舰模板文案<em>规则与积分始终锁定</em></span></p>}</article>
             </div>
           </div>
         ) : null}

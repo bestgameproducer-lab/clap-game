@@ -23,7 +23,7 @@ test('customer project backup contains the owned configuration and explicit priv
       language: 'bilingual', interaction: 'balanced', guestMix: 'balanced', storyMoments: 'Private story', avoidTopics: 'Private boundary', boundariesConfirmed: true, hostNotes: 'Private host note',
     },
     templateContent: {
-      teamOneName: 'Ocean', teamTwoName: 'Desert', openingScript: 'Welcome', quizQuestions: [], quickQuizQuestions: [], charadesWords: [],
+      teamOneName: 'Ocean', teamTwoName: 'Desert', openingScript: 'Welcome', quizQuestions: [], quickQuizQuestions: [], charadesWords: [], missionCopyOverrides: [],
     },
     deliveryScope: {
       customizationLevel: 'guided', supportMode: 'remote_guided', rehearsalMode: 'full_rehearsal', services: ['host-runbook'], serviceNotes: 'Private service note',
