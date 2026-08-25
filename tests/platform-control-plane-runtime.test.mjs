@@ -707,6 +707,8 @@ test(
     const blockedQuoteEvent = '31000000-0000-4000-8000-000000000005';
     const firstOfferEvent = '31000000-0000-4000-8000-000000000006';
     const secondOfferEvent = '31000000-0000-4000-8000-000000000007';
+    const firstProceedEvent = '31000000-0000-4000-8000-000000000008';
+    const secondProceedEvent = '31000000-0000-4000-8000-000000000009';
     const contentBrief = JSON.stringify({
       language: 'chinese', interaction: 'balanced', guestMix: 'balanced',
       storyMoments: 'Private story must not enter commercial snapshot', avoidTopics: 'Private boundary',
@@ -780,6 +782,10 @@ test(
         ),
         /platform_staff_required/,
       );
+      await assert.rejects(
+        db.query('select * from platform_request_quote_proceed($1::uuid,$2::uuid,$3::uuid,true)', [firstProceedEvent, projectId, firstOfferEvent]),
+        /platform_project_not_owned/,
+      );
 
       await db.exec('reset role');
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [operator]);
@@ -810,11 +816,26 @@ test(
       await db.exec('set role authenticated');
       const visibleOffer = await db.query('select amount_minor,currency,service_summary from platform_commercial_quotes');
       assert.deepEqual(visibleOffer.rows, [{ amount_minor: 250000, currency: 'USD', service_summary: 'Guided customization and full rehearsal' }]);
+      await assert.rejects(
+        db.query('select * from platform_request_quote_proceed($1::uuid,$2::uuid,$3::uuid,false)', [firstProceedEvent, projectId, firstOfferEvent]),
+        /platform_quote_proceed_invalid/,
+      );
+      const firstProceed = await db.query(
+        'select * from platform_request_quote_proceed($1::uuid,$2::uuid,$3::uuid,true)',
+        [firstProceedEvent, projectId, firstOfferEvent],
+      );
+      assert.equal(firstProceed.rows[0].status, 'requested');
+      const firstProceedRetry = await db.query(
+        'select * from platform_request_quote_proceed($1::uuid,$2::uuid,$3::uuid,true)',
+        [firstProceedEvent, projectId, firstOfferEvent],
+      );
+      assert.equal(firstProceedRetry.rows[0].quote_id, firstProceed.rows[0].quote_id);
       const changedSaveSql = saveSql.replace("'Bali'", "'Singapore'");
       const changed = await db.query(changedSaveSql, [changedSaveEvent, draftId, contentBrief, templateContent, deliveryScope, dataPolicy]);
       assert.equal(changed.rows[0].current_version, 2);
       assert.equal((await db.query("select count(*)::int count from platform_commercial_quote_requests where status = 'superseded'")).rows[0].count, 1);
       assert.equal((await db.query("select count(*)::int count from platform_commercial_quotes where status = 'superseded'")).rows[0].count, 1);
+      assert.equal((await db.query("select count(*)::int count from platform_quote_proceed_requests where status = 'superseded'")).rows[0].count, 1);
       const replacement = await db.query(
         'select * from platform_request_commercial_quote($1::uuid, $2::uuid, $3)',
         [replacementQuoteEvent, projectId, 2],
@@ -832,6 +853,15 @@ test(
       assert.equal(secondOffer.rows[0].currency, 'CNY');
 
       await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [owner]);
+      await db.exec('set role authenticated');
+      const secondProceed = await db.query(
+        'select * from platform_request_quote_proceed($1::uuid,$2::uuid,$3::uuid,true)',
+        [secondProceedEvent, projectId, secondOfferEvent],
+      );
+      assert.equal(secondProceed.rows[0].status, 'requested');
+
+      await db.exec('reset role');
       await db.query("update platform_entitlements set status = 'active', source = 'operator', active_from = now() where project_id = $1", [projectId]);
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [owner]);
       await db.exec('set role authenticated');
@@ -844,13 +874,16 @@ test(
         select
           (select count(*)::int from platform_commercial_quote_requests) requests,
           (select count(*)::int from platform_commercial_quotes) quotes,
+          (select count(*)::int from platform_quote_proceed_requests) proceed_requests,
           (select count(*)::int from platform_audit_log where action = 'commercial_quote_requested') quote_audits,
           (select count(*)::int from platform_audit_log where action = 'commercial_quote_offered') offer_audits,
+          (select count(*)::int from platform_audit_log where action = 'quote_proceed_requested') proceed_audits,
           (select count(*)::int from platform_mutation_receipts where action = 'quote_request') quote_receipts,
           (select count(*)::int from platform_mutation_receipts where action = 'commercial_quote_offer') offer_receipts,
+          (select count(*)::int from platform_mutation_receipts where action = 'quote_proceed_request') proceed_receipts,
           (select status from platform_entitlements where project_id = $1) entitlement_status
       `, [projectId]);
-      assert.deepEqual(finalState.rows[0], { requests: 2, quotes: 2, quote_audits: 2, offer_audits: 2, quote_receipts: 2, offer_receipts: 2, entitlement_status: 'active' });
+      assert.deepEqual(finalState.rows[0], { requests: 2, quotes: 2, proceed_requests: 2, quote_audits: 2, offer_audits: 2, proceed_audits: 2, quote_receipts: 2, offer_receipts: 2, proceed_receipts: 2, entitlement_status: 'active' });
     } finally {
       try { await db.exec('reset role'); } catch {}
       await db.close();

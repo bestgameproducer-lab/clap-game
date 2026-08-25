@@ -122,6 +122,7 @@ export function PlatformCommercialQueue({ requests, today }: { requests: Platfor
               <div className={styles.commercialQueueFacts}><span>{customization}</span><span>{support}</span><span>{rehearsal}</span></div>
               <p>{services.join('、') || '服务范围待确认'}{request.deliveryScope.serviceNotes ? ` · ${request.deliveryScope.serviceNotes}` : ''}</p>
               {request.quote ? <div className={styles.operatorQuoteCurrent}><small>{request.quote.validUntil < today ? '客户草案已过期' : '当前客户可见草案'}</small><strong>{formatPlatformQuoteAmount(request.quote.amountMinor, request.quote.currency)} · {PLATFORM_QUOTE_BILLING_LABELS[request.quote.billingInterval]}</strong><p>{request.quote.validUntil < today ? `已于 ${request.quote.validUntil} 过期，请更新草案` : `有效至 ${request.quote.validUntil}`} · {request.quote.serviceSummary}</p></div> : null}
+              {request.proceedRequestedAt ? <div className={styles.operatorQuoteProceed}><b>客户已申请下一步沟通</b><span>{new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(request.proceedRequestedAt))} · 请在外部确认合同与付款安排；平台尚未收款。</span></div> : null}
               {editingId === request.id ? (
                 <div className={styles.operatorQuoteForm}>
                   <label>报价金额<input value={draft.amount} inputMode="decimal" autoComplete="off" placeholder="例如 2999.00" onChange={(event) => updateDraft(request.id, { amount: event.target.value })} /></label>
@@ -132,7 +133,7 @@ export function PlatformCommercialQueue({ requests, today }: { requests: Platfor
                   <label className={styles.operatorQuoteWide}>客户可见商业条款摘要<textarea maxLength={4000} value={draft.termsSummary} onChange={(event) => updateDraft(request.id, { termsSummary: event.target.value })} placeholder="明确币种、税务口径、有效期、退款边界、交付范围和不包含事项；不要填写付款链接或收款账号。" /></label>
                   {confirmingId === request.id ? <div className={styles.operatorQuoteConfirmation}><strong>确认发布这份非约束性报价草案？</strong><p>{formatPlatformQuoteAmount(parsePlatformQuoteAmountInput(draft.amount) ?? 0, draft.currency)} · {PLATFORM_QUOTE_BILLING_LABELS[draft.billingInterval]} · 有效至 {draft.validUntil}</p><p>客户会立即看到金额和文字，但不能在平台接受或付款；旧草案会保留为历史记录。</p><div><button type="button" onClick={() => submitQuote(request)} disabled={busyId === request.id}>{busyId === request.id ? '正在保存…' : '确认发布草案'}</button><button type="button" onClick={() => setConfirmingId('')} disabled={busyId === request.id}>继续修改</button></div></div> : <div className={styles.operatorQuoteActions}><button type="button" onClick={() => reviewQuote(request)}>核对报价草案</button><button type="button" onClick={() => setEditingId('')}>取消</button></div>}
                 </div>
-              ) : <footer><b>{request.quote ? '报价草案已发布' : '待人工报价'}</b><span>尚未收费 · 尚未创建订单 · 权益仍为待确认</span><button type="button" onClick={() => beginQuote(request)}>{request.quote ? '更新报价草案' : '填写报价草案'}</button></footer>}
+              ) : <footer><b>{request.proceedRequestedAt ? '等待人工成交跟进' : request.quote ? '报价草案已发布' : '待人工报价'}</b><span>{request.proceedRequestedAt ? '更新报价会使客户的当前申请失效' : '尚未收费 · 尚未创建订单 · 权益仍为待确认'}</span><button type="button" onClick={() => beginQuote(request)}>{request.quote ? '更新报价草案' : '填写报价草案'}</button></footer>}
             </article>
           );
         })}</div>

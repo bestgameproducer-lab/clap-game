@@ -52,6 +52,7 @@ export type PlatformCommercialQuoteQueueItem = {
   deliveryScope: PlatformDeliveryScope;
   requestedAt: string;
   quote: PlatformCommercialQuote | null;
+  proceedRequestedAt: string | null;
 };
 
 export type PlatformReviewQueueItem = {
@@ -203,6 +204,11 @@ type CommercialQuoteRow = {
   offered_at: string;
 };
 
+type QuoteProceedRequestRow = {
+  quote_id: string;
+  requested_at: string;
+};
+
 function toCommercialQuote(row: CommercialQuoteRow): PlatformCommercialQuote {
   return {
     id: row.id,
@@ -239,13 +245,22 @@ export async function listPlatformCommercialQuoteQueue(staffUserId: string): Pro
   if (projectsResult.error) throw new Error(`Unable to read commercial quote projects: ${projectsResult.error.message}`);
   if (quotesResult.error) throw new Error(`Unable to read commercial quote drafts: ${quotesResult.error.message}`);
   const projects = new Map(((projectsResult.data ?? []) as CommercialQuoteProjectRow[]).map((project) => [project.id, project]));
-  const quotes = new Map(((quotesResult.data ?? []) as CommercialQuoteRow[]).map((quote) => [quote.quote_request_id, toCommercialQuote(quote)]));
+  const quoteRows = (quotesResult.data ?? []) as CommercialQuoteRow[];
+  const quotes = new Map(quoteRows.map((quote) => [quote.quote_request_id, toCommercialQuote(quote)]));
+  const proceedResult = await client
+    .from('platform_quote_proceed_requests')
+    .select('quote_id,requested_at')
+    .in('project_id', requests.map((request) => request.project_id))
+    .eq('status', 'requested');
+  if (proceedResult.error) throw new Error(`Unable to read quote proceed requests: ${proceedResult.error.message}`);
+  const proceedRequests = new Map(((proceedResult.data ?? []) as QuoteProceedRequestRow[]).map((proceed) => [proceed.quote_id, proceed.requested_at]));
   return requests.map((request) => {
     const project = projects.get(request.project_id);
     const snapshot = request.commercial_snapshot;
     const deliveryScope = isPlatformDeliveryScope(snapshot.deliveryScope)
       ? snapshot.deliveryScope
       : DEFAULT_PLATFORM_DELIVERY_SCOPE;
+    const quote = quotes.get(request.id) ?? null;
     return {
       id: request.id,
       projectId: request.project_id,
@@ -258,7 +273,8 @@ export async function listPlatformCommercialQuoteQueue(staffUserId: string): Pro
       guestCount: typeof snapshot.guestCount === 'number' ? snapshot.guestCount : 0,
       deliveryScope,
       requestedAt: request.requested_at,
-      quote: quotes.get(request.id) ?? null,
+      quote,
+      proceedRequestedAt: quote ? proceedRequests.get(quote.id) ?? null : null,
     };
   });
 }

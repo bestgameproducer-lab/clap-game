@@ -2818,6 +2818,26 @@
 .customerCommercialQuote > p { margin: 11px 0 0; color: #735c3d; font-size: 9px; line-height: 1.6; white-space: pre-wrap; }
 .customerCommercialQuote blockquote { margin: 10px 0 0; padding: 11px 12px; border-left: 3px solid rgba(139,96,42,.4); border-radius: 0 10px 10px 0; color: #755f42; background: rgba(255,255,255,.45); font-size: 8px; line-height: 1.6; white-space: pre-wrap; }
 .customerCommercialQuote footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px; padding-top: 11px; border-top: 1px solid rgba(136,97,45,.16); color: #8a704e; font-size: 8px; }
+.quoteProceedAction,.quoteProceedPending,.quoteProceedUnavailable { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(136,97,45,.16); }
+.quoteProceedButton { width: 100%; min-height: 42px; margin: 0; border-radius: 999px; color: white; background: #79552f; }
+.quoteProceedConfirmation { padding: 14px; border-radius: 13px; color: white; background: #49362d; }
+.quoteProceedConfirmation > strong { font-size: 10px; }
+.quoteProceedConfirmation > p { margin: 6px 0 0; color: #decec2; font-size: 9px; line-height: 1.6; }
+.quoteProceedConfirmation label { position: relative; display: block; margin-top: 11px; cursor: pointer; }
+.quoteProceedConfirmation input { position: absolute; width: 1px; min-height: 1px; height: 1px; margin: 0; padding: 0; border: 0; overflow: hidden; opacity: 0; clip-path: inset(50%); }
+.quoteProceedConfirmation label span { display: grid; grid-template-columns: 24px minmax(0,1fr); gap: 9px; align-items: center; padding: 10px; border-radius: 10px; color: #e4d5ca; background: rgba(255,255,255,.08); font-size: 9px; line-height: 1.5; }
+.quoteProceedConfirmation label:focus-within span { outline: 2px solid #f0dfc9; outline-offset: 2px; }
+.quoteProceedConfirmation label b { display: grid; width: 23px; height: 23px; place-items: center; border-radius: 50%; color: #49362d; background: #f0dfc9; }
+.quoteProceedConfirmation > div { display: flex; gap: 8px; margin-top: 11px; }
+.quoteProceedConfirmation button { min-height: 38px; margin: 0; padding: 8px 13px; border-radius: 999px; color: white; background: #b17c50; }
+.quoteProceedConfirmation button + button { color: #553f36; background: #ded0c7; }
+.quoteProceedConfirmation button:disabled { cursor: not-allowed; opacity: .45; }
+.quoteProceedMessage { margin: 9px 0 0; color: #765d3e; font-size: 9px; text-align: center; }
+.quoteProceedPending { display: grid; grid-template-columns: 30px minmax(0,1fr); gap: 10px; }
+.quoteProceedPending > b { display: grid; width: 29px; height: 29px; place-items: center; border-radius: 50%; color: white; background: #607359; }
+.quoteProceedPending strong,.quoteProceedUnavailable strong { color: #526248; font-size: 10px; }
+.quoteProceedPending p,.quoteProceedUnavailable p { margin: 5px 0 0; color: #7a6b55; font-size: 9px; line-height: 1.55; }
+.quoteProceedPending time { display: block; margin-top: 5px; color: #8a775e; font-size: 8px; }
 
 .cloudVersionList {
   display: grid;
@@ -3493,6 +3513,9 @@
 .operatorQuoteCurrent small { color: #6f806c; font-size: 7px; font-weight: 900; letter-spacing: .1em; }
 .operatorQuoteCurrent strong { margin-top: 5px; font-size: 12px; }
 .operatorQuoteCurrent p { margin: 6px 0 0; color: #667562; font-size: 9px; line-height: 1.55; }
+.operatorQuoteProceed { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 10px; align-items: center; margin-top: 9px; padding: 11px 13px; border-radius: 12px; color: #455b48; background: #dbe8d7; }
+.operatorQuoteProceed b { font-size: 9px; }
+.operatorQuoteProceed span { color: #667763; font-size: 8px; line-height: 1.5; }
 .operatorQuoteForm { display: grid; grid-template-columns: minmax(160px,1fr) minmax(110px,.42fr) minmax(130px,.52fr) minmax(145px,.58fr); gap: 9px; margin-top: 14px; padding: 16px; border-radius: 15px; color: white; background: #49362f; }
 .operatorQuoteForm label { display: grid; gap: 6px; min-width: 0; color: #ddcbbf; font-size: 8px; font-weight: 800; }
 .operatorQuoteForm input,.operatorQuoteForm select,.operatorQuoteForm textarea { width: 100%; min-width: 0; border: 1px solid rgba(255,255,255,.15); border-radius: 10px; color: #49362f; background: #fffaf5; font: inherit; }
@@ -4746,6 +4769,7 @@
   .commercialQuotePending > b { justify-self: start; }
   .commercialQuoteConfirmation > div { display: grid; }
   .customerCommercialQuote > div,.customerCommercialQuote footer { display: grid; }
+  .quoteProceedConfirmation > div { display: grid; }
 
   .collaborationHeading,
   .memberRows article,
@@ -4760,6 +4784,7 @@
   .commercialQueueCard footer span { text-align: left; }
   .commercialQueueCard footer button { justify-self: start; margin: 0; }
   .operatorQuoteForm { grid-template-columns: 1fr; }
+  .operatorQuoteProceed { grid-template-columns: 1fr; }
   .operatorQuoteWide { grid-column: auto; }
   .operatorQuoteActions,.operatorQuoteConfirmation { grid-column: auto; }
   .operatorQuoteActions,.operatorQuoteConfirmation > div { display: grid; }

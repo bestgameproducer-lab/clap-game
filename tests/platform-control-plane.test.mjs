@@ -525,6 +525,32 @@ test('manual quote drafts are staff-issued, customer-readable, versioned, and ca
   assert.doesNotMatch(route + operationsData + customerData + migration, /stripe|checkout|payment_intent|chargeCustomer|SERVICE_ROLE|service_role/i);
 });
 
+test('quote proceed requests are owner-only acknowledgements and never accept contracts or payments', () => {
+  const migration = read('platform-control-plane/migrations/202608250020_quote_proceed_requests.sql');
+  const route = read('app/api/platform/projects/[projectId]/quote-proceed/route.ts');
+  const validation = read('lib/validation/platform-commercial.ts');
+  const data = read('lib/data/platform-projects.ts');
+  const action = read('app/platform/projects/[projectId]/project-quote-proceed-action.tsx');
+  const operations = read('app/platform/operations/platform-commercial-queue.tsx');
+
+  assert.match(migration, /create table public\.platform_quote_proceed_requests/);
+  assert.match(migration, /platform_project_access_role\(project_id\) is not null/);
+  assert.match(migration, /platform_request_quote_proceed/);
+  assert.match(migration, /acknowledged_no_payment is true/);
+  assert.match(migration, /v_quote\.valid_until < current_date/);
+  assert.match(migration, /v_entitlement_status is distinct from 'pending'/);
+  assert.match(migration, /quote_proceed_requested/);
+  assert.match(migration, /platform_supersede_quote_proceed_request/);
+  assert.match(route, /assertSameOrigin\(request\)/);
+  assert.match(route, /requirePlatformUser\(\)/);
+  assert.match(validation, /acknowledgedNoPayment,eventKey,quoteId/);
+  assert.match(data, /platform_quote_proceed_requests/);
+  assert.match(action, /不是接受合同、创建订单或授权付款/);
+  assert.match(action, /我确认此操作不会付款/);
+  assert.match(operations, /等待人工成交跟进/);
+  assert.doesNotMatch(route + data + migration, /stripe|checkout|payment_intent|chargeCustomer|activateEntitlement/i);
+});
+
 test('guest data lifecycle is finite, explicitly confirmed, versioned, and delivered without guest records', () => {
   const policy = read('lib/platform/data-policy.ts');
   const scope = read('app/platform/scope/delivery-scope-builder.tsx');

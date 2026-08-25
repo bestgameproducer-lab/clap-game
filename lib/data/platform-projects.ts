@@ -85,6 +85,14 @@ export type PlatformCommercialQuoteRequestDto = {
   supersededAt: string | null;
 };
 
+export type PlatformQuoteProceedRequestDto = {
+  quoteId: string;
+  projectVersion: number;
+  status: 'requested' | 'superseded';
+  requestedAt: string;
+  supersededAt: string | null;
+};
+
 type PlatformProjectRow = {
   id: string;
   owner_user_id: string;
@@ -185,6 +193,14 @@ type PlatformCommercialQuoteRow = {
   offered_at: string;
 };
 
+type PlatformQuoteProceedRequestRow = {
+  quote_id: string;
+  project_version: number;
+  status: PlatformQuoteProceedRequestDto['status'];
+  requested_at: string;
+  superseded_at: string | null;
+};
+
 const PROJECT_FIELDS = 'id,owner_user_id,source_draft_id,status,template_id,template_version,plan_id,partner_one,partner_two,wedding_date,location,guest_count,theme_id,tone_id,modules,story_note,content_brief,template_content,delivery_scope,data_policy,current_version,updated_at';
 
 function toDto(row: PlatformProjectRow, accessRole: PlatformProjectDto['accessRole'], sourceDraftId = row.source_draft_id): PlatformProjectDto {
@@ -245,7 +261,7 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
   if (projectResult.error) throw new Error(`Unable to read platform project: ${projectResult.error.message}`);
   if (!projectResult.data) throw new ApiError(404, '没有找到这个客户项目');
   const projectRow = projectResult.data as PlatformProjectRow;
-  const [versionsResult, entitlementResult, reviewsResult, membersResult, invitationsResult, deliveryEventsResult, quoteRequestsResult, commercialQuotesResult] = await Promise.all([
+  const [versionsResult, entitlementResult, reviewsResult, membersResult, invitationsResult, deliveryEventsResult, quoteRequestsResult, commercialQuotesResult, proceedRequestsResult] = await Promise.all([
     client.from('platform_project_versions').select('version,reason,created_at').eq('project_id', projectId).order('version', { ascending: false }).limit(50),
     client.from('platform_entitlements').select('plan_id,status,source,active_from,active_until').eq('project_id', projectId).maybeSingle(),
     client.from('platform_project_reviews').select('id,review_round,project_version,decision,resulting_status,note,created_at').eq('project_id', projectId).order('review_round', { ascending: false }).limit(20),
@@ -254,6 +270,7 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
     client.from('platform_customer_delivery_events').select('release_event_id,action,project_version,customer_message,created_at').eq('project_id', projectId).order('created_at', { ascending: false }).limit(30),
     client.from('platform_commercial_quote_requests').select('id,project_version,plan_id,status,requested_at,superseded_at').eq('project_id', projectId).order('requested_at', { ascending: false }).limit(20),
     client.from('platform_commercial_quotes').select('id,quote_request_id,project_version,plan_id,amount_minor,currency,billing_interval,valid_until,service_summary,terms_summary,status,offered_at').eq('project_id', projectId).order('offered_at', { ascending: false }).limit(20),
+    client.from('platform_quote_proceed_requests').select('quote_id,project_version,status,requested_at,superseded_at').eq('project_id', projectId).order('requested_at', { ascending: false }).limit(20),
   ]);
   if (versionsResult.error) throw new Error(`Unable to read platform project versions: ${versionsResult.error.message}`);
   if (entitlementResult.error) throw new Error(`Unable to read platform entitlement: ${entitlementResult.error.message}`);
@@ -263,6 +280,7 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
   if (deliveryEventsResult.error) throw new Error(`Unable to read customer delivery events: ${deliveryEventsResult.error.message}`);
   if (quoteRequestsResult.error) throw new Error(`Unable to read commercial quote requests: ${quoteRequestsResult.error.message}`);
   if (commercialQuotesResult.error) throw new Error(`Unable to read commercial quote drafts: ${commercialQuotesResult.error.message}`);
+  if (proceedRequestsResult.error) throw new Error(`Unable to read quote proceed requests: ${proceedRequestsResult.error.message}`);
 
   const versions = ((versionsResult.data ?? []) as PlatformProjectVersionRow[]).map((row): PlatformProjectVersionDto => ({
     version: row.version,
@@ -334,6 +352,13 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
     status: row.status,
     offeredAt: row.offered_at,
   }));
+  const proceedRequests = ((proceedRequestsResult.data ?? []) as PlatformQuoteProceedRequestRow[]).map((row): PlatformQuoteProceedRequestDto => ({
+    quoteId: row.quote_id,
+    projectVersion: row.project_version,
+    status: row.status,
+    requestedAt: row.requested_at,
+    supersededAt: row.superseded_at,
+  }));
 
   return {
     project: toDto(projectRow, accessRole),
@@ -345,7 +370,38 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
     deliveryEvents,
     quoteRequests,
     commercialQuotes,
+    proceedRequests,
   };
+}
+
+export async function requestPlatformQuoteProceed(
+  ownerUserId: string,
+  projectId: string,
+  eventKey: string,
+  quoteId: string,
+  acknowledgedNoPayment: boolean,
+) {
+  if (!ownerUserId) throw new ApiError(401, '请先登录客户账号');
+  const client = await createPlatformServerClient();
+  const { data, error } = await client.rpc('platform_request_quote_proceed', {
+    p_event_key: eventKey,
+    p_project_id: projectId,
+    p_quote_id: quoteId,
+    p_acknowledged_no_payment: acknowledgedNoPayment,
+  }).single();
+  if (error) {
+    if (error.message.includes('platform_project_not_owned')) throw new ApiError(403, '只有项目所有者可以申请进入下一步沟通');
+    if (error.message.includes('platform_quote_proceed_invalid')) throw new ApiError(400, '报价下一步请求格式不正确');
+    if (error.message.includes('platform_commercial_quote_not_found')) throw new ApiError(404, '没有找到这份报价草案');
+    if (error.message.includes('platform_commercial_quote_unavailable')) throw new ApiError(409, '报价已经过期或被替换，请刷新后核对最新草案');
+    if (error.message.includes('platform_quote_proceed_locked')) throw new ApiError(409, '项目当前阶段不能申请进入商业下一步');
+    if (error.message.includes('platform_quote_proceed_entitled')) throw new ApiError(409, '商业权益已经处理，不需要重复申请');
+    if (error.message.includes('platform_quote_proceed_exists')) throw new ApiError(409, '已经提交过这份报价的下一步申请');
+    if (error.message.includes('platform_event_conflict')) throw new ApiError(409, '操作编号已经用于其他请求');
+    throw new Error(`Unable to request quote proceed: ${error.message}`);
+  }
+  if (!data) throw new Error('Unable to request quote proceed: missing response');
+  return data;
 }
 
 export async function requestPlatformCommercialQuote(

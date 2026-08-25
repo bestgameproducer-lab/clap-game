@@ -53,6 +53,8 @@ Migration `202608250018` adds an owner-confirmed commercial quote request betwee
 
 Migration `202608250019` lets staff issue a customer-readable, non-binding quote draft against a current request. Amounts are stored in minor units; supported currencies are USD and CNY; a buyout must be one-time while a subscription must be monthly or annual. Validity is limited to 1–90 days and customer text rejects HTML, URLs, obvious credentials, and connection strings. Reissuing a draft preserves the old row as superseded, and a changed commercial scope supersedes both the request and its active quote. No quote can be issued after entitlement activation. The customer can only read the draft; there is deliberately no acceptance, payment, contract, or entitlement mutation yet.
 
+Migration `202608250020` adds an owner-only request for human follow-up on an offered, unexpired quote. The owner must explicitly acknowledge that the action is not a payment or contract acceptance; collaborators remain read-only. Requests are idempotent and audited, appear in the staff commercial queue, and are automatically superseded when the quote is replaced or the commercial project scope changes. The function never creates an order, records a payment, accepts a contract, or activates an entitlement.
+
 ## Approved-version provisioning manifest
 
 After an operator approves a submitted version, `/platform/operations` can lock one immutable `wedding-instance-config/v2` manifest for that exact project version. Locking is staff-only, idempotent, protected by an advisory lock, SHA-256 signed, and audited. It does **not** create a Vercel project, Supabase project, domain, database, or paid resource. Previously locked v1 manifests remain immutable and readable.
