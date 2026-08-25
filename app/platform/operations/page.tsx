@@ -2,12 +2,13 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { listPlatformReviewQueue } from '@/lib/data/platform-operations';
+import { listPlatformProvisioningQueue, listPlatformReviewQueue } from '@/lib/data/platform-operations';
 import { ApiError } from '@/lib/errors';
 import { getPlatformSupabaseEnv } from '@/lib/platform/env';
 import { requirePlatformStaff } from '@/lib/platform/staff';
 import styles from '../platform.module.css';
 import { PlatformReviewQueue } from './platform-review-queue';
+import { PlatformProvisioningQueue } from './platform-provisioning-queue';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +45,10 @@ export default async function PlatformOperationsPage() {
     throw error;
   }
 
-  const queue = await listPlatformReviewQueue(staff.user.id);
+  const [queue, provisioningQueue] = await Promise.all([
+    listPlatformReviewQueue(staff.user.id),
+    listPlatformProvisioningQueue(staff.user.id),
+  ]);
   return (
     <OperationsShell>
       <div className={styles.operationsLayout}>
@@ -53,6 +57,7 @@ export default async function PlatformOperationsPage() {
           <div className={styles.operationsIdentity}><small>当前工作人员</small><strong>{staff.user.email}</strong><span>{staff.role === 'admin' ? '平台管理员' : '内容运营'}</span></div>
         </section>
         <PlatformReviewQueue initialQueue={queue} />
+        <PlatformProvisioningQueue initialQueue={provisioningQueue} />
       </div>
     </OperationsShell>
   );

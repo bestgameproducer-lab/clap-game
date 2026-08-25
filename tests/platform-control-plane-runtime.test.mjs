@@ -99,6 +99,7 @@ test(
     const eventSixteen = '30000000-0000-4000-8000-000000000016';
     const eventSeventeen = '30000000-0000-4000-8000-000000000017';
     const eventEighteen = '30000000-0000-4000-8000-000000000018';
+    const eventNineteen = '30000000-0000-4000-8000-000000000019';
     const secondDraftId = '20000000-0000-4000-8000-000000000002';
     const inviteHash = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
     const secondInviteHash = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
@@ -323,6 +324,37 @@ test(
       await db.exec('set role authenticated');
       await db.query('select * from platform_remove_project_member($1::uuid, $2::uuid, $3::uuid)', [eventEighteen, secondProjectId, ownerTwo]);
 
+      await assert.rejects(
+        db.query('select * from platform_lock_provisioning_manifest($1::uuid, $2::uuid)', [eventNineteen, projectId]),
+        /platform_staff_required/,
+      );
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [operator]);
+      await db.exec('set role authenticated');
+      const manifest = await db.query(
+        'select * from platform_lock_provisioning_manifest($1::uuid, $2::uuid)',
+        [eventNineteen, projectId],
+      );
+      assert.equal(manifest.rows[0].project_version, 7);
+      assert.match(manifest.rows[0].manifest_hash, /^[0-9a-f]{64}$/);
+      assert.equal(manifest.rows[0].manifest.schemaVersion, 'wedding-instance-config/v1');
+      assert.equal(manifest.rows[0].manifest.wedding.displayName, 'Zimin & Anrong');
+      assert.deepEqual(manifest.rows[0].manifest.safeguards, {
+        containsCredentials: false,
+        containsGuestRuntimeData: false,
+        containsPrivateStoryNotes: false,
+      });
+      const serializedManifest = JSON.stringify(manifest.rows[0].manifest);
+      for (const forbidden of ['storyMoments', 'avoidTopics', 'hostNotes', 'runtime test', 'No former relationships']) {
+        assert.equal(serializedManifest.includes(forbidden), false);
+      }
+      const manifestRetry = await db.query(
+        'select * from platform_lock_provisioning_manifest($1::uuid, $2::uuid)',
+        [eventNineteen, projectId],
+      );
+      assert.equal(manifestRetry.rows[0].manifest_hash, manifest.rows[0].manifest_hash);
+
       await db.exec('reset role');
       await db.query('delete from auth.users where id = $1', [operator]);
       const retainedAudit = await db.query(`
@@ -334,7 +366,7 @@ test(
           (select count(*)::int from platform_project_reviews where reviewer_user_id is null) anonymous_reviews,
           (select count(*)::int from platform_audit_log where actor_user_id is null) anonymous_audits
       `);
-      assert.deepEqual(retainedAudit.rows[0], { versions: 9, reviews: 2, audits: 15, anonymous_versions: 2, anonymous_reviews: 2, anonymous_audits: 2 });
+      assert.deepEqual(retainedAudit.rows[0], { versions: 9, reviews: 2, audits: 16, anonymous_versions: 2, anonymous_reviews: 2, anonymous_audits: 3 });
     } finally {
       try { await db.exec('reset role'); } catch {}
       await db.close();

@@ -118,6 +118,13 @@ test('control-plane migrations own projects, content briefs, versions, entitleme
   assert.match(sql, /platform_remove_project_member/);
   assert.match(sql, /octet_length\(token_hash\) = 32/);
   assert.match(sql, /decode\(p_token_hash, 'hex'\)/);
+  assert.match(sql, /create table public\.platform_provisioning_manifests/);
+  assert.match(sql, /platform_lock_provisioning_manifest/);
+  assert.match(sql, /provisioning_manifest_locked/);
+  assert.match(sql, /containsGuestRuntimeData/);
+  assert.match(sql, /containsPrivateStoryNotes/);
+  assert.match(sql, /extensions\.digest\(\$1, \$2\)/);
+  assert.match(sql, /sha256\(\$1\)/);
   assert.match(sql, /add column action text not null default 'draft_save'/);
   assert.match(sql, /content_brief/);
   assert.match(sql, /revoke execute on function public\.platform_save_project_draft[\s\S]*from authenticated/);
@@ -220,4 +227,23 @@ test('operator review desk is staff-only, versioned, and cannot provision resour
   assert.doesNotMatch(page + queue + staff + data, /SERVICE_ROLE|service_role/);
   assert.match(validation, /changes_requested/);
   assert.match(validation, /退回修改时必须填写明确的审核意见/);
+});
+
+test('provisioning manifests are staff-only, immutable, downloadable, and exclude private content', () => {
+  const route = read('app/api/platform/operations/projects/[projectId]/manifest/route.ts');
+  const queue = read('app/platform/operations/platform-provisioning-queue.tsx');
+  const data = read('lib/data/platform-operations.ts');
+  const migration = read('platform-control-plane/migrations/202608250006_provisioning_manifest.sql');
+
+  assert.match(route, /requirePlatformStaff\(\)/g);
+  assert.match(route, /assertSameOrigin\(request\)/);
+  assert.match(route, /readPlatformManifestLockInput/);
+  assert.match(route, /Cache-Control.*private, no-store/);
+  assert.match(route, /Content-Disposition/);
+  assert.match(data, /\.eq\('status', 'provisioning'\)/);
+  assert.match(data, /platform_lock_provisioning_manifest/);
+  assert.match(queue, /不创建 Vercel、Supabase、域名或付费资源/);
+  assert.match(queue, /故事原文、禁忌备注、主持备注、宾客数据或密钥/);
+  assert.doesNotMatch(migration.match(/v_manifest\.manifest :=[\s\S]*?v_manifest\.manifest_hash :=/)?.[0] ?? '', /storyMoments|avoidTopics|hostNotes|story_note/);
+  assert.doesNotMatch(route + queue + data, /SUPABASE_SERVICE_ROLE_KEY|service_role/);
 });

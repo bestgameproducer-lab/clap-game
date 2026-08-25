@@ -18,6 +18,28 @@ export type PlatformReviewQueueItem = {
   submittedAt: string;
 };
 
+export type PlatformProvisioningManifest = {
+  schemaVersion: 'wedding-instance-config/v1';
+  source: { projectId: string; projectVersion: number; templateId: string; templateVersion: string };
+  wedding: { displayName: string; partnerOne: string; partnerTwo: string; date: string; location: string; guestCapacity: number };
+  experience: { theme: string; tone: string; modules: string[]; language: string; interaction: string; guestMix: string };
+  delivery: { plan: 'buyout' | 'subscription' };
+  safeguards: { containsGuestRuntimeData: false; containsCredentials: false; containsPrivateStoryNotes: false };
+};
+
+export type PlatformProvisioningQueueItem = {
+  id: string;
+  partnerOne: string;
+  partnerTwo: string;
+  weddingDate: string;
+  location: string;
+  planId: 'buyout' | 'subscription';
+  version: number;
+  updatedAt: string;
+  entitlementStatus: 'pending' | 'active' | 'past_due' | 'cancelled' | 'expired';
+  manifest: null | { projectVersion: number; hash: string; createdAt: string };
+};
+
 type ReviewQueueRow = {
   id: string;
   partner_one: string;
@@ -31,6 +53,11 @@ type ReviewQueueRow = {
   current_version: number;
   updated_at: string;
 };
+
+type ProvisioningProjectRow = Pick<ReviewQueueRow, 'id' | 'partner_one' | 'partner_two' | 'wedding_date' | 'location' | 'plan_id' | 'current_version' | 'updated_at'>;
+
+type ProvisioningEntitlementRow = { project_id: string; status: PlatformProvisioningQueueItem['entitlementStatus'] };
+type ProvisioningManifestRow = { project_id: string; project_version: number; manifest_hash: string; created_at: string; manifest?: unknown };
 
 export async function listPlatformReviewQueue(staffUserId: string) {
   if (!staffUserId) throw new ApiError(403, '此账号没有平台运营权限');
@@ -56,6 +83,77 @@ export async function listPlatformReviewQueue(staffUserId: string) {
     version: row.current_version,
     submittedAt: row.updated_at,
   }));
+}
+
+export async function listPlatformProvisioningQueue(staffUserId: string): Promise<PlatformProvisioningQueueItem[]> {
+  if (!staffUserId) throw new ApiError(403, '此账号没有平台运营权限');
+  const client = await createPlatformServerClient();
+  const { data, error } = await client
+    .from('platform_projects')
+    .select('id,partner_one,partner_two,wedding_date,location,plan_id,current_version,updated_at')
+    .eq('status', 'provisioning')
+    .order('updated_at', { ascending: true })
+    .limit(100);
+  if (error) throw new Error(`Unable to list platform provisioning queue: ${error.message}`);
+  const projects = (data ?? []) as ProvisioningProjectRow[];
+  if (!projects.length) return [];
+  const projectIds = projects.map((project) => project.id);
+  const [entitlementsResult, manifestsResult] = await Promise.all([
+    client.from('platform_entitlements').select('project_id,status').in('project_id', projectIds),
+    client.from('platform_provisioning_manifests').select('project_id,project_version,manifest_hash,created_at').in('project_id', projectIds),
+  ]);
+  if (entitlementsResult.error) throw new Error(`Unable to read provisioning entitlements: ${entitlementsResult.error.message}`);
+  if (manifestsResult.error) throw new Error(`Unable to read provisioning manifests: ${manifestsResult.error.message}`);
+  const entitlements = new Map(((entitlementsResult.data ?? []) as ProvisioningEntitlementRow[]).map((row) => [row.project_id, row.status]));
+  const manifests = new Map(((manifestsResult.data ?? []) as ProvisioningManifestRow[]).map((row) => [row.project_id, row]));
+  return projects.map((project) => {
+    const manifest = manifests.get(project.id);
+    return {
+      id: project.id,
+      partnerOne: project.partner_one,
+      partnerTwo: project.partner_two,
+      weddingDate: project.wedding_date ?? '',
+      location: project.location,
+      planId: project.plan_id,
+      version: project.current_version,
+      updatedAt: project.updated_at,
+      entitlementStatus: entitlements.get(project.id) ?? 'pending',
+      manifest: manifest ? { projectVersion: manifest.project_version, hash: manifest.manifest_hash, createdAt: manifest.created_at } : null,
+    };
+  });
+}
+
+export async function lockPlatformProvisioningManifest(staffUserId: string, projectId: string, eventKey: string) {
+  if (!staffUserId) throw new ApiError(403, '此账号没有平台运营权限');
+  const client = await createPlatformServerClient();
+  const { data, error } = await client.rpc('platform_lock_provisioning_manifest', {
+    p_event_key: eventKey,
+    p_project_id: projectId,
+  }).single();
+  if (error) {
+    if (error.message.includes('platform_staff_required')) throw new ApiError(403, '此账号没有平台运营权限');
+    if (error.message.includes('platform_project_not_found')) throw new ApiError(404, '没有找到这个客户项目');
+    if (error.message.includes('platform_manifest_locked')) throw new ApiError(409, '项目尚未进入实例准备阶段');
+    if (error.message.includes('platform_manifest_not_ready')) throw new ApiError(409, '批准版本不完整，无法生成实例配置清单');
+    if (error.message.includes('platform_manifest_hash_unavailable')) throw new ApiError(503, '平台数据库缺少配置清单签名能力，请联系技术人员');
+    if (error.message.includes('platform_event_conflict')) throw new ApiError(409, '操作编号已经用于其他请求');
+    throw new Error(`Unable to lock platform provisioning manifest: ${error.message}`);
+  }
+  if (!data) throw new Error('Unable to lock platform provisioning manifest: missing response');
+  return data;
+}
+
+export async function getPlatformProvisioningManifest(staffUserId: string, projectId: string) {
+  if (!staffUserId) throw new ApiError(403, '此账号没有平台运营权限');
+  const client = await createPlatformServerClient();
+  const { data, error } = await client
+    .from('platform_provisioning_manifests')
+    .select('project_id,project_version,manifest,manifest_hash,created_at')
+    .eq('project_id', projectId)
+    .maybeSingle();
+  if (error) throw new Error(`Unable to read platform provisioning manifest: ${error.message}`);
+  if (!data) throw new ApiError(404, '这场婚礼还没有锁定实例配置清单');
+  return data as ProvisioningManifestRow & { manifest: PlatformProvisioningManifest };
 }
 
 export async function reviewPlatformProject(

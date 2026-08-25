@@ -15,3 +15,7 @@ export function readPlatformOperatorReviewInput(body: JsonObject) {
     note,
   };
 }
+
+export function readPlatformManifestLockInput(body: JsonObject) {
+  return { eventKey: requiredUuid(body.eventKey, '操作编号') };
+}
