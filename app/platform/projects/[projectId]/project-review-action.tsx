@@ -19,10 +19,12 @@ export function ProjectReviewAction({
   projectId,
   status,
   missingItems,
+  canSubmit,
 }: {
   projectId: string;
   status: string;
   missingItems: string[];
+  canSubmit: boolean;
 }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
@@ -52,6 +54,10 @@ export function ProjectReviewAction({
 
   if (status !== 'draft') {
     return <div className={styles.reviewSubmitted}><b>✓</b><div><strong>当前版本已经进入交付流程</strong><p>客户草稿已锁定。后续修改需要由平台在审核流程中创建新版本，避免现场内容被静默覆盖。</p></div></div>;
+  }
+
+  if (!canSubmit) {
+    return <div className={styles.reviewMissing}><strong>只有项目所有者可以提交审核</strong><p>协作者可以查看项目；编辑者也可以保存草稿，但锁定审核基线仍需由所有者确认。</p></div>;
   }
 
   return (

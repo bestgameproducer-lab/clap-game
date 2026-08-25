@@ -9,6 +9,7 @@ import { getPlatformSupabaseEnv } from '@/lib/platform/env';
 import { formatWeddingDate } from '@/lib/platform/draft';
 import styles from '../../platform.module.css';
 import { ProjectReviewAction } from './project-review-action';
+import { ProjectCollaboration } from './project-collaboration';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,7 +74,7 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
     throw error;
   }
 
-  const { project, versions, entitlement, reviews } = details;
+  const { project, versions, entitlement, reviews, members, invitations } = details;
   const latestReview = reviews[0] ?? null;
   const plan = PLATFORM_PLANS.find((item) => item.id === project.planId) ?? PLATFORM_PLANS[0];
   const theme = PLATFORM_THEMES.find((item) => item.id === project.themeId) ?? PLATFORM_THEMES[0];
@@ -107,7 +108,7 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
           <div className={styles.cloudStatusCard}><small>当前交付阶段</small><strong>{STATUS_LABELS[project.status]}</strong><span>最后保存 {new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(project.updatedAt))}</span></div>
         </section>
 
-        <section className={styles.cloudOwnershipNotice}><strong>仅账号本人可见</strong><p>这个页面由登录会话、项目所有者过滤和数据库行级权限共同保护，不包含宾客身份、照片、积分或任何正式婚礼运行数据。</p><span>{user.email}</span></section>
+        <section className={styles.cloudOwnershipNotice}><strong>仅项目成员可见</strong><p>这个页面由登录会话、项目成员权限和数据库行级权限共同保护，不包含宾客身份、照片、积分或任何正式婚礼运行数据。</p><span>{user.email} · {{ owner: '所有者', editor: '编辑者', viewer: '查看者' }[project.accessRole]}</span></section>
 
         {latestReview ? (
           <section className={latestReview.decision === 'changes_requested' ? styles.customerReviewChanges : styles.customerReviewApproved}>
@@ -142,8 +143,10 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
 
         <section className={styles.cloudReviewPanel}>
           <div><p className={styles.eyebrow}>DELIVERY CHECKPOINT</p><h2>提交内容审核</h2><p>资料完整后，把当前版本锁定为审核基线。这个动作不会收费、不会创建婚礼运行实例，也不会改动现有正式婚礼。</p></div>
-          <ProjectReviewAction projectId={project.id} status={project.status} missingItems={missingReviewItems} />
+          <ProjectReviewAction projectId={project.id} status={project.status} missingItems={missingReviewItems} canSubmit={project.accessRole === 'owner'} />
         </section>
+
+        <ProjectCollaboration projectId={project.id} currentUserId={user.id} accessRole={project.accessRole} members={members} invitations={invitations} />
 
         <section className={styles.cloudDetailNext}><div><p className={styles.eyebrow}>{project.status === 'draft' ? 'CONTINUE SAFELY' : project.status === 'content_review' ? 'REVIEW IN PROGRESS' : 'INSTANCE PREPARATION'}</p><h2>{project.status === 'draft' ? (latestReview?.decision === 'changes_requested' ? '根据审核意见继续修改，再次提交新版本。' : '继续编辑时，先把云端版本载回本机。') : project.status === 'content_review' ? '当前版本已经进入内容审核。' : '平台正在准备独立婚礼实例。'}</h2><p>{project.status === 'draft' ? '账号页会在覆盖另一份本机草稿前要求再次确认；编辑完成后仍需手动保存，平台不会静默上传。' : project.status === 'content_review' ? '审核期间客户草稿保持锁定，避免交付基线被覆盖。审核结果会记录为不可变版本并显示在本页。' : '这只是人工交付阶段；当前不会自动收费，也不会自动创建或修改云资源。'}</p></div><Link className={styles.primaryAction} href="/platform/account">返回账号与项目 <span>→</span></Link></section>
       </div>

@@ -29,6 +29,7 @@ type CloudProject = {
   contentBrief: NonNullable<WeddingDraft['contentBrief']>;
   version: number;
   updatedAt: string;
+  accessRole: 'owner' | 'editor' | 'viewer';
 };
 
 const PROJECT_STATUS_LABELS: Record<string, string> = {
@@ -132,13 +133,19 @@ export function PlatformAccountGateway({
 
   async function syncDraft() {
     if (!draft || busy) return;
+    if (projectsState !== 'ready') {
+      setMessage('请等待云端项目列表同步完成后再保存。');
+      return;
+    }
     setBusy(true);
     setMessage('正在安全保存婚礼方案…');
     try {
+      const target = projects.find((project) => project.sourceDraftId === draft.draftId);
+      if (target?.accessRole === 'viewer') throw new Error('你对这个项目只有查看权限，不能覆盖方案草稿');
       const response = await fetch('/api/platform/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ draft, projectId: null, eventKey: createPlatformDraftId() }),
+        body: JSON.stringify({ draft, projectId: target?.id ?? null, eventKey: createPlatformDraftId() }),
       });
       if (!response.ok) throw new Error(await readApiError(response));
       setMessage('婚礼方案已保存到你的云端项目。');
@@ -191,7 +198,11 @@ export function PlatformAccountGateway({
   }
 
   function requestCloudRestore(project: CloudProject) {
-    if (project.status !== 'draft') {
+    if (project.status !== 'draft' || project.accessRole === 'viewer') {
+      if (project.accessRole === 'viewer') {
+        setMessage('你对这个项目只有查看权限，不能载入并覆盖草稿。');
+        return;
+      }
       setMessage('这个项目已经进入交付流程，当前客户版本不能再覆盖编辑。');
       return;
     }
@@ -248,7 +259,7 @@ export function PlatformAccountGateway({
           {draft ? (
             <>
               <div className={styles.accountDraftCard}><small>本机草稿</small><strong>{getWeddingCoupleName(draft)}</strong><span>{draft.modules.length} 个模块 · {draft.plan === 'buyout' ? '单场买断' : '持续订阅'}</span></div>
-              <button type="button" onClick={syncDraft} disabled={!email || busy}>保存到独立客户项目</button>
+              <button type="button" onClick={syncDraft} disabled={!email || busy || projectsState !== 'ready'}>保存到独立客户项目</button>
               {!email ? <small className={styles.accountHint}>登录后才可以上传；点击前不会传输本机草稿。</small> : null}
             </>
           ) : (
@@ -265,13 +276,13 @@ export function PlatformAccountGateway({
           {projectsState === 'ready' && projects.length === 0 ? <p>还没有云端项目。保存右上方的本机方案后会出现在这里。</p> : null}
           {projects.length ? <div className={styles.cloudProjectRows}>{projects.map((project) => (
             <article key={project.id}>
-              <div><strong>{[project.partnerOne, project.partnerTwo].filter(Boolean).join(' & ') || '未命名婚礼项目'}</strong><small>版本 {project.version} · {project.planId === 'buyout' ? '单场买断' : '持续订阅'}</small></div>
+              <div><strong>{[project.partnerOne, project.partnerTwo].filter(Boolean).join(' & ') || '未命名婚礼项目'}</strong><small>版本 {project.version} · {project.planId === 'buyout' ? '单场买断' : '持续订阅'} · {{ owner: '所有者', editor: '编辑者', viewer: '查看者' }[project.accessRole]}</small></div>
               <span>{PROJECT_STATUS_LABELS[project.status] ?? '交付处理中'}</span>
               <time dateTime={project.updatedAt}>{new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(new Date(project.updatedAt))}</time>
               <div className={styles.cloudProjectActions}>
                 <Link href={`/platform/projects/${project.id}`}>查看项目</Link>
-                <button type="button" onClick={() => requestCloudRestore(project)} disabled={busy || project.status !== 'draft'}>
-                  {project.status !== 'draft' ? '版本已锁定' : pendingRestoreId === project.id ? '确认覆盖并编辑' : '载入到本机编辑'}
+                <button type="button" onClick={() => requestCloudRestore(project)} disabled={busy || project.status !== 'draft' || project.accessRole === 'viewer'}>
+                  {project.accessRole === 'viewer' ? '仅可查看' : project.status !== 'draft' ? '版本已锁定' : pendingRestoreId === project.id ? '确认覆盖并编辑' : '载入到本机编辑'}
                 </button>
                 {pendingRestoreId === project.id ? <button type="button" onClick={() => setPendingRestoreId(null)}>取消</button> : null}
               </div>

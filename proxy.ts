@@ -10,6 +10,7 @@ export const config = {
     '/platform/account/:path*',
     '/platform/projects/:path*',
     '/platform/operations/:path*',
+    '/platform/invitations/:path*',
     '/platform/auth/:path*',
     '/api/platform/:path*',
   ],

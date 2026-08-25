@@ -19,8 +19,15 @@ create table if not exists auth.users (id uuid primary key);
 create or replace function auth.uid() returns uuid language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $$;
+create or replace function auth.jwt() returns jsonb language sql stable as $$
+  select jsonb_build_object(
+    'sub', nullif(current_setting('request.jwt.claim.sub', true), ''),
+    'email', nullif(current_setting('request.jwt.claim.email', true), '')
+  )
+$$;
 grant usage on schema auth to authenticated;
 grant execute on function auth.uid() to authenticated;
+grant execute on function auth.jwt() to authenticated;
 `;
 
 const saveSql = `
@@ -44,6 +51,27 @@ select * from public.platform_save_customized_project_draft_v2(
 )
 `;
 
+const collaboratorSaveSql = `
+select * from public.platform_save_customized_project_draft_v3(
+  $1::uuid,
+  $2::uuid,
+  $3::uuid,
+  'cupid-wedding-trial',
+  '2026.08',
+  'buyout',
+  'Zimin',
+  'Anrong',
+  '2026-08-16'::date,
+  'Bali',
+  80,
+  'estate',
+  'romantic',
+  array['secret-missions','host-toolkit']::text[],
+  'collaborator runtime test',
+  $4::jsonb
+)
+`;
+
 test(
   'platform SQL runtime keeps saves owner-scoped, versioned, audited and idempotent',
   { skip: PGlite && pgcrypto ? false : 'requires optional @electric-sql/pglite' },
@@ -62,6 +90,18 @@ test(
     const eventSeven = '30000000-0000-4000-8000-000000000007';
     const eventEight = '30000000-0000-4000-8000-000000000008';
     const eventNine = '30000000-0000-4000-8000-000000000009';
+    const eventTen = '30000000-0000-4000-8000-000000000010';
+    const eventEleven = '30000000-0000-4000-8000-000000000011';
+    const eventTwelve = '30000000-0000-4000-8000-000000000012';
+    const eventThirteen = '30000000-0000-4000-8000-000000000013';
+    const eventFourteen = '30000000-0000-4000-8000-000000000014';
+    const eventFifteen = '30000000-0000-4000-8000-000000000015';
+    const eventSixteen = '30000000-0000-4000-8000-000000000016';
+    const eventSeventeen = '30000000-0000-4000-8000-000000000017';
+    const eventEighteen = '30000000-0000-4000-8000-000000000018';
+    const secondDraftId = '20000000-0000-4000-8000-000000000002';
+    const inviteHash = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const secondInviteHash = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
     const contentBrief = JSON.stringify({
       language: 'bilingual',
       interaction: 'immersive',
@@ -203,6 +243,86 @@ test(
       const ownerReviews = await db.query('select count(*)::int count from platform_project_reviews');
       assert.equal(ownerReviews.rows[0].count, 2);
 
+      const invitation = await db.query(
+        "select * from platform_create_project_invitation($1::uuid, $2::uuid, 'editor', $3)",
+        [eventTen, projectId, inviteHash],
+      );
+      assert.equal(invitation.rows[0].role, 'editor');
+      const invitationRetry = await db.query(
+        "select * from platform_create_project_invitation($1::uuid, $2::uuid, 'editor', $3)",
+        [eventTen, projectId, inviteHash],
+      );
+      assert.equal(invitationRetry.rows[0].id, invitation.rows[0].id);
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerTwo]);
+      await db.query(`select set_config('request.jwt.claim.email', $1, false)`, ['collaborator@example.com']);
+      await db.exec('set role authenticated');
+      const accepted = await db.query(
+        'select * from platform_accept_project_invitation($1::uuid, $2)',
+        [eventEleven, inviteHash],
+      );
+      assert.equal(accepted.rows[0].project_id, projectId);
+      assert.equal(accepted.rows[0].role, 'editor');
+      const collaboratorVisible = await db.query('select count(*)::int count from platform_projects');
+      assert.equal(collaboratorVisible.rows[0].count, 1);
+      const collaboratorReviews = await db.query('select count(*)::int count from platform_project_reviews');
+      assert.equal(collaboratorReviews.rows[0].count, 2);
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
+      await db.exec('set role authenticated');
+      const removed = await db.query(
+        'select * from platform_remove_project_member($1::uuid, $2::uuid, $3::uuid)',
+        [eventTwelve, projectId, ownerTwo],
+      );
+      assert.equal(removed.rows[0].user_id, ownerTwo);
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerTwo]);
+      await db.exec('set role authenticated');
+      const collaboratorRevoked = await db.query('select count(*)::int count from platform_projects');
+      assert.equal(collaboratorRevoked.rows[0].count, 0);
+
+      await db.exec('reset role');
+      const collaborationCounts = await db.query(`
+        select
+          (select count(*)::int from platform_project_members) members,
+          (select count(*)::int from platform_project_invitations) invitations,
+          (select count(*)::int from platform_audit_log) audits,
+          (select count(*)::int from platform_mutation_receipts) receipts
+      `);
+      assert.deepEqual(collaborationCounts.rows[0], { members: 0, invitations: 1, audits: 10, receipts: 10 });
+
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
+      await db.exec('set role authenticated');
+      const secondProject = await db.query(saveSql, [eventThirteen, secondDraftId, contentBrief]);
+      const secondProjectId = secondProject.rows[0].id;
+      const secondInvitation = await db.query(
+        "select * from platform_create_project_invitation($1::uuid, $2::uuid, 'editor', $3)",
+        [eventFourteen, secondProjectId, secondInviteHash],
+      );
+      assert.equal(secondInvitation.rows[0].role, 'editor');
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerTwo]);
+      await db.query(`select set_config('request.jwt.claim.email', $1, false)`, ['collaborator@example.com']);
+      await db.exec('set role authenticated');
+      await db.query('select * from platform_accept_project_invitation($1::uuid, $2)', [eventFifteen, secondInviteHash]);
+      const collaboratorSave = await db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief]);
+      assert.equal(collaboratorSave.rows[0].current_version, 2);
+      const collaboratorSaveRetry = await db.query(collaboratorSaveSql, [eventSixteen, secondProjectId, secondDraftId, contentBrief]);
+      assert.equal(collaboratorSaveRetry.rows[0].current_version, 2);
+      await assert.rejects(
+        db.query('select * from platform_submit_project_for_review($1::uuid, $2::uuid)', [eventSeventeen, secondProjectId]),
+        /platform_project_not_owned/,
+      );
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
+      await db.exec('set role authenticated');
+      await db.query('select * from platform_remove_project_member($1::uuid, $2::uuid, $3::uuid)', [eventEighteen, secondProjectId, ownerTwo]);
+
       await db.exec('reset role');
       await db.query('delete from auth.users where id = $1', [operator]);
       const retainedAudit = await db.query(`
@@ -214,7 +334,7 @@ test(
           (select count(*)::int from platform_project_reviews where reviewer_user_id is null) anonymous_reviews,
           (select count(*)::int from platform_audit_log where actor_user_id is null) anonymous_audits
       `);
-      assert.deepEqual(retainedAudit.rows[0], { versions: 7, reviews: 2, audits: 7, anonymous_versions: 2, anonymous_reviews: 2, anonymous_audits: 2 });
+      assert.deepEqual(retainedAudit.rows[0], { versions: 9, reviews: 2, audits: 15, anonymous_versions: 2, anonymous_reviews: 2, anonymous_audits: 2 });
     } finally {
       try { await db.exec('reset role'); } catch {}
       await db.close();

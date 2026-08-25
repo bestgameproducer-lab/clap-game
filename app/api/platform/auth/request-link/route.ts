@@ -1,15 +1,16 @@
 import { createPlatformServerClient } from '@/lib/platform/supabase-server';
 import { apiErrorResponse, noStoreJson, ApiError } from '@/lib/errors';
 import { assertSameOrigin, readJsonObject } from '@/lib/validation';
-import { requiredPlatformEmail } from '@/lib/validation/platform-auth';
+import { requiredPlatformEmail, safePlatformReturnPath } from '@/lib/validation/platform-auth';
 
 export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
     const body = await readJsonObject(request);
     const email = requiredPlatformEmail(body.email);
+    const next = safePlatformReturnPath(body.next);
     const client = await createPlatformServerClient();
-    const redirectUrl = new URL('/platform/auth/confirm?next=/platform/account', request.url).toString();
+    const redirectUrl = new URL(`/platform/auth/confirm?next=${encodeURIComponent(next)}`, request.url).toString();
     const { error } = await client.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: redirectUrl, shouldCreateUser: true },

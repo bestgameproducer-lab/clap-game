@@ -39,4 +39,6 @@ set role = excluded.role, active = true, updated_at = now();
 
 The account can then open `/platform/operations`. Operators can approve a submitted content version into `provisioning` or return it to `draft` with a required customer-visible note. Both decisions create immutable versions and audit records. Removing an operator account does not erase historical review or audit records. Do not add staff-management writes to the public browser client, and do not use a service-role key in the application.
 
+Project owners can create seven-day, single-use collaboration links for an editor or viewer. The raw invitation token exists only in the generated URL; the database stores its SHA-256 hash. Recipients must authenticate with their own platform account before accepting. Editors can save draft versions but cannot submit content review, invite members, or manage delivery. Viewers are read-only. Owners can revoke an unclaimed link or remove a member at any time, and every change is idempotent and audited.
+
 The migrations intentionally do not integrate a payment provider or create cloud resources. Entitlements start as `pending`; a later verified payment webhook or explicit operator grant will activate them.

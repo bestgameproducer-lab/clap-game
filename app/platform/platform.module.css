@@ -2887,6 +2887,289 @@
   text-align: center;
 }
 
+.collaborationPanel {
+  margin-top: 16px;
+  padding: 30px;
+  border: 1px solid rgba(94, 63, 50, .13);
+  border-radius: 27px;
+  background: rgba(255, 252, 247, .9);
+}
+
+.collaborationHeading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+}
+
+.collaborationHeading h2 {
+  margin: 8px 0;
+  color: #4c362e;
+  font: 500 29px/1.2 Georgia, 'Noto Serif SC', serif;
+}
+
+.collaborationHeading p:not(.eyebrow) {
+  max-width: 720px;
+  margin: 0;
+  color: #806d64;
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.collaborationHeading > span {
+  align-self: start;
+  padding: 8px 11px;
+  border-radius: 999px;
+  background: #6e453a;
+  color: white;
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.memberRows {
+  display: grid;
+  gap: 7px;
+  margin-top: 20px;
+}
+
+.memberRows article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 15px;
+  background: #eee4db;
+}
+
+.memberRows strong,
+.memberRows small {
+  display: block;
+}
+
+.memberRows strong {
+  overflow-wrap: anywhere;
+  color: #503a32;
+  font-size: 10px;
+}
+
+.memberRows small,
+.memberRows span {
+  color: #90776b;
+  font-size: 8px;
+}
+
+.memberRows button,
+.pendingInviteRows button {
+  min-height: 34px;
+  margin: 0;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: #dbcac0;
+  color: #73584d;
+  font-size: 8px;
+}
+
+.invitationWorkspace {
+  display: grid;
+  grid-template-columns: minmax(220px, .55fr) minmax(220px, .45fr);
+  gap: 10px;
+  margin-top: 18px;
+  padding: 18px;
+  border-radius: 18px;
+  background: #3d2d28;
+}
+
+.invitationWorkspace > div:first-child {
+  display: grid;
+  gap: 6px;
+}
+
+.invitationWorkspace label {
+  color: #d8c4b9;
+  font-size: 8px;
+  font-weight: 850;
+}
+
+.invitationWorkspace select,
+.invitationWorkspace > button {
+  min-height: 44px;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 999px;
+  font-size: 10px;
+}
+
+.invitationWorkspace select {
+  background: #fbf6ef;
+  color: #513a32;
+}
+
+.invitationWorkspace > button {
+  align-self: end;
+  background: #b77c56;
+  color: white;
+}
+
+.shareLinkResult,
+.pendingInviteRows {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: 15px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .08);
+}
+
+.shareLinkResult {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.shareLinkResult label,
+.shareLinkResult small {
+  grid-column: 1 / -1;
+}
+
+.shareLinkResult input {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 11px;
+  background: #fffaf3;
+  color: #4d3830;
+  font-size: 10px;
+}
+
+.shareLinkResult button {
+  min-height: 42px;
+  margin: 0;
+  border-radius: 999px;
+  background: #d5a26f;
+  color: #3f2c25;
+  font-size: 9px;
+}
+
+.shareLinkResult small,
+.collaborationReadOnly {
+  color: #cbb6ac;
+  font-size: 8px;
+  line-height: 1.6;
+}
+
+.pendingInviteRows {
+  display: grid;
+  gap: 7px;
+  color: #f3e9e2;
+  font-size: 9px;
+}
+
+.pendingInviteRows article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  color: #d8c4b9;
+  font-size: 8px;
+}
+
+.collaborationReadOnly {
+  margin: 18px 0 0;
+  padding: 15px;
+  border-radius: 14px;
+  background: #59433b;
+}
+
+.collaborationMessage {
+  margin: 12px 0 0;
+  color: #6f594f;
+  font-size: 9px;
+}
+
+.invitationShell {
+  --platform-ink: #241b18;
+  --platform-wine: #713c34;
+  --platform-gold: #c99a58;
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  color: var(--platform-ink);
+  background:
+    radial-gradient(circle at 86% 5%, rgba(156, 105, 74, .22), transparent 28rem),
+    linear-gradient(180deg, #f8f1e7, #eaded2);
+}
+
+.invitationCard {
+  width: min(660px, calc(100% - 40px));
+  margin: 80px auto 0;
+  padding: 42px;
+  border: 1px solid rgba(94, 63, 50, .13);
+  border-radius: 34px;
+  background: rgba(255, 252, 247, .92);
+  box-shadow: 0 30px 80px rgba(74, 45, 32, .1);
+}
+
+.invitationCard h1 {
+  margin: 14px 0;
+  color: #3f2c25;
+  font: 500 clamp(38px, 6vw, 58px)/1.08 Georgia, 'Noto Serif SC', serif;
+}
+
+.invitationCard > p:not(.eyebrow):not(.invitationMessage) {
+  margin: 0;
+  color: #7d685e;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.invitationCard form,
+.invitationSignedIn {
+  display: grid;
+  gap: 9px;
+  margin-top: 26px;
+  padding: 20px;
+  border-radius: 19px;
+  background: #eee3d9;
+}
+
+.invitationCard label,
+.invitationSignedIn small {
+  color: #82695e;
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.invitationSignedIn strong {
+  overflow-wrap: anywhere;
+  color: #503830;
+  font-size: 12px;
+}
+
+.invitationCard input,
+.invitationCard button {
+  min-height: 48px;
+  margin: 0;
+  border-radius: 999px;
+}
+
+.invitationCard button {
+  background: #6c4036;
+  color: white;
+}
+
+.invitationMessage {
+  margin: 14px 0 0;
+  color: #6c5146;
+  font-size: 10px;
+}
+
+.invitationSafety {
+  display: block;
+  margin-top: 18px;
+  color: #927b70;
+  font-size: 8px;
+  line-height: 1.6;
+}
+
 .operationsShell {
   --platform-ink: #241b18;
   --platform-wine: #713c34;
@@ -4075,6 +4358,32 @@
 
   .reviewConfirmation > div {
     display: grid;
+  }
+
+  .collaborationHeading,
+  .memberRows article,
+  .invitationWorkspace,
+  .shareLinkResult,
+  .pendingInviteRows article {
+    grid-template-columns: 1fr;
+  }
+
+  .collaborationPanel {
+    padding: 22px;
+  }
+
+  .memberRows button,
+  .pendingInviteRows button {
+    justify-self: start;
+  }
+
+  .shareLinkResult button {
+    width: 100%;
+  }
+
+  .invitationCard {
+    margin-top: 44px;
+    padding: 26px;
   }
 
   .operationsLayout,

@@ -28,6 +28,7 @@ test('platform SSR authentication verifies claims and refreshes only platform co
   assert.doesNotMatch(auth, /getSession\(\)/);
   assert.match(proxy, /\/platform\/account\/\:path\*/);
   assert.match(proxy, /\/platform\/operations\/\:path\*/);
+  assert.match(proxy, /\/platform\/invitations\/\:path\*/);
   assert.match(proxy, /\/api\/platform\/\:path\*/);
   assert.doesNotMatch(proxy, /\/guest|\/admin|\/host|\/station/);
   assert.match(proxyCore, /Cache-Control.*private.*no-store/);
@@ -60,7 +61,7 @@ test('every platform mutation is same-origin, authenticated, validated, and isol
   assert.match(operatorReviewRoute, /requirePlatformStaff\(\)/);
   assert.match(operatorReviewRoute, /requiredUuid\(\(await params\)\.projectId/);
   assert.match(operatorReviewRoute, /readPlatformOperatorReviewInput/);
-  assert.match(data, /platform_save_customized_project_draft_v2/);
+  assert.match(data, /platform_save_customized_project_draft_v3/);
   assert.match(data, /platform_submit_project_for_review/);
   assert.doesNotMatch(data, /select\(['"]\*['"]\)/);
   assert.match(validation, /requiredUuid\(body\.eventKey/);
@@ -108,6 +109,15 @@ test('control-plane migrations own projects, content briefs, versions, entitleme
   assert.match(sql, /project_review_approved/);
   assert.match(sql, /project_review_changes_requested/);
   assert.match(sql, /on delete set null/);
+  assert.match(sql, /create table public\.platform_project_members/);
+  assert.match(sql, /create table public\.platform_project_invitations/);
+  assert.match(sql, /platform_project_access_role/);
+  assert.match(sql, /platform_save_customized_project_draft_v3/);
+  assert.match(sql, /platform_create_project_invitation/);
+  assert.match(sql, /platform_accept_project_invitation/);
+  assert.match(sql, /platform_remove_project_member/);
+  assert.match(sql, /octet_length\(token_hash\) = 32/);
+  assert.match(sql, /decode\(p_token_hash, 'hex'\)/);
   assert.match(sql, /add column action text not null default 'draft_save'/);
   assert.match(sql, /content_brief/);
   assert.match(sql, /revoke execute on function public\.platform_save_project_draft[\s\S]*from authenticated/);
@@ -115,6 +125,7 @@ test('control-plane migrations own projects, content briefs, versions, entitleme
   assert.match(sql, /grant execute on function public\.platform_save_project_draft[\s\S]*to authenticated/);
   assert.match(sql, /revoke execute on function public\.platform_save_customized_project_draft[\s\S]*from authenticated/);
   assert.match(sql, /grant execute on function public\.platform_save_customized_project_draft_v2[\s\S]*to authenticated/);
+  assert.match(sql, /grant execute on function public\.platform_save_customized_project_draft_v3[\s\S]*to authenticated/);
   assert.doesNotMatch(weddingMigrations, /create table[^;]*platform_projects/i);
 });
 
@@ -123,7 +134,7 @@ test('account UI does not transmit the device draft before explicit signed-in sa
   const projectWorkspace = read('app/platform/project/project-workspace.tsx');
 
   assert.match(account, /if \(!draft \|\| busy\) return/);
-  assert.match(account, /disabled=\{!email \|\| busy\}/);
+  assert.match(account, /disabled=\{!email \|\| busy \|\| projectsState !== 'ready'\}/);
   assert.match(account, /点击前不会传输本机草稿/);
   assert.match(account, /draftId: project\.sourceDraftId/);
   assert.match(account, /再次确认/);
@@ -133,7 +144,7 @@ test('account UI does not transmit the device draft before explicit signed-in sa
   assert.doesNotMatch(account, /SERVICE_ROLE|service_role/);
 });
 
-test('cloud project workflow remains server-authenticated and owner-scoped', () => {
+test('cloud project workflow remains server-authenticated and project-member scoped', () => {
   const page = read('app/platform/projects/[projectId]/page.tsx');
   const reviewAction = read('app/platform/projects/[projectId]/project-review-action.tsx');
   const data = read('lib/data/platform-projects.ts');
@@ -141,9 +152,11 @@ test('cloud project workflow remains server-authenticated and owner-scoped', () 
 
   assert.match(page, /getPlatformUser\(\)/);
   assert.match(page, /getPlatformProjectDetails\(user\.id, projectId\)/);
-  assert.match(page, /仅账号本人可见/);
+  assert.match(page, /仅项目成员可见/);
   assert.match(page, /尚未收费，也不会自动开通婚礼实例/);
-  assert.match(data, /\.eq\('owner_user_id', ownerUserId\)\.eq\('id', projectId\)/);
+  assert.match(data, /\.select\(PROJECT_FIELDS\)\.eq\('id', projectId\)\.maybeSingle\(\)/);
+  assert.match(data, /platform_project_members/);
+  assert.match(data, /accessRole/);
   assert.match(data, /platform_project_versions/);
   assert.match(data, /platform_entitlements/);
   assert.match(data, /platform_project_reviews/);
@@ -157,6 +170,33 @@ test('cloud project workflow remains server-authenticated and owner-scoped', () 
   assert.match(account, /版本已锁定/);
   assert.match(page, /平台已退回修改，项目重新开放编辑/);
   assert.match(page, /不会自动收费，也不会自动创建或修改云资源/);
+});
+
+test('project invitations are hashed, authenticated, revocable, and role-scoped', () => {
+  const createRoute = read('app/api/platform/projects/[projectId]/invitations/route.ts');
+  const acceptRoute = read('app/api/platform/invitations/accept/route.ts');
+  const revokeRoute = read('app/api/platform/projects/[projectId]/invitations/[invitationId]/route.ts');
+  const memberRoute = read('app/api/platform/projects/[projectId]/members/[memberUserId]/route.ts');
+  const hashing = read('lib/platform/invitation.ts');
+  const collaboration = read('app/platform/projects/[projectId]/project-collaboration.tsx');
+  const invitationPage = read('app/platform/invitations/[token]/invitation-acceptance.tsx');
+  const data = read('lib/data/platform-projects.ts');
+
+  for (const route of [createRoute, acceptRoute, revokeRoute, memberRoute]) {
+    assert.match(route, /assertSameOrigin\(request\)/);
+    assert.match(route, /requirePlatformUser\(\)/);
+  }
+  assert.match(hashing, /createHash\('sha256'\)/);
+  assert.doesNotMatch(hashing, /console\.|process\.env/);
+  assert.match(createRoute, /hashPlatformInvitationToken\(input\.invitationToken\)/);
+  assert.match(acceptRoute, /hashPlatformInvitationToken\(input\.invitationToken\)/);
+  assert.match(collaboration, /生成七天邀请链接/);
+  assert.match(collaboration, /数据库只保存链接令牌的 SHA-256 哈希/);
+  assert.match(collaboration, /再次点击确认撤销/);
+  assert.match(invitationPage, /next: `\/platform\/invitations\/\$\{token\}`/);
+  assert.match(invitationPage, /不会授予婚礼现场后台/);
+  assert.match(data, /platform_save_customized_project_draft_v3/);
+  assert.match(data, /accessRole/);
 });
 
 test('operator review desk is staff-only, versioned, and cannot provision resources directly', () => {

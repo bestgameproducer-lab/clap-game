@@ -23,6 +23,7 @@ export type PlatformProjectDto = {
   contentBrief: PlatformContentBrief;
   version: number;
   updatedAt: string;
+  accessRole: 'owner' | 'editor' | 'viewer';
 };
 
 export type PlatformProjectVersionDto = {
@@ -51,6 +52,7 @@ export type PlatformProjectReviewDto = {
 
 type PlatformProjectRow = {
   id: string;
+  owner_user_id: string;
   source_draft_id?: string;
   status: PlatformProjectDto['status'];
   template_id: string;
@@ -94,9 +96,28 @@ type PlatformProjectReviewRow = {
   created_at: string;
 };
 
-const PROJECT_FIELDS = 'id,source_draft_id,status,template_id,template_version,plan_id,partner_one,partner_two,wedding_date,location,guest_count,theme_id,tone_id,modules,story_note,content_brief,current_version,updated_at';
+type PlatformProjectMemberRow = {
+  project_id: string;
+  user_id: string;
+  email: string;
+  role: 'editor' | 'viewer';
+  created_at: string;
+};
 
-function toDto(row: PlatformProjectRow, sourceDraftId = row.source_draft_id): PlatformProjectDto {
+type PlatformProjectInvitationRow = {
+  id: string;
+  project_id: string;
+  role: 'editor' | 'viewer';
+  accepted_by_user_id: string | null;
+  accepted_at: string | null;
+  expires_at: string;
+  revoked_at: string | null;
+  created_at: string;
+};
+
+const PROJECT_FIELDS = 'id,owner_user_id,source_draft_id,status,template_id,template_version,plan_id,partner_one,partner_two,wedding_date,location,guest_count,theme_id,tone_id,modules,story_note,content_brief,current_version,updated_at';
+
+function toDto(row: PlatformProjectRow, accessRole: PlatformProjectDto['accessRole'], sourceDraftId = row.source_draft_id): PlatformProjectDto {
   if (!sourceDraftId) throw new Error('Unable to map platform project without a source draft');
   return {
     id: row.id,
@@ -117,6 +138,7 @@ function toDto(row: PlatformProjectRow, sourceDraftId = row.source_draft_id): Pl
     contentBrief: isPlatformContentBrief(row.content_brief) ? row.content_brief : { ...DEFAULT_PLATFORM_CONTENT_BRIEF },
     version: row.current_version,
     updatedAt: row.updated_at,
+    accessRole,
   };
 }
 
@@ -126,28 +148,40 @@ export async function listPlatformProjects(ownerUserId: string) {
   const { data, error } = await client
     .from('platform_projects')
     .select(PROJECT_FIELDS)
-    .eq('owner_user_id', ownerUserId)
     .order('updated_at', { ascending: false })
     .limit(50);
   if (error) throw new Error(`Unable to list platform projects: ${error.message}`);
-  return ((data ?? []) as PlatformProjectRow[]).map((row) => toDto(row));
+  const rows = (data ?? []) as PlatformProjectRow[];
+  if (!rows.length) return [];
+  const { data: memberData, error: memberError } = await client
+    .from('platform_project_members')
+    .select('project_id,user_id,email,role,created_at')
+    .eq('user_id', ownerUserId)
+    .in('project_id', rows.map((row) => row.id));
+  if (memberError) throw new Error(`Unable to list platform project memberships: ${memberError.message}`);
+  const roles = new Map(((memberData ?? []) as PlatformProjectMemberRow[]).map((row) => [row.project_id, row.role]));
+  return rows.map((row) => toDto(row, row.owner_user_id === ownerUserId ? 'owner' : roles.get(row.id) ?? 'viewer'));
 }
 
 export async function getPlatformProjectDetails(ownerUserId: string, projectId: string) {
   if (!ownerUserId) throw new ApiError(401, '请先登录客户账号');
   const client = await createPlatformServerClient();
-  const [projectResult, versionsResult, entitlementResult, reviewsResult] = await Promise.all([
-    client.from('platform_projects').select(PROJECT_FIELDS).eq('owner_user_id', ownerUserId).eq('id', projectId).maybeSingle(),
+  const projectResult = await client.from('platform_projects').select(PROJECT_FIELDS).eq('id', projectId).maybeSingle();
+  if (projectResult.error) throw new Error(`Unable to read platform project: ${projectResult.error.message}`);
+  if (!projectResult.data) throw new ApiError(404, '没有找到这个客户项目');
+  const projectRow = projectResult.data as PlatformProjectRow;
+  const [versionsResult, entitlementResult, reviewsResult, membersResult, invitationsResult] = await Promise.all([
     client.from('platform_project_versions').select('version,reason,created_at').eq('project_id', projectId).order('version', { ascending: false }).limit(50),
     client.from('platform_entitlements').select('plan_id,status,source,active_from,active_until').eq('project_id', projectId).maybeSingle(),
     client.from('platform_project_reviews').select('id,review_round,project_version,decision,resulting_status,note,created_at').eq('project_id', projectId).order('review_round', { ascending: false }).limit(20),
+    client.from('platform_project_members').select('project_id,user_id,email,role,created_at').eq('project_id', projectId).order('created_at', { ascending: true }),
+    client.from('platform_project_invitations').select('id,project_id,role,accepted_by_user_id,accepted_at,expires_at,revoked_at,created_at').eq('project_id', projectId).order('created_at', { ascending: false }).limit(30),
   ]);
-
-  if (projectResult.error) throw new Error(`Unable to read platform project: ${projectResult.error.message}`);
-  if (!projectResult.data) throw new ApiError(404, '没有找到这个客户项目');
   if (versionsResult.error) throw new Error(`Unable to read platform project versions: ${versionsResult.error.message}`);
   if (entitlementResult.error) throw new Error(`Unable to read platform entitlement: ${entitlementResult.error.message}`);
   if (reviewsResult.error) throw new Error(`Unable to read platform project reviews: ${reviewsResult.error.message}`);
+  if (membersResult.error) throw new Error(`Unable to read platform project members: ${membersResult.error.message}`);
+  if (invitationsResult.error) throw new Error(`Unable to read platform project invitations: ${invitationsResult.error.message}`);
 
   const versions = ((versionsResult.data ?? []) as PlatformProjectVersionRow[]).map((row): PlatformProjectVersionDto => ({
     version: row.version,
@@ -171,12 +205,33 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
     note: row.note,
     createdAt: row.created_at,
   }));
+  const memberRows = (membersResult.data ?? []) as PlatformProjectMemberRow[];
+  const accessRole: PlatformProjectDto['accessRole'] = projectRow.owner_user_id === ownerUserId
+    ? 'owner'
+    : memberRows.find((row) => row.user_id === ownerUserId)?.role ?? 'viewer';
+  const members = memberRows.map((row) => ({
+    userId: row.user_id,
+    email: row.email,
+    role: row.role,
+    createdAt: row.created_at,
+  }));
+  const invitations = ((invitationsResult.data ?? []) as PlatformProjectInvitationRow[]).map((row) => ({
+    id: row.id,
+    role: row.role,
+    acceptedByUserId: row.accepted_by_user_id,
+    acceptedAt: row.accepted_at,
+    expiresAt: row.expires_at,
+    revokedAt: row.revoked_at,
+    createdAt: row.created_at,
+  }));
 
   return {
-    project: toDto(projectResult.data as PlatformProjectRow),
+    project: toDto(projectRow, accessRole),
     versions,
     entitlement,
     reviews,
+    members,
+    invitations,
   };
 }
 
@@ -184,7 +239,7 @@ export async function savePlatformProject(ownerUserId: string, input: PlatformPr
   if (!ownerUserId) throw new ApiError(401, '请先登录客户账号');
   const client = await createPlatformServerClient();
   const { draft } = input;
-  const { data, error } = await client.rpc('platform_save_customized_project_draft_v2', {
+  const { data, error } = await client.rpc('platform_save_customized_project_draft_v3', {
     p_event_key: input.eventKey,
     p_project_id: input.projectId,
     p_source_draft_id: input.sourceDraftId,
@@ -211,7 +266,14 @@ export async function savePlatformProject(ownerUserId: string, input: PlatformPr
   }
   const row = data as PlatformProjectRow | null;
   if (!row) throw new Error('Unable to save platform project: missing response');
-  return toDto(row, input.sourceDraftId);
+  const { data: ownership, error: ownershipError } = await client
+    .from('platform_projects')
+    .select('owner_user_id')
+    .eq('id', row.id)
+    .single();
+  if (ownershipError || !ownership) throw new Error(`Unable to verify platform project ownership: ${ownershipError?.message ?? 'missing response'}`);
+  const accessRole: PlatformProjectDto['accessRole'] = ownership.owner_user_id === ownerUserId ? 'owner' : 'editor';
+  return toDto(row, accessRole, input.sourceDraftId);
 }
 
 export async function submitPlatformProjectForReview(ownerUserId: string, projectId: string, eventKey: string) {
