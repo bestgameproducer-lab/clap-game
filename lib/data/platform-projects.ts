@@ -18,6 +18,7 @@ import {
   type PlatformDataPolicy,
 } from '../platform/data-policy';
 import type { PlatformCommercialQuote, PlatformQuoteBillingInterval, PlatformQuoteCurrency } from '../platform/commercial';
+import type { PlatformFulfillmentPlan } from '../platform/fulfillment';
 
 export type PlatformProjectDto = {
   id: string;
@@ -201,6 +202,14 @@ type PlatformQuoteProceedRequestRow = {
   superseded_at: string | null;
 };
 
+type PlatformFulfillmentPlanRow = {
+  project_version: number;
+  lane: PlatformFulfillmentPlan['lane'];
+  status: PlatformFulfillmentPlan['status'];
+  runtime_model: PlatformFulfillmentPlan['runtimeModel'];
+  created_at: string;
+};
+
 const PROJECT_FIELDS = 'id,owner_user_id,source_draft_id,status,template_id,template_version,plan_id,partner_one,partner_two,wedding_date,location,guest_count,theme_id,tone_id,modules,story_note,content_brief,template_content,delivery_scope,data_policy,current_version,updated_at';
 
 function toDto(row: PlatformProjectRow, accessRole: PlatformProjectDto['accessRole'], sourceDraftId = row.source_draft_id): PlatformProjectDto {
@@ -261,7 +270,7 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
   if (projectResult.error) throw new Error(`Unable to read platform project: ${projectResult.error.message}`);
   if (!projectResult.data) throw new ApiError(404, '没有找到这个客户项目');
   const projectRow = projectResult.data as PlatformProjectRow;
-  const [versionsResult, entitlementResult, reviewsResult, membersResult, invitationsResult, deliveryEventsResult, quoteRequestsResult, commercialQuotesResult, proceedRequestsResult] = await Promise.all([
+  const [versionsResult, entitlementResult, reviewsResult, membersResult, invitationsResult, deliveryEventsResult, quoteRequestsResult, commercialQuotesResult, proceedRequestsResult, fulfillmentPlanResult] = await Promise.all([
     client.from('platform_project_versions').select('version,reason,created_at').eq('project_id', projectId).order('version', { ascending: false }).limit(50),
     client.from('platform_entitlements').select('plan_id,status,source,active_from,active_until').eq('project_id', projectId).maybeSingle(),
     client.from('platform_project_reviews').select('id,review_round,project_version,decision,resulting_status,note,created_at').eq('project_id', projectId).order('review_round', { ascending: false }).limit(20),
@@ -271,6 +280,7 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
     client.from('platform_commercial_quote_requests').select('id,project_version,plan_id,status,requested_at,superseded_at').eq('project_id', projectId).order('requested_at', { ascending: false }).limit(20),
     client.from('platform_commercial_quotes').select('id,quote_request_id,project_version,plan_id,amount_minor,currency,billing_interval,valid_until,service_summary,terms_summary,status,offered_at').eq('project_id', projectId).order('offered_at', { ascending: false }).limit(20),
     client.from('platform_quote_proceed_requests').select('quote_id,project_version,status,requested_at,superseded_at').eq('project_id', projectId).order('requested_at', { ascending: false }).limit(20),
+    client.from('platform_fulfillment_plans').select('project_version,lane,status,runtime_model,created_at').eq('project_id', projectId).maybeSingle(),
   ]);
   if (versionsResult.error) throw new Error(`Unable to read platform project versions: ${versionsResult.error.message}`);
   if (entitlementResult.error) throw new Error(`Unable to read platform entitlement: ${entitlementResult.error.message}`);
@@ -281,6 +291,7 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
   if (quoteRequestsResult.error) throw new Error(`Unable to read commercial quote requests: ${quoteRequestsResult.error.message}`);
   if (commercialQuotesResult.error) throw new Error(`Unable to read commercial quote drafts: ${commercialQuotesResult.error.message}`);
   if (proceedRequestsResult.error) throw new Error(`Unable to read quote proceed requests: ${proceedRequestsResult.error.message}`);
+  if (fulfillmentPlanResult.error) throw new Error(`Unable to read fulfillment plan: ${fulfillmentPlanResult.error.message}`);
 
   const versions = ((versionsResult.data ?? []) as PlatformProjectVersionRow[]).map((row): PlatformProjectVersionDto => ({
     version: row.version,
@@ -359,6 +370,14 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
     requestedAt: row.requested_at,
     supersededAt: row.superseded_at,
   }));
+  const fulfillmentPlanRow = fulfillmentPlanResult.data as PlatformFulfillmentPlanRow | null;
+  const fulfillmentPlan: PlatformFulfillmentPlan | null = fulfillmentPlanRow ? {
+    projectVersion: fulfillmentPlanRow.project_version,
+    lane: fulfillmentPlanRow.lane,
+    status: fulfillmentPlanRow.status,
+    runtimeModel: fulfillmentPlanRow.runtime_model,
+    createdAt: fulfillmentPlanRow.created_at,
+  } : null;
 
   return {
     project: toDto(projectRow, accessRole),
@@ -371,6 +390,7 @@ export async function getPlatformProjectDetails(ownerUserId: string, projectId: 
     quoteRequests,
     commercialQuotes,
     proceedRequests,
+    fulfillmentPlan,
   };
 }
 

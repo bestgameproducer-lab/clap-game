@@ -111,6 +111,7 @@ test(
     const eventTwentyTwo = '30000000-0000-4000-8000-000000000022';
     const eventTwentyThree = '30000000-0000-4000-8000-000000000023';
     const eventTwentyFour = '30000000-0000-4000-8000-000000000024';
+    const eventTwentyFive = '30000000-0000-4000-8000-000000000025';
     const secondDraftId = '20000000-0000-4000-8000-000000000002';
     const inviteHash = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
     const secondInviteHash = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
@@ -487,6 +488,10 @@ test(
         db.query('select * from platform_lock_provisioning_manifest($1::uuid, $2::uuid)', [eventNineteen, projectId]),
         /platform_staff_required/,
       );
+      await assert.rejects(
+        db.query('select * from platform_plan_project_fulfillment($1::uuid, $2::uuid)', [eventTwentyFive, projectId]),
+        /platform_staff_required/,
+      );
 
       await db.exec('reset role');
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [operator]);
@@ -522,6 +527,19 @@ test(
         [eventNineteen, projectId],
       );
       assert.equal(manifestRetry.rows[0].manifest_hash, manifest.rows[0].manifest_hash);
+      const fulfillmentPlan = await db.query(
+        'select * from platform_plan_project_fulfillment($1::uuid, $2::uuid)',
+        [eventTwentyFive, projectId],
+      );
+      assert.equal(fulfillmentPlan.rows[0].lane, 'custom_service');
+      assert.equal(fulfillmentPlan.rows[0].status, 'manual_setup');
+      assert.equal(fulfillmentPlan.rows[0].runtime_model, 'bespoke_isolated');
+      assert.equal(fulfillmentPlan.rows[0].manifest_hash, manifest.rows[0].manifest_hash);
+      const fulfillmentRetry = await db.query(
+        'select * from platform_plan_project_fulfillment($1::uuid, $2::uuid)',
+        [eventTwentyFive, projectId],
+      );
+      assert.equal(fulfillmentRetry.rows[0].created_at.toISOString(), fulfillmentPlan.rows[0].created_at.toISOString());
 
       await db.exec('reset role');
       await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ownerOne]);
@@ -683,7 +701,7 @@ test(
           (select count(*)::int from platform_project_reviews where reviewer_user_id is null) anonymous_reviews,
           (select count(*)::int from platform_audit_log where actor_user_id is null) anonymous_audits
       `);
-      assert.deepEqual(retainedAudit.rows[0], { versions: 9, reviews: 2, audits: 21, instances: 1, attestations: 2, releases: 2, delivery_summaries: 2, anonymous_instances: 1, anonymous_attestations: 2, anonymous_releases: 2, anonymous_versions: 2, anonymous_reviews: 2, anonymous_audits: 8 });
+      assert.deepEqual(retainedAudit.rows[0], { versions: 9, reviews: 2, audits: 22, instances: 1, attestations: 2, releases: 2, delivery_summaries: 2, anonymous_instances: 1, anonymous_attestations: 2, anonymous_releases: 2, anonymous_versions: 2, anonymous_reviews: 2, anonymous_audits: 9 });
     } finally {
       try { await db.exec('reset role'); } catch {}
       await db.close();
@@ -937,6 +955,105 @@ test(
           (select status from platform_entitlements where project_id = $1) entitlement_status
       `, [projectId]);
       assert.deepEqual(finalState.rows[0], { requests: 2, quotes: 2, proceed_requests: 2, quote_audits: 2, offer_audits: 2, proceed_audits: 2, quote_receipts: 2, offer_receipts: 2, proceed_receipts: 2, entitlement_status: 'active' });
+    } finally {
+      try { await db.exec('reset role'); } catch {}
+      await db.close();
+    }
+  },
+);
+
+test(
+  'standard fulfillment is server-derived, idempotent, member-readable and payment-gated',
+  { skip: PGlite && pgcrypto ? false : 'requires optional @electric-sql/pglite' },
+  async () => {
+    const db = new PGlite({ extensions: { pgcrypto } });
+    const owner = '12000000-0000-4000-8000-000000000001';
+    const outsider = '12000000-0000-4000-8000-000000000002';
+    const operator = '12000000-0000-4000-8000-000000000003';
+    const draftId = '22000000-0000-4000-8000-000000000001';
+    const saveEvent = '32000000-0000-4000-8000-000000000001';
+    const submitEvent = '32000000-0000-4000-8000-000000000002';
+    const approveEvent = '32000000-0000-4000-8000-000000000003';
+    const manifestEvent = '32000000-0000-4000-8000-000000000004';
+    const fulfillmentEvent = '32000000-0000-4000-8000-000000000005';
+    const contentBrief = JSON.stringify({
+      language: 'chinese', interaction: 'balanced', guestMix: 'balanced',
+      storyMoments: 'A safe story moment', avoidTopics: '', boundariesConfirmed: true, hostNotes: '',
+    });
+    const templateContent = JSON.stringify({
+      teamOneName: 'Ocean Team', teamTwoName: 'Desert Team', openingScript: 'Welcome {{couple}}.',
+      quizQuestions: [], quickQuizQuestions: [], charadesWords: [], missionCopyOverrides: [],
+    });
+    const deliveryScope = JSON.stringify({
+      customizationLevel: 'template', supportMode: 'self_service', rehearsalMode: 'self_check',
+      services: ['brand-adaptation', 'guest-import', 'host-runbook', 'archive-export'], serviceNotes: '',
+    });
+    const dataPolicy = JSON.stringify({
+      retentionWindow: 'event_plus_7_days', projectArchiveBeforeDeletion: true,
+      rosterAuthorityConfirmed: true, guestNoticeConfirmed: true, isolatedRuntimeRequired: true,
+    });
+
+    try {
+      await db.exec(bootstrap);
+      const migrationsUrl = new URL('../platform-control-plane/migrations/', import.meta.url);
+      const migrations = (await readdir(migrationsUrl)).filter((name) => name.endsWith('.sql')).sort();
+      for (const migration of migrations) await db.exec(await readFile(new URL(migration, migrationsUrl), 'utf8'));
+      await db.query('insert into auth.users(id) values ($1), ($2), ($3)', [owner, outsider, operator]);
+      await db.query("insert into platform_staff(user_id, role) values ($1, 'operator')", [operator]);
+
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [owner]);
+      await db.exec('set role authenticated');
+      const saved = await db.query(saveSql, [saveEvent, draftId, contentBrief, templateContent, deliveryScope, dataPolicy]);
+      const projectId = saved.rows[0].id;
+      await db.query('select * from platform_submit_project_for_review($1::uuid, $2::uuid)', [submitEvent, projectId]);
+      await assert.rejects(
+        db.query('select * from platform_plan_project_fulfillment($1::uuid, $2::uuid)', [fulfillmentEvent, projectId]),
+        /platform_staff_required/,
+      );
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [operator]);
+      await db.exec('set role authenticated');
+      const approved = await db.query(
+        "select * from platform_review_project($1::uuid, $2::uuid, 'approved', $3)",
+        [approveEvent, projectId, 'Standard template content approved'],
+      );
+      assert.equal(approved.rows[0].status, 'provisioning');
+      const manifest = await db.query(
+        'select * from platform_lock_provisioning_manifest($1::uuid, $2::uuid)',
+        [manifestEvent, projectId],
+      );
+      const plan = await db.query(
+        'select * from platform_plan_project_fulfillment($1::uuid, $2::uuid)',
+        [fulfillmentEvent, projectId],
+      );
+      assert.equal(plan.rows[0].lane, 'standard_auto');
+      assert.equal(plan.rows[0].status, 'awaiting_payment');
+      assert.equal(plan.rows[0].runtime_model, 'managed_isolated');
+      assert.equal(plan.rows[0].manifest_hash, manifest.rows[0].manifest_hash);
+      const retry = await db.query(
+        'select * from platform_plan_project_fulfillment($1::uuid, $2::uuid)',
+        [fulfillmentEvent, projectId],
+      );
+      assert.equal(retry.rows[0].created_at.toISOString(), plan.rows[0].created_at.toISOString());
+      assert.equal((await db.query('select count(*)::int count from platform_runtime_instances')).rows[0].count, 0);
+      assert.equal((await db.query("select status from platform_entitlements where project_id = $1", [projectId])).rows[0].status, 'pending');
+      assert.equal((await db.query("select count(*)::int count from platform_audit_log where action = 'fulfillment_plan_created'")).rows[0].count, 1);
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [owner]);
+      await db.exec('set role authenticated');
+      const visible = await db.query('select project_id,lane,status,runtime_model from platform_fulfillment_plans');
+      assert.deepEqual(visible.rows, [{ project_id: projectId, lane: 'standard_auto', status: 'awaiting_payment', runtime_model: 'managed_isolated' }]);
+      await assert.rejects(
+        db.query("insert into platform_fulfillment_plans(project_id,project_version,manifest_hash,lane,status,runtime_model) values ($1,1,$2,'standard_auto','awaiting_payment','managed_isolated')", [projectId, manifest.rows[0].manifest_hash]),
+        /permission denied/,
+      );
+
+      await db.exec('reset role');
+      await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [outsider]);
+      await db.exec('set role authenticated');
+      assert.equal((await db.query('select count(*)::int count from platform_fulfillment_plans')).rows[0].count, 0);
     } finally {
       try { await db.exec('reset role'); } catch {}
       await db.close();

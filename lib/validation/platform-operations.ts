@@ -77,6 +77,13 @@ export function readPlatformManifestLockInput(body: JsonObject) {
   return { eventKey: requiredUuid(body.eventKey, '操作编号') };
 }
 
+export function readPlatformFulfillmentPlanInput(body: JsonObject) {
+  if (Object.keys(body).sort().join(',') !== 'eventKey') {
+    throw new ApiError(400, '交付路径请求包含不支持的字段');
+  }
+  return { eventKey: requiredUuid(body.eventKey, '操作编号') };
+}
+
 export function readPlatformCommercialQuoteInput(body: JsonObject) {
   if (Object.keys(body).sort().join(',') !== 'amountMinor,billingInterval,currency,eventKey,quoteRequestId,serviceSummary,termsSummary,validUntil') {
     throw new ApiError(400, '商业报价请求包含不支持的字段');

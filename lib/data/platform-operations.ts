@@ -19,6 +19,7 @@ import type { PlatformReviewDecision } from '../validation/platform-operations';
 import type { PlatformRuntimeAttestationStage, PlatformRuntimeChecklist } from '../platform/runtime-readiness';
 import type { PlatformRuntimeReleaseAction, PlatformRuntimeReleaseChecklist } from '../platform/runtime-release';
 import type { PlatformCommercialQuote, PlatformQuoteBillingInterval, PlatformQuoteCurrency } from '../platform/commercial';
+import type { PlatformFulfillmentPlan } from '../platform/fulfillment';
 
 export type PlatformRuntimeAttestationDto = {
   id: string;
@@ -92,7 +93,9 @@ export type PlatformProvisioningQueueItem = {
   updatedAt: string;
   projectStatus: 'provisioning' | 'ready' | 'live';
   entitlementStatus: 'pending' | 'active' | 'past_due' | 'cancelled' | 'expired';
+  deliveryScope: PlatformDeliveryScope;
   manifest: null | { projectVersion: number; hash: string; createdAt: string };
+  fulfillmentPlan: PlatformFulfillmentPlan | null;
   releaseEvents: PlatformRuntimeReleaseEventDto[];
   instance: null | {
     id: string;
@@ -127,10 +130,19 @@ type ReviewQueueRow = {
 
 type ProvisioningProjectRow = Pick<ReviewQueueRow, 'id' | 'partner_one' | 'partner_two' | 'wedding_date' | 'location' | 'plan_id' | 'current_version' | 'updated_at'> & {
   status: PlatformProvisioningQueueItem['projectStatus'];
+  delivery_scope: unknown;
 };
 
 type ProvisioningEntitlementRow = { project_id: string; status: PlatformProvisioningQueueItem['entitlementStatus'] };
 type ProvisioningManifestRow = { project_id: string; project_version: number; manifest_hash: string; created_at: string; manifest?: unknown };
+type FulfillmentPlanRow = {
+  project_id: string;
+  project_version: number;
+  lane: PlatformFulfillmentPlan['lane'];
+  status: PlatformFulfillmentPlan['status'];
+  runtime_model: PlatformFulfillmentPlan['runtimeModel'];
+  created_at: string;
+};
 type RuntimeInstanceRow = {
   id: string;
   project_id: string;
@@ -354,7 +366,7 @@ export async function listPlatformProvisioningQueue(staffUserId: string): Promis
   const client = await createPlatformServerClient();
   const { data, error } = await client
     .from('platform_projects')
-    .select('id,partner_one,partner_two,wedding_date,location,plan_id,current_version,updated_at,status')
+    .select('id,partner_one,partner_two,wedding_date,location,plan_id,current_version,updated_at,status,delivery_scope')
     .in('status', ['provisioning', 'ready', 'live'])
     .order('updated_at', { ascending: true })
     .limit(100);
@@ -362,20 +374,23 @@ export async function listPlatformProvisioningQueue(staffUserId: string): Promis
   const projects = (data ?? []) as ProvisioningProjectRow[];
   if (!projects.length) return [];
   const projectIds = projects.map((project) => project.id);
-  const [entitlementsResult, manifestsResult, instancesResult, releaseEventsResult, customerEventsResult] = await Promise.all([
+  const [entitlementsResult, manifestsResult, fulfillmentPlansResult, instancesResult, releaseEventsResult, customerEventsResult] = await Promise.all([
     client.from('platform_entitlements').select('project_id,status').in('project_id', projectIds),
     client.from('platform_provisioning_manifests').select('project_id,project_version,manifest_hash,created_at').in('project_id', projectIds),
+    client.from('platform_fulfillment_plans').select('project_id,project_version,lane,status,runtime_model,created_at').in('project_id', projectIds),
     client.from('platform_runtime_instances').select('id,project_id,project_version,manifest_hash,target_origin,deployment_ref,status,registered_at,verified_at,ready_at').in('project_id', projectIds),
     client.from('platform_runtime_release_events').select('id,project_id,action,project_version,manifest_hash,target_origin,deployment_ref,note,created_at').in('project_id', projectIds).order('created_at', { ascending: true }),
     client.from('platform_customer_delivery_events').select('release_event_id,customer_message').in('project_id', projectIds),
   ]);
   if (entitlementsResult.error) throw new Error(`Unable to read provisioning entitlements: ${entitlementsResult.error.message}`);
   if (manifestsResult.error) throw new Error(`Unable to read provisioning manifests: ${manifestsResult.error.message}`);
+  if (fulfillmentPlansResult.error) throw new Error(`Unable to read fulfillment plans: ${fulfillmentPlansResult.error.message}`);
   if (instancesResult.error) throw new Error(`Unable to read runtime instances: ${instancesResult.error.message}`);
   if (releaseEventsResult.error) throw new Error(`Unable to read runtime release events: ${releaseEventsResult.error.message}`);
   if (customerEventsResult.error) throw new Error(`Unable to read customer delivery events: ${customerEventsResult.error.message}`);
   const entitlements = new Map(((entitlementsResult.data ?? []) as ProvisioningEntitlementRow[]).map((row) => [row.project_id, row.status]));
   const manifests = new Map(((manifestsResult.data ?? []) as ProvisioningManifestRow[]).map((row) => [row.project_id, row]));
+  const fulfillmentPlans = new Map(((fulfillmentPlansResult.data ?? []) as FulfillmentPlanRow[]).map((row) => [row.project_id, row]));
   const instanceRows = (instancesResult.data ?? []) as RuntimeInstanceRow[];
   const attestationResult = instanceRows.length
     ? await client.from('platform_runtime_instance_attestations').select('id,instance_id,stage,note,created_at').in('instance_id', instanceRows.map((row) => row.id)).order('created_at', { ascending: true })
@@ -407,6 +422,7 @@ export async function listPlatformProvisioningQueue(staffUserId: string): Promis
   }
   return projects.map((project) => {
     const manifest = manifests.get(project.id);
+    const fulfillmentPlan = fulfillmentPlans.get(project.id);
     const instance = instances.get(project.id);
     return {
       id: project.id,
@@ -419,7 +435,17 @@ export async function listPlatformProvisioningQueue(staffUserId: string): Promis
       updatedAt: project.updated_at,
       projectStatus: project.status,
       entitlementStatus: entitlements.get(project.id) ?? 'pending',
+      deliveryScope: isPlatformDeliveryScope(project.delivery_scope)
+        ? { ...project.delivery_scope, services: [...project.delivery_scope.services] }
+        : { ...DEFAULT_PLATFORM_DELIVERY_SCOPE, services: [...DEFAULT_PLATFORM_DELIVERY_SCOPE.services] },
       manifest: manifest ? { projectVersion: manifest.project_version, hash: manifest.manifest_hash, createdAt: manifest.created_at } : null,
+      fulfillmentPlan: fulfillmentPlan ? {
+        projectVersion: fulfillmentPlan.project_version,
+        lane: fulfillmentPlan.lane,
+        status: fulfillmentPlan.status,
+        runtimeModel: fulfillmentPlan.runtime_model,
+        createdAt: fulfillmentPlan.created_at,
+      } : null,
       releaseEvents: releasesByProject.get(project.id) ?? [],
       instance: instance ? {
         id: instance.id,
@@ -522,6 +548,7 @@ export async function registerPlatformRuntimeInstance(
     if (error.message.includes('platform_instance_invalid')) throw new ApiError(400, '实例网址或部署标识格式不正确');
     if (error.message.includes('platform_instance_project_locked')) throw new ApiError(409, '项目当前不允许登记运行实例');
     if (error.message.includes('platform_instance_manifest_required')) throw new ApiError(409, '请先锁定当前批准版本的配置清单');
+    if (error.message.includes('platform_fulfillment_plan_required')) throw new ApiError(409, '请先生成并锁定当前版本的交付路径');
     if (error.message.includes('platform_instance_entitlement_required')) throw new ApiError(409, '商业权益尚未激活，不能登记运行实例');
     if (error.message.includes('platform_instance_already_registered')) throw new ApiError(409, '这个项目已经登记了运行实例');
     if (error.message.includes('platform_instance_target_in_use')) throw new ApiError(409, '这个实例网址已经绑定到其他项目');
@@ -549,6 +576,28 @@ export async function lockPlatformProvisioningManifest(staffUserId: string, proj
     throw new Error(`Unable to lock platform provisioning manifest: ${error.message}`);
   }
   if (!data) throw new Error('Unable to lock platform provisioning manifest: missing response');
+  return data;
+}
+
+export async function planPlatformProjectFulfillment(staffUserId: string, projectId: string, eventKey: string) {
+  if (!staffUserId) throw new ApiError(403, '此账号没有平台运营权限');
+  const client = await createPlatformServerClient();
+  const { data, error } = await client.rpc('platform_plan_project_fulfillment', {
+    p_event_key: eventKey,
+    p_project_id: projectId,
+  }).single();
+  if (error) {
+    if (error.message.includes('platform_staff_required')) throw new ApiError(403, '此账号没有平台运营权限');
+    if (error.message.includes('platform_project_not_found')) throw new ApiError(404, '没有找到这个客户项目');
+    if (error.message.includes('platform_fulfillment_plan_invalid')) throw new ApiError(400, '交付路径请求格式不正确');
+    if (error.message.includes('platform_fulfillment_plan_locked')) throw new ApiError(409, '项目当前阶段不能生成交付路径');
+    if (error.message.includes('platform_fulfillment_manifest_required')) throw new ApiError(409, '请先锁定当前批准版本的配置清单');
+    if (error.message.includes('platform_fulfillment_runtime_exists')) throw new ApiError(409, '项目已经登记运行实例，不能重新生成交付路径');
+    if (error.message.includes('platform_fulfillment_plan_exists')) throw new ApiError(409, '这个项目已经生成交付路径');
+    if (error.message.includes('platform_event_conflict')) throw new ApiError(409, '操作编号已经用于其他请求');
+    throw new Error(`Unable to plan platform fulfillment: ${error.message}`);
+  }
+  if (!data) throw new Error('Unable to plan platform fulfillment: missing response');
   return data;
 }
 

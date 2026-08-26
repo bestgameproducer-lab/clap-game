@@ -9,6 +9,7 @@ import { getPlatformSupabaseEnv } from '@/lib/platform/env';
 import { formatWeddingDate } from '@/lib/platform/draft';
 import { getPlatformRetentionDays, isPlatformDataPolicyReady } from '@/lib/platform/data-policy';
 import { PLATFORM_QUOTE_BILLING_LABELS, formatPlatformQuoteAmount } from '@/lib/platform/commercial';
+import { assessPlatformFulfillment } from '@/lib/platform/fulfillment';
 import styles from '../../platform.module.css';
 import { ProjectCollaboration } from './project-collaboration';
 import { ProjectArchiveAction } from './project-archive-action';
@@ -79,7 +80,7 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
     throw error;
   }
 
-  const { project, versions, entitlement, reviews, members, invitations, deliveryEvents, quoteRequests, commercialQuotes, proceedRequests } = details;
+  const { project, versions, entitlement, reviews, members, invitations, deliveryEvents, quoteRequests, commercialQuotes, proceedRequests, fulfillmentPlan } = details;
   const latestReview = reviews[0] ?? null;
   const latestDeliveryEvent = deliveryEvents[0] ?? null;
   const currentCommercialQuote = commercialQuotes.find((quote) => quote.status === 'offered') ?? null;
@@ -93,6 +94,7 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
   const support = PLATFORM_SUPPORT_MODES.find((item) => item.id === project.deliveryScope.supportMode)!;
   const rehearsal = PLATFORM_REHEARSAL_MODES.find((item) => item.id === project.deliveryScope.rehearsalMode)!;
   const services = PLATFORM_SERVICES.filter((service) => project.deliveryScope.services.includes(service.id));
+  const fulfillment = assessPlatformFulfillment(project.deliveryScope);
   const contentItems = [
     { label: '故事素材', ready: Boolean(project.contentBrief.storyMoments.trim()) },
     { label: '内容边界', ready: project.contentBrief.boundariesConfirmed },
@@ -123,8 +125,8 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
     },
     provisioning: {
       eyebrow: 'INSTANCE PREPARATION',
-      title: '平台正在准备独立婚礼实例。',
-      copy: '这是人工交付阶段；平台不会自动收费，也不会自动创建或修改云资源。',
+      title: fulfillmentPlan?.lane === 'standard_auto' ? '标准版自动交付路径已经锁定。' : fulfillmentPlan?.lane === 'custom_service' ? '深度定制交付路径已经锁定。' : '平台正在判定安全的交付路径。',
+      copy: fulfillmentPlan?.lane === 'standard_auto' ? '真实付款尚未接入；未来只有付款服务端验证成功后才会进入自动开通队列。' : fulfillmentPlan?.lane === 'custom_service' ? '系统会保留标准配置基线，特殊任务、视觉与现场服务由工作人员继续处理。' : '当前不会自动收费，也不会自动创建或修改云资源。',
     },
     rehearsal: {
       eyebrow: 'FULL REHEARSAL',
@@ -202,7 +204,10 @@ export default async function CloudProjectPage({ params }: { params: Promise<{ p
 
           <section className={styles.cloudDetailPanel}>
             <div className={styles.projectPanelHeading}><div><small>PLAN ENTITLEMENT</small><h2>套餐权益</h2></div><span>{entitlement ? ENTITLEMENT_LABELS[entitlement.status] : '未建立'}</span></div>
-            <div className={styles.cloudEntitlement}><strong>{plan.name}</strong><p>{entitlement?.status === 'active' ? '套餐权益已经激活，可进入后续交付流程。' : '当前只记录方案选择，尚未收费，也不会自动开通婚礼实例。'}</p><small>付款接入前仍需确认价格、退款、税务、服务范围和数据保留条款。</small></div>
+            <div className={styles.cloudEntitlement}><strong>{plan.name}</strong><p>{entitlement?.status === 'active' ? '套餐权益已经激活，可进入后续交付流程。' : '当前只记录方案选择，尚未收费，也不会自动开通婚礼实例；任何自动开通都必须等待服务端付款验证。'}</p><small>付款接入前仍需确认价格、退款、税务、服务范围和数据保留条款。</small></div>
+            <div className={(fulfillmentPlan?.lane ?? fulfillment.lane) === 'standard_auto' ? styles.fulfillmentPlanStandard : styles.fulfillmentPlanCustom}>
+              <div><small>{fulfillment.eyebrow}{fulfillmentPlan ? ` · LOCKED V${fulfillmentPlan.projectVersion}` : ' · ESTIMATE'}</small><strong>{fulfillment.label}</strong><p>{fulfillmentPlan ? (fulfillmentPlan.status === 'awaiting_payment' ? '交付路径已锁定，等待未来的付款验证能力。' : '交付路径已锁定，等待工作人员继续制作。') : `${fulfillment.summary} 最终路径会在内容批准并锁定配置后由服务端判定。`}</p></div><span>{fulfillmentPlan ? '已写入审计记录' : '尚未锁定'}</span>
+            </div>
             <div className={styles.cloudTemplateSummary}><small>DELIVERY SCOPE</small><strong>{customization.name} · {support.name} · {rehearsal.name}</strong><p>{services.map((service) => service.name).join('、') || '尚未选择服务项目'}</p>{project.deliveryScope.serviceNotes ? <span>{project.deliveryScope.serviceNotes}</span> : null}</div>
             {currentCommercialQuote ? <div className={styles.customerCommercialQuote}><small>NON-BINDING QUOTE DRAFT · V{currentCommercialQuote.projectVersion}</small><div><strong>{formatPlatformQuoteAmount(currentCommercialQuote.amountMinor, currentCommercialQuote.currency)}</strong><span>{PLATFORM_QUOTE_BILLING_LABELS[currentCommercialQuote.billingInterval]}</span></div><p>{currentCommercialQuote.serviceSummary}</p><blockquote>{currentCommercialQuote.termsSummary}</blockquote><footer><time dateTime={currentCommercialQuote.validUntil}>{commercialQuoteExpired ? `已于 ${currentCommercialQuote.validUntil} 过期` : `有效至 ${currentCommercialQuote.validUntil}`}</time><span>{commercialQuoteExpired ? '请等待工作人员更新草案' : '仅供确认 · 不是订单或付款请求'}</span></footer><ProjectQuoteProceedAction projectId={project.id} accessRole={project.accessRole} quote={currentCommercialQuote} expired={commercialQuoteExpired} proceedRequest={currentProceedRequest} /></div> : null}
             <ProjectCommercialAction project={project} entitlementStatus={entitlement?.status ?? null} quoteRequests={quoteRequests} />

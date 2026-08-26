@@ -26,6 +26,12 @@ import {
   normalizePlatformDataPolicy,
   type PlatformDataPolicy,
 } from '../../../lib/platform/data-policy';
+import {
+  CUSTOM_SERVICE_SCOPE,
+  STANDARD_AUTO_SCOPE,
+  assessPlatformFulfillment,
+  type PlatformFulfillmentLane,
+} from '../../../lib/platform/fulfillment';
 import styles from '../platform.module.css';
 
 export function DeliveryScopeBuilder() {
@@ -85,6 +91,14 @@ export function DeliveryScopeBuilder() {
     } : current);
   }
 
+  function applyFulfillmentLane(lane: PlatformFulfillmentLane) {
+    const preset = lane === 'standard_auto' ? STANDARD_AUTO_SCOPE : CUSTOM_SERVICE_SCOPE;
+    setDraft((current) => current ? {
+      ...current,
+      deliveryScope: { ...preset, services: [...preset.services] },
+    } : current);
+  }
+
   if (!ready) return <section className={styles.scopeLoading} aria-live="polite">正在读取这台设备上的服务范围…</section>;
   if (!draft || !scope || !dataPolicy) {
     return (
@@ -101,6 +115,7 @@ export function DeliveryScopeBuilder() {
   const customization = PLATFORM_CUSTOMIZATION_LEVELS.find((item) => item.id === scope.customizationLevel)!;
   const support = PLATFORM_SUPPORT_MODES.find((item) => item.id === scope.supportMode)!;
   const rehearsal = PLATFORM_REHEARSAL_MODES.find((item) => item.id === scope.rehearsalMode)!;
+  const fulfillment = assessPlatformFulfillment(scope);
   const pendingDataConfirmations = Number(!dataPolicy.rosterAuthorityConfirmed) + Number(!dataPolicy.guestNoticeConfirmed);
 
   return (
@@ -112,35 +127,48 @@ export function DeliveryScopeBuilder() {
 
       <div className={styles.scopeGrid}>
         <form className={styles.scopeForm} onSubmit={(event) => event.preventDefault()}>
-          <fieldset className={styles.scopeSection}>
-            <legend><small>01 · COMMERCIAL MODEL</small><strong>交付模式</strong></legend>
+          <fieldset className={styles.scopeFormSection}>
+            <legend><small>01 · FULFILLMENT LANE</small><strong>选择交付路径</strong></legend>
+            <p className={styles.scopeSectionIntro}>标准版在未来完成付款验证后可进入自动开通队列；深度定制版先生成配置基线，再由工作人员处理特殊内容和现场服务。</p>
+            <div className={`${styles.scopeOptionGrid} ${styles.fulfillmentOptionGrid}`}>
+              <button type="button" aria-pressed={fulfillment.lane === 'standard_auto'} className={fulfillment.lane === 'standard_auto' ? styles.scopeOptionSelected : styles.scopeOption} onClick={() => applyFulfillmentLane('standard_auto')}><small>STANDARD · AUTOMATED</small><strong>标准版 · 自动交付</strong><p>使用旗舰模板、安全预设和自助彩排；付款确认后进入自动开通队列。</p></button>
+              <button type="button" aria-pressed={fulfillment.lane === 'custom_service'} className={fulfillment.lane === 'custom_service' ? styles.scopeOptionSelected : styles.scopeOption} onClick={() => applyFulfillmentLane('custom_service')}><small>BESPOKE · HUMAN REVIEW</small><strong>深度定制 · 人工服务</strong><p>系统先生成基础版本，特殊任务、视觉与复杂规则由工作人员继续处理。</p></button>
+            </div>
+            <div className={fulfillment.lane === 'standard_auto' ? styles.fulfillmentLaneReady : styles.fulfillmentLaneCustom}>
+              <strong>{fulfillment.label}</strong><p>{fulfillment.summary}</p>
+              {fulfillment.blockers.length ? <ul>{fulfillment.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : <small>当前设置符合标准自动交付范围。</small>}
+            </div>
+          </fieldset>
+
+          <fieldset className={styles.scopeFormSection}>
+            <legend><small>02 · PURCHASE MODEL</small><strong>付费与交付模式</strong></legend>
             <div className={styles.scopeOptionGrid}>{PLATFORM_PLANS.map((plan) => <button key={plan.id} type="button" aria-pressed={draft.plan === plan.id} className={draft.plan === plan.id ? styles.scopeOptionSelected : styles.scopeOption} onClick={() => setDraft({ ...draft, plan: plan.id })}><small>{plan.eyebrow}</small><strong>{plan.name}</strong><p>{plan.summary}</p></button>)}</div>
           </fieldset>
 
-          <fieldset className={styles.scopeSection}>
-            <legend><small>02 · CUSTOMIZATION</small><strong>定制深度</strong></legend>
+          <fieldset className={styles.scopeFormSection}>
+            <legend><small>03 · CUSTOMIZATION</small><strong>定制深度</strong></legend>
             <div className={styles.scopeOptionGrid}>{PLATFORM_CUSTOMIZATION_LEVELS.map((item) => <button key={item.id} type="button" aria-pressed={scope.customizationLevel === item.id} className={scope.customizationLevel === item.id ? styles.scopeOptionSelected : styles.scopeOption} onClick={() => updateScope('customizationLevel', item.id)}><strong>{item.name}</strong><p>{item.description}</p></button>)}</div>
           </fieldset>
 
-          <fieldset className={styles.scopeSection}>
-            <legend><small>03 · OPERATIONS</small><strong>运营协作方式</strong></legend>
+          <fieldset className={styles.scopeFormSection}>
+            <legend><small>04 · OPERATIONS</small><strong>运营协作方式</strong></legend>
             <div className={styles.scopeOptionGrid}>{PLATFORM_SUPPORT_MODES.map((item) => <button key={item.id} type="button" aria-pressed={scope.supportMode === item.id} className={scope.supportMode === item.id ? styles.scopeOptionSelected : styles.scopeOption} onClick={() => updateScope('supportMode', item.id)}><strong>{item.name}</strong><p>{item.description}</p></button>)}</div>
           </fieldset>
 
-          <fieldset className={styles.scopeSection}>
-            <legend><small>04 · REHEARSAL</small><strong>彩排方式</strong></legend>
+          <fieldset className={styles.scopeFormSection}>
+            <legend><small>05 · REHEARSAL</small><strong>彩排方式</strong></legend>
             <div className={styles.scopeOptionGrid}>{PLATFORM_REHEARSAL_MODES.map((item) => <button key={item.id} type="button" aria-pressed={scope.rehearsalMode === item.id} className={scope.rehearsalMode === item.id ? styles.scopeOptionSelected : styles.scopeOption} onClick={() => updateScope('rehearsalMode', item.id)}><strong>{item.name}</strong><p>{item.description}</p></button>)}</div>
           </fieldset>
 
-          <fieldset className={styles.scopeSection}>
-            <legend><small>05 · SERVICE ITEMS</small><strong>服务项目</strong></legend>
+          <fieldset className={styles.scopeFormSection}>
+            <legend><small>06 · SERVICE ITEMS</small><strong>服务项目</strong></legend>
             <div className={styles.scopeServiceGrid}>{PLATFORM_SERVICES.map((service) => <label key={service.id} className={scope.services.includes(service.id) ? styles.scopeServiceSelected : styles.scopeService}><input type="checkbox" checked={scope.services.includes(service.id)} onChange={() => toggleService(service.id)} /><span><strong>{service.name}</strong><p>{service.description}</p>{service.availability === 'needs-confirmation' ? <small>需人工确认档期与服务能力</small> : null}</span><b aria-hidden="true">{scope.services.includes(service.id) ? '✓' : '+'}</b></label>)}</div>
             {selectedServices.length === 0 ? <p className={styles.builderWarning}>至少选择一项服务，才能形成有效的交付范围。</p> : null}
             <label className={styles.scopeNotes}>补充要求或档期备注<textarea maxLength={1000} value={scope.serviceNotes} onChange={(event) => updateScope('serviceNotes', event.target.value)} placeholder="例如：策划团队在新加坡，需要中英双语远程彩排；婚礼日支持时区为巴厘岛。" /></label>
           </fieldset>
 
-          <fieldset className={styles.scopeSection}>
-            <legend><small>06 · DATA LIFECYCLE</small><strong>宾客资料生命周期</strong></legend>
+          <fieldset className={styles.scopeFormSection}>
+            <legend><small>07 · DATA LIFECYCLE</small><strong>宾客资料生命周期</strong></legend>
             <p className={styles.scopeSectionIntro}>这里约定未来独立婚礼实例中的名单、头像、积分与任务记录保留多久。平台不提供无限期保留；项目草稿与宾客运行资料始终分开。</p>
             <div className={styles.scopeOptionGrid}>{PLATFORM_RETENTION_WINDOWS.map((option) => <button key={option.id} type="button" aria-pressed={dataPolicy.retentionWindow === option.id} className={dataPolicy.retentionWindow === option.id ? styles.scopeOptionSelected : styles.scopeOption} onClick={() => updateDataPolicy('retentionWindow', option.id)}><small>{option.days} DAYS</small><strong>{option.name}</strong><p>{option.description}</p></button>)}</div>
             <div className={styles.dataPolicyConfirmations}>
@@ -156,7 +184,7 @@ export function DeliveryScopeBuilder() {
           <p className={styles.eyebrow}>QUOTE-READY SCOPE</p>
           <h2>{chosenPlan.name}</h2>
           <p>{chosenPlan.bestFor}</p>
-          <dl><div><dt>定制深度</dt><dd>{customization.name}</dd></div><div><dt>运营方式</dt><dd>{support.name}</dd></div><div><dt>彩排方式</dt><dd>{rehearsal.name}</dd></div><div><dt>服务项目</dt><dd>{selectedServices.length} 项</dd></div><div><dt>宾客资料</dt><dd>婚礼后 {getPlatformRetentionDays(dataPolicy)} 天删除</dd></div></dl>
+          <dl><div><dt>交付路径</dt><dd>{fulfillment.label}</dd></div><div><dt>定制深度</dt><dd>{customization.name}</dd></div><div><dt>运营方式</dt><dd>{support.name}</dd></div><div><dt>彩排方式</dt><dd>{rehearsal.name}</dd></div><div><dt>服务项目</dt><dd>{selectedServices.length} 项</dd></div><div><dt>宾客资料</dt><dd>婚礼后 {getPlatformRetentionDays(dataPolicy)} 天删除</dd></div></dl>
           <ol>{selectedServices.map((service) => <li key={service.id}><span>✓</span><div><strong>{service.name}</strong>{service.availability === 'needs-confirmation' ? <small>待确认</small> : null}</div></li>)}</ol>
           <div className={styles.scopeCommercialNotice}><strong>当前不是订单</strong><p>这里不显示未经确认的价格，不扣款，也不代表平台已经接受婚礼日服务档期。价格、税费、退款、服务时段和数据保留需要在正式报价中确认。</p></div>
           <div className={isPlatformDataPolicyReady(dataPolicy) ? styles.dataPolicySummaryReady : styles.dataPolicySummaryPending}><strong>{isPlatformDataPolicyReady(dataPolicy) ? '资料责任已确认' : `还有 ${pendingDataConfirmations} 项资料责任待确认`}</strong><p>{isPlatformDataPolicyReady(dataPolicy) ? '保存到云端后，这份约定会进入不可变版本、运营审核和实例配置清单。' : '名单提供权限与宾客告知均确认后，项目才可以提交内容审核。'}</p></div>

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { PlatformProvisioningQueueItem } from '@/lib/data/platform-operations';
 import { createPlatformDraftId, formatWeddingDate } from '@/lib/platform/draft';
+import { assessPlatformFulfillment } from '@/lib/platform/fulfillment';
 import styles from '../platform.module.css';
 import { RuntimeReadinessAttestation } from './runtime-readiness-attestation';
 import { RuntimeReleaseControl } from './runtime-release-control';
@@ -29,6 +30,7 @@ const ENTITLEMENT_LABELS = {
 export function PlatformProvisioningQueue({ initialQueue }: { initialQueue: PlatformProvisioningQueueItem[] }) {
   const router = useRouter();
   const [manifestConfirmingId, setManifestConfirmingId] = useState('');
+  const [fulfillmentConfirmingId, setFulfillmentConfirmingId] = useState('');
   const [instanceEditingId, setInstanceEditingId] = useState('');
   const [instanceConfirmingId, setInstanceConfirmingId] = useState('');
   const [instanceDrafts, setInstanceDrafts] = useState<Record<string, { targetOrigin: string; deploymentRef: string }>>({});
@@ -51,6 +53,27 @@ export function PlatformProvisioningQueue({ initialQueue }: { initialQueue: Plat
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '配置清单锁定失败');
+    } finally {
+      setBusyId('');
+    }
+  }
+
+  async function planFulfillment(projectId: string) {
+    if (busyId) return;
+    setBusyId(projectId);
+    setMessage('正在根据已批准范围判定交付路径…');
+    try {
+      const response = await fetch(`/api/platform/operations/projects/${projectId}/fulfillment-plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventKey: createPlatformDraftId() }),
+      });
+      if (!response.ok) throw new Error(await readError(response));
+      setMessage('交付路径已由服务端判定并写入审计记录。');
+      setFulfillmentConfirmingId('');
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '交付路径生成失败');
     } finally {
       setBusyId('');
     }
@@ -97,15 +120,27 @@ export function PlatformProvisioningQueue({ initialQueue }: { initialQueue: Plat
       {message ? <p className={styles.operationsMessage} role="status">{message}</p> : null}
       {!initialQueue.length ? <div className={styles.provisioningEmpty}>内容通过审核后，项目会进入这里。</div> : <div className={styles.provisioningList}>{initialQueue.map((project) => {
         const entitlementReady = project.entitlementStatus === 'active';
+        const fulfillment = assessPlatformFulfillment(project.deliveryScope);
         const instanceDraft = instanceDrafts[project.id] ?? { targetOrigin: '', deploymentRef: '' };
         return (
           <article key={project.id} className={styles.provisioningCard}>
             <header><div><small>APPROVED V{project.version} · {project.planId === 'buyout' ? '单场买断' : '持续订阅'}</small><h3>{[project.partnerOne, project.partnerTwo].filter(Boolean).join(' & ')}</h3><p>{formatWeddingDate(project.weddingDate)} · {project.location}</p></div><span className={entitlementReady ? styles.preflightReady : styles.preflightWaiting}>{ENTITLEMENT_LABELS[project.entitlementStatus]}</span></header>
-            <div className={styles.provisioningChecks}><span>✓ 内容审核通过</span><span className={project.manifest ? styles.checkReady : styles.checkWaiting}>{project.manifest ? '✓ 配置清单已锁定' : '· 配置清单待锁定'}</span><span className={entitlementReady ? styles.checkReady : styles.checkWaiting}>{entitlementReady ? '✓ 商业权益有效' : '· 开通前确认权益'}</span><span className={project.instance ? styles.checkReady : styles.checkWaiting}>{project.instance ? '✓ 独立实例已登记' : '· 独立实例未登记'}</span><span className={project.instance && ['verified', 'ready'].includes(project.instance.status) ? styles.checkReady : styles.checkWaiting}>{project.instance && ['verified', 'ready'].includes(project.instance.status) ? '✓ 人工验证已完成' : '· 等待人工验证'}</span><span className={project.instance?.status === 'ready' ? styles.checkReady : styles.checkWaiting}>{project.instance?.status === 'ready' ? '✓ 完整彩排已完成' : '· 等待完整彩排'}</span><span className={project.projectStatus === 'live' ? styles.checkReady : styles.checkWaiting}>{project.projectStatus === 'live' ? '✓ 已记录正式运行' : '· 等待正式发布'}</span></div>
+            <div className={styles.provisioningChecks}><span>✓ 内容审核通过</span><span className={project.manifest ? styles.checkReady : styles.checkWaiting}>{project.manifest ? '✓ 配置清单已锁定' : '· 配置清单待锁定'}</span><span className={project.fulfillmentPlan ? styles.checkReady : styles.checkWaiting}>{project.fulfillmentPlan ? '✓ 交付路径已锁定' : '· 交付路径待判定'}</span><span className={entitlementReady ? styles.checkReady : styles.checkWaiting}>{entitlementReady ? '✓ 商业权益有效' : '· 开通前确认权益'}</span><span className={project.instance ? styles.checkReady : styles.checkWaiting}>{project.instance ? '✓ 独立实例已登记' : '· 独立实例未登记'}</span><span className={project.instance && ['verified', 'ready'].includes(project.instance.status) ? styles.checkReady : styles.checkWaiting}>{project.instance && ['verified', 'ready'].includes(project.instance.status) ? '✓ 人工验证已完成' : '· 等待人工验证'}</span><span className={project.instance?.status === 'ready' ? styles.checkReady : styles.checkWaiting}>{project.instance?.status === 'ready' ? '✓ 完整彩排已完成' : '· 等待完整彩排'}</span><span className={project.projectStatus === 'live' ? styles.checkReady : styles.checkWaiting}>{project.projectStatus === 'live' ? '✓ 已记录正式运行' : '· 等待正式发布'}</span></div>
             {project.manifest ? (
               <>
                 <div className={styles.manifestLocked}><div><small>SHA-256 · V{project.manifest.projectVersion}</small><code>{project.manifest.hash}</code></div><a href={`/api/platform/operations/projects/${project.id}/manifest`}>下载配置 JSON</a></div>
-                {project.instance ? (
+                {project.fulfillmentPlan ? (
+                  <div className={project.fulfillmentPlan.lane === 'standard_auto' ? styles.fulfillmentPlanStandard : styles.fulfillmentPlanCustom}>
+                    <div><small>{project.fulfillmentPlan.lane === 'standard_auto' ? 'STANDARD · AUTOMATED' : 'BESPOKE · HUMAN REVIEW'} · V{project.fulfillmentPlan.projectVersion}</small><strong>{project.fulfillmentPlan.lane === 'standard_auto' ? '标准版自动交付路径已锁定' : '深度定制人工服务路径已锁定'}</strong><p>{project.fulfillmentPlan.lane === 'standard_auto' ? '等待未来的付款验证；验证成功后才能进入自动开通队列。' : '标准配置基线已经生成，特殊内容和现场服务仍需工作人员处理。'}</p></div><span>{project.fulfillmentPlan.status === 'awaiting_payment' ? '等待付款能力接入' : '等待人工制作'}</span>
+                  </div>
+                ) : fulfillmentConfirmingId === project.id ? (
+                  <div className={styles.manifestConfirmation}><strong>确认锁定“{fulfillment.label}”？</strong><p>{fulfillment.summary}</p>{fulfillment.blockers.length ? <p>判定依据：{fulfillment.blockers.join('；')}</p> : null}<p>此操作不会扣款、激活权益或创建任何云资源。</p><div><button type="button" onClick={() => planFulfillment(project.id)} disabled={busyId === project.id}>{busyId === project.id ? '正在判定…' : '确认交付路径'}</button><button type="button" onClick={() => setFulfillmentConfirmingId('')} disabled={busyId === project.id}>取消</button></div></div>
+                ) : (
+                  <button type="button" className={styles.fulfillmentPlanButton} onClick={() => setFulfillmentConfirmingId(project.id)}>判定并锁定交付路径</button>
+                )}
+                {!project.fulfillmentPlan ? (
+                  <p className={styles.instanceGateNotice}>请先锁定交付路径。客户端不能自行选择自动交付，最终判定由批准版本和服务端规则生成。</p>
+                ) : project.instance ? (
                   <>
                     <div className={styles.instanceRegistered}>
                       <div><small>{project.instance.status.toUpperCase()} · {project.instance.deploymentRef}</small><strong>{project.instance.status === 'ready' ? '独立实例已完成上线前彩排' : project.instance.status === 'verified' ? '独立实例已人工验证，等待完整彩排' : '独立实例已登记，等待人工验证'}</strong><code>{project.instance.targetOrigin}</code></div>
