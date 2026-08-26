@@ -29,6 +29,8 @@ test('fulfillment lanes are deterministic and keep human-only services out of st
   assert.match(css, /\.scopeShell\s*\{[^}]*width:100%;[^}]*max-width:none;[^}]*margin:0;[^}]*padding:0;/);
   assert.match(css, /\.scopeFormSection\s*\{/);
   assert.match(css, /\.scopeOption,.scopeOptionSelected\s*\{[^}]*display:block;[^}]*width:100%;/);
+  assert.match(css, /\.scopeService input,\.scopeServiceSelected input\s*\{[^}]*width:1px;/);
+  assert.match(css, /\.dataPolicyConfirmation input,\.dataPolicyConfirmed input\s*\{[^}]*width:1px;/);
 });
 
 test('server-derived fulfillment plans are staff-only, idempotent, audited and payment-gated', () => {

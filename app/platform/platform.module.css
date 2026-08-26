@@ -4902,7 +4902,7 @@
 .scopeServiceGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
 .scopeService,.scopeServiceSelected { display:grid; grid-template-columns:minmax(0,1fr) 28px; gap:16px; min-height:130px; padding:20px; border:1px solid rgba(92,62,48,.14); border-radius:20px; background:#fbf7f0; cursor:pointer; }
 .scopeServiceSelected { border-color:#9d684f; background:#f1e2d3; }
-.scopeService input,.scopeServiceSelected input { position:absolute; opacity:0; pointer-events:none; }
+.scopeService input,.scopeServiceSelected input { position:absolute; width:1px; min-height:1px; height:1px; margin:0; padding:0; border:0; overflow:hidden; opacity:0; pointer-events:none; clip-path:inset(50%); }
 .scopeService span,.scopeServiceSelected span { display:grid; align-content:start; gap:7px; }
 .scopeService p,.scopeServiceSelected p { margin:0; color:#76665d; font-size:14px; line-height:1.55; }
 .scopeService small,.scopeServiceSelected small { color:#9a593e; font-weight:800; }
@@ -4913,7 +4913,7 @@
 .dataPolicyConfirmations { display:grid; gap:11px; margin-top:18px; }
 .dataPolicyConfirmation,.dataPolicyConfirmed { display:grid; grid-template-columns:minmax(0,1fr) 34px; gap:18px; align-items:start; padding:20px; border:1px solid rgba(151,74,57,.2); border-radius:18px; background:#fcf4f0; cursor:pointer; }
 .dataPolicyConfirmed { border-color:rgba(78,111,73,.24); background:#edf3e9; }
-.dataPolicyConfirmation input,.dataPolicyConfirmed input { position:absolute; opacity:0; pointer-events:none; }
+.dataPolicyConfirmation input,.dataPolicyConfirmed input { position:absolute; width:1px; min-height:1px; height:1px; margin:0; padding:0; border:0; overflow:hidden; opacity:0; pointer-events:none; clip-path:inset(50%); }
 .dataPolicyConfirmation span,.dataPolicyConfirmed span { display:grid; gap:6px; }
 .dataPolicyConfirmation p,.dataPolicyConfirmed p { margin:0; color:#78665d; font-size:13px; line-height:1.6; }
 .dataPolicyConfirmation > b,.dataPolicyConfirmed > b { display:grid; width:32px; height:32px; place-items:center; border-radius:50%; color:#fff; background:#a24f40; }
